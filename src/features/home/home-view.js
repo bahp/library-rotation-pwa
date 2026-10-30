@@ -1,6 +1,7 @@
 /**
  * @fileoverview Home view: Active reader profile switcher, current rotation shelf check-off,
- * searchable/filterable family book catalog, and book provenance / raw payload detail modal.
+ * Phase 5 personalized next-read recommendations & topic coverage insights,
+ * searchable/filterable family book catalog, and book provenance / tag curation modal.
  */
 
 import {
@@ -8,6 +9,10 @@ import {
   formatBookBinding,
   formatReadingStage,
 } from '../../types/models.js';
+import {
+  getProfileRecommendations,
+  getTopicCoverageInsights,
+} from '../tagging/recommendations.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderIcon } from '../../ui/icons.js';
 
@@ -89,11 +94,16 @@ export function renderHomeView({ state, uiState }) {
                   <div class="flex items-center gap-3.5 min-w-0">
                     ${renderBookCover(book, 'sm')}
                     <div class="min-w-0">
-                      <h3 class="font-display text-base font-semibold text-slate-900 dark:text-white truncate ${
-                        isRead ? 'line-through opacity-65' : ''
-                      }">
+                      <button
+                        type="button"
+                        data-action="inspect-book"
+                        data-book-id="${escapeHtml(book.id)}"
+                        class="text-left font-display text-base font-semibold text-slate-900 dark:text-white hover:text-teal-700 dark:hover:text-teal-400 truncate block max-w-full ${
+                          isRead ? 'line-through opacity-65' : ''
+                        }"
+                      >
                         ${escapeHtml(book.title)}
-                      </h3>
+                      </button>
                       <p class="text-xs text-slate-600 dark:text-slate-300 truncate mt-0.5">
                         ${escapeHtml(book.authors.join(', '))}
                       </p>
@@ -171,13 +181,110 @@ export function renderHomeView({ state, uiState }) {
       </section>
     `;
 
+  // Phase 5: Personalized Recommendations & Topic Coverage Insights
+  const recommendations = getProfileRecommendations({
+    books: state.books,
+    profile: activeProfile,
+    rotations: state.rotations,
+    limit: 3,
+  });
+  const coverage = getTopicCoverageInsights({
+    books: state.books,
+    profile: activeProfile,
+  });
+
+  const recommendationsHtml =
+    recommendations.length > 0
+      ? `
+        <section aria-labelledby="recommendations-heading" class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6">
+          <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h2 id="recommendations-heading" class="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                Recommended Next for ${escapeHtml(activeProfile.name)}
+              </h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Ranked from off-shelf books by age fit, ${escapeHtml(
+                  activeProfile.favoriteTopics.join(', ') || 'variety'
+                )}, and reading freshness.
+              </p>
+            </div>
+            ${
+              coverage.lowCoverageTopics.length > 0
+                ? `<p class="text-xs text-slate-500 dark:text-slate-400">
+                    Collection gap hint: fewer than 2 books tagged <strong class="font-medium text-slate-700 dark:text-slate-200">${escapeHtml(
+                      coverage.lowCoverageTopics.join(', ')
+                    )}</strong>
+                  </p>`
+                : ''
+            }
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            ${recommendations
+              .map((rec) => {
+                const { book } = rec;
+                return `
+                  <article class="rounded-xl bg-slate-50/70 dark:bg-slate-950/60 border border-slate-200/70 dark:border-slate-800 p-3.5 flex flex-col justify-between gap-3">
+                    <div class="flex items-start gap-3 min-w-0">
+                      ${renderBookCover(book, 'sm')}
+                      <div class="min-w-0">
+                        <button
+                          type="button"
+                          data-action="inspect-book"
+                          data-book-id="${escapeHtml(book.id)}"
+                          class="text-left font-display text-sm font-semibold text-slate-900 dark:text-white hover:text-teal-700 dark:hover:text-teal-400 leading-snug"
+                        >
+                          ${escapeHtml(book.title)}
+                        </button>
+                        <p class="text-xs text-slate-600 dark:text-slate-300 truncate mt-0.5">
+                          ${escapeHtml(book.authors.join(', '))}
+                        </p>
+                        <p class="text-[11px] text-teal-700 dark:text-teal-400 mt-1.5 leading-relaxed">
+                          ${escapeHtml(rec.matchReasons.join(' · '))}
+                        </p>
+                      </div>
+                    </div>
+
+                    ${
+                      activeRotation
+                        ? `
+                          <div class="pt-2 border-t border-slate-200/60 dark:border-slate-800/80 flex justify-end">
+                            <button
+                              type="button"
+                              data-action="add-recommended-to-shelf"
+                              data-rotation-id="${escapeHtml(activeRotation.id)}"
+                              data-book-id="${escapeHtml(book.id)}"
+                              class="min-h-[38px] px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap"
+                            >
+                              ${renderIcon('plus', 'w-3.5 h-3.5')}
+                              Add to Active Shelf
+                            </button>
+                          </div>
+                        `
+                        : ''
+                    }
+                  </article>
+                `;
+              })
+              .join('')}
+          </div>
+        </section>
+      `
+      : '';
+
   const query = uiState.searchQuery.trim().toLowerCase();
   const filteredBooks = state.books.filter((book) => {
     if (uiState.catalogFilter !== 'all' && book.format !== uiState.catalogFilter) {
       return false;
     }
     if (!query) return true;
-    const haystack = [book.title, book.authors.join(' '), book.isbn13, book.tags.join(' ')]
+    const haystack = [
+      book.title,
+      book.authors.join(' '),
+      book.isbn13,
+      book.tags.join(' '),
+      book.readingLevelHint || '',
+    ]
       .join(' ')
       .toLowerCase();
     return haystack.includes(query);
@@ -245,6 +352,13 @@ export function renderHomeView({ state, uiState }) {
                             : ''
                         }
                       </div>
+                      ${
+                        book.readingLevelHint
+                          ? `<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">${escapeHtml(
+                              book.readingLevelHint
+                            )}</p>`
+                          : ''
+                      }
                       <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-slate-400 dark:text-slate-500 mt-1">
                         ${
                           book.isbn13
@@ -321,6 +435,13 @@ export function renderHomeView({ state, uiState }) {
                   }
                 </div>
                 ${
+                  inspectedBook.readingLevelHint
+                    ? `<p class="text-xs text-teal-700 dark:text-teal-400 mt-1.5">${escapeHtml(
+                        inspectedBook.readingLevelHint
+                      )}</p>`
+                    : ''
+                }
+                ${
                   inspectedBook.isbn13
                     ? `<p class="text-xs font-mono-tabular text-slate-500 dark:text-slate-400 mt-1">ISBN-13: ${escapeHtml(
                         inspectedBook.isbn13
@@ -341,13 +462,66 @@ export function renderHomeView({ state, uiState }) {
             </button>
           </div>
 
-          <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs text-slate-600 dark:text-slate-300">
-            <p>
-              <strong>Topics:</strong> ${
-                inspectedBook.tags.length ? escapeHtml(inspectedBook.tags.join(' · ')) : 'None tagged'
-              }
-            </p>
-            <p>
+          <!-- Phase 5 Tag Curation & Auto-Enrichment Controls -->
+          <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3 text-xs text-slate-600 dark:text-slate-300">
+            <div class="flex items-center justify-between gap-2">
+              <strong class="text-slate-900 dark:text-white">Topics & Themes</strong>
+              <button
+                type="button"
+                data-action="enrich-book-tags"
+                data-book-id="${escapeHtml(inspectedBook.id)}"
+                class="min-h-[36px] px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              >
+                ${renderIcon('sparkles', 'w-3.5 h-3.5')}
+                Auto-Enrich Tags
+              </button>
+            </div>
+
+            ${
+              inspectedBook.tags.length > 0
+                ? `
+                  <div class="flex flex-wrap items-center gap-2">
+                    ${inspectedBook.tags
+                      .map(
+                        (tag) => `
+                          <button
+                            type="button"
+                            data-action="remove-book-tag"
+                            data-book-id="${escapeHtml(inspectedBook.id)}"
+                            data-tag="${escapeHtml(tag)}"
+                            title="Remove topic ${escapeHtml(tag)}"
+                            aria-label="Remove topic ${escapeHtml(tag)}"
+                            class="min-h-[34px] px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/50 text-xs font-medium text-slate-700 hover:text-rose-700 dark:text-slate-200 dark:hover:text-rose-300 inline-flex items-center gap-1.5 transition-colors"
+                          >
+                            <span>${escapeHtml(tag)}</span>
+                            <span aria-hidden="true" class="text-slate-400">×</span>
+                          </button>
+                        `
+                      )
+                      .join('')}
+                  </div>
+                `
+                : `<p class="text-slate-500 dark:text-slate-400">No topics tagged yet.</p>`
+            }
+
+            <form id="inspector-add-tag-form" data-book-id="${escapeHtml(inspectedBook.id)}" class="flex items-center gap-2 pt-1">
+              <label for="inspector-new-tag-input" class="sr-only">Add topic tag</label>
+              <input
+                id="inspector-new-tag-input"
+                name="tag"
+                type="text"
+                placeholder="Add topic (e.g., christmas, dinosaurs, feelings)"
+                class="flex-1 min-h-[40px] px-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white focus:outline-2 focus:outline-teal-600"
+              />
+              <button
+                type="submit"
+                class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+              >
+                Add Tag
+              </button>
+            </form>
+
+            <p class="pt-2 border-t border-slate-100 dark:border-slate-800">
               <strong>Metadata Provenance:</strong> ${escapeHtml(
                 inspectedBook.sources.map((s) => s.provider).join(' · ')
               )}
@@ -355,7 +529,7 @@ export function renderHomeView({ state, uiState }) {
             ${
               inspectedBook.sources.some((s) => Boolean(s.rawPayload))
                 ? `
-                  <details class="pt-2">
+                  <details class="pt-1">
                     <summary class="cursor-pointer font-semibold text-teal-700 dark:text-teal-400">
                       View Captured Raw Provider Payloads
                     </summary>
@@ -387,6 +561,8 @@ export function renderHomeView({ state, uiState }) {
 
       ${activeShelfHtml}
 
+      ${recommendationsHtml}
+
       <section aria-labelledby="catalog-heading" class="pt-2">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
@@ -394,7 +570,7 @@ export function renderHomeView({ state, uiState }) {
               Family Book Catalog
             </h2>
             <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-              Tap any book title to inspect normalized metadata and provider provenance.
+              Tap any book title to inspect reading-level hints, edit topic tags, or view provider provenance.
             </p>
           </div>
 

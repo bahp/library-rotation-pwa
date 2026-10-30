@@ -31,6 +31,42 @@ export function isValidAppState(candidate) {
   );
 }
 
+export const DEFAULT_METADATA_PROVIDERS = ['google-books', 'open-library'];
+
+/**
+ * Creates a fresh copy of safe privacy-first provider & appearance settings.
+ * @param {Partial<import('../types/models.js').AppSettings>} [overrides]
+ * @returns {import('../types/models.js').AppSettings}
+ */
+export function createSafeDefaultSettings(overrides = {}) {
+  const rawProviders = Array.isArray(overrides.enabledMetadataProviders)
+    ? overrides.enabledMetadataProviders.filter((id) => typeof id === 'string' && id.trim().length > 0)
+    : DEFAULT_METADATA_PROVIDERS;
+
+  const rawTimeout = Number(overrides.aiTimeoutMs);
+  const clampedTimeout =
+    Number.isFinite(rawTimeout) && rawTimeout >= 1500 && rawTimeout <= 20000
+      ? Math.trunc(rawTimeout)
+      : 6000;
+
+  return {
+    theme: overrides.theme || 'system',
+    retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
+    enabledMetadataProviders:
+      rawProviders.length > 0 ? Array.from(new Set(rawProviders)) : [...DEFAULT_METADATA_PROVIDERS],
+    autoLocalTagging: overrides.autoLocalTagging !== false,
+    aiEnrichmentOptIn: Boolean(overrides.aiEnrichmentOptIn),
+    aiAdapterId:
+      typeof overrides.aiAdapterId === 'string' && overrides.aiAdapterId.trim()
+        ? overrides.aiAdapterId.trim()
+        : 'browser-prompt-api',
+    aiEndpointUrl:
+      typeof overrides.aiEndpointUrl === 'string' ? overrides.aiEndpointUrl.trim() : '',
+    aiTimeoutMs: clampedTimeout,
+    preferredScanMode: overrides.preferredScanMode || 'barcode',
+  };
+}
+
 /**
  * Migrates older or partial state snapshots forward to CURRENT_SCHEMA_VERSION.
  * @param {import('../types/models.js').AppState} state
@@ -42,12 +78,7 @@ export function migrateState(state) {
     ...state,
     schemaVersion: CURRENT_SCHEMA_VERSION,
     activeProfileId: activeExists ? state.activeProfileId : state.profiles[0].id,
-    settings: {
-      theme: state.settings?.theme || 'system',
-      retainRawProviderPayloads: Boolean(state.settings?.retainRawProviderPayloads),
-      aiEnrichmentOptIn: Boolean(state.settings?.aiEnrichmentOptIn),
-      preferredScanMode: state.settings?.preferredScanMode || 'barcode',
-    },
+    settings: createSafeDefaultSettings(state.settings || {}),
   };
 }
 

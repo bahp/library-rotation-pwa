@@ -5,31 +5,20 @@
  */
 
 import { createId, normalizeIsbn } from '../../types/models.js';
+import {
+  inferAgeAndStageFromSignals,
+  inferLocalTopicTags,
+  inferReadingLevelHint,
+  sanitizeTagList,
+} from '../tagging/rule-tagger.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
-
-/** @type {Array<{ pattern: RegExp, tag: string }>} */
-const TOPIC_RULES = [
-  { pattern: /\b(animal|bear|owl|dog|cat|fox|bird|wildlife|frog|rabbit|duck)\b/i, tag: 'animals' },
-  { pattern: /\b(nature|forest|tree|garden|plant|woodland|outdoor)\b/i, tag: 'nature' },
-  { pattern: /\b(bedtime|sleep|goodnight|dream|lullaby|night)\b/i, tag: 'bedtime' },
-  { pattern: /\b(space|planet|astronaut|moon|rocket|star|solar)\b/i, tag: 'space' },
-  { pattern: /\b(ocean|sea|shark|whale|marine|fish|beach)\b/i, tag: 'ocean' },
-  { pattern: /\b(winter|snow|christmas|holiday|autumn|spring|summer|season)\b/i, tag: 'seasons' },
-  { pattern: /\b(science|scientist|stem|inventor|experiment|robot|engineering)\b/i, tag: 'science' },
-  { pattern: /\b(adventure|journey|quest|explore|dragon|pirate)\b/i, tag: 'adventure' },
-  { pattern: /\b(humor|funny|silly|laugh|joke)\b/i, tag: 'humor' },
-  { pattern: /\b(family|mother|father|sibling|sister|brother|grandma|grandpa)\b/i, tag: 'family' },
-  { pattern: /\b(dinosaur|prehistoric|fossil)\b/i, tag: 'dinosaurs' },
-  { pattern: /\b(train|truck|construction|vehicle|car|airplane)\b/i, tag: 'vehicles' },
-  { pattern: /\b(music|song|rhyme|poetry|dance)\b/i, tag: 'rhyme' },
-  { pattern: /\b(history|biography|historical)\b/i, tag: 'history' },
-];
 
 /**
  * @typedef {Omit<import('../../types/models.js').Book, 'id' | 'addedAt'> & {
  *   candidateKey: string,
- *   summary?: string
+ *   summary?: string,
+ *   subjects?: string[]
  * }} BookCandidate
  */
 
@@ -100,63 +89,23 @@ export function inferBookFormat(hints, pageCount) {
  * @returns {{ ageMin: number, ageMax: number, readingStage: import('../../types/models.js').ReadingStage }}
  */
 export function inferAgeAndStage({ hints, pageCount, format }) {
-  const joined = hints.join(' ').toLowerCase();
-
-  if (format === 'board-book' || /\b(baby|infant|toddler|ages?\s*0|0-3|1-3)\b/.test(joined)) {
-    return { ageMin: 1, ageMax: 4, readingStage: 'board-toddler' };
-  }
-  if (/\b(early reader|beginning reader|beginner books|i can read|step into reading|ages?\s*5-8|ages?\s*6-8)\b/.test(joined)) {
-    return { ageMin: 5, ageMax: 8, readingStage: 'early-reader' };
-  }
-  if (
-    /\b(middle grade|chapter book|juvenile fiction.*9-12|ages?\s*8-12|ages?\s*9-12)\b/.test(joined) ||
-    (pageCount && pageCount >= 96)
-  ) {
-    return { ageMin: 7, ageMax: 11, readingStage: 'chapter-book' };
-  }
-  if (pageCount && pageCount >= 56 && pageCount < 96) {
-    return { ageMin: 5, ageMax: 9, readingStage: 'early-reader' };
-  }
-  return { ageMin: 3, ageMax: 7, readingStage: 'picture-book' };
+  return inferAgeAndStageFromSignals({ hints, pageCount, format });
 }
 
 /**
- * Extracts clean topic tags from provider subjects/categories and summary text.
+ * Extracts clean topic tags from provider subjects/categories, title, and summary text.
  * @param {string[]} rawSubjects
  * @param {string} [summary]
+ * @param {string} [title]
  * @returns {string[]}
  */
-export function extractNormalizedTags(rawSubjects, summary = '') {
-  /** @type {Set<string>} */
-  const tags = new Set();
-  const corpus = `${rawSubjects.join(' ')} ${summary}`;
-
-  for (const rule of TOPIC_RULES) {
-    if (rule.pattern.test(corpus)) {
-      tags.add(rule.tag);
-    }
-  }
-
-  for (const raw of rawSubjects) {
-    const parts = String(raw)
-      .split(/[\/—–,-]/)
-      .map((s) => s.trim().toLowerCase())
-      .filter(
-        (s) =>
-          s.length >= 3 &&
-          s.length <= 20 &&
-          !/^(juvenile|fiction|nonfiction|general|children|books|literature|stories|picture books|english)$/i.test(
-            s
-          )
-      );
-    for (const part of parts) {
-      if (tags.size < 6) {
-        tags.add(part);
-      }
-    }
-  }
-
-  return Array.from(tags).slice(0, 6);
+export function extractNormalizedTags(rawSubjects, summary = '', title = '') {
+  return inferLocalTopicTags({
+    title,
+    subjects: rawSubjects,
+    summary,
+    maxTags: 7,
+  });
 }
 
 /**
@@ -225,7 +174,7 @@ export function normalizeGoogleBooksItem(item, options = {}) {
   const formatHints = [...categories, String(info.printType || ''), title];
   const format = inferBookFormat(formatHints, pageCount);
   const { ageMin, ageMax, readingStage } = inferAgeAndStage({
-    hints: [...categories, description],
+    hints: [title, ...categories, description],
     pageCount,
     format,
   });
@@ -235,7 +184,14 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     links.thumbnail || links.smallThumbnail || links.medium || links.small
   );
 
-  const tags = extractNormalizedTags(categories, description);
+  const tags = extractNormalizedTags(categories, description, title);
+  const readingLevelHint = inferReadingLevelHint({
+    readingStage,
+    format,
+    pageCount,
+    tags,
+    textCorpus: `${title} ${categories.join(' ')} ${description}`,
+  });
 
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
@@ -257,9 +213,11 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     ageMin,
     ageMax,
     readingStage,
+    readingLevelHint,
     tags,
     ...(coverUrl ? { coverUrl } : {}),
     ...(description ? { summary: description.slice(0, 320) } : {}),
+    ...(categories.length ? { subjects: categories.slice(0, 12) } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
     sources: [source],
   };
@@ -315,7 +273,7 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
   const physicalFormat = typeof record.physical_format === 'string' ? record.physical_format : '';
   const format = inferBookFormat([physicalFormat, ...subjects, title], pageCount);
   const { ageMin, ageMax, readingStage } = inferAgeAndStage({
-    hints: subjects,
+    hints: [title, ...subjects],
     pageCount,
     format,
   });
@@ -325,7 +283,14 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     sanitizeCoverUrl(coverObj.large || coverObj.medium || coverObj.small) ||
     (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-M.jpg?default=false` : undefined);
 
-  const tags = extractNormalizedTags(subjects);
+  const tags = extractNormalizedTags(subjects, '', title);
+  const readingLevelHint = inferReadingLevelHint({
+    readingStage,
+    format,
+    pageCount,
+    tags,
+    textCorpus: `${title} ${subjects.join(' ')}`,
+  });
 
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
@@ -347,8 +312,10 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     ageMin,
     ageMax,
     readingStage,
+    readingLevelHint,
     tags,
     ...(coverUrl ? { coverUrl } : {}),
+    ...(subjects.length ? { subjects: subjects.slice(0, 12) } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
     sources: [source],
   };
@@ -397,7 +364,7 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
 
   const format = inferBookFormat([...formats, ...subjects, title], pageCount);
   const { ageMin, ageMax, readingStage } = inferAgeAndStage({
-    hints: subjects,
+    hints: [title, ...subjects],
     pageCount,
     format,
   });
@@ -407,7 +374,14 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
       ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
       : undefined;
 
-  const tags = extractNormalizedTags(subjects);
+  const tags = extractNormalizedTags(subjects, '', title);
+  const readingLevelHint = inferReadingLevelHint({
+    readingStage,
+    format,
+    pageCount,
+    tags,
+    textCorpus: `${title} ${subjects.join(' ')}`,
+  });
 
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
@@ -429,8 +403,10 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     ageMin,
     ageMax,
     readingStage,
+    readingLevelHint,
     tags,
     ...(coverUrl ? { coverUrl } : {}),
+    ...(subjects.length ? { subjects: subjects.slice(0, 12) } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
     sources: [source],
   };
@@ -443,7 +419,7 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
  * @returns {BookCandidate}
  */
 export function mergeBookCandidates(primary, secondary) {
-  const mergedTags = Array.from(new Set([...primary.tags, ...secondary.tags])).slice(0, 6);
+  const mergedTags = sanitizeTagList([...primary.tags, ...secondary.tags], 8);
   const mergedAuthors =
     primary.authors[0] === 'Unknown Author' && secondary.authors[0] !== 'Unknown Author'
       ? secondary.authors
@@ -457,6 +433,10 @@ export function mergeBookCandidates(primary, secondary) {
   const publishedYear = primary.publishedYear || secondary.publishedYear;
   const pageCount = primary.pageCount || secondary.pageCount;
   const summary = primary.summary || secondary.summary;
+  const readingLevelHint = primary.readingLevelHint || secondary.readingLevelHint;
+  const mergedSubjects = Array.from(
+    new Set([...(primary.subjects || []), ...(secondary.subjects || [])])
+  ).slice(0, 14);
 
   return {
     ...primary,
@@ -468,6 +448,8 @@ export function mergeBookCandidates(primary, secondary) {
     ...(pageCount ? { pageCount } : {}),
     ...(coverUrl ? { coverUrl } : {}),
     ...(summary ? { summary } : {}),
+    ...(readingLevelHint ? { readingLevelHint } : {}),
+    ...(mergedSubjects.length ? { subjects: mergedSubjects } : {}),
     format: primary.format !== 'hardcover' ? primary.format : secondary.format,
     tags: mergedTags,
     sources: [...primary.sources, ...secondary.sources],
@@ -500,7 +482,8 @@ export function candidateToBook(candidate, options = {}) {
     ageMin: candidate.ageMin,
     ageMax: candidate.ageMax,
     readingStage: candidate.readingStage,
-    tags: candidate.tags,
+    ...(candidate.readingLevelHint ? { readingLevelHint: candidate.readingLevelHint } : {}),
+    tags: sanitizeTagList(candidate.tags, 8),
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),
     spineColor: candidate.spineColor || pickDeterministicSpineColor(candidate.isbn13 || candidate.title),
     addedAt: now,

@@ -114,6 +114,14 @@ function renderCandidateCard({ candidate, index, alreadyOwned, showRawToggle }) 
             </div>
 
             ${
+              candidate.readingLevelHint
+                ? `<p class="text-[11px] text-teal-700 dark:text-teal-400 mt-1">${escapeHtml(
+                    candidate.readingLevelHint
+                  )}</p>`
+                : ''
+            }
+
+            ${
               candidate.tags.length
                 ? `<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Topics: ${escapeHtml(
                     candidate.tags.join(' · ')
@@ -988,15 +996,25 @@ export function renderScanShellView({ state, uiState, scannerState }) {
             </div>
 
             <div class="sm:col-span-2">
-              <label for="book-tags" class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Topics & Themes (comma-separated)
-              </label>
+              <div class="flex items-center justify-between gap-2 mb-1.5">
+                <label for="book-tags" class="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Topics & Themes (comma-separated)
+                </label>
+                <button
+                  type="button"
+                  data-action="suggest-draft-tags"
+                  class="min-h-[34px] px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                >
+                  ${renderIcon('sparkles', 'w-3.5 h-3.5')}
+                  Suggest Tags from Title
+                </button>
+              </div>
               <input
                 id="book-tags"
                 name="tags"
                 type="text"
                 value="${escapeHtml(draft.tags)}"
-                placeholder="animals, springtime, family, bedtime"
+                placeholder="animals, christmas, winter, family, bedtime"
                 class="w-full min-h-[44px] px-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white focus:outline-2 focus:outline-teal-600"
               />
             </div>

@@ -46,10 +46,21 @@ export function createCatalogService(config = {}) {
   }
 
   /**
-   * Validates ISBN-10/ISBN-13 and queries all registered providers concurrently,
+   * Resolves active providers filtered by optional `enabledProviderIds`.
+   * @param {string[] | undefined} enabledProviderIds
+   * @returns {MetadataProvider[]}
+   */
+  function resolveActiveProviders(enabledProviderIds) {
+    if (!Array.isArray(enabledProviderIds)) return providers;
+    const allowed = new Set(enabledProviderIds);
+    return providers.filter((p) => allowed.has(p.id));
+  }
+
+  /**
+   * Validates ISBN-10/ISBN-13 and queries all active providers concurrently,
    * merging metadata when multiple providers match.
    * @param {string} rawIsbn
-   * @param {{ retainRaw?: boolean, signal?: AbortSignal }} [options]
+   * @param {{ retainRaw?: boolean, signal?: AbortSignal, enabledProviderIds?: string[] }} [options]
    * @returns {Promise<{
    *   candidate: import('./normalizer.js').BookCandidate | null,
    *   isbn13: string,
@@ -63,8 +74,15 @@ export function createCatalogService(config = {}) {
       throw new Error(checked.error || 'Enter a valid 10-digit or 13-digit ISBN to look up.');
     }
 
+    const activeProviders = resolveActiveProviders(options.enabledProviderIds);
+    if (activeProviders.length === 0) {
+      throw new Error(
+        'All external metadata providers are disabled in Settings. Re-enable Google Books or Open Library, or enter book details manually.'
+      );
+    }
+
     const settled = await Promise.allSettled(
-      providers.map((provider) =>
+      activeProviders.map((provider) =>
         provider.lookupByIsbn(checked.isbn13, {
           retainRaw: options.retainRaw,
           signal: options.signal,
@@ -78,7 +96,7 @@ export function createCatalogService(config = {}) {
     const providerErrors = [];
 
     settled.forEach((result, idx) => {
-      const provider = providers[idx];
+      const provider = activeProviders[idx];
       if (result.status === 'fulfilled') {
         if (result.value) hits.push(result.value);
       } else {
@@ -89,7 +107,7 @@ export function createCatalogService(config = {}) {
       }
     });
 
-    if (hits.length === 0 && providerErrors.length === providers.length) {
+    if (hits.length === 0 && providerErrors.length === activeProviders.length) {
       throw new Error(
         'Could not reach book metadata providers. Check your internet connection or add details manually below.'
       );
@@ -113,9 +131,9 @@ export function createCatalogService(config = {}) {
   }
 
   /**
-   * Searches across all registered providers concurrently and deduplicates matching editions.
+   * Searches across all active providers concurrently and deduplicates matching editions.
    * @param {{ query: string, author?: string }} input
-   * @param {{ retainRaw?: boolean, signal?: AbortSignal, limit?: number }} [options]
+   * @param {{ retainRaw?: boolean, signal?: AbortSignal, limit?: number, enabledProviderIds?: string[] }} [options]
    * @returns {Promise<{
    *   candidates: import('./normalizer.js').BookCandidate[],
    *   providerErrors: Array<{ providerId: string, message: string }>
@@ -128,8 +146,15 @@ export function createCatalogService(config = {}) {
       return { candidates: [], providerErrors: [] };
     }
 
+    const activeProviders = resolveActiveProviders(options.enabledProviderIds);
+    if (activeProviders.length === 0) {
+      throw new Error(
+        'All external metadata providers are disabled in Settings. Re-enable Google Books or Open Library, or add books manually.'
+      );
+    }
+
     const settled = await Promise.allSettled(
-      providers.map((provider) =>
+      activeProviders.map((provider) =>
         provider.searchBooks(
           { query: q, author },
           {
@@ -147,7 +172,7 @@ export function createCatalogService(config = {}) {
     const providerErrors = [];
 
     settled.forEach((result, idx) => {
-      const provider = providers[idx];
+      const provider = activeProviders[idx];
       if (result.status === 'fulfilled') {
         for (const candidate of result.value) {
           const existing = deduped.get(candidate.candidateKey);
@@ -165,7 +190,7 @@ export function createCatalogService(config = {}) {
       }
     });
 
-    if (deduped.size === 0 && providerErrors.length === providers.length) {
+    if (deduped.size === 0 && providerErrors.length === activeProviders.length) {
       throw new Error(
         'Book search is unavailable offline or rate-limited. You can still add books manually.'
       );

@@ -17,6 +17,7 @@ import { renderScanShellView } from './features/scan/scan-shell-view.js';
 import { renderRotationsView } from './features/rotations/rotations-view.js';
 import { renderProfilesView } from './features/profiles/profiles-view.js';
 import { renderSettingsView } from './features/settings/settings-view.js';
+import { validateProxyEndpointUrl } from './features/tagging/ai-tag-adapter.js';
 
 const rootEl = document.getElementById('app');
 const storage = createStorageAdapter();
@@ -81,6 +82,12 @@ const uiState = {
     searchQuery: '',
     selectedAddBookIds: [],
     randomAddCount: 1,
+  },
+  settingsUi: {
+    testingAdapter: false,
+    enrichingCatalog: false,
+    lastAdapterTestReport: '',
+    endpointError: '',
   },
 };
 
@@ -162,6 +169,8 @@ function render() {
         state,
         storageBackend: store.getStorageBackend(),
         pwaStatus: pwa.getStatus(),
+        adapterDiagnostics: store.getTaggingService().getAdapterDiagnostics(state.settings),
+        settingsUiState: uiState.settingsUi,
       });
       break;
     case 'home':
@@ -227,10 +236,16 @@ async function executeProviderSearch() {
   render();
 
   try {
-    const retainRaw = store.getState().settings.retainRawProviderPayloads;
+    const { retainRawProviderPayloads: retainRaw, enabledMetadataProviders } =
+      store.getState().settings;
     const response = await catalogService.searchBooks(
       { query, author },
-      { retainRaw, signal: controller.signal, limit: 10 }
+      {
+        retainRaw,
+        enabledProviderIds: enabledMetadataProviders,
+        signal: controller.signal,
+        limit: 10,
+      }
     );
     if (controller.signal.aborted) return;
 
@@ -274,8 +289,12 @@ async function executeIsbnLookup(rawIsbn) {
   render();
 
   try {
-    const retainRaw = store.getState().settings.retainRawProviderPayloads;
-    const result = await catalogService.lookupByIsbn(rawIsbn, { retainRaw });
+    const { retainRawProviderPayloads: retainRaw, enabledMetadataProviders } =
+      store.getState().settings;
+    const result = await catalogService.lookupByIsbn(rawIsbn, {
+      retainRaw,
+      enabledProviderIds: enabledMetadataProviders,
+    });
     uiState.isbnLoading = false;
     uiState.isbnProviderWarnings = result.providerErrors.map((e) => e.providerId);
 
@@ -632,6 +651,178 @@ function bindEvents() {
         await store.updateSettings({ retainRawProviderPayloads: !current });
         break;
       }
+      case 'toggle-metadata-provider': {
+        const providerId = target.getAttribute('data-provider-id');
+        if (providerId) {
+          await store.toggleMetadataProvider(providerId);
+        }
+        break;
+      }
+      case 'toggle-auto-local-tagging': {
+        const current = store.getState().settings.autoLocalTagging;
+        await store.updateSettings({ autoLocalTagging: !current });
+        break;
+      }
+      case 'toggle-ai-opt-in': {
+        const current = store.getState().settings.aiEnrichmentOptIn;
+        uiState.settingsUi.lastAdapterTestReport = '';
+        await store.updateSettings({ aiEnrichmentOptIn: !current });
+        store.notify(
+          !current
+            ? 'Enabled Optional AI Enrichment (with automatic Local Rules fallback).'
+            : 'Disabled Optional AI Enrichment — using Local Rules only.',
+          'info'
+        );
+        break;
+      }
+      case 'select-ai-adapter': {
+        const adapterId = target.getAttribute('data-adapter-id');
+        if (adapterId) {
+          uiState.settingsUi.endpointError = '';
+          uiState.settingsUi.lastAdapterTestReport = '';
+          await store.updateSettings({ aiAdapterId: adapterId });
+        }
+        break;
+      }
+      case 'enrich-all-books': {
+        uiState.settingsUi.enrichingCatalog = true;
+        render();
+        try {
+          await store.enrichAllCatalogBooks();
+        } catch (err) {
+          store.notify(err instanceof Error ? err.message : 'Catalog enrichment failed.', 'error');
+        } finally {
+          uiState.settingsUi.enrichingCatalog = false;
+          render();
+        }
+        break;
+      }
+      case 'test-ai-adapter': {
+        uiState.settingsUi.testingAdapter = true;
+        uiState.settingsUi.lastAdapterTestReport = '';
+        render();
+        try {
+          const settings = store.getState().settings;
+          const probe = await store.getTaggingService().testAdapterConnection(settings);
+          const engineDesc = probe.usedAi
+            ? `AI Adapter (${probe.adapterId})`
+            : `Local Rules (${probe.fallbackReason || 'offline'})`;
+          uiState.settingsUi.lastAdapterTestReport = `Sample probe ("The Snowy Day") -> Topics: ${probe.tags.join(
+            ', '
+          )} · ${probe.readingLevelHint} · Engine: ${engineDesc}`;
+        } catch (err) {
+          uiState.settingsUi.lastAdapterTestReport =
+            err instanceof Error ? err.message : 'Pipeline test failed.';
+        } finally {
+          uiState.settingsUi.testingAdapter = false;
+          render();
+        }
+        break;
+      }
+      case 'reset-provider-defaults': {
+        uiState.settingsUi.endpointError = '';
+        uiState.settingsUi.lastAdapterTestReport = '';
+        await store.resetProviderSettingsToSafeDefaults();
+        break;
+      }
+      case 'add-recommended-to-shelf': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        const bookId = target.getAttribute('data-book-id');
+        if (rotationId && bookId) {
+          try {
+            await store.addBooksToRotationManual(rotationId, [bookId]);
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not add book.', 'error');
+          }
+        }
+        break;
+      }
+      case 'enrich-book-tags': {
+        const bookId = target.getAttribute('data-book-id');
+        if (bookId) {
+          try {
+            await store.enrichSingleBook(bookId);
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not enrich book.', 'error');
+          }
+        }
+        break;
+      }
+      case 'remove-book-tag': {
+        const bookId = target.getAttribute('data-book-id');
+        const tag = target.getAttribute('data-tag');
+        if (bookId && tag) {
+          await store.removeBookTag(bookId, tag);
+        }
+        break;
+      }
+      case 'suggest-draft-tags': {
+        const formEl = document.getElementById('manual-book-form');
+        if (formEl instanceof HTMLFormElement) {
+          const fd = new FormData(formEl);
+          uiState.manualDraft = {
+            ...uiState.manualDraft,
+            title: String(fd.get('title') || ''),
+            authors: String(fd.get('authors') || ''),
+            isbn: String(fd.get('isbn') || ''),
+            publishedYear: String(fd.get('publishedYear') || '').trim(),
+            pageCount: String(fd.get('pageCount') || '').trim(),
+            coverUrl: String(fd.get('coverUrl') || '').trim(),
+            format: /** @type {import('./types/models.js').BookFormat} */ (
+              fd.get('format') || 'hardcover'
+            ),
+            readingStage: /** @type {import('./types/models.js').ReadingStage} */ (
+              fd.get('readingStage') || 'picture-book'
+            ),
+            ageMin: Number(fd.get('ageMin') || 2),
+            ageMax: Number(fd.get('ageMax') || 6),
+            tags: String(fd.get('tags') || ''),
+          };
+        }
+
+        if (!uiState.manualDraft.title.trim()) {
+          uiState.formError = 'Enter a Book Title first so we can suggest matching topic tags.';
+          render();
+          break;
+        }
+
+        uiState.formError = '';
+        const res = await store.getTaggingService().enrichBook(
+          {
+            title: uiState.manualDraft.title,
+            authors: uiState.manualDraft.authors
+              .split(',')
+              .map((a) => a.trim())
+              .filter(Boolean),
+            format: uiState.manualDraft.format,
+            pageCount: uiState.manualDraft.pageCount
+              ? Number(uiState.manualDraft.pageCount)
+              : undefined,
+            tags: uiState.manualDraft.tags
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean),
+          },
+          store.getState().settings,
+          { forceLocalRules: true }
+        );
+
+        uiState.manualDraft = {
+          ...uiState.manualDraft,
+          tags: res.tags.join(', '),
+          ageMin: res.ageMin,
+          ageMax: res.ageMax,
+          readingStage: res.readingStage,
+        };
+        store.notify(
+          res.tags.length > 0
+            ? `Suggested topics: ${res.tags.join(', ')}`
+            : 'No specific topic keywords matched that title yet — add custom tags separated by commas.',
+          'info'
+        );
+        render();
+        break;
+      }
       case 'export-backup':
         downloadBackupJson();
         break;
@@ -817,6 +1008,42 @@ function bindEvents() {
         form.reset();
       } catch (err) {
         store.notify(err instanceof Error ? err.message : 'Could not generate rotation.', 'error');
+      }
+    } else if (form.id === 'inspector-add-tag-form') {
+      const bookId = form.getAttribute('data-book-id');
+      const rawTag = String(data.get('tag') || '');
+      if (bookId && rawTag.trim()) {
+        try {
+          await store.addBookTag(bookId, rawTag);
+          form.reset();
+        } catch (err) {
+          store.notify(err instanceof Error ? err.message : 'Could not add tag.', 'error');
+        }
+      }
+    } else if (form.id === 'ai-provider-config-form') {
+      const rawUrl = String(data.get('aiEndpointUrl') || '').trim();
+      const timeoutMs = Number(data.get('aiTimeoutMs') || 6000);
+
+      if (rawUrl) {
+        const check = validateProxyEndpointUrl(rawUrl);
+        if (!check.valid) {
+          uiState.settingsUi.endpointError = check.error || 'Invalid endpoint URL.';
+          render();
+          return;
+        }
+        uiState.settingsUi.endpointError = '';
+        await store.updateSettings({
+          aiEndpointUrl: check.normalizedUrl,
+          aiTimeoutMs: timeoutMs,
+        });
+        store.notify('Saved keyless proxy endpoint configuration.', 'success');
+      } else {
+        uiState.settingsUi.endpointError = '';
+        await store.updateSettings({
+          aiEndpointUrl: '',
+          aiTimeoutMs: timeoutMs,
+        });
+        store.notify('Cleared custom proxy URL.', 'info');
       }
     }
   });

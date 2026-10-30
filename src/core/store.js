@@ -1,11 +1,11 @@
 /**
- * @fileoverview Observable application state store with domain actions, Phase 4 Rotation Engine
- * integration, post-generation shelf editing operations, and theme synchronization.
+ * @fileoverview Observable application state store with domain actions, Phase 4 Rotation Engine,
+ * Phase 5 Tagging & Optional AI Enrichment integration, and theme synchronization.
  */
 
 import { createId, normalizeIsbn } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
-import { isValidAppState, migrateState } from './storage.js';
+import { createSafeDefaultSettings, isValidAppState, migrateState } from './storage.js';
 import { candidateToBook, sanitizeCoverUrl } from '../features/catalog/normalizer.js';
 import {
   applyBookAdditions,
@@ -13,6 +13,8 @@ import {
   generateRotationSelection,
   pickRandomEligibleBooks,
 } from '../features/rotations/rotation-engine.js';
+import { sanitizeTag, sanitizeTagList } from '../features/tagging/rule-tagger.js';
+import { createTaggingService } from '../features/tagging/tagging-service.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
 
@@ -45,8 +47,10 @@ function stampBooksRotated(books, rotatedBookIds, nowIso) {
 /**
  * Creates the central Library Rotation store.
  * @param {ReturnType<typeof import('./storage.js').createStorageAdapter>} storage
+ * @param {{ taggingService?: ReturnType<typeof createTaggingService> }} [deps]
  */
-export function createAppStore(storage) {
+export function createAppStore(storage, deps = {}) {
+  const tagging = deps.taggingService || createTaggingService();
   /** @type {import('../types/models.js').AppState} */
   let state = createSeedState();
   /** @type {{ id: string, message: string, tone: 'success' | 'error' | 'info' } | null} */
@@ -226,6 +230,32 @@ export function createAppStore(storage) {
           })
         : [{ provider: 'manual', fetchedAt: now }];
 
+    const explicitAgeMin = Math.max(0, Number(input.ageMin) || 2);
+    const explicitAgeMax = Math.max(explicitAgeMin, Number(input.ageMax) || 6);
+    const explicitStage = input.readingStage || 'picture-book';
+    const baseTags = sanitizeTagList(input.tags || [], 8);
+
+    const enriched = await tagging.enrichBook(
+      {
+        title,
+        authors: input.authors.length ? input.authors : ['Unknown Author'],
+        isbn13: isbnCheck.isbn13,
+        format: input.format || 'hardcover',
+        pageCount: pages,
+        publishedYear: pubYear,
+        ageMin: explicitAgeMin,
+        ageMax: explicitAgeMax,
+        readingStage: explicitStage,
+        tags: baseTags,
+      },
+      state.settings,
+      { preserveExplicitAgeAndStage: true }
+    );
+
+    const finalSources = enriched.aiProvenance
+      ? [...incomingSources, enriched.aiProvenance]
+      : incomingSources;
+
     /** @type {import('../types/models.js').Book} */
     const book = {
       id: createId('book'),
@@ -237,13 +267,14 @@ export function createAppStore(storage) {
       ...(pages ? { pageCount: pages } : {}),
       ...(cleanCover ? { coverUrl: cleanCover } : {}),
       format: input.format || 'hardcover',
-      ageMin: Math.max(0, Number(input.ageMin) || 2),
-      ageMax: Math.max(Number(input.ageMin) || 2, Number(input.ageMax) || 6),
-      readingStage: input.readingStage || 'picture-book',
-      tags: input.tags.map((t) => t.toLowerCase().trim()).filter(Boolean),
+      ageMin: enriched.ageMin,
+      ageMax: enriched.ageMax,
+      readingStage: enriched.readingStage,
+      ...(enriched.readingLevelHint ? { readingLevelHint: enriched.readingLevelHint } : {}),
+      tags: enriched.tags,
       spineColor: SPINE_COLORS[colorIndex],
       addedAt: now,
-      sources: incomingSources,
+      sources: finalSources,
     };
 
     await commit({
@@ -255,22 +286,223 @@ export function createAppStore(storage) {
   }
 
   /**
-   * Saves a normalized provider BookCandidate directly to the catalog in one tap.
+   * Saves a normalized provider BookCandidate directly to the catalog in one tap,
+   * applying local rule tagging + optional user-opt-in AI enrichment.
    * @param {import('../features/catalog/normalizer.js').BookCandidate} candidate
    */
   async function addBookFromCandidate(candidate) {
     if (candidate.isbn13 && state.books.some((b) => b.isbn13 === candidate.isbn13)) {
       throw new Error(`"${candidate.title}" (ISBN ${candidate.isbn13}) is already in your library.`);
     }
-    const book = candidateToBook(candidate, {
+    const baseBook = candidateToBook(candidate, {
       retainRaw: state.settings.retainRawProviderPayloads,
     });
+
+    const enriched = await tagging.enrichBook(
+      {
+        title: baseBook.title,
+        authors: baseBook.authors,
+        isbn13: baseBook.isbn13,
+        format: baseBook.format,
+        pageCount: baseBook.pageCount,
+        publishedYear: baseBook.publishedYear,
+        ageMin: baseBook.ageMin,
+        ageMax: baseBook.ageMax,
+        readingStage: baseBook.readingStage,
+        tags: baseBook.tags,
+        summary: candidate.summary,
+        subjects: candidate.subjects,
+      },
+      state.settings
+    );
+
+    const sources =
+      enriched.aiProvenance &&
+      !baseBook.sources.some((s) => s.provider === enriched.aiProvenance?.provider)
+        ? [...baseBook.sources, enriched.aiProvenance]
+        : baseBook.sources;
+
+    /** @type {import('../types/models.js').Book} */
+    const book = {
+      ...baseBook,
+      ageMin: enriched.ageMin,
+      ageMax: enriched.ageMax,
+      readingStage: enriched.readingStage,
+      ...(enriched.readingLevelHint
+        ? { readingLevelHint: enriched.readingLevelHint }
+        : {}),
+      tags: enriched.tags,
+      sources,
+    };
+
     await commit({
       ...state,
       books: [book, ...state.books],
     });
     notify(`Added "${book.title}" to your library.`, 'success');
     return book;
+  }
+
+  /**
+   * Appends a single sanitized tag to an existing catalog book.
+   * @param {string} bookId
+   * @param {string} rawTag
+   */
+  async function addBookTag(bookId, rawTag) {
+    const clean = sanitizeTag(rawTag);
+    if (!clean) {
+      throw new Error('Enter a valid topic tag (2–22 letters, numbers, or hyphens).');
+    }
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+    if (target.tags.includes(clean)) {
+      notify(`Tag "${clean}" is already on "${target.title}".`, 'info');
+      return target;
+    }
+
+    const updatedTags = sanitizeTagList([clean, ...target.tags], 10);
+    const updatedBook = { ...target, tags: updatedTags };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(`Added topic "${clean}" to "${target.title}".`, 'success');
+    return updatedBook;
+  }
+
+  /**
+   * Removes a tag from an existing catalog book.
+   * @param {string} bookId
+   * @param {string} tagToRemove
+   */
+  async function removeBookTag(bookId, tagToRemove) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) return;
+    const nextTags = target.tags.filter((t) => t !== tagToRemove);
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? { ...b, tags: nextTags } : b)),
+    });
+  }
+
+  /**
+   * Runs Local Rule-Based Tagging + optional opted-in AI enrichment on a single catalog book.
+   * @param {string} bookId
+   */
+  async function enrichSingleBook(bookId) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+
+    const res = await tagging.enrichBook(
+      {
+        title: target.title,
+        authors: target.authors,
+        isbn13: target.isbn13,
+        format: target.format,
+        pageCount: target.pageCount,
+        publishedYear: target.publishedYear,
+        ageMin: target.ageMin,
+        ageMax: target.ageMax,
+        readingStage: target.readingStage,
+        tags: target.tags,
+      },
+      state.settings,
+      { forceLocalRules: true, preserveExplicitAgeAndStage: true }
+    );
+
+    const nextSources =
+      res.aiProvenance && !target.sources.some((s) => s.provider === res.aiProvenance?.provider)
+        ? [...target.sources, res.aiProvenance]
+        : target.sources;
+
+    const updatedBook = {
+      ...target,
+      tags: res.tags,
+      ...(res.readingLevelHint ? { readingLevelHint: res.readingLevelHint } : {}),
+      sources: nextSources,
+    };
+
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+
+    const sourceLabel = res.usedAi ? `Local Rules + ${res.adapterId}` : 'Local Rules';
+    notify(
+      res.addedTags.length > 0
+        ? `Added ${res.addedTags.length} tag(s) (${res.addedTags.join(', ')}) via ${sourceLabel}.`
+        : `Verified tags & reading hint for "${target.title}" (${sourceLabel}).`,
+      'success'
+    );
+    return res;
+  }
+
+  /**
+   * Re-enriches all books in the family catalog using Local Rules + optional opted-in AI adapter.
+   */
+  async function enrichAllCatalogBooks() {
+    if (state.books.length === 0) {
+      notify('Add books to your catalog first.', 'info');
+      return { updatedBooksCount: 0, newTagsCount: 0, usedAiCount: 0 };
+    }
+
+    let updatedBooksCount = 0;
+    let newTagsCount = 0;
+    let usedAiCount = 0;
+
+    /** @type {import('../types/models.js').Book[]} */
+    const nextBooks = [];
+
+    for (const book of state.books) {
+      const res = await tagging.enrichBook(
+        {
+          title: book.title,
+          authors: book.authors,
+          isbn13: book.isbn13,
+          format: book.format,
+          pageCount: book.pageCount,
+          publishedYear: book.publishedYear,
+          ageMin: book.ageMin,
+          ageMax: book.ageMax,
+          readingStage: book.readingStage,
+          tags: book.tags,
+        },
+        state.settings,
+        { forceLocalRules: true, preserveExplicitAgeAndStage: true }
+      );
+
+      if (res.usedAi) usedAiCount += 1;
+      newTagsCount += res.addedTags.length;
+
+      const changed =
+        res.addedTags.length > 0 ||
+        (res.readingLevelHint && res.readingLevelHint !== book.readingLevelHint);
+
+      if (changed) updatedBooksCount += 1;
+
+      const nextSources =
+        res.aiProvenance && !book.sources.some((s) => s.provider === res.aiProvenance?.provider)
+          ? [...book.sources, res.aiProvenance]
+          : book.sources;
+
+      nextBooks.push({
+        ...book,
+        tags: res.tags,
+        ...(res.readingLevelHint ? { readingLevelHint: res.readingLevelHint } : {}),
+        sources: nextSources,
+      });
+    }
+
+    await commit({
+      ...state,
+      books: nextBooks,
+    });
+
+    notify(
+      `Catalog enrichment complete: ${updatedBooksCount} of ${state.books.length} books updated (${newTagsCount} new tags).`,
+      'success'
+    );
+    return { updatedBooksCount, newTagsCount, usedAiCount };
   }
 
   /**
@@ -657,17 +889,53 @@ export function createAppStore(storage) {
   }
 
   /**
-   * Updates user settings (theme, debug toggles, preferred scan mode).
+   * Updates user settings (theme, provider configuration, AI opt-in, scan mode).
    * @param {Partial<import('../types/models.js').AppSettings>} patch
    */
   async function updateSettings(patch) {
     await commit({
       ...state,
-      settings: {
+      settings: createSafeDefaultSettings({
         ...state.settings,
         ...patch,
-      },
+      }),
     });
+  }
+
+  /**
+   * Toggles an external book metadata provider (`google-books` or `open-library`),
+   * keeping at least one provider enabled so lookups remain functional.
+   * @param {string} providerId
+   */
+  async function toggleMetadataProvider(providerId) {
+    const current = new Set(state.settings.enabledMetadataProviders);
+    if (current.has(providerId)) {
+      if (current.size <= 1) {
+        notify('Keep at least one catalog metadata provider enabled.', 'error');
+        return false;
+      }
+      current.delete(providerId);
+    } else {
+      current.add(providerId);
+    }
+    await updateSettings({ enabledMetadataProviders: Array.from(current) });
+    return true;
+  }
+
+  /**
+   * Restores all metadata & AI enrichment settings to safe, privacy-first defaults
+   * while preserving user theme and camera scan-mode preferences.
+   */
+  async function resetProviderSettingsToSafeDefaults() {
+    const safeDefaults = createSafeDefaultSettings({
+      theme: state.settings.theme,
+      preferredScanMode: state.settings.preferredScanMode,
+    });
+    await commit({
+      ...state,
+      settings: safeDefaults,
+    });
+    notify('Restored safe privacy-first provider & AI defaults.', 'info');
   }
 
   /**
@@ -711,6 +979,7 @@ export function createAppStore(storage) {
     isInitialized: () => initialized,
     getToast: () => toast,
     getStorageBackend: () => storage.getBackendName(),
+    getTaggingService: () => tagging,
     subscribe: (/** @type {() => void} */ cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);
@@ -722,6 +991,10 @@ export function createAppStore(storage) {
     deleteProfile,
     addManualBook,
     addBookFromCandidate,
+    addBookTag,
+    removeBookTag,
+    enrichSingleBook,
+    enrichAllCatalogBooks,
     deleteBook,
     toggleRotationBookRead,
     generateRotation,
@@ -734,6 +1007,8 @@ export function createAppStore(storage) {
     deleteRotation,
     setActiveRotation,
     updateSettings,
+    toggleMetadataProvider,
+    resetProviderSettingsToSafeDefaults,
     importBackupJson,
     resetToSeedData,
   };

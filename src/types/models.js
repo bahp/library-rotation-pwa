@@ -43,6 +43,7 @@
  * @property {number} ageMin - Minimum recommended age in years
  * @property {number} ageMax - Maximum recommended age in years
  * @property {ReadingStage} readingStage - Reading stage hint
+ * @property {string} [readingLevelHint] - Human-readable reading complexity and read-aloud duration hint
  * @property {string[]} tags - Normalized lowercase topic/theme tags
  * @property {string} [coverUrl] - Optional verified cover image URL or data URL
  * @property {string} spineColor - Deterministic archival cloth palette key
@@ -93,7 +94,12 @@
  * @typedef {Object} AppSettings
  * @property {ThemeMode} theme - UI color mode preference
  * @property {boolean} retainRawProviderPayloads - Keep raw API responses for debugging/extension
- * @property {boolean} aiEnrichmentOptIn - Explicit opt-in flag for Phase 5 AI tag adapter
+ * @property {string[]} enabledMetadataProviders - Enabled catalog lookup provider IDs (default: Google Books + Open Library)
+ * @property {boolean} autoLocalTagging - Automatically run offline rule-based taxonomy & reading-level tagging
+ * @property {boolean} aiEnrichmentOptIn - Explicit opt-in flag for optional AI tag enrichment (safe default: false)
+ * @property {string} aiAdapterId - Selected pluggable AI adapter ID ('browser-prompt-api' | 'custom-endpoint' | custom)
+ * @property {string} aiEndpointUrl - Optional keyless HTTPS or localhost proxy endpoint URL for 'custom-endpoint'
+ * @property {number} aiTimeoutMs - Bounded request timeout in ms for optional AI adapter calls
  * @property {ScanMode} preferredScanMode - Default camera scan guide mode
  */
 
