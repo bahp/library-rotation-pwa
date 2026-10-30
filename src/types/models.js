@@ -1,9 +1,10 @@
 /**
- * @fileoverview Core JSDoc domain typedefs and pure validation helpers for Library Rotation.
+ * @fileoverview Core JSDoc domain typedefs, ISBN checksum validators, and automatic
+ * Date-of-Birth (DOB) age calculation helpers for Library Rotation.
  */
 
 /**
- * @typedef {'home' | 'scan' | 'rotations' | 'profiles' | 'settings'} RouteId
+ * @typedef {'home' | 'library' | 'scan' | 'rotations' | 'profiles' | 'settings'} RouteId
  */
 
 /**
@@ -56,7 +57,8 @@
  * @typedef {Object} ChildProfile
  * @property {string} id - Unique profile ID
  * @property {string} name - Child display name
- * @property {number} age - Child age in years
+ * @property {string} [birthDate] - Optional calendar birth date (YYYY-MM-DD) used to compute age automatically
+ * @property {number} age - Child age in years (automatically synced from birthDate when present)
  * @property {ReadingStage} readingStage - Current reading level/stage
  * @property {string[]} favoriteTopics - Preferred themes/topics
  * @property {number} defaultRotationSize - Target number of books per rotation
@@ -114,7 +116,7 @@
  * @property {string} updatedAt - Last state persistence ISO timestamp
  */
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /**
  * Escapes unsafe characters before interpolating into HTML templates.
@@ -142,6 +144,161 @@ export function createId(prefix) {
       ? crypto.randomUUID().slice(0, 8)
       : Math.random().toString(36).slice(2, 10);
   return `${prefix}_${randomPart}`;
+}
+
+/**
+ * Parses a calendar date (`YYYY-MM-DD` or ISO timestamp or `Date`) into `{ year, month, day }`
+ * without local-timezone midnight drift.
+ * @param {string | Date | undefined | null} input
+ * @returns {{ year: number, month: number, day: number } | null}
+ */
+function parseCalendarParts(input) {
+  if (!input) return null;
+  if (input instanceof Date) {
+    if (Number.isNaN(input.getTime())) return null;
+    return {
+      year: input.getUTCFullYear(),
+      month: input.getUTCMonth() + 1,
+      day: input.getUTCDate(),
+    };
+  }
+  const str = String(input).trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(str);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year < 1990 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (
+    probe.getUTCFullYear() !== year ||
+    probe.getUTCMonth() + 1 !== month ||
+    probe.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return { year, month, day };
+}
+
+/**
+ * Validates and normalizes a `YYYY-MM-DD` birth date string.
+ * @param {string | undefined | null} rawBirthDate
+ * @param {string | Date} [referenceDate]
+ * @returns {{ valid: boolean, birthDate: string, error?: string }}
+ */
+export function normalizeBirthDate(rawBirthDate, referenceDate = new Date()) {
+  const cleaned = String(rawBirthDate || '').trim();
+  if (!cleaned) {
+    return { valid: true, birthDate: '' };
+  }
+  const parts = parseCalendarParts(cleaned);
+  if (!parts) {
+    return {
+      valid: false,
+      birthDate: '',
+      error: 'Enter a valid birth date in YYYY-MM-DD format.',
+    };
+  }
+  const ref = parseCalendarParts(referenceDate) || parseCalendarParts(new Date());
+  if (ref) {
+    const birthNum = parts.year * 10000 + parts.month * 100 + parts.day;
+    const refNum = ref.year * 10000 + ref.month * 100 + ref.day;
+    if (birthNum > refNum) {
+      return {
+        valid: false,
+        birthDate: '',
+        error: 'Birth date cannot be in the future.',
+      };
+    }
+  }
+  const yyyy = String(parts.year).padStart(4, '0');
+  const mm = String(parts.month).padStart(2, '0');
+  const dd = String(parts.day).padStart(2, '0');
+  return { valid: true, birthDate: `${yyyy}-${mm}-${dd}` };
+}
+
+/**
+ * Computes completed years of age from a `YYYY-MM-DD` birth date relative to `referenceDate`.
+ * Returns `null` if `birthDate` is invalid or in the future.
+ * @param {string | undefined | null} birthDate
+ * @param {string | Date} [referenceDate]
+ * @returns {number | null}
+ */
+export function computeAgeFromBirthDate(birthDate, referenceDate = new Date()) {
+  const dob = parseCalendarParts(birthDate);
+  const ref = parseCalendarParts(referenceDate);
+  if (!dob || !ref) return null;
+
+  let years = ref.year - dob.year;
+  if (ref.month < dob.month || (ref.month === dob.month && ref.day < dob.day)) {
+    years -= 1;
+  }
+  if (years < 0) return null;
+  return Math.min(18, years);
+}
+
+/**
+ * Computes completed months of age from a `YYYY-MM-DD` birth date relative to `referenceDate`.
+ * Useful for displaying baby/toddler ages under 24 months.
+ * @param {string | undefined | null} birthDate
+ * @param {string | Date} [referenceDate]
+ * @returns {number | null}
+ */
+export function computeAgeMonthsFromBirthDate(birthDate, referenceDate = new Date()) {
+  const dob = parseCalendarParts(birthDate);
+  const ref = parseCalendarParts(referenceDate);
+  if (!dob || !ref) return null;
+
+  let months = (ref.year - dob.year) * 12 + (ref.month - dob.month);
+  if (ref.day < dob.day) {
+    months -= 1;
+  }
+  return months < 0 ? null : months;
+}
+
+/**
+ * Returns the effective integer age in years for a profile, preferring dynamic `birthDate` computation.
+ * @param {Pick<ChildProfile, 'age' | 'birthDate'>} profile
+ * @param {string | Date} [referenceDate]
+ * @returns {number}
+ */
+export function getEffectiveProfileAge(profile, referenceDate = new Date()) {
+  if (profile.birthDate) {
+    const computed = computeAgeFromBirthDate(profile.birthDate, referenceDate);
+    if (computed !== null) return computed;
+  }
+  return Math.max(0, Math.min(18, Math.trunc(Number(profile.age) || 0)));
+}
+
+/**
+ * Formats a concise human age label for a reader profile (e.g. `Age 4` or `14 mos` for babies/toddlers).
+ * @param {Pick<ChildProfile, 'age' | 'birthDate'>} profile
+ * @param {string | Date} [referenceDate]
+ * @returns {string}
+ */
+export function formatProfileAgeLabel(profile, referenceDate = new Date()) {
+  if (profile.birthDate) {
+    const months = computeAgeMonthsFromBirthDate(profile.birthDate, referenceDate);
+    if (months !== null && months < 24) {
+      return months <= 1 ? '1 mo' : `${months} mos`;
+    }
+  }
+  const years = getEffectiveProfileAge(profile, referenceDate);
+  return `Age ${years}`;
+}
+
+/**
+ * Suggests an initial reading stage based on a child's age in years.
+ * @param {number} ageYears
+ * @returns {ReadingStage}
+ */
+export function inferReadingStageFromAge(ageYears) {
+  if (ageYears < 2) return 'board-toddler';
+  if (ageYears <= 4) return 'picture-book';
+  if (ageYears <= 7) return 'early-reader';
+  return 'chapter-book';
 }
 
 /**

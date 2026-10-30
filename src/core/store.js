@@ -3,7 +3,13 @@
  * Phase 5 Tagging & Optional AI Enrichment integration, and theme synchronization.
  */
 
-import { createId, normalizeIsbn } from '../types/models.js';
+import {
+  computeAgeFromBirthDate,
+  createId,
+  inferReadingStageFromAge,
+  normalizeBirthDate,
+  normalizeIsbn,
+} from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 import { createSafeDefaultSettings, isValidAppState, migrateState } from './storage.js';
 import { candidateToBook, sanitizeCoverUrl } from '../features/catalog/normalizer.js';
@@ -130,19 +136,43 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Creates a new child profile and makes it active.
-   * @param {{ name: string, age: number, readingStage: import('../types/models.js').ReadingStage, favoriteTopics: string[], defaultRotationSize: number, cooldownDays: number, avatarTone: string }} input
+   * Creates a new child profile (computing age automatically from `birthDate` when provided) and makes it active.
+   * @param {{
+   *   name: string,
+   *   birthDate?: string,
+   *   age?: number,
+   *   readingStage?: import('../types/models.js').ReadingStage,
+   *   favoriteTopics: string[],
+   *   defaultRotationSize: number,
+   *   cooldownDays: number,
+   *   avatarTone: string
+   * }} input
    */
   async function addProfile(input) {
     const name = input.name.trim();
     if (!name) throw new Error('Child name is required.');
+
+    const dobCheck = normalizeBirthDate(input.birthDate);
+    if (!dobCheck.valid) {
+      throw new Error(dobCheck.error || 'Invalid birth date.');
+    }
+
+    const computedAge = dobCheck.birthDate
+      ? computeAgeFromBirthDate(dobCheck.birthDate)
+      : null;
+    const effectiveAge =
+      computedAge !== null
+        ? computedAge
+        : Math.max(0, Math.min(18, Number.isFinite(Number(input.age)) ? Number(input.age) : 4));
+
     /** @type {import('../types/models.js').ChildProfile} */
     const profile = {
       id: createId('profile'),
       name,
-      age: Math.max(0, Math.min(16, Number(input.age) || 4)),
-      readingStage: input.readingStage || 'picture-book',
-      favoriteTopics: input.favoriteTopics.filter(Boolean),
+      ...(dobCheck.birthDate ? { birthDate: dobCheck.birthDate } : {}),
+      age: effectiveAge,
+      readingStage: input.readingStage || inferReadingStageFromAge(effectiveAge),
+      favoriteTopics: (input.favoriteTopics || []).filter(Boolean),
       defaultRotationSize: Math.max(2, Math.min(15, Number(input.defaultRotationSize) || 5)),
       cooldownDays: Math.max(0, Math.min(90, Number(input.cooldownDays) || 14)),
       avatarTone: input.avatarTone || 'teal',
@@ -156,6 +186,79 @@ export function createAppStore(storage, deps = {}) {
     });
     notify(`Created reader profile for ${profile.name}.`, 'success');
     return profile;
+  }
+
+  /**
+   * Updates an existing child profile (automatically recomputing `age` when `birthDate` is provided).
+   * @param {string} profileId
+   * @param {{
+   *   name?: string,
+   *   birthDate?: string,
+   *   age?: number,
+   *   readingStage?: import('../types/models.js').ReadingStage,
+   *   favoriteTopics?: string[],
+   *   defaultRotationSize?: number,
+   *   cooldownDays?: number,
+   *   avatarTone?: string
+   * }} patch
+   */
+  async function updateProfile(profileId, patch) {
+    const existing = state.profiles.find((p) => p.id === profileId);
+    if (!existing) throw new Error('Reader profile not found.');
+
+    const nextName = patch.name !== undefined ? patch.name.trim() : existing.name;
+    if (!nextName) throw new Error('Child name is required.');
+
+    let nextBirthDate = existing.birthDate;
+    if (patch.birthDate !== undefined) {
+      const dobCheck = normalizeBirthDate(patch.birthDate);
+      if (!dobCheck.valid) {
+        throw new Error(dobCheck.error || 'Invalid birth date.');
+      }
+      nextBirthDate = dobCheck.birthDate || undefined;
+    }
+
+    const computedAge = nextBirthDate ? computeAgeFromBirthDate(nextBirthDate) : null;
+    const nextAge =
+      computedAge !== null
+        ? computedAge
+        : patch.age !== undefined
+          ? Math.max(0, Math.min(18, Number(patch.age) || 0))
+          : existing.age;
+
+    /** @type {import('../types/models.js').ChildProfile} */
+    const updated = {
+      ...existing,
+      name: nextName,
+      age: nextAge,
+      readingStage: patch.readingStage || existing.readingStage,
+      favoriteTopics:
+        patch.favoriteTopics !== undefined
+          ? patch.favoriteTopics.filter(Boolean)
+          : existing.favoriteTopics,
+      defaultRotationSize:
+        patch.defaultRotationSize !== undefined
+          ? Math.max(2, Math.min(15, Number(patch.defaultRotationSize) || 5))
+          : existing.defaultRotationSize,
+      cooldownDays:
+        patch.cooldownDays !== undefined
+          ? Math.max(0, Math.min(90, Number(patch.cooldownDays) || 14))
+          : existing.cooldownDays,
+      avatarTone: patch.avatarTone || existing.avatarTone,
+    };
+
+    if (nextBirthDate) {
+      updated.birthDate = nextBirthDate;
+    } else {
+      delete updated.birthDate;
+    }
+
+    await commit({
+      ...state,
+      profiles: state.profiles.map((p) => (p.id === profileId ? updated : p)),
+    });
+    notify(`Updated ${updated.name}’s profile.`, 'success');
+    return updated;
   }
 
   /**
@@ -988,6 +1091,7 @@ export function createAppStore(storage, deps = {}) {
     dismissToast,
     setActiveProfile,
     addProfile,
+    updateProfile,
     deleteProfile,
     addManualBook,
     addBookFromCandidate,

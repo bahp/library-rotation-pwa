@@ -1,4 +1,4 @@
-import { CURRENT_SCHEMA_VERSION } from '../types/models.js';
+import { CURRENT_SCHEMA_VERSION, computeAgeFromBirthDate } from '../types/models.js';
 
 /**
  * Creates a fresh copy of the starter family catalog, child profiles, and sample rotations.
@@ -6,13 +6,17 @@ import { CURRENT_SCHEMA_VERSION } from '../types/models.js';
  */
 export function createSeedState() {
   const now = '2026-10-30T12:00:00.000Z';
+  const currentYear = new Date().getUTCFullYear();
+  const mayaDob = `${currentYear - 4}-01-01`;
+  const leoDob = `${currentYear - 7}-01-01`;
 
   /** @type {import('../types/models.js').ChildProfile[]} */
   const profiles = [
     {
       id: 'profile_maya',
       name: 'Maya',
-      age: 4,
+      birthDate: mayaDob,
+      age: computeAgeFromBirthDate(mayaDob) ?? 4,
       readingStage: 'picture-book',
       favoriteTopics: ['animals', 'nature', 'bedtime', 'seasons'],
       defaultRotationSize: 4,
@@ -24,7 +28,8 @@ export function createSeedState() {
     {
       id: 'profile_leo',
       name: 'Leo',
-      age: 7,
+      birthDate: leoDob,
+      age: computeAgeFromBirthDate(leoDob) ?? 7,
       readingStage: 'early-reader',
       favoriteTopics: ['space', 'inventors', 'ocean', 'adventure'],
       defaultRotationSize: 4,
@@ -207,7 +212,7 @@ export function createSeedState() {
     {
       id: 'rot_maya_woodland',
       profileId: 'profile_maya',
-      title: 'Woodland & Quiet Bedtime Shelf',
+      title: 'Woodland & Quiet Bedtime',
       rules: {
         count: 4,
         objective: 'Hardcover & board books with gentle nature, seasons, and bedtime themes',

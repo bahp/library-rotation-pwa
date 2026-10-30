@@ -3,11 +3,12 @@
  */
 
 /** @type {Set<import('../types/models.js').RouteId>} */
-const VALID_ROUTES = new Set(['home', 'scan', 'rotations', 'profiles', 'settings']);
+const VALID_ROUTES = new Set(['home', 'library', 'scan', 'rotations', 'profiles', 'settings']);
 
 /** @type {Record<import('../types/models.js').RouteId, string>} */
 const ROUTE_TITLES = {
   home: 'Home Shelf · Library Rotation',
+  library: 'Family Library · Library Rotation',
   scan: 'Add & Scan Books · Library Rotation',
   rotations: 'Rotations · Library Rotation',
   profiles: 'Reader Profiles · Library Rotation',

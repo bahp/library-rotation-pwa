@@ -509,10 +509,10 @@ export function renderScanShellView({ state, uiState, scannerState }) {
   const ownedIsbns = new Set(state.books.map((b) => b.isbn13).filter(Boolean));
 
   const tabs = /** @type {Array<{ id: IntakeTab, label: string }>} */ ([
-    { id: 'scanner', label: 'Camera & Photo Scan' },
-    { id: 'search', label: 'Title Search' },
-    { id: 'isbn', label: 'ISBN Lookup' },
-    { id: 'manual', label: 'Manual Form' },
+    { id: 'scanner', label: 'Scan' },
+    { id: 'search', label: 'Search' },
+    { id: 'isbn', label: 'ISBN' },
+    { id: 'manual', label: 'Manual' },
   ]);
 
   const intakeTabsHtml = tabs
@@ -523,10 +523,10 @@ export function renderScanShellView({ state, uiState, scannerState }) {
           type="button"
           data-action="select-intake-tab"
           data-intake-tab="${tab.id}"
-          class="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          class="flex-1 min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 ${
             selected
-              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
+              : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
           }"
         >
           ${escapeHtml(tab.label)}
@@ -1035,20 +1035,18 @@ export function renderScanShellView({ state, uiState, scannerState }) {
   }
 
   return `
-    <div class="space-y-6">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 class="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-            Scan & Add Books
-          </h1>
-          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Scan an ISBN barcode or text line via camera/photo, search by title, or enter details manually.
-          </p>
-        </div>
+    <div class="space-y-4">
+      <div>
+        <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
+          Catalog Intake
+        </p>
+        <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
+          Scan & Add Books
+        </h1>
       </div>
 
       <!-- Segmented Intake Method Switcher -->
-      <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 overflow-x-auto max-w-2xl">
+      <div class="flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-700 max-w-xl">
         ${intakeTabsHtml}
       </div>
 

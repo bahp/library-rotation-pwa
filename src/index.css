@@ -1,6 +1,25 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+  --color-linen-50: #FAF6EE;
+  --color-linen-100: #F2EBDC;
+  --color-linen-200: #E5DDC8;
+  --color-ivory: #FFFDF9;
+  --color-forest-900: #123C42;
+  --color-forest-800: #185158;
+  --color-forest-700: #1F6E75;
+  --color-forest-600: #2C858D;
+  --color-espresso-900: #3E2716;
+  --color-espresso-800: #5C3A21;
+  --color-espresso-700: #7B5030;
+  --color-stone-ink: #666055;
+  --color-night-950: #0E1618;
+  --color-night-900: #152226;
+  --color-night-800: #1C2D33;
+  --color-night-700: #253B42;
+}
+
 @layer base {
   :root {
     --font-display: 'Fraunces', Georgia, serif;
@@ -35,8 +54,24 @@
 
 @media (min-width: 1024px) {
   .mb-safe-nav {
-    padding-bottom: 3rem;
+    padding-bottom: 2.5rem;
   }
+}
+
+/* Compositor-only slide-up transition for bottom sheets (<= 200ms) */
+@keyframes lr-sheet-up {
+  from {
+    transform: translateY(18px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-sheet-up {
+  animation: lr-sheet-up 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /* Scan line animation for camera/upload preview guides */

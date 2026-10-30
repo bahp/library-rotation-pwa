@@ -1,6 +1,6 @@
 /**
- * @fileoverview Resilient 3:4 book cover renderer with cloth-bound archival fallback.
- * Complies with Zero-Broken-Image policy: never renders a broken image box.
+ * @fileoverview Resilient 3:4 book cover renderer with warm cloth-bound archival fallback.
+ * Supports fixed thumbnail sizes ('xs', 'sm', 'md', 'lg') and fluid responsive 'grid' cover tiles.
  */
 
 import { escapeHtml } from '../../types/models.js';
@@ -8,70 +8,79 @@ import { escapeHtml } from '../../types/models.js';
 /** @type {Record<string, { bg: string, spine: string, text: string }>} */
 const PALETTES = {
   teal: {
-    bg: 'bg-teal-800 dark:bg-teal-900',
-    spine: 'bg-teal-950/50',
-    text: 'text-teal-50',
+    bg: 'bg-[#1D5C63] dark:bg-[#194E54]',
+    spine: 'bg-[#0F363B]/60',
+    text: 'text-[#FAF6EE]',
   },
   indigo: {
-    bg: 'bg-slate-800 dark:bg-slate-800',
-    spine: 'bg-slate-950/60',
-    text: 'text-slate-50',
+    bg: 'bg-[#2C4257] dark:bg-[#25384A]',
+    spine: 'bg-[#182635]/60',
+    text: 'text-[#FAF6EE]',
   },
   amber: {
-    bg: 'bg-amber-800 dark:bg-amber-900',
-    spine: 'bg-amber-950/50',
-    text: 'text-amber-50',
+    bg: 'bg-[#9A5B25] dark:bg-[#824B1D]',
+    spine: 'bg-[#5C3311]/55',
+    text: 'text-[#FFF9F0]',
   },
   rose: {
-    bg: 'bg-rose-800 dark:bg-rose-900',
-    spine: 'bg-rose-950/50',
-    text: 'text-rose-50',
+    bg: 'bg-[#963E47] dark:bg-[#7D323A]',
+    spine: 'bg-[#591F26]/55',
+    text: 'text-[#FFF5F6]',
   },
   emerald: {
-    bg: 'bg-emerald-800 dark:bg-emerald-900',
-    spine: 'bg-emerald-950/50',
-    text: 'text-emerald-50',
+    bg: 'bg-[#2D6247] dark:bg-[#24503A]',
+    spine: 'bg-[#183828]/55',
+    text: 'text-[#F4FBF6]',
   },
 };
 
 /**
  * Renders a 3:4 book cover card with automatic image fallback to an archival cloth edition design.
  * @param {import('../../types/models.js').Book} book
- * @param {'sm' | 'md' | 'lg'} [size]
+ * @param {'xs' | 'sm' | 'md' | 'lg' | 'grid'} [size]
  * @returns {string}
  */
 export function renderBookCover(book, size = 'md') {
   const palette = PALETTES[book.spineColor] || PALETTES.teal;
-  const dims =
-    size === 'sm'
-      ? 'w-14 h-[74px]'
-      : size === 'lg'
-        ? 'w-28 h-[148px]'
-        : 'w-20 h-[106px]';
+  const isGrid = size === 'grid';
+
+  const dims = isGrid
+    ? 'w-full aspect-[3/4] rounded-xl shadow-xs'
+    : size === 'xs'
+      ? 'w-11 h-[58px] rounded-lg'
+      : size === 'sm'
+        ? 'w-14 h-[74px] rounded-lg'
+        : size === 'lg'
+          ? 'w-28 h-[148px] rounded-xl'
+          : 'w-20 h-[106px] rounded-xl';
+
+  const radiusClass = isGrid || size === 'md' || size === 'lg' ? 'rounded-xl' : 'rounded-lg';
 
   const titleSnippet =
-    book.title.length > 28 ? `${book.title.slice(0, 26).trim()}…` : book.title;
+    book.title.length > 34 ? `${book.title.slice(0, 32).trim()}…` : book.title;
   const authorLast = (book.authors[0] || '').split(' ').pop() || '';
 
   const fallbackMarkup = `
-    <div class="lr-cover-fallback absolute inset-0 flex overflow-hidden rounded-lg ${palette.bg} ${palette.text} shadow-sm select-none">
-      <div class="w-2.5 h-full shrink-0 ${palette.spine}"></div>
-      <div class="flex-1 p-2 flex flex-col justify-between min-w-0">
-        <span class="font-display text-[11px] leading-tight font-semibold line-clamp-3 break-words">${escapeHtml(titleSnippet)}</span>
-        <span class="text-[9px] opacity-80 truncate">${escapeHtml(authorLast)}</span>
+    <div class="lr-cover-fallback absolute inset-0 flex overflow-hidden ${radiusClass} ${palette.bg} ${palette.text} border border-black/10 dark:border-white/10 select-none">
+      <div class="${isGrid ? 'w-3' : 'w-2'} h-full shrink-0 ${palette.spine}"></div>
+      <div class="flex-1 ${isGrid ? 'p-2.5 sm:p-3' : 'p-2'} flex flex-col justify-between min-w-0 text-left">
+        <span class="font-display ${
+          isGrid ? 'text-xs sm:text-sm' : 'text-[10px]'
+        } leading-snug font-semibold line-clamp-3 break-words">${escapeHtml(titleSnippet)}</span>
+        <span class="${isGrid ? 'text-[10px]' : 'text-[9px]'} opacity-85 truncate">${escapeHtml(authorLast)}</span>
       </div>
     </div>
   `;
 
   if (book.coverUrl) {
     return `
-      <div class="relative shrink-0 ${dims} rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-800">
+      <div class="relative ${isGrid ? '' : 'shrink-0'} ${dims} overflow-hidden bg-linen-100 dark:bg-night-800">
         ${fallbackMarkup}
         <img
           src="${escapeHtml(book.coverUrl)}"
           alt="Cover of ${escapeHtml(book.title)}"
-          width="160"
-          height="212"
+          width="180"
+          height="240"
           referrerpolicy="no-referrer"
           loading="lazy"
           decoding="async"
@@ -83,7 +92,7 @@ export function renderBookCover(book, size = 'md') {
   }
 
   return `
-    <div class="relative shrink-0 ${dims} rounded-lg overflow-hidden">
+    <div class="relative ${isGrid ? '' : 'shrink-0'} ${dims} overflow-hidden">
       ${fallbackMarkup}
     </div>
   `;

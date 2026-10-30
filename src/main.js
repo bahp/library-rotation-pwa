@@ -1,10 +1,15 @@
 /**
- * @fileoverview Application entry point: wires storage, reactive store, hash router,
- * CatalogService (Google Books + Open Library), ScannerController (camera + gallery barcode/OCR),
- * debounced search, and delegated DOM actions.
+ * @fileoverview Application entry point: wires storage, reactive store, hash router (`home`,
+ * `library`, `scan`, `rotations`, `profiles`, `settings`), CatalogService, ScannerController,
+ * Top-Avatar Switcher & Bottom-Sheet Forms, live DOB age preview, and delegated DOM actions.
  */
 
 import './index.css';
+import {
+  computeAgeFromBirthDate,
+  formatProfileAgeLabel,
+  inferReadingStageFromAge,
+} from './types/models.js';
 import { createRouter } from './core/router.js';
 import { createStorageAdapter } from './core/storage.js';
 import { createAppStore } from './core/store.js';
@@ -13,6 +18,7 @@ import { createCatalogService } from './features/catalog/catalog-service.js';
 import { createScannerController } from './features/scan/scanner-controller.js';
 import { renderAppShell } from './ui/components/app-shell.js';
 import { renderHomeView } from './features/home/home-view.js';
+import { renderLibraryView } from './features/library/library-view.js';
 import { renderScanShellView } from './features/scan/scan-shell-view.js';
 import { renderRotationsView } from './features/rotations/rotations-view.js';
 import { renderProfilesView } from './features/profiles/profiles-view.js';
@@ -74,6 +80,12 @@ const uiState = {
   /** @type {import('./types/models.js').ScanMode} */
   scanMode: 'barcode',
   formError: '',
+  shellUi: {
+    isProfileSwitcherOpen: false,
+    isProfileFormSheetOpen: false,
+    editingProfileId: /** @type {string | null} */ (null),
+    previewBirthDate: /** @type {string | undefined} */ (undefined),
+  },
   /** @type {import('./features/rotations/rotations-view.js').RotationEditorUiState} */
   rotationEditor: {
     modalMode: null,
@@ -82,6 +94,7 @@ const uiState = {
     searchQuery: '',
     selectedAddBookIds: [],
     randomAddCount: 1,
+    isGeneratorOpen: false,
   },
   settingsUi: {
     testingAdapter: false,
@@ -128,19 +141,22 @@ const PRESERVED_INPUT_IDS = new Set([
 let lastModalTriggerSelector = null;
 
 /**
- * Captures a selector for the button that opened a modal so focus can be restored on close.
+ * Captures a selector for the button that opened a sheet/modal so focus can be restored on close.
  * @param {Element} el
  */
 function rememberModalTrigger(el) {
   const action = el.getAttribute('data-action');
   const bookId = el.getAttribute('data-book-id');
   const rotId = el.getAttribute('data-rotation-id');
+  const profId = el.getAttribute('data-profile-id');
   if (action && bookId && rotId) {
     lastModalTriggerSelector = `[data-action="${action}"][data-rotation-id="${rotId}"][data-book-id="${bookId}"]`;
   } else if (action && bookId) {
     lastModalTriggerSelector = `[data-action="${action}"][data-book-id="${bookId}"]`;
   } else if (action && rotId) {
     lastModalTriggerSelector = `[data-action="${action}"][data-rotation-id="${rotId}"]`;
+  } else if (action && profId) {
+    lastModalTriggerSelector = `[data-action="${action}"][data-profile-id="${profId}"]`;
   } else if (action) {
     lastModalTriggerSelector = `[data-action="${action}"]`;
   } else {
@@ -149,7 +165,7 @@ function rememberModalTrigger(el) {
 }
 
 /**
- * Restores keyboard focus to the button that opened the modal if it still exists in the DOM.
+ * Restores keyboard focus to the button that opened the sheet/modal if it still exists in the DOM.
  */
 function restoreModalTriggerFocus() {
   if (!lastModalTriggerSelector || !rootEl) return;
@@ -162,7 +178,7 @@ function restoreModalTriggerFocus() {
 }
 
 /**
- * Moves initial focus inside the open modal dialog on first open.
+ * Moves initial focus inside the open modal/sheet dialog on first open.
  */
 function focusActiveDialogControl() {
   if (!rootEl) return;
@@ -180,8 +196,8 @@ function render() {
 
   if (!store.isInitialized()) {
     rootEl.innerHTML = `
-      <div class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
-        <p class="text-sm font-medium text-slate-600 dark:text-slate-400">Loading family library…</p>
+      <div class="min-h-screen flex items-center justify-center bg-linen-50 dark:bg-night-950 p-6">
+        <p class="text-sm font-medium text-stone-ink dark:text-slate-400">Loading family library…</p>
       </div>
     `;
     return;
@@ -200,6 +216,9 @@ function render() {
 
   let contentHtml = '';
   switch (route) {
+    case 'library':
+      contentHtml = renderLibraryView({ state, uiState });
+      break;
     case 'scan':
       contentHtml = renderScanShellView({
         state,
@@ -214,7 +233,14 @@ function render() {
       });
       break;
     case 'profiles':
-      contentHtml = renderProfilesView({ state });
+      contentHtml = renderProfilesView({
+        state,
+        profilesUiState: {
+          isFormOpen: uiState.shellUi.isProfileFormSheetOpen,
+          editingProfileId: uiState.shellUi.editingProfileId,
+          previewBirthDate: uiState.shellUi.previewBirthDate,
+        },
+      });
       break;
     case 'settings':
       contentHtml = renderSettingsView({
@@ -236,6 +262,7 @@ function render() {
     state,
     toast: store.getToast(),
     pwaStatus: pwa.getStatus(),
+    shellUiState: uiState.shellUi,
     contentHtml,
   });
 
@@ -412,12 +439,35 @@ function bindEvents() {
     }
   });
 
-  // Global keyboard handler: Escape closes active modals & Tab traps focus inside open [role="dialog"]
+  // Global keyboard handler: Escape closes active bottom sheets/modals & Tab traps focus inside open [role="dialog"]
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (uiState.shellUi.isProfileFormSheetOpen) {
+        event.preventDefault();
+        uiState.shellUi.isProfileFormSheetOpen = false;
+        uiState.shellUi.editingProfileId = null;
+        uiState.shellUi.previewBirthDate = undefined;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (uiState.shellUi.isProfileSwitcherOpen) {
+        event.preventDefault();
+        uiState.shellUi.isProfileSwitcherOpen = false;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
       if (uiState.inspectedBookId) {
         event.preventDefault();
         uiState.inspectedBookId = null;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (uiState.rotationEditor.isGeneratorOpen) {
+        event.preventDefault();
+        uiState.rotationEditor.isGeneratorOpen = false;
         render();
         restoreModalTriggerFocus();
         return;
@@ -464,11 +514,31 @@ function bindEvents() {
   });
 
   rootEl.addEventListener('click', async (event) => {
-    // Allow clicking outside modal content on [data-backdrop-action] overlay to close cleanly
+    // Allow clicking outside bottom-sheet/modal content on [data-backdrop-action] overlay to close cleanly
     if (event.target instanceof Element && event.target.hasAttribute('data-backdrop-action')) {
       const backdropAction = event.target.getAttribute('data-backdrop-action');
+      if (backdropAction === 'close-profile-switcher') {
+        uiState.shellUi.isProfileSwitcherOpen = false;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (backdropAction === 'close-profile-form-sheet') {
+        uiState.shellUi.isProfileFormSheetOpen = false;
+        uiState.shellUi.editingProfileId = null;
+        uiState.shellUi.previewBirthDate = undefined;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
       if (backdropAction === 'close-inspect-book') {
         uiState.inspectedBookId = null;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (backdropAction === 'close-generate-rotation-sheet') {
+        uiState.rotationEditor.isGeneratorOpen = false;
         render();
         restoreModalTriggerFocus();
         return;
@@ -512,8 +582,53 @@ function bindEvents() {
         rememberModalTrigger(target);
         await pwa.triggerInstall();
         break;
+      case 'open-profile-switcher': {
+        rememberModalTrigger(target);
+        uiState.shellUi.isProfileSwitcherOpen = true;
+        render();
+        focusActiveDialogControl();
+        break;
+      }
+      case 'close-profile-switcher': {
+        uiState.shellUi.isProfileSwitcherOpen = false;
+        render();
+        restoreModalTriggerFocus();
+        break;
+      }
+      case 'open-add-profile-sheet': {
+        rememberModalTrigger(target);
+        uiState.shellUi.isProfileSwitcherOpen = false;
+        uiState.shellUi.isProfileFormSheetOpen = true;
+        uiState.shellUi.editingProfileId = null;
+        uiState.shellUi.previewBirthDate = undefined;
+        render();
+        focusActiveDialogControl();
+        break;
+      }
+      case 'open-edit-profile-sheet': {
+        const profileId = target.getAttribute('data-profile-id');
+        if (profileId) {
+          rememberModalTrigger(target);
+          uiState.shellUi.isProfileSwitcherOpen = false;
+          uiState.shellUi.isProfileFormSheetOpen = true;
+          uiState.shellUi.editingProfileId = profileId;
+          uiState.shellUi.previewBirthDate = undefined;
+          render();
+          focusActiveDialogControl();
+        }
+        break;
+      }
+      case 'close-profile-form-sheet': {
+        uiState.shellUi.isProfileFormSheetOpen = false;
+        uiState.shellUi.editingProfileId = null;
+        uiState.shellUi.previewBirthDate = undefined;
+        render();
+        restoreModalTriggerFocus();
+        break;
+      }
       case 'switch-profile': {
         const profileId = target.getAttribute('data-profile-id');
+        uiState.shellUi.isProfileSwitcherOpen = false;
         if (profileId) await store.setActiveProfile(profileId);
         break;
       }
@@ -542,7 +657,25 @@ function bindEvents() {
       }
       case 'delete-book': {
         const bookId = target.getAttribute('data-book-id');
-        if (bookId) await store.deleteBook(bookId);
+        if (bookId) {
+          if (uiState.inspectedBookId === bookId) {
+            uiState.inspectedBookId = null;
+          }
+          await store.deleteBook(bookId);
+        }
+        break;
+      }
+      case 'open-generate-rotation-sheet': {
+        rememberModalTrigger(target);
+        uiState.rotationEditor.isGeneratorOpen = true;
+        render();
+        focusActiveDialogControl();
+        break;
+      }
+      case 'close-generate-rotation-sheet': {
+        uiState.rotationEditor.isGeneratorOpen = false;
+        render();
+        restoreModalTriggerFocus();
         break;
       }
       case 'toggle-rotation-read': {
@@ -576,7 +709,11 @@ function bindEvents() {
         const bookId = target.getAttribute('data-book-id');
         if (rotationId && bookId) {
           try {
-            await store.replaceRotationBookRandom(rotationId, bookId);
+            const swapped = await store.replaceRotationBookRandom(rotationId, bookId);
+            if (uiState.inspectedBookId === bookId && swapped) {
+              uiState.inspectedBookId = swapped.id;
+              render();
+            }
           } catch (err) {
             store.notify(err instanceof Error ? err.message : 'Could not swap book.', 'error');
           }
@@ -589,6 +726,7 @@ function bindEvents() {
         if (rotationId && bookId) {
           rememberModalTrigger(target);
           uiState.rotationEditor = {
+            ...uiState.rotationEditor,
             modalMode: 'replace',
             rotationId,
             targetBookId: bookId,
@@ -621,6 +759,7 @@ function bindEvents() {
         if (rotationId) {
           rememberModalTrigger(target);
           uiState.rotationEditor = {
+            ...uiState.rotationEditor,
             modalMode: 'add',
             rotationId,
             targetBookId: null,
@@ -1004,6 +1143,23 @@ function bindEvents() {
     } else if (target.id === 'rotation-modal-search-input') {
       uiState.rotationEditor.searchQuery = target.value;
       render();
+    } else if (target.id === 'profile-birth-date') {
+      // Live in-DOM preview of auto-computed age & stage without disrupting native date picker focus
+      const rawDob = target.value;
+      const computedAge = computeAgeFromBirthDate(rawDob);
+      const badgeEl = document.getElementById('profile-computed-age-badge');
+      if (badgeEl) {
+        badgeEl.textContent =
+          computedAge !== null
+            ? formatProfileAgeLabel({ age: computedAge, birthDate: rawDob })
+            : 'Invalid date';
+      }
+      if (computedAge !== null && !uiState.shellUi.editingProfileId) {
+        const stageSelect = document.getElementById('profile-stage');
+        if (stageSelect instanceof HTMLSelectElement) {
+          stageSelect.value = inferReadingStageFromAge(computedAge);
+        }
+      }
     }
   });
 
@@ -1056,7 +1212,6 @@ function bindEvents() {
       const pagesRaw = String(data.get('pageCount') || '').trim();
       const coverUrlRaw = String(data.get('coverUrl') || '').trim();
 
-      // Sync draft so user edits aren't lost if validation fails
       uiState.manualDraft = {
         ...uiState.manualDraft,
         title: String(data.get('title') || ''),
@@ -1102,17 +1257,20 @@ function bindEvents() {
           state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
         uiState.manualDraft = createBlankDraft(activeProfile);
         uiState.lastScanLockBanner = '';
-        router.navigate('home');
+        router.navigate('library');
       } catch (err) {
         uiState.formError = err instanceof Error ? err.message : 'Could not save book.';
         render();
       }
     } else if (form.id === 'add-profile-form') {
       try {
+        const editingId = form.getAttribute('data-editing-profile-id');
         const topicsRaw = String(data.get('favoriteTopics') || '');
-        await store.addProfile({
+        const birthDate = String(data.get('birthDate') || '').trim();
+        const payload = {
           name: String(data.get('name') || ''),
-          age: Number(data.get('age') || 4),
+          birthDate: birthDate || undefined,
+          age: data.get('age') !== null ? Number(data.get('age')) : undefined,
           readingStage: /** @type {import('./types/models.js').ReadingStage} */ (
             data.get('readingStage') || 'picture-book'
           ),
@@ -1123,10 +1281,21 @@ function bindEvents() {
             .split(',')
             .map((t) => t.trim().toLowerCase())
             .filter(Boolean),
-        });
-        form.reset();
+        };
+
+        if (editingId) {
+          await store.updateProfile(editingId, payload);
+        } else {
+          await store.addProfile(payload);
+        }
+
+        uiState.shellUi.isProfileFormSheetOpen = false;
+        uiState.shellUi.editingProfileId = null;
+        uiState.shellUi.previewBirthDate = undefined;
+        render();
+        restoreModalTriggerFocus();
       } catch (err) {
-        store.notify(err instanceof Error ? err.message : 'Could not add profile.', 'error');
+        store.notify(err instanceof Error ? err.message : 'Could not save profile.', 'error');
       }
     } else if (form.id === 'generate-rotation-form' || form.id === 'starter-rotation-form') {
       try {
@@ -1153,7 +1322,9 @@ function bindEvents() {
           varietyMix: varietyChecked,
           seed: String(data.get('seed') || ''),
         });
-        form.reset();
+        uiState.rotationEditor.isGeneratorOpen = false;
+        render();
+        restoreModalTriggerFocus();
       } catch (err) {
         store.notify(err instanceof Error ? err.message : 'Could not generate rotation.', 'error');
       }
@@ -1204,10 +1375,25 @@ async function bootstrap() {
   pwa.subscribe(render);
   router.subscribe((next) => {
     uiState.formError = '';
+    uiState.shellUi.isProfileSwitcherOpen = false;
     if (next.route !== 'scan') {
       scanner.stopCamera();
     } else {
       scanner.initSupport();
+    }
+    if (next.route === 'rotations' && next.params.get('new') === '1') {
+      uiState.rotationEditor.isGeneratorOpen = true;
+    }
+    if (next.route === 'library') {
+      const filterParam = next.params.get('filter');
+      if (
+        filterParam === 'all' ||
+        filterParam === 'hardcover' ||
+        filterParam === 'board-book' ||
+        filterParam === 'paperback'
+      ) {
+        uiState.catalogFilter = filterParam;
+      }
     }
     const modeParam = next.params.get('mode');
     if (modeParam === 'barcode' || modeParam === 'isbn-ocr' || modeParam === 'cover') {

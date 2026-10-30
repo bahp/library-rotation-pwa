@@ -3,7 +3,11 @@
  * with automatic localStorage and in-memory fallbacks for restricted browser contexts.
  */
 
-import { CURRENT_SCHEMA_VERSION } from '../types/models.js';
+import {
+  CURRENT_SCHEMA_VERSION,
+  getEffectiveProfileAge,
+  normalizeBirthDate,
+} from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 
 const DB_NAME = 'library_rotation_db';
@@ -68,16 +72,33 @@ export function createSafeDefaultSettings(overrides = {}) {
 }
 
 /**
- * Migrates older or partial state snapshots forward to CURRENT_SCHEMA_VERSION.
+ * Migrates older or partial state snapshots forward to CURRENT_SCHEMA_VERSION,
+ * automatically refreshing each profile's `age` from `birthDate` when present.
  * @param {import('../types/models.js').AppState} state
+ * @param {string | Date} [referenceDate]
  * @returns {import('../types/models.js').AppState}
  */
-export function migrateState(state) {
-  const activeExists = state.profiles.some((p) => p.id === state.activeProfileId);
+export function migrateState(state, referenceDate = new Date()) {
+  const normalizedProfiles = state.profiles.map((profile) => {
+    const dobCheck = normalizeBirthDate(profile.birthDate, referenceDate);
+    const cleanDob = dobCheck.valid && dobCheck.birthDate ? dobCheck.birthDate : undefined;
+    const effectiveAge = getEffectiveProfileAge(
+      { age: profile.age, birthDate: cleanDob },
+      referenceDate
+    );
+    return {
+      ...profile,
+      ...(cleanDob ? { birthDate: cleanDob } : {}),
+      age: effectiveAge,
+    };
+  });
+
+  const activeExists = normalizedProfiles.some((p) => p.id === state.activeProfileId);
   return {
     ...state,
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    activeProfileId: activeExists ? state.activeProfileId : state.profiles[0].id,
+    activeProfileId: activeExists ? state.activeProfileId : normalizedProfiles[0].id,
+    profiles: normalizedProfiles,
     settings: createSafeDefaultSettings(state.settings || {}),
   };
 }
