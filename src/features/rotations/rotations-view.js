@@ -1,10 +1,10 @@
 /**
- * @fileoverview Space-efficient Book Rotations View & Post-Generation Shelf Editor:
- * - Active & saved rotation shelves for the active reader (selected via top avatar)
- * - Compact `+` button (`open-generate-rotation-sheet`) that opens the Rotation Engine form
- *   as a slide-up bottom sheet (`max-h-[85vh]`) from below
- * - Full post-generation slot operations: Random Swap, Manual Replace picker sheet,
- *   Multi-book / Random Additions, Read check-off, Remove slot, Activate, and Delete
+ * @fileoverview Space-efficient Book Rotations View & Toggleable Shelf Editor:
+ * - Default view shows all rotations for the active reader as clean, flat editorial sections
+ *   with brief metadata (`Active · X/Y read`) and book covers ONLY (zero card-within-card nesting)
+ * - Clicking `Edit` on a rotation expands icon-only per-book controls (`check`, `shuffle`, `replace`, `close`)
+ *   plus shelf addition & deletion controls
+ * - Compact `+` button (`open-generate-rotation-sheet`) opens the Rotation Engine form as a slide-up bottom sheet
  */
 
 import {
@@ -14,6 +14,7 @@ import {
   formatReadingStage,
 } from '../../types/models.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
+import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
 import { renderIcon } from '../../ui/icons.js';
 import { scoreEligibleBooks } from './rotation-engine.js';
 
@@ -26,6 +27,7 @@ import { scoreEligibleBooks } from './rotation-engine.js';
  * @property {string[]} selectedAddBookIds - Multi-select IDs when modalMode === 'add'
  * @property {number} randomAddCount - Count for random batch add inside modal
  * @property {boolean} [isGeneratorOpen] - Whether the Generate Shelf bottom sheet is open
+ * @property {string | null} [editingRotationId] - Rotation ID currently in expanded Edit mode
  */
 
 /**
@@ -82,7 +84,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               name="title"
               type="text"
               placeholder="${escapeHtml(activeProfile.name)}’s Winter Reads"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -95,7 +97,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               name="objective"
               type="text"
               placeholder="e.g., hardcover + winter & nature themes"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -109,7 +111,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               type="text"
               value="${escapeHtml(activeProfile.favoriteTopics.join(', '))}"
               placeholder="animals, nature, bedtime"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -125,7 +127,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 min="1"
                 max="15"
                 value="${activeProfile.defaultRotationSize}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -140,7 +142,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 min="0"
                 max="90"
                 value="${activeProfile.cooldownDays}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
@@ -153,7 +155,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               <select
                 id="rot-format"
                 name="requiredFormat"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="any" selected>Any Binding</option>
                 <option value="hardcover">Hardcover Preferred</option>
@@ -171,7 +173,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 name="seed"
                 type="text"
                 placeholder="e.g., dec-holiday-01"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
@@ -252,65 +254,69 @@ function renderRotationPickerModal({ state, editorState }) {
 
   const candidateRowsHtml =
     filteredCandidates.length > 0
-      ? filteredCandidates
-          .map(({ book, inCooldown }) => {
-            const checked = selectedSet.has(book.id);
-            return `
-              <div class="rounded-xl bg-linen-50/90 dark:bg-night-950/60 border border-linen-200 dark:border-night-700 p-2.5 flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2.5 min-w-0">
-                  ${renderBookCover(book, 'xs')}
-                  <div class="min-w-0">
-                    <h4 class="font-display text-sm font-semibold text-forest-900 dark:text-white truncate">
-                      ${escapeHtml(book.title)}
-                    </h4>
-                    <p class="text-xs text-stone-ink dark:text-slate-400 truncate">
-                      ${escapeHtml(book.authors.join(', '))}
-                    </p>
-                    <p class="text-[11px] text-stone-ink dark:text-slate-400">
-                      Ages ${book.ageMin}–${book.ageMax} · ${escapeHtml(formatBookBinding(book.format))} ·
-                      <span class="${
-                        inCooldown
-                          ? 'text-amber-700 dark:text-amber-400'
-                          : 'text-forest-700 dark:text-[#5ED3DA]'
-                      }">${inCooldown ? 'Recent' : 'Fresh'}</span>
-                    </p>
+      ? `
+        <div class="divide-y divide-linen-200/80 dark:divide-night-800">
+          ${filteredCandidates
+            .map(({ book, inCooldown }) => {
+              const checked = selectedSet.has(book.id);
+              return `
+                <div class="py-2.5 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    ${renderBookCover(book, 'xs')}
+                    <div class="min-w-0">
+                      <h4 class="font-display text-sm font-semibold text-forest-900 dark:text-white truncate">
+                        ${escapeHtml(book.title)}
+                      </h4>
+                      <p class="text-xs text-stone-ink dark:text-slate-400 truncate">
+                        ${escapeHtml(book.authors.join(', '))}
+                      </p>
+                      <p class="text-[11px] text-stone-ink dark:text-slate-400">
+                        Ages ${book.ageMin}–${book.ageMax} · ${escapeHtml(formatBookBinding(book.format))} ·
+                        <span class="${
+                          inCooldown
+                            ? 'text-amber-700 dark:text-amber-400'
+                            : 'text-forest-700 dark:text-[#5ED3DA]'
+                        }">${inCooldown ? 'Recent' : 'Fresh'}</span>
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                ${
-                  isReplace
-                    ? `
-                      <button
-                        type="button"
-                        data-action="confirm-manual-replace"
-                        data-book-id="${escapeHtml(book.id)}"
-                        class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
-                      >
-                        Select
-                      </button>
-                    `
-                    : `
-                      <button
-                        type="button"
-                        data-action="toggle-add-book-selection"
-                        data-book-id="${escapeHtml(book.id)}"
-                        aria-pressed="${checked ? 'true' : 'false'}"
-                        class="min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 ${
-                          checked
-                            ? 'bg-forest-700 text-white'
-                            : 'bg-ivory dark:bg-night-900 text-forest-900 dark:text-slate-200 border border-linen-200 dark:border-night-700'
-                        }"
-                      >
-                        ${checked ? `${renderIcon('check', 'w-3.5 h-3.5')} Selected` : 'Select'}
-                      </button>
-                    `
-                }
-              </div>
-            `;
-          })
-          .join('')
+                  ${
+                    isReplace
+                      ? `
+                        <button
+                          type="button"
+                          data-action="confirm-manual-replace"
+                          data-book-id="${escapeHtml(book.id)}"
+                          class="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+                        >
+                          Select
+                        </button>
+                      `
+                      : `
+                        <button
+                          type="button"
+                          data-action="toggle-add-book-selection"
+                          data-book-id="${escapeHtml(book.id)}"
+                          aria-pressed="${checked ? 'true' : 'false'}"
+                          class="min-h-[42px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 ${
+                            checked
+                              ? 'bg-forest-700 text-white'
+                              : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
+                          }"
+                        >
+                          ${checked ? `${renderIcon('check', 'w-3.5 h-3.5')} Selected` : 'Select'}
+                        </button>
+                      `
+                  }
+                </div>
+              `;
+            })
+            .join('')}
+        </div>
+      `
       : `
-        <div class="rounded-xl border border-linen-200 dark:border-night-700 p-6 text-center">
+        <div class="py-8 text-center">
           <p class="text-sm font-medium text-forest-900 dark:text-slate-300">
             ${
               rankedCandidates.length === 0
@@ -372,7 +378,7 @@ function renderRotationPickerModal({ state, editorState }) {
               aria-label="Filter available off-shelf books"
               value="${escapeHtml(editorState.searchQuery)}"
               placeholder="Filter available books by title, author, or topic…"
-              class="w-full min-h-[42px] pl-10 pr-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full min-h-[44px] pl-10 pr-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -389,7 +395,7 @@ function renderRotationPickerModal({ state, editorState }) {
                       data-action="add-random-books"
                       data-rotation-id="${escapeHtml(rotation.id)}"
                       data-count="1"
-                      class="min-h-[36px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
+                      class="min-h-[38px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
                     >
                       ${renderIcon('shuffle', 'w-3.5 h-3.5')}
                       +1 Random
@@ -402,7 +408,7 @@ function renderRotationPickerModal({ state, editorState }) {
                             data-action="add-random-books"
                             data-rotation-id="${escapeHtml(rotation.id)}"
                             data-count="2"
-                            class="min-h-[36px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
+                            class="min-h-[38px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1.5 whitespace-nowrap"
                           >
                             ${renderIcon('shuffle', 'w-3.5 h-3.5')}
                             +2 Random
@@ -417,7 +423,7 @@ function renderRotationPickerModal({ state, editorState }) {
           }
         </div>
 
-        <div class="p-4 overflow-y-auto space-y-2 flex-1">
+        <div class="px-5 py-2 overflow-y-auto flex-1">
           ${candidateRowsHtml}
         </div>
 
@@ -455,15 +461,19 @@ function renderRotationPickerModal({ state, editorState }) {
 }
 
 /**
- * Renders a single rotation card with compact book slots and post-generation slot editing controls.
+ * Renders a single rotation section:
+ * - Default mode (`!isEditing`): Brief summary + clean book covers ONLY (zero nested boxes)
+ * - Edit mode (`isEditing`): Expands icon-only controls (`check`, `shuffle`, `replace`, `close`)
+ *   under each book cover + shelf addition & deletion bar
  * @param {{
  *   rot: import('../../types/models.js').RotationList,
  *   bookMap: Map<string, import('../../types/models.js').Book>,
- *   totalCatalogCount: number
+ *   totalCatalogCount: number,
+ *   isEditing: boolean
  * }} params
  * @returns {string}
  */
-function renderRotationCard({ rot, bookMap, totalCatalogCount }) {
+function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
   const books = rot.bookIds
     .map((id) => bookMap.get(id))
     .filter(/** @returns {b is import('../../types/models.js').Book} */ (b) => Boolean(b));
@@ -471,39 +481,192 @@ function renderRotationCard({ rot, bookMap, totalCatalogCount }) {
   const isActive = rot.status === 'active';
   const hasOffShelfBooks = totalCatalogCount > books.length;
 
+  const coversAreaHtml = isEditing
+    ? `
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3.5 gap-y-4 pt-1">
+        ${books
+          .map((book) => {
+            const isRead = completedSet.has(book.id);
+            const canRemove = books.length > 1;
+            return `
+              <div class="flex flex-col min-w-0">
+                <button
+                  type="button"
+                  data-action="inspect-book"
+                  data-book-id="${escapeHtml(book.id)}"
+                  aria-label="Inspect ${escapeHtml(book.title)}"
+                  class="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
+                >
+                  ${renderBookCover(book, 'grid')}
+                </button>
+
+                <p class="text-[11px] font-semibold text-forest-900 dark:text-white truncate mt-1.5 ${
+                  isRead ? 'line-through opacity-70' : ''
+                }">
+                  ${escapeHtml(book.title)}
+                </p>
+
+                <!-- 4-Icon Slot Control Strip: Read, Random Swap, Manual Replace, Remove (x) -->
+                <div class="mt-1.5 grid grid-cols-4 gap-1">
+                  <button
+                    type="button"
+                    data-action="toggle-rotation-read"
+                    data-rotation-id="${escapeHtml(rot.id)}"
+                    data-book-id="${escapeHtml(book.id)}"
+                    aria-pressed="${isRead ? 'true' : 'false'}"
+                    aria-label="${isRead ? `Mark ${escapeHtml(book.title)} unread` : `Mark ${escapeHtml(book.title)} read`}"
+                    title="${isRead ? 'Read' : 'Mark Read'}"
+                    class="min-h-[40px] rounded-xl transition-colors flex items-center justify-center ${
+                      isRead
+                        ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                        : 'bg-ivory hover:bg-linen-100 text-stone-ink dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
+                    }"
+                  >
+                    ${renderIcon('check', 'w-4 h-4')}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="replace-book-random"
+                    data-rotation-id="${escapeHtml(rot.id)}"
+                    data-book-id="${escapeHtml(book.id)}"
+                    ${!hasOffShelfBooks ? 'disabled title="No off-shelf books available"' : 'title="Swap with random eligible book"'}
+                    aria-label="Swap ${escapeHtml(book.title)} randomly"
+                    class="min-h-[40px] rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-40 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
+                  >
+                    ${renderIcon('shuffle', 'w-4 h-4')}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="open-manual-replace-modal"
+                    data-rotation-id="${escapeHtml(rot.id)}"
+                    data-book-id="${escapeHtml(book.id)}"
+                    ${!hasOffShelfBooks ? 'disabled title="No off-shelf books available"' : 'title="Replace manually from catalog"'}
+                    aria-label="Replace ${escapeHtml(book.title)} manually"
+                    class="min-h-[40px] rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-40 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
+                  >
+                    ${renderIcon('replace', 'w-4 h-4')}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="remove-rotation-book"
+                    data-rotation-id="${escapeHtml(rot.id)}"
+                    data-book-id="${escapeHtml(book.id)}"
+                    ${!canRemove ? 'disabled title="At least one book required"' : `title="Remove from shelf"`}
+                    aria-label="Remove ${escapeHtml(book.title)} from shelf"
+                    class="min-h-[40px] rounded-xl bg-ivory hover:bg-rose-50 disabled:opacity-35 dark:bg-night-900 dark:hover:bg-rose-950/40 border border-linen-200 dark:border-night-700 text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-colors flex items-center justify-center"
+                  >
+                    ${renderIcon('close', 'w-4 h-4')}
+                  </button>
+                </div>
+              </div>
+            `;
+          })
+          .join('')}
+      </div>
+
+      <!-- Unboxed Edit Toolbar: Add Books + Delete Shelf -->
+      <div class="pt-2 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            data-action="add-random-books"
+            data-rotation-id="${escapeHtml(rot.id)}"
+            data-count="1"
+            ${!hasOffShelfBooks ? 'disabled' : ''}
+            class="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-45 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+          >
+            ${renderIcon('shuffle', 'w-3.5 h-3.5')}
+            +1 Random
+          </button>
+          <button
+            type="button"
+            data-action="open-add-books-modal"
+            data-rotation-id="${escapeHtml(rot.id)}"
+            ${!hasOffShelfBooks ? 'disabled' : ''}
+            class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-45 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+          >
+            ${renderIcon('plus', 'w-3.5 h-3.5')}
+            Add Books
+          </button>
+        </div>
+
+        <button
+          type="button"
+          data-action="delete-rotation"
+          data-rotation-id="${escapeHtml(rot.id)}"
+          aria-label="Delete rotation ${escapeHtml(rot.title)}"
+          class="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+        >
+          ${renderIcon('trash', 'w-3.5 h-3.5')}
+          Delete Shelf
+        </button>
+      </div>
+    `
+    : `
+      <!-- Compact Cover-Only Strip -->
+      <div class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-0.5">
+        ${books
+          .map((book) => {
+            const isRead = completedSet.has(book.id);
+            return `
+              <div class="relative min-w-0">
+                <button
+                  type="button"
+                  data-action="inspect-book"
+                  data-book-id="${escapeHtml(book.id)}"
+                  aria-label="Inspect ${escapeHtml(book.title)}"
+                  class="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
+                >
+                  ${renderBookCover(book, 'grid')}
+                </button>
+                ${
+                  isRead
+                    ? `
+                      <span
+                        class="pointer-events-none absolute bottom-1.5 left-1.5 z-20 w-5 h-5 rounded-full bg-forest-900 border border-ivory text-white dark:bg-[#5ED3DA] dark:border-night-950 dark:text-night-950 flex items-center justify-center shadow-xs"
+                        aria-hidden="true"
+                      >
+                        ${renderIcon('check', 'w-3 h-3')}
+                      </span>
+                    `
+                    : ''
+                }
+              </div>
+            `;
+          })
+          .join('')}
+      </div>
+    `;
+
   return `
-    <article class="rounded-2xl bg-ivory dark:bg-night-900 border ${
-      isActive
-        ? 'border-forest-700/45 dark:border-[#5ED3DA]/40'
-        : 'border-linen-200 dark:border-night-800'
-    } p-4 sm:p-5 space-y-3.5">
-      <div class="flex items-start justify-between gap-3 pb-3 border-b border-linen-200/80 dark:border-night-800">
+    <section class="py-4 first:pt-1 border-b border-linen-200/90 dark:border-night-800 last:border-b-0 space-y-3">
+      <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400">
             <span class="${
               isActive
                 ? 'font-bold text-espresso-800 dark:text-[#5ED3DA]'
                 : 'font-medium'
-            }">${isActive ? 'Active Rotation' : 'Saved Rotation'}</span>
+            }">${isActive ? 'Active' : 'Saved'}</span>
             <span aria-hidden="true">·</span>
             <span class="font-mono-tabular">${completedSet.size}/${books.length} read</span>
             <span aria-hidden="true">·</span>
-            <span class="font-mono-tabular">${rot.rules.cooldownDays}d cooldown</span>
-            ${
-              rot.rules.seed
-                ? `<span aria-hidden="true">·</span><span class="font-mono-tabular">Seed: ${escapeHtml(
-                    rot.rules.seed
-                  )}</span>`
-                : ''
-            }
+            <span class="font-mono-tabular">${books.length} ${books.length === 1 ? 'book' : 'books'}</span>
           </div>
 
-          <h2 class="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white mt-0.5 leading-snug">
+          <h2 class="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug truncate mt-0.5">
             ${escapeHtml(rot.title)}
           </h2>
-          <p class="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5">
-            ${escapeHtml(rot.rules.objective)}
-          </p>
+          ${
+            rot.rules.objective
+              ? `<p class="text-xs text-stone-ink dark:text-slate-400 truncate">${escapeHtml(
+                  rot.rules.objective
+                )}</p>`
+              : ''
+          }
         </div>
 
         <div class="flex items-center gap-1.5 shrink-0">
@@ -514,7 +677,7 @@ function renderRotationCard({ rot, bookMap, totalCatalogCount }) {
                   type="button"
                   data-action="activate-rotation"
                   data-rotation-id="${escapeHtml(rot.id)}"
-                  class="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors whitespace-nowrap"
+                  class="min-h-[44px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors whitespace-nowrap"
                 >
                   Activate
                 </button>
@@ -523,163 +686,64 @@ function renderRotationCard({ rot, bookMap, totalCatalogCount }) {
           }
           <button
             type="button"
-            data-action="delete-rotation"
+            data-action="toggle-edit-rotation"
             data-rotation-id="${escapeHtml(rot.id)}"
-            class="min-h-[40px] min-w-[40px] p-2 rounded-xl text-stone-ink hover:text-rose-700 hover:bg-rose-50 dark:text-slate-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 transition-colors flex items-center justify-center"
-            aria-label="Delete rotation ${escapeHtml(rot.title)}"
+            aria-pressed="${isEditing ? 'true' : 'false'}"
+            aria-label="${isEditing ? `Finish editing ${escapeHtml(rot.title)}` : `Edit ${escapeHtml(rot.title)}`}"
+            class="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+              isEditing
+                ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                : 'bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200'
+            }"
           >
-            ${renderIcon('trash', 'w-4 h-4')}
+            ${renderIcon(isEditing ? 'check' : 'edit', 'w-3.5 h-3.5')}
+            <span>${isEditing ? 'Done' : 'Edit'}</span>
           </button>
         </div>
       </div>
 
-      <!-- Compact Book Slots -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-        ${books
-          .map((book) => {
-            const isRead = completedSet.has(book.id);
-            return `
-              <div class="rounded-xl bg-linen-50/75 dark:bg-night-950/55 border border-linen-200/80 dark:border-night-800 p-2.5 flex items-center justify-between gap-2.5">
-                <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                  ${renderBookCover(book, 'xs')}
-                  <div class="min-w-0 flex-1">
-                    <h3 class="font-sans text-xs sm:text-sm font-bold text-forest-900 dark:text-white truncate ${
-                      isRead ? 'line-through opacity-70' : ''
-                    }">
-                      ${escapeHtml(book.title)}
-                    </h3>
-                    <p class="text-[11px] text-stone-ink dark:text-slate-400 truncate">
-                      ${escapeHtml(book.authors[0] || '')} · Ages ${book.ageMin}–${book.ageMax}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    data-action="toggle-rotation-read"
-                    data-rotation-id="${escapeHtml(rot.id)}"
-                    data-book-id="${escapeHtml(book.id)}"
-                    aria-pressed="${isRead ? 'true' : 'false'}"
-                    aria-label="${isRead ? 'Mark unread' : 'Mark read'}"
-                    title="${isRead ? 'Read' : 'Mark Read'}"
-                    class="min-h-[38px] min-w-[38px] px-2 rounded-xl text-xs font-semibold transition-colors inline-flex items-center justify-center ${
-                      isRead
-                        ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                        : 'bg-ivory dark:bg-night-900 text-stone-ink dark:text-slate-300 border border-linen-200 dark:border-night-700'
-                    }"
-                  >
-                    ${renderIcon('check', 'w-3.5 h-3.5')}
-                  </button>
-
-                  <button
-                    type="button"
-                    data-action="replace-book-random"
-                    data-rotation-id="${escapeHtml(rot.id)}"
-                    data-book-id="${escapeHtml(book.id)}"
-                    ${!hasOffShelfBooks ? 'disabled title="No off-shelf books available"' : 'title="Swap with random eligible book"'}
-                    aria-label="Swap ${escapeHtml(book.title)} randomly"
-                    class="min-h-[38px] min-w-[38px] px-2 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-colors inline-flex items-center justify-center"
-                  >
-                    ${renderIcon('shuffle', 'w-3.5 h-3.5')}
-                  </button>
-
-                  <button
-                    type="button"
-                    data-action="open-manual-replace-modal"
-                    data-rotation-id="${escapeHtml(rot.id)}"
-                    data-book-id="${escapeHtml(book.id)}"
-                    ${!hasOffShelfBooks ? 'disabled title="No off-shelf books available"' : ''}
-                    class="min-h-[38px] px-2.5 py-1 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-[11px] font-semibold text-forest-900 dark:text-slate-200 transition-colors whitespace-nowrap"
-                  >
-                    Replace
-                  </button>
-
-                  ${
-                    books.length > 1
-                      ? `
-                        <button
-                          type="button"
-                          data-action="remove-rotation-book"
-                          data-rotation-id="${escapeHtml(rot.id)}"
-                          data-book-id="${escapeHtml(book.id)}"
-                          class="min-h-[38px] min-w-[38px] p-1.5 rounded-xl text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 hover:bg-linen-100 dark:hover:bg-night-800 transition-colors flex items-center justify-center"
-                          aria-label="Remove ${escapeHtml(book.title)} from shelf"
-                        >
-                          ${renderIcon('close', 'w-3.5 h-3.5')}
-                        </button>
-                      `
-                      : ''
-                  }
-                </div>
-              </div>
-            `;
-          })
-          .join('')}
-      </div>
-
-      <!-- Compact Shelf Addition Footer -->
-      <div class="pt-2.5 border-t border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
-        <span class="text-[11px] text-stone-ink dark:text-slate-400">
-          Add to shelf
-        </span>
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            data-action="add-random-books"
-            data-rotation-id="${escapeHtml(rot.id)}"
-            data-count="1"
-            ${!hasOffShelfBooks ? 'disabled' : ''}
-            class="min-h-[38px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-45 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-colors inline-flex items-center gap-1 whitespace-nowrap"
-          >
-            ${renderIcon('shuffle', 'w-3.5 h-3.5')}
-            +1 Random
-          </button>
-          <button
-            type="button"
-            data-action="open-add-books-modal"
-            data-rotation-id="${escapeHtml(rot.id)}"
-            ${!hasOffShelfBooks ? 'disabled' : ''}
-            class="min-h-[38px] px-3 py-1 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-45 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1 whitespace-nowrap"
-          >
-            ${renderIcon('plus', 'w-3.5 h-3.5')}
-            Add Books
-          </button>
-        </div>
-      </div>
-    </article>
+      ${coversAreaHtml}
+    </section>
   `;
 }
 
 /**
- * Renders the Book Rotations view with compact `+` generator sheet trigger.
+ * Renders the Book Rotations view with compact cover-only rows, per-rotation Edit toggle,
+ * and `+` generator bottom sheet trigger.
  * @param {{
  *   state: import('../../types/models.js').AppState,
- *   editorState: RotationEditorUiState
+ *   editorState: RotationEditorUiState,
+ *   inspectedBookId?: string | null
  * }} params
  * @returns {string}
  */
-export function renderRotationsView({ state, editorState }) {
+export function renderRotationsView({ state, editorState, inspectedBookId = null }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
 
   const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
+  const activeRotation = profileRotations.find((r) => r.status === 'active') || null;
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
   const ageLabel = formatProfileAgeLabel(activeProfile);
 
   const rotationsListHtml =
     profileRotations.length > 0
-      ? profileRotations
-          .map((rot) =>
-            renderRotationCard({
-              rot,
-              bookMap,
-              totalCatalogCount: state.books.length,
-            })
-          )
-          .join('')
+      ? `
+        <div>
+          ${profileRotations
+            .map((rot) =>
+              renderRotationSection({
+                rot,
+                bookMap,
+                totalCatalogCount: state.books.length,
+                isEditing: editorState.editingRotationId === rot.id,
+              })
+            )
+            .join('')}
+        </div>
+      `
       : `
-        <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-7 text-center">
+        <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-6 text-center">
           <p class="text-sm font-semibold text-forest-900 dark:text-white">
             No rotations saved for ${escapeHtml(activeProfile.name)} yet
           </p>
@@ -699,9 +763,14 @@ export function renderRotationsView({ state, editorState }) {
         </div>
       `;
 
+  const inspectedBook = inspectedBookId ? bookMap.get(inspectedBookId) : null;
+  const canSwapInActiveRotation = activeRotation
+    ? state.books.length > activeRotation.bookIds.length
+    : false;
+
   return `
-    <div class="space-y-4">
-      <div class="flex items-center justify-between gap-3">
+    <div class="space-y-3">
+      <div class="flex items-center justify-between gap-3 pb-2 border-b border-linen-200/90 dark:border-night-800">
         <div>
           <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
             ${escapeHtml(activeProfile.name)} · ${escapeHtml(ageLabel)}
@@ -723,15 +792,18 @@ export function renderRotationsView({ state, editorState }) {
         </button>
       </div>
 
-      <div class="space-y-4">
-        ${rotationsListHtml}
-      </div>
+      ${rotationsListHtml}
 
       ${renderGenerateRotationSheet({
         activeProfile,
         isOpen: Boolean(editorState.isGeneratorOpen),
       })}
       ${renderRotationPickerModal({ state, editorState })}
+      ${renderBookInspectorModal({
+        book: inspectedBook,
+        activeRotation,
+        canSwapInActiveRotation,
+      })}
     </div>
   `;
 }

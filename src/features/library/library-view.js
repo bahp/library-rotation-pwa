@@ -181,7 +181,7 @@ export function renderLibraryView({ state, uiState }) {
             value="${escapeHtml(uiState.searchQuery)}"
             placeholder="Search title, author, ISBN, or topic…"
             aria-label="Filter family catalog"
-            class="w-full min-h-[44px] pl-9 pr-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 focus:outline-2 focus:outline-forest-700"
+            class="w-full min-h-[44px] pl-9 pr-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 focus:outline-2 focus:outline-forest-700"
           />
         </div>
         <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5">

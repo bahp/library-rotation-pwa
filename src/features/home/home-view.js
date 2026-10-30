@@ -62,7 +62,7 @@ export function renderHomeView({ state, uiState }) {
             </p>
             <p class="text-[11px] text-stone-ink dark:text-slate-400 font-mono-tabular whitespace-nowrap">
               ${rotationBooks.length} ${rotationBooks.length === 1 ? 'Book' : 'Books'} ·
-              <a href="#/rotations" class="font-sans font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline">Edit</a>
+              <a href="#/rotations?edit=${encodeURIComponent(activeRotation.id)}" class="font-sans font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline">Edit</a>
             </p>
           </div>
         </div>

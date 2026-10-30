@@ -95,6 +95,7 @@ const uiState = {
     selectedAddBookIds: [],
     randomAddCount: 1,
     isGeneratorOpen: false,
+    editingRotationId: null,
   },
   settingsUi: {
     testingAdapter: false,
@@ -230,6 +231,7 @@ function render() {
       contentHtml = renderRotationsView({
         state,
         editorState: uiState.rotationEditor,
+        inspectedBookId: uiState.inspectedBookId,
       });
       break;
     case 'profiles':
@@ -686,6 +688,15 @@ function bindEvents() {
         }
         break;
       }
+      case 'toggle-edit-rotation': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        if (rotationId) {
+          uiState.rotationEditor.editingRotationId =
+            uiState.rotationEditor.editingRotationId === rotationId ? null : rotationId;
+          render();
+        }
+        break;
+      }
       case 'activate-rotation': {
         const rotationId = target.getAttribute('data-rotation-id');
         if (rotationId) await store.setActiveRotation(rotationId);
@@ -693,7 +704,12 @@ function bindEvents() {
       }
       case 'delete-rotation': {
         const rotationId = target.getAttribute('data-rotation-id');
-        if (rotationId) await store.deleteRotation(rotationId);
+        if (rotationId) {
+          if (uiState.rotationEditor.editingRotationId === rotationId) {
+            uiState.rotationEditor.editingRotationId = null;
+          }
+          await store.deleteRotation(rotationId);
+        }
         break;
       }
       case 'remove-rotation-book': {
@@ -1381,8 +1397,12 @@ async function bootstrap() {
     } else {
       scanner.initSupport();
     }
-    if (next.route === 'rotations' && next.params.get('new') === '1') {
-      uiState.rotationEditor.isGeneratorOpen = true;
+    if (next.route === 'rotations') {
+      if (next.params.get('new') === '1') {
+        uiState.rotationEditor.isGeneratorOpen = true;
+      }
+      const editRotId = next.params.get('edit');
+      uiState.rotationEditor.editingRotationId = editRotId || null;
     }
     if (next.route === 'library') {
       const filterParam = next.params.get('filter');
