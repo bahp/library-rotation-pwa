@@ -146,6 +146,7 @@ function renderRotationPickerModal({ state, editorState }) {
 
   return `
     <div
+      data-backdrop-action="close-rotation-modal"
       class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
@@ -189,6 +190,7 @@ function renderRotationPickerModal({ state, editorState }) {
             <input
               id="rotation-modal-search-input"
               type="search"
+              aria-label="Filter available off-shelf books"
               value="${escapeHtml(editorState.searchQuery)}"
               placeholder="Filter available books by title, author, or topic…"
               class="w-full min-h-[42px] pl-10 pr-3.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm text-slate-900 dark:text-white focus:outline-2 focus:outline-teal-600"
@@ -509,7 +511,8 @@ export function renderRotationsView({ state, editorState }) {
           type="button"
           data-action="switch-profile"
           data-profile-id="${escapeHtml(p.id)}"
-          class="min-h-[44px] px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          aria-pressed="${selected ? 'true' : 'false'}"
+          class="min-h-[44px] px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-teal-600 ${
             selected
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'

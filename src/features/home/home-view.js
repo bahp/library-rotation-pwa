@@ -51,7 +51,8 @@ export function renderHomeView({ state, uiState }) {
           type="button"
           data-action="switch-profile"
           data-profile-id="${escapeHtml(profile.id)}"
-          class="min-h-[44px] px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          aria-pressed="${selected ? 'true' : 'false'}"
+          class="min-h-[44px] px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-teal-600 ${
             selected
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -305,7 +306,8 @@ export function renderHomeView({ state, uiState }) {
           type="button"
           data-action="set-catalog-filter"
           data-filter="${tab.id}"
-          class="min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          aria-pressed="${active ? 'true' : 'false'}"
+          class="min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-teal-600 ${
             active
               ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
               : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
@@ -405,7 +407,10 @@ export function renderHomeView({ state, uiState }) {
   const inspectedBook = uiState.inspectedBookId ? bookMap.get(uiState.inspectedBookId) : null;
   const inspectedModalHtml = inspectedBook
     ? `
-      <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+      <div
+        data-backdrop-action="close-inspect-book"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+      >
         <div role="dialog" aria-modal="true" aria-labelledby="inspect-book-title" class="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 sm:p-6 shadow-xl">
           <div class="flex items-start justify-between gap-4">
             <div class="flex items-start gap-4 min-w-0">

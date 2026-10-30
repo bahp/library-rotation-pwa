@@ -127,7 +127,10 @@ export function renderAppShell({ activeRoute, state, toast, pwaStatus, contentHt
 
   const iosModalHtml = pwaStatus.showIosInstructions
     ? `
-      <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+      <div
+        data-backdrop-action="close-ios-guide"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+      >
         <div role="dialog" aria-modal="true" aria-labelledby="ios-install-title" class="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-xl">
           <h2 id="ios-install-title" class="font-display text-lg font-semibold text-slate-900 dark:text-white">
             Install Library Rotation on iOS
@@ -151,6 +154,13 @@ export function renderAppShell({ activeRoute, state, toast, pwaStatus, contentHt
 
   return `
     <div class="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+      <a
+        href="#main-content"
+        data-action="skip-to-main"
+        class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:rounded-xl focus:bg-teal-700 focus:text-white focus:text-sm focus:font-semibold focus:shadow-lg focus:outline-2 focus:outline-offset-2 focus:outline-teal-500"
+      >
+        Skip to main content
+      </a>
       ${offlineBannerHtml}
 
       <!-- Desktop 3-Zone Top Bar + Compact Mobile Non-Sticky Header -->
@@ -188,7 +198,7 @@ export function renderAppShell({ activeRoute, state, toast, pwaStatus, contentHt
       </header>
 
       <!-- Main Workspace -->
-      <main id="main-content" class="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8 mb-safe-nav">
+      <main id="main-content" tabindex="-1" class="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8 mb-safe-nav focus:outline-none">
         ${contentHtml}
       </main>
 

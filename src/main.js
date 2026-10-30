@@ -121,7 +121,59 @@ const PRESERVED_INPUT_IDS = new Set([
   'provider-author-input',
   'isbn-lookup-input',
   'rotation-modal-search-input',
+  'inspector-new-tag-input',
 ]);
+
+/** @type {string | null} */
+let lastModalTriggerSelector = null;
+
+/**
+ * Captures a selector for the button that opened a modal so focus can be restored on close.
+ * @param {Element} el
+ */
+function rememberModalTrigger(el) {
+  const action = el.getAttribute('data-action');
+  const bookId = el.getAttribute('data-book-id');
+  const rotId = el.getAttribute('data-rotation-id');
+  if (action && bookId && rotId) {
+    lastModalTriggerSelector = `[data-action="${action}"][data-rotation-id="${rotId}"][data-book-id="${bookId}"]`;
+  } else if (action && bookId) {
+    lastModalTriggerSelector = `[data-action="${action}"][data-book-id="${bookId}"]`;
+  } else if (action && rotId) {
+    lastModalTriggerSelector = `[data-action="${action}"][data-rotation-id="${rotId}"]`;
+  } else if (action) {
+    lastModalTriggerSelector = `[data-action="${action}"]`;
+  } else {
+    lastModalTriggerSelector = null;
+  }
+}
+
+/**
+ * Restores keyboard focus to the button that opened the modal if it still exists in the DOM.
+ */
+function restoreModalTriggerFocus() {
+  if (!lastModalTriggerSelector || !rootEl) return;
+  const selector = lastModalTriggerSelector;
+  lastModalTriggerSelector = null;
+  const trigger = rootEl.querySelector(selector);
+  if (trigger instanceof HTMLElement) {
+    trigger.focus();
+  }
+}
+
+/**
+ * Moves initial focus inside the open modal dialog on first open.
+ */
+function focusActiveDialogControl() {
+  if (!rootEl) return;
+  const dialog = rootEl.querySelector('[role="dialog"]');
+  if (!(dialog instanceof HTMLElement)) return;
+  const preferred =
+    dialog.querySelector('input:not([disabled]), button:not([disabled])') || dialog;
+  if (preferred instanceof HTMLElement) {
+    preferred.focus();
+  }
+}
 
 function render() {
   if (!rootEl) return;
@@ -360,19 +412,104 @@ function bindEvents() {
     }
   });
 
+  // Global keyboard handler: Escape closes active modals & Tab traps focus inside open [role="dialog"]
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      if (uiState.inspectedBookId) {
+        event.preventDefault();
+        uiState.inspectedBookId = null;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (uiState.rotationEditor.modalMode) {
+        event.preventDefault();
+        uiState.rotationEditor.modalMode = null;
+        uiState.rotationEditor.selectedAddBookIds = [];
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (pwa.getStatus().showIosInstructions) {
+        event.preventDefault();
+        pwa.closeIosGuide();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (store.getToast()) {
+        store.dismissToast();
+      }
+      return;
+    }
+
+    if (event.key === 'Tab' && rootEl) {
+      const dialog = rootEl.querySelector('[role="dialog"]');
+      if (!(dialog instanceof HTMLElement)) return;
+      const focusable = Array.from(
+        dialog.querySelectorAll(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter((el) => el instanceof HTMLElement);
+      if (focusable.length === 0) return;
+      const first = /** @type {HTMLElement} */ (focusable[0]);
+      const last = /** @type {HTMLElement} */ (focusable[focusable.length - 1]);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
   rootEl.addEventListener('click', async (event) => {
+    // Allow clicking outside modal content on [data-backdrop-action] overlay to close cleanly
+    if (event.target instanceof Element && event.target.hasAttribute('data-backdrop-action')) {
+      const backdropAction = event.target.getAttribute('data-backdrop-action');
+      if (backdropAction === 'close-inspect-book') {
+        uiState.inspectedBookId = null;
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (backdropAction === 'close-rotation-modal') {
+        uiState.rotationEditor.modalMode = null;
+        uiState.rotationEditor.selectedAddBookIds = [];
+        render();
+        restoreModalTriggerFocus();
+        return;
+      }
+      if (backdropAction === 'close-ios-guide') {
+        pwa.closeIosGuide();
+        restoreModalTriggerFocus();
+        return;
+      }
+    }
+
     const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
     if (!target) return;
 
     const action = target.getAttribute('data-action');
     switch (action) {
+      case 'skip-to-main': {
+        event.preventDefault();
+        const mainEl = document.getElementById('main-content');
+        if (mainEl instanceof HTMLElement) {
+          mainEl.focus();
+          mainEl.scrollIntoView({ block: 'start' });
+        }
+        break;
+      }
       case 'dismiss-toast':
         store.dismissToast();
         break;
       case 'close-ios-guide':
         pwa.closeIosGuide();
+        restoreModalTriggerFocus();
         break;
       case 'install-pwa':
+        rememberModalTrigger(target);
         await pwa.triggerInstall();
         break;
       case 'switch-profile': {
@@ -391,13 +528,16 @@ function bindEvents() {
         break;
       }
       case 'inspect-book': {
+        rememberModalTrigger(target);
         uiState.inspectedBookId = target.getAttribute('data-book-id');
         render();
+        focusActiveDialogControl();
         break;
       }
       case 'close-inspect-book': {
         uiState.inspectedBookId = null;
         render();
+        restoreModalTriggerFocus();
         break;
       }
       case 'delete-book': {
@@ -447,6 +587,7 @@ function bindEvents() {
         const rotationId = target.getAttribute('data-rotation-id');
         const bookId = target.getAttribute('data-book-id');
         if (rotationId && bookId) {
+          rememberModalTrigger(target);
           uiState.rotationEditor = {
             modalMode: 'replace',
             rotationId,
@@ -456,6 +597,7 @@ function bindEvents() {
             randomAddCount: 1,
           };
           render();
+          focusActiveDialogControl();
         }
         break;
       }
@@ -467,6 +609,7 @@ function bindEvents() {
             await store.replaceRotationBookManual(rotationId, targetBookId, replacementBookId);
             uiState.rotationEditor.modalMode = null;
             render();
+            restoreModalTriggerFocus();
           } catch (err) {
             store.notify(err instanceof Error ? err.message : 'Could not replace book.', 'error');
           }
@@ -476,6 +619,7 @@ function bindEvents() {
       case 'open-add-books-modal': {
         const rotationId = target.getAttribute('data-rotation-id');
         if (rotationId) {
+          rememberModalTrigger(target);
           uiState.rotationEditor = {
             modalMode: 'add',
             rotationId,
@@ -485,6 +629,7 @@ function bindEvents() {
             randomAddCount: 1,
           };
           render();
+          focusActiveDialogControl();
         }
         break;
       }
@@ -509,6 +654,7 @@ function bindEvents() {
             uiState.rotationEditor.modalMode = null;
             uiState.rotationEditor.selectedAddBookIds = [];
             render();
+            restoreModalTriggerFocus();
           } catch (err) {
             store.notify(err instanceof Error ? err.message : 'Could not add books.', 'error');
           }
@@ -525,6 +671,7 @@ function bindEvents() {
             if (uiState.rotationEditor.modalMode === 'add') {
               uiState.rotationEditor.modalMode = null;
               render();
+              restoreModalTriggerFocus();
             }
           } catch (err) {
             store.notify(err instanceof Error ? err.message : 'Could not add random books.', 'error');
@@ -536,6 +683,7 @@ function bindEvents() {
         uiState.rotationEditor.modalMode = null;
         uiState.rotationEditor.selectedAddBookIds = [];
         render();
+        restoreModalTriggerFocus();
         break;
       }
       case 'select-intake-tab': {

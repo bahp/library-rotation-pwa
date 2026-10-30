@@ -70,8 +70,11 @@ export function renderBookCover(book, size = 'md') {
         <img
           src="${escapeHtml(book.coverUrl)}"
           alt="Cover of ${escapeHtml(book.title)}"
+          width="160"
+          height="212"
           referrerpolicy="no-referrer"
           loading="lazy"
+          decoding="async"
           class="relative z-10 w-full h-full object-cover transition-opacity duration-150"
           onerror="this.style.display='none'"
         />
