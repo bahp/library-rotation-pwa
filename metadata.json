@@ -1,0 +1,6 @@
+{
+  "name": "Library Rotation",
+  "description": "A fast, offline-capable mobile-first PWA for families to catalog children's books, manage multiple reader profiles, and organize curated book rotations.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
