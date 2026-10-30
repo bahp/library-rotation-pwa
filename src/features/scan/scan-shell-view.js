@@ -1,9 +1,14 @@
 /**
- * @fileoverview Phase 2 Book Intake Workspace:
- * 1) Title / Author Search across Google Books + Open Library with debounced query & tap-to-select candidates
- * 2) ISBN-10 / ISBN-13 Auto-Lookup with multi-provider metadata merging & optional raw JSON inspector
- * 3) Manual / Pre-filled Book Editor for offline intake or fine-tuning enriched metadata
- * 4) 3-Mode Scanner Viewport Shell preview (camera/OCR detection arrives in Phase 3)
+ * @fileoverview Phase 3 Book Intake & Scanner Workspace:
+ * 1) Live Camera + Gallery Upload Scanner with 3 distinct frame geometries:
+ *    - `barcode`: Wide horizontal EAN-13 / Bookland ISBN target (Native BarcodeDetector + ZXing fallback)
+ *    - `isbn-ocr`: Narrow single-line printed ISBN-13 / ISBN-10 target (Contrast-stretched Tesseract OCR)
+ *    - `cover`: 3:4 portrait book jacket guide (Passive back-barcode + Capture Cover OCR title/ISBN handoff)
+ *    Includes animated scan-line sweep on live & uploaded images, emerald detection-lock feedback,
+ *    browser compatibility diagnostics, and graceful camera-denied fallbacks.
+ * 2) Title / Author Search across Google Books + Open Library with debounced query & tap-to-select candidates
+ * 3) ISBN-10 / ISBN-13 Auto-Lookup with multi-provider metadata merging & optional raw JSON inspector
+ * 4) Manual / Pre-filled Book Editor for offline intake or fine-tuning enriched metadata
  */
 
 import {
@@ -15,28 +20,28 @@ import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderIcon } from '../../ui/icons.js';
 
 /**
- * @typedef {'search' | 'isbn' | 'manual' | 'scanner'} IntakeTab
+ * @typedef {'scanner' | 'search' | 'isbn' | 'manual'} IntakeTab
  */
 
 /** @type {Record<import('../../types/models.js').ScanMode, { label: string, caption: string, frameClass: string, hint: string }>} */
 const SCAN_MODES = {
   barcode: {
-    label: 'Barcode Guide',
-    caption: 'Wide horizontal EAN-13 / ISBN barcode target',
-    frameClass: 'w-64 sm:w-72 h-24 rounded-xl',
-    hint: 'Align the back-cover ISBN barcode inside the wide guide.',
+    label: 'Barcode',
+    caption: 'Wide horizontal EAN-13 / Bookland 978·979 target',
+    frameClass: 'w-64 sm:w-80 h-24 sm:h-28 rounded-xl',
+    hint: 'Center the back-cover ISBN barcode inside the wide guide.',
   },
   'isbn-ocr': {
     label: 'ISBN Text OCR',
     caption: 'Narrow single-line printed ISBN-13 / ISBN-10 guide',
-    frameClass: 'w-64 sm:w-72 h-12 rounded-lg',
-    hint: 'Frame only the printed "ISBN 978-..." line above the barcode.',
+    frameClass: 'w-64 sm:w-80 h-12 sm:h-14 rounded-lg',
+    hint: 'Align only the printed "ISBN 978-..." digits inside the narrow text guide.',
   },
   cover: {
     label: 'Cover Frame',
-    caption: '3:4 portrait book cover framing guide',
-    frameClass: 'w-40 sm:w-44 h-52 rounded-2xl',
-    hint: 'Center the front hardcover or paperback jacket inside the 3:4 frame.',
+    caption: '3:4 portrait jacket guide · OCR title/ISBN handoff (visual cover matching post-MVP)',
+    frameClass: 'w-40 sm:w-48 h-52 sm:h-60 rounded-2xl',
+    hint: 'Frame the book cover and tap Capture Cover (or Upload Photo) to extract title or ISBN.',
   },
 };
 
@@ -168,7 +173,291 @@ function renderCandidateCard({ candidate, index, alreadyOwned, showRawToggle }) 
 }
 
 /**
- * Renders the Phase 2 Intake & Scan view.
+ * Renders the Phase 3 Camera & Gallery Upload Scanner panel with 3 distinct frame guides,
+ * animated scan sweep overlay, emerald lock transition, and compatibility diagnostics.
+ *
+ * @param {{
+ *   uiState: {
+ *     scanMode: import('../../types/models.js').ScanMode
+ *   },
+ *   scannerState: ReturnType<ReturnType<typeof import('./scanner-controller.js').createScannerController>['getState']>
+ * }} params
+ * @returns {string}
+ */
+function renderScannerPanel({ uiState, scannerState }) {
+  const activeMode = SCAN_MODES[uiState.scanMode] || SCAN_MODES.barcode;
+  const isLocked = scannerState.phase === 'locked' && Boolean(scannerState.lock);
+  const isStreaming = scannerState.phase === 'streaming';
+  const isStarting = scannerState.phase === 'starting-camera';
+  const isAnalyzingUpload = scannerState.phase === 'analyzing-upload';
+  const isActiveSweep = isStreaming || isAnalyzingUpload;
+
+  const modeTabsHtml = /** @type {Array<import('../../types/models.js').ScanMode>} */ ([
+    'barcode',
+    'isbn-ocr',
+    'cover',
+  ])
+    .map((modeKey) => {
+      const selected = uiState.scanMode === modeKey;
+      return `
+        <button
+          type="button"
+          data-action="select-scan-mode"
+          data-scan-mode="${modeKey}"
+          class="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+            selected
+              ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+          }"
+        >
+          ${escapeHtml(SCAN_MODES[modeKey].label)}
+        </button>
+      `;
+    })
+    .join('');
+
+  const frameBorderClasses = isLocked
+    ? 'border-emerald-400 bg-emerald-950/25 shadow-[0_0_0_4px_rgba(16,185,129,0.28)]'
+    : isActiveSweep
+      ? 'border-teal-300/95 shadow-[0_0_0_9999px_rgba(2,6,23,0.48)]'
+      : 'border-white/80 shadow-[0_0_0_9999px_rgba(2,6,23,0.38)]';
+
+  const sweepLineClasses = isLocked
+    ? 'bg-emerald-400 top-1/2 -translate-y-1/2 h-0.5 shadow-[0_0_10px_rgba(52,211,153,0.9)]'
+    : isActiveSweep
+      ? 'bg-teal-400 top-0 h-0.5 shadow-[0_0_12px_rgba(45,212,191,0.95)] animate-scan-sweep'
+      : 'bg-white/40 top-1/2 -translate-y-1/2 h-px';
+
+  let lockReadoutText = activeMode.label;
+  if (isLocked && scannerState.lock) {
+    lockReadoutText =
+      scannerState.lock.kind === 'isbn'
+        ? `LOCKED · ISBN ${scannerState.lock.isbn13}`
+        : `LOCKED · "${scannerState.lock.titleQuery}"`;
+  } else if (isAnalyzingUpload) {
+    lockReadoutText = 'SCANNING UPLOADED PHOTO…';
+  } else if (isStarting) {
+    lockReadoutText = 'STARTING CAMERA…';
+  }
+
+  const support = scannerState.support;
+  const compatibilityLine = support
+    ? `
+      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+        <span>Camera API: <strong class="font-medium text-slate-700 dark:text-slate-200">${
+          support.cameraApi ? 'Available' : 'Fallback to Upload'
+        }</strong></span>
+        <span aria-hidden="true">·</span>
+        <span>Barcode: <strong class="font-medium text-slate-700 dark:text-slate-200">${escapeHtml(
+          support.barcodeEngineLabel
+        )}</strong></span>
+        <span aria-hidden="true">·</span>
+        <span>OCR: <strong class="font-medium text-slate-700 dark:text-slate-200">${
+          support.webAssembly ? 'Tesseract WASM Ready' : 'Unavailable'
+        }</strong></span>
+      </div>
+    `
+    : '';
+
+  return `
+    <section aria-labelledby="scan-frame-heading" class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6">
+      <div class="pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <h2 id="scan-frame-heading" class="font-display text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+            Scan Barcode, ISBN Line, or Cover
+          </h2>
+          <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Use your phone’s rear camera or upload a photo from your library with automatic ISBN checksum verification.
+          </p>
+        </div>
+      </div>
+
+      <!-- 3-Mode Scan Frame Switcher -->
+      <div class="mt-4 flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 max-w-xl">
+        ${modeTabsHtml}
+      </div>
+
+      <!-- Camera / Uploaded Photo Viewport with Mode-Specific Guide & Detection Lock -->
+      <div class="mt-4 relative h-72 sm:h-80 rounded-2xl bg-slate-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-slate-800">
+        ${
+          isStreaming || isStarting
+            ? `<video
+                id="scanner-live-video"
+                autoplay
+                muted
+                playsinline
+                class="absolute inset-0 w-full h-full object-cover"
+              ></video>`
+            : ''
+        }
+
+        ${
+          scannerState.uploadedPreviewUrl
+            ? `<img
+                src="${escapeHtml(scannerState.uploadedPreviewUrl)}"
+                alt="Uploaded book scan preview"
+                class="absolute inset-0 w-full h-full object-contain bg-slate-950"
+              />`
+            : ''
+        }
+
+        <!-- Mode-specific target frame with animated sweep line & emerald lock feedback -->
+        <div
+          data-scan-guide="${escapeHtml(uiState.scanMode)}"
+          data-scan-locked="${isLocked ? 'true' : 'false'}"
+          class="relative z-10 flex items-center justify-center border-2 ${frameBorderClasses} ${activeMode.frameClass} transition-all duration-150 overflow-hidden"
+        >
+          <div class="absolute inset-x-2 ${sweepLineClasses}"></div>
+
+          <span class="px-2.5 py-1 rounded-md bg-slate-950/75 text-[11px] font-mono-tabular tracking-wide text-center ${
+            isLocked ? 'text-emerald-300 font-semibold' : 'text-slate-200'
+          }">
+            ${escapeHtml(lockReadoutText)}
+          </span>
+        </div>
+
+        <p class="relative z-10 mt-4 px-3 py-1 rounded-lg bg-slate-950/75 text-xs text-slate-200 text-center max-w-md">
+          ${escapeHtml(activeMode.hint)}
+        </p>
+      </div>
+
+      <!-- Live Status & Detection / Non-ISBN Feedback -->
+      <div class="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+        <p role="status" aria-live="polite" class="font-medium ${
+          isLocked
+            ? 'text-emerald-700 dark:text-emerald-400'
+            : 'text-slate-700 dark:text-slate-300'
+        }">
+          ${escapeHtml(scannerState.statusMessage)}
+        </p>
+        <span class="text-slate-500 dark:text-slate-400">
+          ${escapeHtml(activeMode.caption)}
+        </span>
+      </div>
+
+      ${
+        scannerState.ignoredHint
+          ? `
+            <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+              ${escapeHtml(scannerState.ignoredHint)}
+            </p>
+          `
+          : ''
+      }
+
+      ${
+        scannerState.errorMessage
+          ? `
+            <div role="alert" class="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <p class="text-xs sm:text-sm font-medium text-rose-800 dark:text-rose-200">
+                ${escapeHtml(scannerState.errorMessage)}
+              </p>
+              <div class="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  data-action="select-intake-tab"
+                  data-intake-tab="isbn"
+                  class="min-h-[40px] px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-900 dark:text-white whitespace-nowrap"
+                >
+                  Type ISBN
+                </button>
+              </div>
+            </div>
+          `
+          : ''
+      }
+
+      <!-- Primary Camera & Gallery Upload Controls -->
+      <div class="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        ${
+          isStreaming
+            ? `
+              <button
+                type="button"
+                data-action="stop-camera-scan"
+                class="min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+              >
+                ${renderIcon('close', 'w-4 h-4')}
+                Stop Camera
+              </button>
+              ${
+                uiState.scanMode === 'cover' || uiState.scanMode === 'isbn-ocr'
+                  ? `
+                    <button
+                      type="button"
+                      data-action="capture-live-frame"
+                      class="min-h-[44px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+                    >
+                      ${renderIcon('camera', 'w-4 h-4')}
+                      ${uiState.scanMode === 'cover' ? 'Capture Cover' : 'Read ISBN Now'}
+                    </button>
+                  `
+                  : ''
+              }
+              <button
+                type="button"
+                data-action="flip-camera"
+                class="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+              >
+                ${renderIcon('flip', 'w-4 h-4')}
+                Flip Camera
+              </button>
+            `
+            : `
+              <button
+                type="button"
+                data-action="start-camera-scan"
+                ${isStarting || isAnalyzingUpload ? 'disabled' : ''}
+                class="min-h-[44px] px-4 py-2 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:opacity-60 dark:bg-teal-600 dark:hover:bg-teal-500 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+              >
+                ${renderIcon('camera', 'w-4 h-4')}
+                ${isStarting ? 'Starting Camera…' : 'Start Camera'}
+              </button>
+            `
+        }
+
+        <label
+          for="scan-photo-upload-input"
+          class="min-h-[44px] px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white transition-colors inline-flex items-center gap-2 cursor-pointer whitespace-nowrap"
+        >
+          ${renderIcon('photo', 'w-4 h-4')}
+          Upload Photo
+          <input
+            id="scan-photo-upload-input"
+            type="file"
+            accept="image/*"
+            class="sr-only"
+          />
+        </label>
+
+        ${
+          isLocked || scannerState.uploadedPreviewUrl
+            ? `
+              <button
+                type="button"
+                data-action="reset-scanner"
+                class="min-h-[44px] px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors whitespace-nowrap"
+              >
+                Clear Scan
+              </button>
+            `
+            : ''
+        }
+      </div>
+
+      <!-- Browser Compatibility & Graceful Degradation Notes -->
+      <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+        ${compatibilityLine}
+        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+          Compatibility note: Chrome/Android use hardware <code>BarcodeDetector</code>; iOS Safari, Firefox, and desktop browsers automatically fall back to pure-JS ZXing barcode decoding + Tesseract WebAssembly OCR. Visual cover-artwork similarity matching is reserved for a post-MVP phase; Cover mode currently extracts printed cover titles or back-jacket ISBNs via OCR.
+        </p>
+      </div>
+    </section>
+  `;
+}
+
+/**
+ * Renders the Phase 3 Intake & Scan view.
  * @param {{
  *   state: import('../../types/models.js').AppState,
  *   uiState: {
@@ -179,6 +468,7 @@ function renderCandidateCard({ candidate, index, alreadyOwned, showRawToggle }) 
  *     isbnNotFound: string,
  *     isbnCandidate: import('../catalog/normalizer.js').BookCandidate | null,
  *     isbnProviderWarnings: string[],
+ *     lastScanLockBanner: string,
  *     titleQuery: string,
  *     authorQuery: string,
  *     searchLoading: boolean,
@@ -201,20 +491,20 @@ function renderCandidateCard({ candidate, index, alreadyOwned, showRawToggle }) 
  *       sources?: import('../../types/models.js').ProviderSource[]
  *     },
  *     scanMode: import('../../types/models.js').ScanMode,
- *     scanLockedDemo: boolean,
  *     formError: string
- *   }
+ *   },
+ *   scannerState: ReturnType<ReturnType<typeof import('./scanner-controller.js').createScannerController>['getState']>
  * }} params
  * @returns {string}
  */
-export function renderScanShellView({ state, uiState }) {
+export function renderScanShellView({ state, uiState, scannerState }) {
   const ownedIsbns = new Set(state.books.map((b) => b.isbn13).filter(Boolean));
 
   const tabs = /** @type {Array<{ id: IntakeTab, label: string }>} */ ([
+    { id: 'scanner', label: 'Camera & Photo Scan' },
     { id: 'search', label: 'Title Search' },
     { id: 'isbn', label: 'ISBN Lookup' },
     { id: 'manual', label: 'Manual Form' },
-    { id: 'scanner', label: 'Scanner Shell' },
   ]);
 
   const intakeTabsHtml = tabs
@@ -237,9 +527,28 @@ export function renderScanShellView({ state, uiState }) {
     })
     .join('');
 
+  const scanHandoffBannerHtml = uiState.lastScanLockBanner
+    ? `
+      <div class="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 px-4 py-3 flex items-center justify-between gap-3">
+        <p class="text-xs sm:text-sm font-medium text-emerald-900 dark:text-emerald-200">
+          ${escapeHtml(uiState.lastScanLockBanner)}
+        </p>
+        <button
+          type="button"
+          data-action="scan-another-book"
+          class="min-h-[38px] px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-xs font-semibold text-emerald-800 dark:text-emerald-300 whitespace-nowrap shrink-0"
+        >
+          Scan Another
+        </button>
+      </div>
+    `
+    : '';
+
   let activePanelHtml = '';
 
-  if (uiState.intakeTab === 'search') {
+  if (uiState.intakeTab === 'scanner') {
+    activePanelHtml = renderScannerPanel({ uiState, scannerState });
+  } else if (uiState.intakeTab === 'search') {
     const warningsHtml =
       uiState.searchProviderWarnings.length > 0
         ? `
@@ -488,7 +797,7 @@ export function renderScanShellView({ state, uiState }) {
         ${isbnResultHtml}
       </section>
     `;
-  } else if (uiState.intakeTab === 'manual') {
+  } else {
     const draft = uiState.manualDraft;
     const provenanceNote =
       draft.sources && draft.sources.length > 0
@@ -705,84 +1014,6 @@ export function renderScanShellView({ state, uiState }) {
         </form>
       </section>
     `;
-  } else {
-    const activeMode = SCAN_MODES[uiState.scanMode] || SCAN_MODES.barcode;
-    const modeTabsHtml = /** @type {Array<import('../../types/models.js').ScanMode>} */ ([
-      'barcode',
-      'isbn-ocr',
-      'cover',
-    ])
-      .map((modeKey) => {
-        const selected = uiState.scanMode === modeKey;
-        return `
-          <button
-            type="button"
-            data-action="select-scan-mode"
-            data-scan-mode="${modeKey}"
-            class="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
-              selected
-                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }"
-          >
-            ${escapeHtml(SCAN_MODES[modeKey].label)}
-          </button>
-        `;
-      })
-      .join('');
-
-    const frameBorderClasses = uiState.scanLockedDemo
-      ? 'border-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]'
-      : 'border-white/90';
-
-    activePanelHtml = `
-      <section aria-labelledby="scan-frame-heading" class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 max-w-2xl">
-        <h2 id="scan-frame-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
-          Scanner Viewport Shell
-        </h2>
-        <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Preview the three scan frame geometries and detection-lock feedback prepared for Phase 3 live camera barcode & OCR integration.
-        </p>
-
-        <div class="mt-4 flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800">
-          ${modeTabsHtml}
-        </div>
-
-        <div class="mt-4 relative h-64 rounded-2xl bg-slate-900 flex flex-col items-center justify-center overflow-hidden p-4 select-none">
-          <div class="relative flex items-center justify-center border-2 ${frameBorderClasses} ${activeMode.frameClass} transition-colors duration-150 overflow-hidden">
-            <div class="absolute inset-x-2 top-0 h-0.5 ${
-              uiState.scanLockedDemo ? 'bg-emerald-400' : 'bg-teal-400/90 animate-scan-sweep'
-            }"></div>
-            <span class="text-[11px] font-mono-tabular tracking-wide ${
-              uiState.scanLockedDemo ? 'text-emerald-300 font-semibold' : 'text-slate-300'
-            }">
-              ${
-                uiState.scanLockedDemo
-                  ? 'ISBN LOCKED · 9780670451494'
-                  : escapeHtml(activeMode.label)
-              }
-            </span>
-          </div>
-
-          <p class="mt-4 text-xs text-slate-300 text-center max-w-xs">
-            ${escapeHtml(activeMode.hint)}
-          </p>
-        </div>
-
-        <div class="mt-4 flex items-center justify-between gap-3">
-          <span class="text-xs text-slate-500 dark:text-slate-400">
-            ${escapeHtml(activeMode.caption)}
-          </span>
-          <button
-            type="button"
-            data-action="toggle-scan-lock-demo"
-            class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors whitespace-nowrap shrink-0"
-          >
-            ${uiState.scanLockedDemo ? 'Reset Frame' : 'Test Lock Feedback'}
-          </button>
-        </div>
-      </section>
-    `;
   }
 
   return `
@@ -790,10 +1021,10 @@ export function renderScanShellView({ state, uiState }) {
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 class="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">
-            Add & Enrich Books
+            Scan & Add Books
           </h1>
           <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Search by title/author, look up an ISBN from external catalogs, or enter details manually.
+            Scan an ISBN barcode or text line via camera/photo, search by title, or enter details manually.
           </p>
         </div>
       </div>
@@ -802,6 +1033,8 @@ export function renderScanShellView({ state, uiState }) {
       <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-200/70 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 overflow-x-auto max-w-2xl">
         ${intakeTabsHtml}
       </div>
+
+      ${scanHandoffBannerHtml}
 
       ${activePanelHtml}
     </div>

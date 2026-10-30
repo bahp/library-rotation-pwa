@@ -71,6 +71,8 @@
  * @property {string} objective - Free-text rotation objective (e.g., "hardcover + woodland themes")
  * @property {string[]} preferredTags - Explicit topic tags
  * @property {number} cooldownDays - Recency exclusion window
+ * @property {boolean} [varietyMix] - Enforce author & binding diversity across shelf slots
+ * @property {BookFormat | 'any'} [requiredFormat] - Optional explicit binding format filter
  * @property {string} [seed] - Optional deterministic PRNG seed
  */
 

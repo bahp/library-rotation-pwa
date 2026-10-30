@@ -1,11 +1,18 @@
 /**
- * @fileoverview Observable application state store with domain actions and theme synchronization.
+ * @fileoverview Observable application state store with domain actions, Phase 4 Rotation Engine
+ * integration, post-generation shelf editing operations, and theme synchronization.
  */
 
 import { createId, normalizeIsbn } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 import { isValidAppState, migrateState } from './storage.js';
 import { candidateToBook, sanitizeCoverUrl } from '../features/catalog/normalizer.js';
+import {
+  applyBookAdditions,
+  applyBookReplacement,
+  generateRotationSelection,
+  pickRandomEligibleBooks,
+} from '../features/rotations/rotation-engine.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
 
@@ -20,6 +27,19 @@ export function applyThemeToDom(theme) {
     window.matchMedia('(prefers-color-scheme: dark)').matches;
   const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
   document.documentElement.classList.toggle('dark', isDark);
+}
+
+/**
+ * Stamps `lastRotatedAt` onto any catalog books included in `rotatedBookIds`.
+ * @param {import('../types/models.js').Book[]} books
+ * @param {Iterable<string>} rotatedBookIds
+ * @param {string} nowIso
+ * @returns {import('../types/models.js').Book[]}
+ */
+function stampBooksRotated(books, rotatedBookIds, nowIso) {
+  const targetSet = new Set(rotatedBookIds);
+  if (targetSet.size === 0) return books;
+  return books.map((b) => (targetSet.has(b.id) ? { ...b, lastRotatedAt: nowIso } : b));
 }
 
 /**
@@ -306,41 +326,80 @@ export function createAppStore(storage) {
   }
 
   /**
-   * Creates a starter rotation shelf for the active child profile using age-eligible books.
-   * @param {{ title: string, objective: string, count: number }} input
+   * Generates a full Phase 4 rotation shelf using the Rotation Engine (age fit, topic tags,
+   * free-text objective, recency cooldown, variety constraints, and optional deterministic seed).
+   *
+   * @param {{
+   *   title?: string,
+   *   objective?: string,
+   *   count?: number,
+   *   preferredTags?: string[],
+   *   cooldownDays?: number,
+   *   varietyMix?: boolean,
+   *   requiredFormat?: import('../types/models.js').BookFormat | 'any',
+   *   seed?: string,
+   *   profileId?: string
+   * }} input
    */
-  async function createStarterRotation(input) {
+  async function generateRotation(input) {
     const profile =
-      state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
-    const desiredCount = Math.max(1, Math.min(12, Number(input.count) || profile.defaultRotationSize));
+      state.profiles.find((p) => p.id === (input.profileId || state.activeProfileId)) ||
+      state.profiles[0];
 
-    const scoredBooks = [...state.books].sort((a, b) => {
-      const aAgeFit = profile.age >= a.ageMin && profile.age <= a.ageMax ? 1 : 0;
-      const bAgeFit = profile.age >= b.ageMin && profile.age <= b.ageMax ? 1 : 0;
-      if (aAgeFit !== bAgeFit) return bAgeFit - aAgeFit;
-      const aTopicOverlap = a.tags.filter((t) => profile.favoriteTopics.includes(t)).length;
-      const bTopicOverlap = b.tags.filter((t) => profile.favoriteTopics.includes(t)).length;
-      return bTopicOverlap - aTopicOverlap;
-    });
-
-    const selectedIds = scoredBooks.slice(0, desiredCount).map((b) => b.id);
-    if (selectedIds.length === 0) {
-      throw new Error('Add at least one book to your catalog before creating a rotation.');
+    if (state.books.length === 0) {
+      throw new Error('Add at least one book to your catalog before generating a rotation.');
     }
 
+    const desiredCount = Math.max(
+      1,
+      Math.min(15, Number(input.count) || profile.defaultRotationSize || 4)
+    );
+    const cooldownDays =
+      input.cooldownDays !== undefined && !Number.isNaN(Number(input.cooldownDays))
+        ? Math.max(0, Math.min(90, Number(input.cooldownDays)))
+        : profile.cooldownDays;
+
+    const cleanTags = Array.isArray(input.preferredTags)
+      ? input.preferredTags.map((t) => t.toLowerCase().trim()).filter(Boolean)
+      : [...profile.favoriteTopics];
+
+    const cleanSeed = String(input.seed || '').trim();
+    const objective =
+      String(input.objective || '').trim() ||
+      `Matched to ${profile.name} (Age ${profile.age})`;
+
+    /** @type {import('../types/models.js').RotationRuleConfig} */
+    const rules = {
+      count: desiredCount,
+      objective,
+      preferredTags: cleanTags,
+      cooldownDays,
+      varietyMix: input.varietyMix !== false,
+      ...(input.requiredFormat && input.requiredFormat !== 'any'
+        ? { requiredFormat: input.requiredFormat }
+        : {}),
+      ...(cleanSeed ? { seed: cleanSeed } : {}),
+    };
+
     const now = new Date().toISOString();
+    const engineOut = generateRotationSelection({
+      books: state.books,
+      profile,
+      rules,
+      nowIso: now,
+    });
+
+    if (engineOut.selectedBookIds.length === 0) {
+      throw new Error('No eligible books matched those rotation rules.');
+    }
+
     /** @type {import('../types/models.js').RotationList} */
     const newRotation = {
       id: createId('rot'),
       profileId: profile.id,
-      title: input.title.trim() || `${profile.name}'s Weekly Shelf`,
-      rules: {
-        count: desiredCount,
-        objective: input.objective.trim() || `Starter shelf matched to ${profile.name} (Age ${profile.age})`,
-        preferredTags: [...profile.favoriteTopics],
-        cooldownDays: profile.cooldownDays,
-      },
-      bookIds: selectedIds,
+      title: String(input.title || '').trim() || `${profile.name}'s Curated Shelf`,
+      rules,
+      bookIds: engineOut.selectedBookIds,
       completedBookIds: [],
       status: 'active',
       createdAt: now,
@@ -353,12 +412,230 @@ export function createAppStore(storage) {
         : r
     );
 
+    const updatedBooks = stampBooksRotated(state.books, engineOut.selectedBookIds, now);
+
     await commit({
       ...state,
+      books: updatedBooks,
       rotations: [newRotation, ...updatedExisting],
     });
-    notify(`Activated "${newRotation.title}" for ${profile.name}.`, 'success');
+
+    const cooldownNote =
+      engineOut.relaxedCooldownCount > 0
+        ? ` (${engineOut.relaxedCooldownCount} included from cooldown due to small catalog)`
+        : '';
+    notify(`Generated "${newRotation.title}" for ${profile.name}${cooldownNote}.`, 'success');
     return newRotation;
+  }
+
+  /**
+   * Backward-compatible alias used by quick starter calls.
+   * @param {{ title: string, objective: string, count: number }} input
+   */
+  async function createStarterRotation(input) {
+    return generateRotation(input);
+  }
+
+  /**
+   * Post-generation Edit Operation 1:
+   * Replaces a selected book inside `rotationId` with a random eligible book from the catalog.
+   *
+   * @param {string} rotationId
+   * @param {string} targetBookId
+   * @param {{ seedOverride?: string }} [opts]
+   */
+  async function replaceRotationBookRandom(rotationId, targetBookId, opts = {}) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) throw new Error('Rotation shelf not found.');
+    const profile =
+      state.profiles.find((p) => p.id === rotation.profileId) || state.profiles[0];
+
+    const now = new Date().toISOString();
+    const candidates = pickRandomEligibleBooks({
+      books: state.books,
+      profile,
+      rotation,
+      count: 1,
+      seedOverride: opts.seedOverride,
+      nowIso: now,
+    });
+
+    if (candidates.length === 0) {
+      throw new Error(
+        'All books in your family library are already on this shelf — add more books first.'
+      );
+    }
+
+    const replacement = candidates[0];
+    const updatedRotation = applyBookReplacement(rotation, targetBookId, replacement.id, now);
+    const updatedBooks = stampBooksRotated(state.books, [replacement.id], now);
+
+    await commit({
+      ...state,
+      books: updatedBooks,
+      rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
+    });
+
+    notify(`Swapped in "${replacement.title}".`, 'success');
+    return replacement;
+  }
+
+  /**
+   * Post-generation Edit Operation 2:
+   * Replaces a selected book inside `rotationId` with an explicit user-chosen `replacementBookId`.
+   *
+   * @param {string} rotationId
+   * @param {string} targetBookId
+   * @param {string} replacementBookId
+   */
+  async function replaceRotationBookManual(rotationId, targetBookId, replacementBookId) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) throw new Error('Rotation shelf not found.');
+    const replacement = state.books.find((b) => b.id === replacementBookId);
+    if (!replacement) throw new Error('Replacement book not found in catalog.');
+
+    const now = new Date().toISOString();
+    const updatedRotation = applyBookReplacement(rotation, targetBookId, replacement.id, now);
+    const updatedBooks = stampBooksRotated(state.books, [replacement.id], now);
+
+    await commit({
+      ...state,
+      books: updatedBooks,
+      rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
+    });
+
+    notify(`Replaced slot with "${replacement.title}".`, 'success');
+    return updatedRotation;
+  }
+
+  /**
+   * Post-generation Edit Operation 3a:
+   * Appends one or multiple manually selected books to `rotationId`.
+   *
+   * @param {string} rotationId
+   * @param {string[]} bookIdsToAdd
+   */
+  async function addBooksToRotationManual(rotationId, bookIdsToAdd) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) throw new Error('Rotation shelf not found.');
+
+    const validIds = bookIdsToAdd.filter((id) => state.books.some((b) => b.id === id));
+    const now = new Date().toISOString();
+    const { rotation: updatedRotation, addedIds } = applyBookAdditions(rotation, validIds, now);
+
+    if (addedIds.length === 0) {
+      throw new Error('Select at least one book that is not already on this shelf.');
+    }
+
+    const updatedBooks = stampBooksRotated(state.books, addedIds, now);
+    await commit({
+      ...state,
+      books: updatedBooks,
+      rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
+    });
+
+    notify(
+      `Added ${addedIds.length} ${addedIds.length === 1 ? 'book' : 'books'} to "${rotation.title}".`,
+      'success'
+    );
+    return addedIds;
+  }
+
+  /**
+   * Post-generation Edit Operation 3b:
+   * Appends `count` random eligible books to `rotationId`.
+   *
+   * @param {string} rotationId
+   * @param {number} [count]
+   * @param {{ seedOverride?: string }} [opts]
+   */
+  async function addBooksToRotationRandom(rotationId, count = 1, opts = {}) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) throw new Error('Rotation shelf not found.');
+    const profile =
+      state.profiles.find((p) => p.id === rotation.profileId) || state.profiles[0];
+
+    const safeCount = Math.max(1, Math.min(10, Math.trunc(Number(count) || 1)));
+    const now = new Date().toISOString();
+    const picked = pickRandomEligibleBooks({
+      books: state.books,
+      profile,
+      rotation,
+      count: safeCount,
+      seedOverride: opts.seedOverride,
+      nowIso: now,
+    });
+
+    if (picked.length === 0) {
+      throw new Error('No additional catalog books are available outside this shelf.');
+    }
+
+    const { rotation: updatedRotation, addedIds } = applyBookAdditions(
+      rotation,
+      picked.map((b) => b.id),
+      now
+    );
+    const updatedBooks = stampBooksRotated(state.books, addedIds, now);
+
+    await commit({
+      ...state,
+      books: updatedBooks,
+      rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
+    });
+
+    notify(
+      `Added ${addedIds.length} random eligible ${addedIds.length === 1 ? 'book' : 'books'} to "${rotation.title}".`,
+      'success'
+    );
+    return picked;
+  }
+
+  /**
+   * Removes a single book slot from a rotation shelf (while keeping the book in the family library).
+   * @param {string} rotationId
+   * @param {string} bookId
+   */
+  async function removeBookFromRotation(rotationId, bookId) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) return;
+    if (rotation.bookIds.length <= 1) {
+      notify('A rotation shelf needs at least one book. Use Replace instead.', 'error');
+      return;
+    }
+    const now = new Date().toISOString();
+    const nextRotations = state.rotations.map((r) =>
+      r.id === rotationId
+        ? {
+            ...r,
+            bookIds: r.bookIds.filter((id) => id !== bookId),
+            completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
+            updatedAt: now,
+          }
+        : r
+    );
+    await commit({ ...state, rotations: nextRotations });
+    notify('Removed book from rotation shelf.', 'info');
+  }
+
+  /**
+   * Deletes an entire saved or active rotation shelf.
+   * @param {string} rotationId
+   */
+  async function deleteRotation(rotationId) {
+    const target = state.rotations.find((r) => r.id === rotationId);
+    if (!target) return;
+    const remaining = state.rotations.filter((r) => r.id !== rotationId);
+
+    // If we deleted the active shelf for this profile, promote their next most recent shelf if one exists
+    if (target.status === 'active') {
+      const candidateNext = remaining.find((r) => r.profileId === target.profileId);
+      if (candidateNext) {
+        candidateNext.status = 'active';
+      }
+    }
+
+    await commit({ ...state, rotations: remaining });
+    notify(`Deleted rotation "${target.title}".`, 'info');
   }
 
   /**
@@ -447,7 +724,14 @@ export function createAppStore(storage) {
     addBookFromCandidate,
     deleteBook,
     toggleRotationBookRead,
+    generateRotation,
     createStarterRotation,
+    replaceRotationBookRandom,
+    replaceRotationBookManual,
+    addBooksToRotationManual,
+    addBooksToRotationRandom,
+    removeBookFromRotation,
+    deleteRotation,
     setActiveRotation,
     updateSettings,
     importBackupJson,

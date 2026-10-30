@@ -30,6 +30,46 @@
     />
     <script>
       (function () {
+        // 1. Guard against third-party browser extensions (e.g. request interceptors)
+        // throwing "Cannot set property fetch of #<Window> which has only a getter"
+        try {
+          var fetchDesc =
+            Object.getOwnPropertyDescriptor(window, 'fetch') ||
+            Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+          if (fetchDesc && fetchDesc.configurable && fetchDesc.get && !fetchDesc.set) {
+            var currentFetch = window.fetch.bind(window);
+            Object.defineProperty(window, 'fetch', {
+              configurable: true,
+              enumerable: true,
+              get: function () {
+                return currentFetch;
+              },
+              set: function (nextFetch) {
+                if (typeof nextFetch === 'function') {
+                  currentFetch = nextFetch;
+                }
+              },
+            });
+          }
+        } catch (_) {}
+
+        window.addEventListener(
+          'error',
+          function (event) {
+            var src = String((event && event.filename) || '');
+            var stack = String((event && event.error && event.error.stack) || '');
+            if (
+              src.indexOf('chrome-extension://') === 0 ||
+              stack.indexOf('chrome-extension://') !== -1
+            ) {
+              event.stopImmediatePropagation();
+              event.preventDefault();
+            }
+          },
+          true
+        );
+
+        // 2. Apply saved or system color theme before first paint (zero FOUC)
         try {
           var saved = localStorage.getItem('lr_theme_pref') || 'system';
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;

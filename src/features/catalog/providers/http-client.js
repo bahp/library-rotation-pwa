@@ -45,7 +45,9 @@ function delay(ms, signal) {
  * }} [config]
  */
 export function createHttpClient(config = {}) {
-  const fetchFn = config.fetchImpl || globalThis.fetch;
+  const fetchFn =
+    config.fetchImpl ||
+    (typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : undefined);
   const timeoutMs = config.timeoutMs ?? 7000;
   const maxRetries = config.maxRetries ?? 2;
   const baseDelayMs = config.baseDelayMs ?? 300;

@@ -1,6 +1,7 @@
 /**
  * @fileoverview Application entry point: wires storage, reactive store, hash router,
- * CatalogService (Google Books + Open Library), debounced search, and delegated DOM actions.
+ * CatalogService (Google Books + Open Library), ScannerController (camera + gallery barcode/OCR),
+ * debounced search, and delegated DOM actions.
  */
 
 import './index.css';
@@ -9,6 +10,7 @@ import { createStorageAdapter } from './core/storage.js';
 import { createAppStore } from './core/store.js';
 import { createPwaManager } from './features/pwa/pwa-manager.js';
 import { createCatalogService } from './features/catalog/catalog-service.js';
+import { createScannerController } from './features/scan/scanner-controller.js';
 import { renderAppShell } from './ui/components/app-shell.js';
 import { renderHomeView } from './features/home/home-view.js';
 import { renderScanShellView } from './features/scan/scan-shell-view.js';
@@ -52,13 +54,14 @@ const uiState = {
   searchQuery: '',
   inspectedBookId: /** @type {string | null} */ (null),
   /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */
-  intakeTab: 'search',
+  intakeTab: 'scanner',
   isbnInput: '',
   isbnLoading: false,
   isbnError: '',
   isbnNotFound: '',
   isbnCandidate: /** @type {import('./features/catalog/normalizer.js').BookCandidate | null} */ (null),
   isbnProviderWarnings: /** @type {string[]} */ ([]),
+  lastScanLockBanner: '',
   titleQuery: '',
   authorQuery: '',
   searchLoading: false,
@@ -69,9 +72,36 @@ const uiState = {
   manualDraft: createBlankDraft(),
   /** @type {import('./types/models.js').ScanMode} */
   scanMode: 'barcode',
-  scanLockedDemo: false,
   formError: '',
+  /** @type {import('./features/rotations/rotations-view.js').RotationEditorUiState} */
+  rotationEditor: {
+    modalMode: null,
+    rotationId: null,
+    targetBookId: null,
+    searchQuery: '',
+    selectedAddBookIds: [],
+    randomAddCount: 1,
+  },
 };
+
+const scanner = createScannerController({
+  onStateChange: () => {
+    render();
+  },
+  onLock: async (lock) => {
+    if (lock.kind === 'isbn' && lock.isbn13) {
+      uiState.lastScanLockBanner = `Locked ISBN ${lock.isbn13} via ${lock.sourceLabel} — enriched metadata loaded below.`;
+      uiState.intakeTab = 'isbn';
+      await executeIsbnLookup(lock.isbn13);
+    } else if (lock.kind === 'cover-title' && lock.titleQuery) {
+      uiState.lastScanLockBanner = `Extracted cover title "${lock.titleQuery}" via ${lock.sourceLabel} — matching editions loaded below.`;
+      uiState.titleQuery = lock.titleQuery;
+      uiState.authorQuery = '';
+      uiState.intakeTab = 'search';
+      await executeProviderSearch();
+    }
+  },
+});
 
 /** @type {ReturnType<typeof setTimeout> | null} */
 let searchDebounceTimer = null;
@@ -83,6 +113,7 @@ const PRESERVED_INPUT_IDS = new Set([
   'provider-title-input',
   'provider-author-input',
   'isbn-lookup-input',
+  'rotation-modal-search-input',
 ]);
 
 function render() {
@@ -111,10 +142,17 @@ function render() {
   let contentHtml = '';
   switch (route) {
     case 'scan':
-      contentHtml = renderScanShellView({ state, uiState });
+      contentHtml = renderScanShellView({
+        state,
+        uiState,
+        scannerState: scanner.getState(),
+      });
       break;
     case 'rotations':
-      contentHtml = renderRotationsView({ state });
+      contentHtml = renderRotationsView({
+        state,
+        editorState: uiState.rotationEditor,
+      });
       break;
     case 'profiles':
       contentHtml = renderProfilesView({ state });
@@ -139,6 +177,13 @@ function render() {
     pwaStatus: pwa.getStatus(),
     contentHtml,
   });
+
+  if (route === 'scan' && uiState.intakeTab === 'scanner') {
+    const videoEl = document.getElementById('scanner-live-video');
+    if (videoEl instanceof HTMLVideoElement) {
+      scanner.attachVideoElement(videoEl);
+    }
+  }
 
   if (focusedId) {
     const nextInput = document.getElementById(focusedId);
@@ -289,6 +334,13 @@ function downloadBackupJson() {
 function bindEvents() {
   if (!rootEl) return;
 
+  // Release camera tracks immediately if browser tab is backgrounded
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      scanner.stopCamera();
+    }
+  });
+
   rootEl.addEventListener('click', async (event) => {
     const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
     if (!target) return;
@@ -347,13 +399,167 @@ function bindEvents() {
         if (rotationId) await store.setActiveRotation(rotationId);
         break;
       }
+      case 'delete-rotation': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        if (rotationId) await store.deleteRotation(rotationId);
+        break;
+      }
+      case 'remove-rotation-book': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        const bookId = target.getAttribute('data-book-id');
+        if (rotationId && bookId) {
+          await store.removeBookFromRotation(rotationId, bookId);
+        }
+        break;
+      }
+      case 'replace-book-random': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        const bookId = target.getAttribute('data-book-id');
+        if (rotationId && bookId) {
+          try {
+            await store.replaceRotationBookRandom(rotationId, bookId);
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not swap book.', 'error');
+          }
+        }
+        break;
+      }
+      case 'open-manual-replace-modal': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        const bookId = target.getAttribute('data-book-id');
+        if (rotationId && bookId) {
+          uiState.rotationEditor = {
+            modalMode: 'replace',
+            rotationId,
+            targetBookId: bookId,
+            searchQuery: '',
+            selectedAddBookIds: [],
+            randomAddCount: 1,
+          };
+          render();
+        }
+        break;
+      }
+      case 'confirm-manual-replace': {
+        const replacementBookId = target.getAttribute('data-book-id');
+        const { rotationId, targetBookId } = uiState.rotationEditor;
+        if (rotationId && targetBookId && replacementBookId) {
+          try {
+            await store.replaceRotationBookManual(rotationId, targetBookId, replacementBookId);
+            uiState.rotationEditor.modalMode = null;
+            render();
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not replace book.', 'error');
+          }
+        }
+        break;
+      }
+      case 'open-add-books-modal': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        if (rotationId) {
+          uiState.rotationEditor = {
+            modalMode: 'add',
+            rotationId,
+            targetBookId: null,
+            searchQuery: '',
+            selectedAddBookIds: [],
+            randomAddCount: 1,
+          };
+          render();
+        }
+        break;
+      }
+      case 'toggle-add-book-selection': {
+        const bookId = target.getAttribute('data-book-id');
+        if (!bookId) break;
+        const current = new Set(uiState.rotationEditor.selectedAddBookIds);
+        if (current.has(bookId)) {
+          current.delete(bookId);
+        } else {
+          current.add(bookId);
+        }
+        uiState.rotationEditor.selectedAddBookIds = Array.from(current);
+        render();
+        break;
+      }
+      case 'confirm-manual-add-books': {
+        const { rotationId, selectedAddBookIds } = uiState.rotationEditor;
+        if (rotationId && selectedAddBookIds.length > 0) {
+          try {
+            await store.addBooksToRotationManual(rotationId, selectedAddBookIds);
+            uiState.rotationEditor.modalMode = null;
+            uiState.rotationEditor.selectedAddBookIds = [];
+            render();
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not add books.', 'error');
+          }
+        }
+        break;
+      }
+      case 'add-random-books': {
+        const rotationId =
+          target.getAttribute('data-rotation-id') || uiState.rotationEditor.rotationId;
+        const count = Number(target.getAttribute('data-count') || 1);
+        if (rotationId) {
+          try {
+            await store.addBooksToRotationRandom(rotationId, count);
+            if (uiState.rotationEditor.modalMode === 'add') {
+              uiState.rotationEditor.modalMode = null;
+              render();
+            }
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not add random books.', 'error');
+          }
+        }
+        break;
+      }
+      case 'close-rotation-modal': {
+        uiState.rotationEditor.modalMode = null;
+        uiState.rotationEditor.selectedAddBookIds = [];
+        render();
+        break;
+      }
       case 'select-intake-tab': {
         const tab = /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */ (
-          target.getAttribute('data-intake-tab') || 'search'
+          target.getAttribute('data-intake-tab') || 'scanner'
         );
+        if (tab !== 'scanner') {
+          scanner.stopCamera();
+        } else {
+          scanner.initSupport();
+        }
         uiState.intakeTab = tab;
         uiState.formError = '';
         render();
+        break;
+      }
+      case 'scan-another-book': {
+        uiState.lastScanLockBanner = '';
+        uiState.intakeTab = 'scanner';
+        scanner.resetLock();
+        render();
+        break;
+      }
+      case 'start-camera-scan': {
+        uiState.lastScanLockBanner = '';
+        await scanner.startCamera();
+        break;
+      }
+      case 'stop-camera-scan': {
+        scanner.stopCamera();
+        break;
+      }
+      case 'flip-camera': {
+        await scanner.flipCamera();
+        break;
+      }
+      case 'capture-live-frame': {
+        await scanner.captureCurrentFrame();
+        break;
+      }
+      case 'reset-scanner': {
+        uiState.lastScanLockBanner = '';
+        scanner.resetLock();
         break;
       }
       case 'fill-sample-isbn': {
@@ -409,14 +615,11 @@ function bindEvents() {
           target.getAttribute('data-scan-mode') || 'barcode'
         );
         uiState.scanMode = mode;
-        uiState.scanLockedDemo = false;
+        uiState.lastScanLockBanner = '';
+        scanner.setMode(mode);
         await store.updateSettings({ preferredScanMode: mode });
         break;
       }
-      case 'toggle-scan-lock-demo':
-        uiState.scanLockedDemo = !uiState.scanLockedDemo;
-        render();
-        break;
       case 'set-theme': {
         const theme = /** @type {import('./types/models.js').ThemeMode} */ (
           target.getAttribute('data-theme') || 'system'
@@ -459,12 +662,17 @@ function bindEvents() {
       }
     } else if (target.id === 'isbn-lookup-input') {
       uiState.isbnInput = target.value;
+    } else if (target.id === 'rotation-modal-search-input') {
+      uiState.rotationEditor.searchQuery = target.value;
+      render();
     }
   });
 
   rootEl.addEventListener('change', async (event) => {
     const target = event.target;
-    if (target instanceof HTMLInputElement && target.id === 'import-backup-input') {
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (target.id === 'import-backup-input') {
       const file = target.files && target.files[0];
       if (!file) return;
       try {
@@ -472,6 +680,15 @@ function bindEvents() {
         await store.importBackupJson(text);
       } catch (err) {
         store.notify(err instanceof Error ? err.message : 'Failed to import backup.', 'error');
+      } finally {
+        target.value = '';
+      }
+    } else if (target.id === 'scan-photo-upload-input') {
+      const file = target.files && target.files[0];
+      if (!file) return;
+      uiState.lastScanLockBanner = '';
+      try {
+        await scanner.scanUploadedFile(file);
       } finally {
         target.value = '';
       }
@@ -545,6 +762,7 @@ function bindEvents() {
         const activeProfile =
           state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
         uiState.manualDraft = createBlankDraft(activeProfile);
+        uiState.lastScanLockBanner = '';
         router.navigate('home');
       } catch (err) {
         uiState.formError = err instanceof Error ? err.message : 'Could not save book.';
@@ -571,16 +789,34 @@ function bindEvents() {
       } catch (err) {
         store.notify(err instanceof Error ? err.message : 'Could not add profile.', 'error');
       }
-    } else if (form.id === 'starter-rotation-form') {
+    } else if (form.id === 'generate-rotation-form' || form.id === 'starter-rotation-form') {
       try {
-        await store.createStarterRotation({
+        const tagsRaw = String(data.get('preferredTags') || '');
+        const formatVal = /** @type {import('./types/models.js').BookFormat | 'any'} */ (
+          data.get('requiredFormat') || 'any'
+        );
+        const varietyChecked =
+          form.id === 'generate-rotation-form' ? data.get('varietyMix') !== null : true;
+
+        await store.generateRotation({
           title: String(data.get('title') || ''),
           objective: String(data.get('objective') || ''),
           count: Number(data.get('count') || 4),
+          preferredTags: tagsRaw
+            ? tagsRaw
+                .split(',')
+                .map((t) => t.trim().toLowerCase())
+                .filter(Boolean)
+            : undefined,
+          cooldownDays:
+            data.get('cooldownDays') !== null ? Number(data.get('cooldownDays')) : undefined,
+          requiredFormat: formatVal,
+          varietyMix: varietyChecked,
+          seed: String(data.get('seed') || ''),
         });
         form.reset();
       } catch (err) {
-        store.notify(err instanceof Error ? err.message : 'Could not create rotation.', 'error');
+        store.notify(err instanceof Error ? err.message : 'Could not generate rotation.', 'error');
       }
     }
   });
@@ -593,9 +829,15 @@ async function bootstrap() {
   pwa.subscribe(render);
   router.subscribe((next) => {
     uiState.formError = '';
+    if (next.route !== 'scan') {
+      scanner.stopCamera();
+    } else {
+      scanner.initSupport();
+    }
     const modeParam = next.params.get('mode');
     if (modeParam === 'barcode' || modeParam === 'isbn-ocr' || modeParam === 'cover') {
       uiState.scanMode = modeParam;
+      scanner.setMode(modeParam);
       uiState.intakeTab = 'scanner';
     }
     const tabParam = next.params.get('tab');
@@ -606,6 +848,9 @@ async function bootstrap() {
       tabParam === 'scanner'
     ) {
       uiState.intakeTab = tabParam;
+      if (tabParam !== 'scanner') {
+        scanner.stopCamera();
+      }
     }
     render();
   });
@@ -617,6 +862,8 @@ async function bootstrap() {
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   uiState.manualDraft = createBlankDraft(activeProfile);
   uiState.scanMode = state.settings.preferredScanMode || 'barcode';
+  scanner.setMode(uiState.scanMode);
+  await scanner.initSupport();
   router.start();
   render();
 }
