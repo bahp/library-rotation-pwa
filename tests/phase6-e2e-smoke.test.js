@@ -418,4 +418,57 @@ describe('Phase 6 End-to-End Smoke Journeys & Release Hardening', () => {
     assert.ok(settingsHtml.includes('Optional AI Enrichment'));
     assert.ok(!settingsHtml.includes('api_key'), 'No API key input rendered in Settings');
   });
+
+  it('Journey 4 (CI Deployment Contract): GitHub Pages workflow succeeds with or without package-lock.json and avoids setup-node v4 punycode cache crash', async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+
+    const rootDir = process.cwd();
+    const workflowPath = path.join(rootDir, '.github', 'workflows', 'deploy.yml');
+    const gitignorePath = path.join(rootDir, '.gitignore');
+
+    const workflowYaml = await fs.readFile(workflowPath, 'utf8');
+    const gitignoreText = await fs.readFile(gitignorePath, 'utf8');
+
+    // 1. setup-node must NOT hardcode `cache: 'npm'` (which crashes when package-lock.json is absent)
+    assert.equal(
+      /cache:\s*['"]?npm['"]?/.test(workflowYaml),
+      false,
+      'setup-node must not set cache: npm when package-lock.json may be absent in exported repos'
+    );
+
+    // 2. Suppress Node [DEP0040] punycode warning inside setup-node action runner and use lockfile-safe actions/cache@v4
+    assert.match(
+      workflowYaml,
+      /NODE_NO_WARNINGS:\s*['"]?1['"]?/,
+      'Expected NODE_NO_WARNINGS: "1" on setup-node to silence [DEP0040] punycode deprecation noise'
+    );
+    assert.match(
+      workflowYaml,
+      /uses:\s*actions\/cache@v4/,
+      'Expected actions/cache@v4 hashed on package-lock.json / package.json'
+    );
+
+    // 3. Configure GitHub Pages explicitly before building & uploading artifact
+    assert.match(
+      workflowYaml,
+      /uses:\s*actions\/configure-pages@v5/,
+      'Expected actions/configure-pages@v5 step for reliable GitHub Pages enablement'
+    );
+
+    // 4. Dependency install step must gracefully fall back when package-lock.json is absent
+    assert.equal(
+      /^\s*run:\s*npm ci\s*$/m.test(workflowYaml),
+      false,
+      'Bare `run: npm ci` fails when package-lock.json is not committed'
+    );
+    assert.match(
+      workflowYaml,
+      /if\s*\[\s*-f\s+package-lock\.json\s*\];\s*then\s+npm ci;\s*else\s+npm install/,
+      'Install step should run npm ci when package-lock.json exists and fall back to npm install otherwise'
+    );
+
+    // 5. .gitignore should ignore dev-dist/ so local Vite PWA dev artifacts are never committed
+    assert.match(gitignoreText, /^dev-dist\/?$/m, '.gitignore should ignore dev-dist/');
+  });
 });

@@ -136,14 +136,15 @@ npm run preview
 Because **Library Rotation** uses hash-based SPA routing (`#/home`, `#/scan`, etc.), relative-capable asset paths (`BASE_URL`), and client-side IndexedDB storage, it runs natively on GitHub Pages without server rewrites or 404 hacks.
 
 ### Option A: Automated GitHub Actions Deployment (Recommended)
-1. Push this repository to GitHub on the `main` branch.
-2. Open your repository on GitHub and navigate to **Settings → Pages**.
-3. Under **Build and deployment → Source**, select **GitHub Actions**.
-4. The included workflow (`.github/workflows/deploy.yml`) automatically:
-   - Installs dependencies (`npm ci`),
+1. Push this repository to GitHub on your `main` (or `master`) branch.
+2. In your GitHub repository, open **Settings → Pages** (left sidebar under *Code and automation*).
+3. Under **Build and deployment → Source**, change the dropdown from *Deploy from a branch* to **GitHub Actions**. *(No branch selection or Jekyll config is needed once "GitHub Actions" is selected.)*
+4. Push a commit or open the **Actions** tab → select **Deploy Library Rotation PWA to GitHub Pages** → click **Run workflow**.
+5. `.github/workflows/deploy.yml` automatically:
+   - Installs dependencies whether or not `package-lock.json` is committed (`npm ci` if present, `npm install --no-audit --no-fund` otherwise, with `~/.npm` cached via `actions/cache@v4`),
    - Runs `npm test` and `npm run lint`,
-   - Builds the static PWA bundle with `BASE_URL=/<your-repo-name>/` so the Web App Manifest `start_url`, `scope`, icons, and Service Worker register cleanly under your repository subpath,
-   - Publishes `./dist` to `https://<username>.github.io/<your-repo-name>/`.
+   - Configures GitHub Pages (`actions/configure-pages@v5`) and builds `./dist` with `BASE_URL=/<your-repo-name>/` so the PWA manifest `start_url`, `scope`, icons, and Service Worker register cleanly under your repository subpath,
+   - Deploys `./dist` to `https://<username>.github.io/<your-repo-name>/`.
 
 ### Option B: Manual Static / Subpath Build
 To build a portable static bundle for any subpath or static host (GitHub Pages `gh-pages` branch, Cloudflare Pages, Netlify, Firebase Hosting, or S3):
