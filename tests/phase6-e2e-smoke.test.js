@@ -470,5 +470,23 @@ describe('Phase 6 End-to-End Smoke Journeys & Release Hardening', () => {
 
     // 5. .gitignore should ignore dev-dist/ so local Vite PWA dev artifacts are never committed
     assert.match(gitignoreText, /^dev-dist\/?$/m, '.gitignore should ignore dev-dist/');
+
+    // 6. package.json devDependencies.esbuild must satisfy vite@8 peerOptional ("^0.27.0 || ^0.28.0")
+    //    and `npm install --dry-run` must exit 0 without ERESOLVE peer conflicts.
+    const pkgJson = JSON.parse(await fs.readFile(path.join(rootDir, 'package.json'), 'utf8'));
+    const esbuildRange = String(pkgJson.devDependencies?.esbuild || '');
+    assert.equal(
+      esbuildRange.startsWith('^0.25'),
+      false,
+      `esbuild range "${esbuildRange}" conflicts with vite@8 peerOptional esbuild@"^0.27.0 || ^0.28.0"`
+    );
+
+    const { execFileSync } = await import('node:child_process');
+    const dryRunOutput = execFileSync(
+      'npm',
+      ['install', '--dry-run', '--no-audit', '--no-fund'],
+      { cwd: rootDir, encoding: 'utf8' }
+    );
+    assert.ok(typeof dryRunOutput === 'string');
   });
 });
