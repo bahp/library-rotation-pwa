@@ -55,11 +55,18 @@ const SAMPLE_ISBNS = [
  *   candidate: import('../catalog/normalizer.js').BookCandidate,
  *   index: number,
  *   alreadyOwned: boolean,
- *   showRawToggle: boolean
+ *   showRawToggle: boolean,
+ *   coverAspectRatio: import('../../types/models.js').CoverAspectRatio
  * }} params
  * @returns {string}
  */
-function renderCandidateRow({ candidate, index, alreadyOwned, showRawToggle }) {
+function renderCandidateRow({
+  candidate,
+  index,
+  alreadyOwned,
+  showRawToggle,
+  coverAspectRatio,
+}) {
   const pseudoBook = /** @type {import('../../types/models.js').Book} */ ({
     ...candidate,
     id: `cand_${index}`,
@@ -73,7 +80,7 @@ function renderCandidateRow({ candidate, index, alreadyOwned, showRawToggle }) {
   return `
     <article class="py-3.5 first:pt-1 border-b border-linen-200/80 dark:border-night-800 last:border-b-0 flex flex-col gap-2.5">
       <div class="flex items-start gap-3 min-w-0">
-        ${renderBookCover(pseudoBook, 'sm')}
+        ${renderBookCover(pseudoBook, 'sm', coverAspectRatio)}
         <div class="min-w-0 flex-1">
           <h3 class="font-display text-sm sm:text-base font-bold text-forest-900 dark:text-white leading-snug">
             ${escapeHtml(candidate.title)}
@@ -606,6 +613,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 index,
                 alreadyOwned: Boolean(candidate.isbn13 && ownedIsbns.has(candidate.isbn13)),
                 showRawToggle: state.settings.retainRawProviderPayloads,
+                coverAspectRatio: state.settings.coverAspectRatio,
               })
             )
             .join('')}
@@ -643,7 +651,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               type="search"
               value="${escapeHtml(uiState.titleQuery)}"
               placeholder="e.g., Stellaluna, Corduroy"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
           <div class="sm:col-span-4">
@@ -656,13 +664,13 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               type="search"
               value="${escapeHtml(uiState.authorQuery)}"
               placeholder="e.g., Arnold Lobel"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
           <div class="sm:col-span-2 flex items-end">
             <button
               type="submit"
-              class="w-full min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+              class="w-full h-12 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap"
             >
               Search
             </button>
@@ -719,6 +727,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 uiState.isbnCandidate.isbn13 && ownedIsbns.has(uiState.isbnCandidate.isbn13)
               ),
               showRawToggle: state.settings.retainRawProviderPayloads,
+              coverAspectRatio: state.settings.coverAspectRatio,
             })}
           </div>
         </div>
@@ -760,12 +769,12 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               inputmode="text"
               value="${escapeHtml(uiState.isbnInput)}"
               placeholder="Enter ISBN (e.g., 978-0-14-050174-2)"
-              class="w-full min-h-[46px] px-4 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-4 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
           <button
             type="submit"
-            class="min-h-[46px] px-5 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap shrink-0"
+            class="h-12 px-5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap shrink-0"
           >
             Look Up ISBN
           </button>
@@ -829,7 +838,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 required
                 value="${escapeHtml(draft.title)}"
                 placeholder="e.g., Make Way for Ducklings"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -843,7 +852,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 type="text"
                 value="${escapeHtml(draft.authors)}"
                 placeholder="e.g., Robert McCloskey"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -858,7 +867,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 inputmode="text"
                 value="${escapeHtml(draft.isbn)}"
                 placeholder="978-0-670-45149-4"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -874,7 +883,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 max="2100"
                 value="${escapeHtml(draft.publishedYear)}"
                 placeholder="1941"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -890,7 +899,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 max="2000"
                 value="${escapeHtml(draft.pageCount)}"
                 placeholder="64"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -901,7 +910,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               <select
                 id="book-format"
                 name="format"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="hardcover" ${draft.format === 'hardcover' ? 'selected' : ''}>Hardcover</option>
                 <option value="board-book" ${draft.format === 'board-book' ? 'selected' : ''}>Board Book</option>
@@ -916,7 +925,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               <select
                 id="book-stage"
                 name="readingStage"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="picture-book" ${draft.readingStage === 'picture-book' ? 'selected' : ''}>Picture Book</option>
                 <option value="board-toddler" ${draft.readingStage === 'board-toddler' ? 'selected' : ''}>Board & Toddler</option>
@@ -936,7 +945,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 min="0"
                 max="14"
                 value="${draft.ageMin}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -951,7 +960,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 min="1"
                 max="16"
                 value="${draft.ageMax}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -965,7 +974,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 type="url"
                 value="${escapeHtml(draft.coverUrl)}"
                 placeholder="https://covers.openlibrary.org/..."
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -989,7 +998,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                 type="text"
                 value="${escapeHtml(draft.tags)}"
                 placeholder="animals, christmas, winter, family, bedtime"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>

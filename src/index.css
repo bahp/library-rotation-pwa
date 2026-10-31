@@ -41,6 +41,21 @@
     }
   }
 
+  /* Reset native OS menulist chrome so <select> dropdowns obey identical height & border-radius as <input> */
+  select {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666055' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem 1rem;
+    padding-right: 2.5rem;
+  }
+
+  .dark select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+
   h1, h2, .font-display {
     font-family: var(--font-display);
     text-wrap: balance;
@@ -67,20 +82,65 @@
   }
 }
 
-/* Compositor-only slide-up transition for bottom sheets (<= 200ms) */
-@keyframes lr-sheet-up {
+/* Material Design 3 bottom-sheet & scrim transitions (compositor-only transform + opacity) */
+@keyframes lr-scrim-in {
   from {
-    transform: translateY(18px);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
     opacity: 1;
   }
 }
 
+@keyframes lr-scrim-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes lr-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes lr-sheet-down {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+
+.sheet-backdrop {
+  animation: lr-scrim-in 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
 .animate-sheet-up {
-  animation: lr-sheet-up 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform;
+  animation: lr-sheet-up 280ms cubic-bezier(0.05, 0.7, 0.1, 1.0) both;
+}
+
+/* Prevent re-running entrance animation when typing or toggling inside an already-open sheet */
+[data-sheet-settled="true"].sheet-backdrop,
+[data-sheet-settled="true"] .animate-sheet-up {
+  animation: none;
+}
+
+.sheet-backdrop.is-closing {
+  pointer-events: none;
+  animation: lr-scrim-out 190ms cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
+}
+
+.is-closing .animate-sheet-up {
+  animation: lr-sheet-down 190ms cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
 }
 
 /* Scan line animation for camera/upload preview guides */

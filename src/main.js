@@ -15,6 +15,7 @@ import { createStorageAdapter } from './core/storage.js';
 import { createAppStore } from './core/store.js';
 import { createPwaManager } from './features/pwa/pwa-manager.js';
 import { createCatalogService } from './features/catalog/catalog-service.js';
+import { compressImageFileToDataUrl } from './features/catalog/cover-image-utils.js';
 import { createScannerController } from './features/scan/scanner-controller.js';
 import { renderAppShell } from './ui/components/app-shell.js';
 import { renderHomeView } from './features/home/home-view.js';
@@ -56,10 +57,28 @@ function createBlankDraft(profile) {
   };
 }
 
+/**
+ * Creates a fresh Book Inspector UI state slice for the given book.
+ * @param {import('./types/models.js').Book | null | undefined} [book]
+ * @returns {import('./ui/components/book-inspector-modal.js').BookInspectorUiState}
+ */
+function createBlankInspectorUi(book) {
+  return {
+    isCoverPickerOpen: false,
+    isEditingBook: false,
+    coverSearchQuery: book ? `${book.title} ${book.authors[0] || ''}`.trim() : '',
+    coverSearchLoading: false,
+    coverSearchError: '',
+    coverSearchResults: [],
+    editError: '',
+  };
+}
+
 const uiState = {
   catalogFilter: 'all',
   searchQuery: '',
   inspectedBookId: /** @type {string | null} */ (null),
+  inspectorUi: createBlankInspectorUi(),
   /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */
   intakeTab: 'scanner',
   isbnInput: '',
@@ -136,10 +155,12 @@ const PRESERVED_INPUT_IDS = new Set([
   'isbn-lookup-input',
   'rotation-modal-search-input',
   'inspector-new-tag-input',
+  'inspector-cover-search-input',
 ]);
 
 /** @type {string | null} */
 let lastModalTriggerSelector = null;
+let isClosingSheet = false;
 
 /**
  * Captures a selector for the button that opened a sheet/modal so focus can be restored on close.
@@ -192,6 +213,44 @@ function focusActiveDialogControl() {
   }
 }
 
+/**
+ * Smoothly animates the active Material Design bottom sheet downward before unmounting it.
+ * @param {() => void} applyCloseState
+ */
+function closeSheetWithMotion(applyCloseState) {
+  if (!rootEl) {
+    applyCloseState();
+    render();
+    restoreModalTriggerFocus();
+    return;
+  }
+
+  const backdrop = rootEl.querySelector('.sheet-backdrop');
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (!(backdrop instanceof HTMLElement) || prefersReducedMotion || isClosingSheet) {
+    isClosingSheet = false;
+    applyCloseState();
+    render();
+    restoreModalTriggerFocus();
+    return;
+  }
+
+  isClosingSheet = true;
+  backdrop.removeAttribute('data-sheet-settled');
+  backdrop.classList.add('is-closing');
+
+  setTimeout(() => {
+    isClosingSheet = false;
+    applyCloseState();
+    render();
+    restoreModalTriggerFocus();
+  }, 185);
+}
+
 function render() {
   if (!rootEl) return;
 
@@ -203,6 +262,10 @@ function render() {
     `;
     return;
   }
+
+  const prevDialog = rootEl.querySelector('[role="dialog"]');
+  const prevDialogId =
+    prevDialog instanceof HTMLElement ? prevDialog.getAttribute('aria-labelledby') : null;
 
   const { route } = router.getCurrent();
   const state = store.getState();
@@ -232,6 +295,7 @@ function render() {
         state,
         editorState: uiState.rotationEditor,
         inspectedBookId: uiState.inspectedBookId,
+        inspectorUiState: uiState.inspectorUi,
       });
       break;
     case 'profiles':
@@ -268,6 +332,20 @@ function render() {
     contentHtml,
   });
 
+  // Mark already-open sheet as settled so typing/toggling inside it does not replay entrance motion
+  const nextBackdrop = rootEl.querySelector('.sheet-backdrop');
+  const nextDialog = rootEl.querySelector('[role="dialog"]');
+  const nextDialogId =
+    nextDialog instanceof HTMLElement ? nextDialog.getAttribute('aria-labelledby') : null;
+  if (
+    prevDialogId &&
+    nextDialogId &&
+    prevDialogId === nextDialogId &&
+    nextBackdrop instanceof HTMLElement
+  ) {
+    nextBackdrop.setAttribute('data-sheet-settled', 'true');
+  }
+
   if (route === 'scan' && uiState.intakeTab === 'scanner') {
     const videoEl = document.getElementById('scanner-live-video');
     if (videoEl instanceof HTMLVideoElement) {
@@ -285,6 +363,70 @@ function render() {
         } catch (_) {}
       }
     }
+  }
+}
+
+/**
+ * Searches Google Books & Open Library for cover artwork inside the Book Inspector Cover Studio.
+ * @param {string} [queryOverride]
+ */
+async function executeInspectorCoverSearch(queryOverride) {
+  const book = store.getState().books.find((b) => b.id === uiState.inspectedBookId);
+  const query = (
+    queryOverride !== undefined ? queryOverride : uiState.inspectorUi.coverSearchQuery
+  ).trim();
+
+  const effectiveQuery = query || (book ? `${book.title} ${book.authors[0] || ''}`.trim() : '');
+  if (!effectiveQuery) {
+    uiState.inspectorUi.coverSearchError = 'Enter a book title or author to search covers.';
+    render();
+    return;
+  }
+
+  uiState.inspectorUi.coverSearchQuery = effectiveQuery;
+  uiState.inspectorUi.coverSearchLoading = true;
+  uiState.inspectorUi.coverSearchError = '';
+  render();
+
+  try {
+    const { enabledMetadataProviders } = store.getState().settings;
+    const response = await catalogService.searchBooks(
+      { query: effectiveQuery },
+      {
+        retainRaw: false,
+        enabledProviderIds: enabledMetadataProviders,
+        limit: 10,
+      }
+    );
+
+    const seenUrls = new Set();
+    const covers = [];
+    for (const cand of response.candidates) {
+      if (!cand.coverUrl || seenUrls.has(cand.coverUrl)) continue;
+      seenUrls.add(cand.coverUrl);
+      covers.push({
+        title: cand.title,
+        author: cand.authors[0] || '',
+        coverUrl: cand.coverUrl,
+        source: cand.sources[0]?.provider === 'open-library' ? 'Open Library' : 'Google Books',
+      });
+      if (covers.length >= 8) break;
+    }
+
+    uiState.inspectorUi.coverSearchLoading = false;
+    uiState.inspectorUi.coverSearchResults = covers;
+    if (covers.length === 0) {
+      uiState.inspectorUi.coverSearchError =
+        'No cover images found for that search — try shorter keywords or select a photo from your phone.';
+    }
+    render();
+  } catch (err) {
+    uiState.inspectorUi.coverSearchLoading = false;
+    uiState.inspectorUi.coverSearchError =
+      err instanceof Error
+        ? err.message
+        : 'Online cover search is unavailable right now. You can still choose or take a photo.';
+    render();
   }
 }
 
@@ -446,46 +588,48 @@ function bindEvents() {
     if (event.key === 'Escape') {
       if (uiState.shellUi.isProfileFormSheetOpen) {
         event.preventDefault();
-        uiState.shellUi.isProfileFormSheetOpen = false;
-        uiState.shellUi.editingProfileId = null;
-        uiState.shellUi.previewBirthDate = undefined;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isProfileFormSheetOpen = false;
+          uiState.shellUi.editingProfileId = null;
+          uiState.shellUi.previewBirthDate = undefined;
+        });
         return;
       }
       if (uiState.shellUi.isProfileSwitcherOpen) {
         event.preventDefault();
-        uiState.shellUi.isProfileSwitcherOpen = false;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isProfileSwitcherOpen = false;
+        });
         return;
       }
       if (uiState.inspectedBookId) {
         event.preventDefault();
-        uiState.inspectedBookId = null;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.inspectedBookId = null;
+          uiState.inspectorUi = createBlankInspectorUi();
+        });
         return;
       }
       if (uiState.rotationEditor.isGeneratorOpen) {
         event.preventDefault();
-        uiState.rotationEditor.isGeneratorOpen = false;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.rotationEditor.isGeneratorOpen = false;
+        });
         return;
       }
       if (uiState.rotationEditor.modalMode) {
         event.preventDefault();
-        uiState.rotationEditor.modalMode = null;
-        uiState.rotationEditor.selectedAddBookIds = [];
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.rotationEditor.modalMode = null;
+          uiState.rotationEditor.selectedAddBookIds = [];
+        });
         return;
       }
       if (pwa.getStatus().showIosInstructions) {
         event.preventDefault();
-        pwa.closeIosGuide();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          pwa.closeIosGuide();
+        });
         return;
       }
       if (store.getToast()) {
@@ -520,41 +664,43 @@ function bindEvents() {
     if (event.target instanceof Element && event.target.hasAttribute('data-backdrop-action')) {
       const backdropAction = event.target.getAttribute('data-backdrop-action');
       if (backdropAction === 'close-profile-switcher') {
-        uiState.shellUi.isProfileSwitcherOpen = false;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isProfileSwitcherOpen = false;
+        });
         return;
       }
       if (backdropAction === 'close-profile-form-sheet') {
-        uiState.shellUi.isProfileFormSheetOpen = false;
-        uiState.shellUi.editingProfileId = null;
-        uiState.shellUi.previewBirthDate = undefined;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isProfileFormSheetOpen = false;
+          uiState.shellUi.editingProfileId = null;
+          uiState.shellUi.previewBirthDate = undefined;
+        });
         return;
       }
       if (backdropAction === 'close-inspect-book') {
-        uiState.inspectedBookId = null;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.inspectedBookId = null;
+          uiState.inspectorUi = createBlankInspectorUi();
+        });
         return;
       }
       if (backdropAction === 'close-generate-rotation-sheet') {
-        uiState.rotationEditor.isGeneratorOpen = false;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.rotationEditor.isGeneratorOpen = false;
+        });
         return;
       }
       if (backdropAction === 'close-rotation-modal') {
-        uiState.rotationEditor.modalMode = null;
-        uiState.rotationEditor.selectedAddBookIds = [];
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.rotationEditor.modalMode = null;
+          uiState.rotationEditor.selectedAddBookIds = [];
+        });
         return;
       }
       if (backdropAction === 'close-ios-guide') {
-        pwa.closeIosGuide();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          pwa.closeIosGuide();
+        });
         return;
       }
     }
@@ -577,8 +723,9 @@ function bindEvents() {
         store.dismissToast();
         break;
       case 'close-ios-guide':
-        pwa.closeIosGuide();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          pwa.closeIosGuide();
+        });
         break;
       case 'install-pwa':
         rememberModalTrigger(target);
@@ -592,9 +739,9 @@ function bindEvents() {
         break;
       }
       case 'close-profile-switcher': {
-        uiState.shellUi.isProfileSwitcherOpen = false;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isProfileSwitcherOpen = false;
+        });
         break;
       }
       case 'open-add-profile-sheet': {
@@ -621,11 +768,11 @@ function bindEvents() {
         break;
       }
       case 'close-profile-form-sheet': {
-        uiState.shellUi.isProfileFormSheetOpen = false;
-        uiState.shellUi.editingProfileId = null;
-        uiState.shellUi.previewBirthDate = undefined;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isProfileFormSheetOpen = false;
+          uiState.shellUi.editingProfileId = null;
+          uiState.shellUi.previewBirthDate = undefined;
+        });
         break;
       }
       case 'switch-profile': {
@@ -646,15 +793,74 @@ function bindEvents() {
       }
       case 'inspect-book': {
         rememberModalTrigger(target);
-        uiState.inspectedBookId = target.getAttribute('data-book-id');
+        const bookId = target.getAttribute('data-book-id');
+        const book = store.getState().books.find((b) => b.id === bookId);
+        uiState.inspectedBookId = bookId;
+        uiState.inspectorUi = createBlankInspectorUi(book);
         render();
         focusActiveDialogControl();
         break;
       }
       case 'close-inspect-book': {
-        uiState.inspectedBookId = null;
+        closeSheetWithMotion(() => {
+          uiState.inspectedBookId = null;
+          uiState.inspectorUi = createBlankInspectorUi();
+        });
+        break;
+      }
+      case 'toggle-cover-picker': {
+        const nextOpen = !uiState.inspectorUi.isCoverPickerOpen;
+        uiState.inspectorUi.isCoverPickerOpen = nextOpen;
+        if (nextOpen) {
+          uiState.inspectorUi.isEditingBook = false;
+          render();
+          if (
+            uiState.inspectorUi.coverSearchResults.length === 0 &&
+            !uiState.inspectorUi.coverSearchLoading &&
+            pwa.getStatus().isOnline
+          ) {
+            await executeInspectorCoverSearch();
+          }
+        } else {
+          render();
+        }
+        break;
+      }
+      case 'toggle-edit-book-info': {
+        const nextEditing = !uiState.inspectorUi.isEditingBook;
+        uiState.inspectorUi.isEditingBook = nextEditing;
+        uiState.inspectorUi.editError = '';
+        if (nextEditing) {
+          uiState.inspectorUi.isCoverPickerOpen = false;
+        }
         render();
-        restoreModalTriggerFocus();
+        break;
+      }
+      case 'select-searched-cover': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        const coverUrl = target.getAttribute('data-cover-url');
+        if (bookId && coverUrl) {
+          try {
+            await store.updateBook(bookId, { coverUrl });
+            uiState.inspectorUi.isCoverPickerOpen = false;
+            render();
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not update cover.', 'error');
+          }
+        }
+        break;
+      }
+      case 'clear-book-cover': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        if (bookId) {
+          try {
+            await store.updateBook(bookId, { coverUrl: '' });
+            uiState.inspectorUi.isCoverPickerOpen = false;
+            render();
+          } catch (err) {
+            store.notify(err instanceof Error ? err.message : 'Could not clear cover.', 'error');
+          }
+        }
         break;
       }
       case 'delete-book': {
@@ -662,6 +868,7 @@ function bindEvents() {
         if (bookId) {
           if (uiState.inspectedBookId === bookId) {
             uiState.inspectedBookId = null;
+            uiState.inspectorUi = createBlankInspectorUi();
           }
           await store.deleteBook(bookId);
         }
@@ -675,9 +882,9 @@ function bindEvents() {
         break;
       }
       case 'close-generate-rotation-sheet': {
-        uiState.rotationEditor.isGeneratorOpen = false;
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.rotationEditor.isGeneratorOpen = false;
+        });
         break;
       }
       case 'toggle-rotation-read': {
@@ -835,10 +1042,10 @@ function bindEvents() {
         break;
       }
       case 'close-rotation-modal': {
-        uiState.rotationEditor.modalMode = null;
-        uiState.rotationEditor.selectedAddBookIds = [];
-        render();
-        restoreModalTriggerFocus();
+        closeSheetWithMotion(() => {
+          uiState.rotationEditor.modalMode = null;
+          uiState.rotationEditor.selectedAddBookIds = [];
+        });
         break;
       }
       case 'select-intake-tab': {
@@ -947,6 +1154,13 @@ function bindEvents() {
           target.getAttribute('data-theme') || 'system'
         );
         await store.updateSettings({ theme });
+        break;
+      }
+      case 'set-cover-aspect': {
+        const aspect = /** @type {import('./types/models.js').CoverAspectRatio} */ (
+          target.getAttribute('data-cover-aspect') === 'square' ? 'square' : 'portrait'
+        );
+        await store.updateSettings({ coverAspectRatio: aspect });
         break;
       }
       case 'toggle-raw-payloads': {
@@ -1159,6 +1373,8 @@ function bindEvents() {
     } else if (target.id === 'rotation-modal-search-input') {
       uiState.rotationEditor.searchQuery = target.value;
       render();
+    } else if (target.id === 'inspector-cover-search-input') {
+      uiState.inspectorUi.coverSearchQuery = target.value;
     } else if (target.id === 'profile-birth-date') {
       // Live in-DOM preview of auto-computed age & stage without disrupting native date picker focus
       const rawDob = target.value;
@@ -1200,6 +1416,25 @@ function bindEvents() {
       uiState.lastScanLockBanner = '';
       try {
         await scanner.scanUploadedFile(file);
+      } finally {
+        target.value = '';
+      }
+    } else if (
+      target.id === 'inspector-cover-gallery-input' ||
+      target.id === 'inspector-cover-camera-input'
+    ) {
+      const file = target.files && target.files[0];
+      if (!file || !uiState.inspectedBookId) return;
+      try {
+        const dataUrl = await compressImageFileToDataUrl(file);
+        await store.updateBook(uiState.inspectedBookId, { coverUrl: dataUrl });
+        uiState.inspectorUi.isCoverPickerOpen = false;
+        render();
+      } catch (err) {
+        store.notify(
+          err instanceof Error ? err.message : 'Could not load selected cover image.',
+          'error'
+        );
       } finally {
         target.value = '';
       }
@@ -1343,6 +1578,59 @@ function bindEvents() {
         restoreModalTriggerFocus();
       } catch (err) {
         store.notify(err instanceof Error ? err.message : 'Could not generate rotation.', 'error');
+      }
+    } else if (form.id === 'inspector-cover-search-form') {
+      const rawCoverQuery = String(data.get('coverQuery') || '');
+      await executeInspectorCoverSearch(rawCoverQuery);
+    } else if (form.id === 'edit-book-form') {
+      const bookId = form.getAttribute('data-book-id') || uiState.inspectedBookId;
+      if (!bookId) return;
+      const existing = store.getState().books.find((b) => b.id === bookId);
+      const authorsRaw = String(data.get('authors') || '');
+      const tagsRaw = String(data.get('tags') || '');
+      const pubYearRaw = String(data.get('publishedYear') || '').trim();
+      const pagesRaw = String(data.get('pageCount') || '').trim();
+      const coverUrlInput = String(data.get('coverUrl') || '').trim();
+
+      // If the book currently has a custom phone/camera photo (data:image/) and the HTTPS URL input was left blank, preserve the photo
+      const nextCoverPatch =
+        coverUrlInput !== ''
+          ? coverUrlInput
+          : existing?.coverUrl && existing.coverUrl.startsWith('data:image/')
+            ? existing.coverUrl
+            : '';
+
+      try {
+        await store.updateBook(bookId, {
+          title: String(data.get('title') || ''),
+          authors: authorsRaw
+            .split(',')
+            .map((a) => a.trim())
+            .filter(Boolean),
+          isbn: String(data.get('isbn') || ''),
+          format: /** @type {import('./types/models.js').BookFormat} */ (
+            data.get('format') || 'hardcover'
+          ),
+          readingStage: /** @type {import('./types/models.js').ReadingStage} */ (
+            data.get('readingStage') || 'picture-book'
+          ),
+          ageMin: Number(data.get('ageMin') || 0),
+          ageMax: Number(data.get('ageMax') || 6),
+          pageCount: pagesRaw ? Number(pagesRaw) : null,
+          publishedYear: pubYearRaw ? Number(pubYearRaw) : null,
+          coverUrl: nextCoverPatch,
+          tags: tagsRaw
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean),
+        });
+        uiState.inspectorUi.isEditingBook = false;
+        uiState.inspectorUi.editError = '';
+        render();
+      } catch (err) {
+        uiState.inspectorUi.editError =
+          err instanceof Error ? err.message : 'Could not update book details.';
+        render();
       }
     } else if (form.id === 'inspector-add-tag-form') {
       const bookId = form.getAttribute('data-book-id');

@@ -93,8 +93,13 @@
  */
 
 /**
+ * @typedef {'portrait' | 'square'} CoverAspectRatio
+ */
+
+/**
  * @typedef {Object} AppSettings
  * @property {ThemeMode} theme - UI color mode preference
+ * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
  * @property {boolean} retainRawProviderPayloads - Keep raw API responses for debugging/extension
  * @property {string[]} enabledMetadataProviders - Enabled catalog lookup provider IDs (default: Google Books + Open Library)
  * @property {boolean} autoLocalTagging - Automatically run offline rule-based taxonomy & reading-level tagging

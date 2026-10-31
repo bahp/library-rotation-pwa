@@ -134,6 +134,32 @@ export function renderSettingsView({
     })
     .join('');
 
+  const coverRatios = /** @type {Array<{ id: import('../../types/models.js').CoverAspectRatio, label: string }>} */ ([
+    { id: 'portrait', label: 'Original (3:4)' },
+    { id: 'square', label: 'Square (1:1)' },
+  ]);
+
+  const coverAspectButtonsHtml = coverRatios
+    .map((item) => {
+      const active = (settings.coverAspectRatio || 'portrait') === item.id;
+      return `
+        <button
+          type="button"
+          data-action="set-cover-aspect"
+          data-cover-aspect="${item.id}"
+          aria-pressed="${active ? 'true' : 'false'}"
+          class="flex-1 min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap ${
+            active
+              ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
+              : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+          }"
+        >
+          ${escapeHtml(item.label)}
+        </button>
+      `;
+    })
+    .join('');
+
   let pwaActionHtml = '';
   if (pwaStatus.isInstalled) {
     pwaActionHtml = `
@@ -281,7 +307,7 @@ export function renderSettingsView({
                 type="url"
                 value="${escapeHtml(settings.aiEndpointUrl)}"
                 placeholder="https://your-proxy.example.com/api/enrich or http://localhost:11434/enrich"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
             <div class="sm:col-span-4">
@@ -291,7 +317,7 @@ export function renderSettingsView({
               <select
                 id="ai-timeout-select"
                 name="aiTimeoutMs"
-                class="w-full min-h-[44px] px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="3000" ${settings.aiTimeoutMs === 3000 ? 'selected' : ''}>3 seconds (Fast fallback)</option>
                 <option value="6000" ${settings.aiTimeoutMs === 6000 ? 'selected' : ''}>6 seconds (Balanced)</option>
@@ -381,6 +407,18 @@ export function renderSettingsView({
         </p>
         <div class="mt-3 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
           ${themeButtonsHtml}
+        </div>
+
+        <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800">
+          <p class="text-sm font-semibold text-forest-900 dark:text-white">
+            Book Cover Ratio
+          </p>
+          <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+            Show book covers in classic 3:4 portrait proportions or compact 1:1 squares.
+          </p>
+          <div class="mt-2.5 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
+            ${coverAspectButtonsHtml}
+          </div>
         </div>
       </section>
 

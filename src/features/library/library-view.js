@@ -15,13 +15,19 @@ import { renderIcon } from '../../ui/icons.js';
  * Renders the dedicated Family Library (Book Catalog) view markup.
  * @param {{
  *   state: import('../../types/models.js').AppState,
- *   uiState: { catalogFilter: string, searchQuery: string, inspectedBookId: string | null }
+ *   uiState: {
+ *     catalogFilter: string,
+ *     searchQuery: string,
+ *     inspectedBookId: string | null,
+ *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState
+ *   }
  * }} params
  * @returns {string}
  */
 export function renderLibraryView({ state, uiState }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+  const coverAspectRatio = state.settings.coverAspectRatio;
   const activeRotation =
     state.rotations.find((r) => r.profileId === activeProfile.id && r.status === 'active') || null;
 
@@ -93,7 +99,7 @@ export function renderLibraryView({ state, uiState }) {
                       aria-label="Inspect ${escapeHtml(book.title)} by ${escapeHtml(primaryAuthor)}"
                       class="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
                     >
-                      ${renderBookCover(book, 'grid')}
+                      ${renderBookCover(book, 'grid', coverAspectRatio)}
                     </button>
                     ${
                       isOnActiveShelf
@@ -181,7 +187,7 @@ export function renderLibraryView({ state, uiState }) {
             value="${escapeHtml(uiState.searchQuery)}"
             placeholder="Search title, author, ISBN, or topic…"
             aria-label="Filter family catalog"
-            class="w-full min-h-[44px] pl-9 pr-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 focus:outline-2 focus:outline-forest-700"
+            class="w-full h-12 pl-9 pr-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 focus:outline-2 focus:outline-forest-700"
           />
         </div>
         <div class="flex items-center gap-1.5 overflow-x-auto pb-0.5">
@@ -195,6 +201,8 @@ export function renderLibraryView({ state, uiState }) {
         book: inspectedBook,
         activeRotation,
         canSwapInActiveRotation,
+        coverAspectRatio,
+        inspectorUiState: uiState.inspectorUi,
       })}
     </div>
   `;

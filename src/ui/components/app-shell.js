@@ -154,7 +154,7 @@ export function renderAppShell({
     ? `
       <div
         data-backdrop-action="close-ios-guide"
-        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
+        class="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
       >
         <div role="dialog" aria-modal="true" aria-labelledby="ios-install-title" class="animate-sheet-up w-full max-w-sm rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 p-6 shadow-xl">
           <h2 id="ios-install-title" class="font-display text-lg font-semibold text-forest-900 dark:text-white">
@@ -203,9 +203,9 @@ export function renderAppShell({
       </a>
       ${offlineBannerHtml}
 
-      <!-- Compact Top Bar: Wordmark | Desktop Nav | Active Reader Avatar Trigger -->
-      <header class="lg:sticky lg:top-0 z-30 bg-linen-50/95 dark:bg-night-950/95 backdrop-blur-md border-b border-linen-200/80 dark:border-night-800">
-        <div class="max-w-6xl mx-auto flex items-center justify-between gap-4 px-4 sm:px-6 h-13 lg:h-15">
+      <!-- Floating Sticky Top Bar: Wordmark | Desktop Nav | Active Reader Avatar Trigger -->
+      <header class="sticky top-0 z-30 pt-2 sm:pt-3 px-3 sm:px-6 pointer-events-none">
+        <div class="pointer-events-auto max-w-6xl mx-auto flex items-center justify-between gap-4 px-3.5 sm:px-5 h-12 sm:h-14 rounded-2xl bg-ivory/90 dark:bg-night-900/90 backdrop-blur-md border border-linen-200/90 dark:border-night-700 shadow-md">
           <!-- Zone 1: Brand Wordmark -->
           <a
             href="#/home"
@@ -229,7 +229,7 @@ export function renderAppShell({
               aria-label="Current reader ${escapeHtml(activeProfile.name)} (${escapeHtml(
                 ageLabel
               )}). Tap to switch or add profile"
-              class="min-h-[44px] pl-1.5 pr-2.5 py-1 rounded-full bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 inline-flex items-center gap-2 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700"
+              class="min-h-[40px] pl-1.5 pr-2.5 py-1 rounded-full bg-linen-50/90 hover:bg-linen-100 dark:bg-night-950/90 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 inline-flex items-center gap-2 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700"
             >
               ${renderAvatarBadge(activeProfile, 'sm')}
               <span class="text-xs font-semibold text-forest-900 dark:text-white max-w-[96px] truncate">

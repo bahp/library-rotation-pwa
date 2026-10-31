@@ -19,7 +19,11 @@ import {
   generateRotationSelection,
   pickRandomEligibleBooks,
 } from '../features/rotations/rotation-engine.js';
-import { sanitizeTag, sanitizeTagList } from '../features/tagging/rule-tagger.js';
+import {
+  inferReadingLevelHint,
+  sanitizeTag,
+  sanitizeTagList,
+} from '../features/tagging/rule-tagger.js';
 import { createTaggingService } from '../features/tagging/tagging-service.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
@@ -444,6 +448,138 @@ export function createAppStore(storage, deps = {}) {
     });
     notify(`Added "${book.title}" to your library.`, 'success');
     return book;
+  }
+
+  /**
+   * Updates an existing catalog book's metadata and/or cover image (`https://` or `data:image/`).
+   * @param {string} bookId
+   * @param {{
+   *   title?: string,
+   *   authors?: string[],
+   *   isbn?: string,
+   *   publishedYear?: number | null,
+   *   pageCount?: number | null,
+   *   coverUrl?: string | null,
+   *   format?: import('../types/models.js').BookFormat,
+   *   ageMin?: number,
+   *   ageMax?: number,
+   *   readingStage?: import('../types/models.js').ReadingStage,
+   *   tags?: string[]
+   * }} patch
+   */
+  async function updateBook(bookId, patch) {
+    const existing = state.books.find((b) => b.id === bookId);
+    if (!existing) throw new Error('Book not found.');
+
+    const nextTitle = patch.title !== undefined ? patch.title.trim() : existing.title;
+    if (!nextTitle) {
+      throw new Error('Book title is required.');
+    }
+
+    let nextIsbn13 = existing.isbn13;
+    let nextIsbn10 = existing.isbn10;
+    if (patch.isbn !== undefined) {
+      const isbnCheck = normalizeIsbn(patch.isbn);
+      if (!isbnCheck.valid) {
+        throw new Error(isbnCheck.error || 'Invalid ISBN.');
+      }
+      if (
+        isbnCheck.isbn13 &&
+        state.books.some((b) => b.id !== bookId && b.isbn13 === isbnCheck.isbn13)
+      ) {
+        throw new Error(`ISBN ${isbnCheck.isbn13} is already assigned to another book in your library.`);
+      }
+      nextIsbn13 = isbnCheck.isbn13;
+      nextIsbn10 = isbnCheck.isbn10;
+    }
+
+    const cleanedAuthors =
+      patch.authors !== undefined
+        ? patch.authors.map((a) => String(a || '').trim()).filter(Boolean)
+        : existing.authors;
+    const nextAuthors = cleanedAuthors.length > 0 ? cleanedAuthors : ['Unknown Author'];
+
+    let nextCoverUrl = existing.coverUrl;
+    if (patch.coverUrl !== undefined) {
+      const rawCover = String(patch.coverUrl || '').trim();
+      if (!rawCover) {
+        nextCoverUrl = undefined;
+      } else {
+        const sanitized = sanitizeCoverUrl(rawCover);
+        if (!sanitized) {
+          throw new Error('Enter a valid HTTPS image URL or choose a photo.');
+        }
+        nextCoverUrl = sanitized;
+      }
+    }
+
+    let nextPubYear = existing.publishedYear;
+    if (patch.publishedYear !== undefined) {
+      if (patch.publishedYear === null || patch.publishedYear === 0) {
+        nextPubYear = undefined;
+      } else if (patch.publishedYear >= 1800 && patch.publishedYear <= 2100) {
+        nextPubYear = Math.trunc(patch.publishedYear);
+      } else {
+        nextPubYear = undefined;
+      }
+    }
+
+    let nextPages = existing.pageCount;
+    if (patch.pageCount !== undefined) {
+      nextPages =
+        patch.pageCount && patch.pageCount > 0 ? Math.trunc(patch.pageCount) : undefined;
+    }
+
+    const nextFormat = patch.format || existing.format;
+    const nextStage = patch.readingStage || existing.readingStage;
+    const nextAgeMin =
+      patch.ageMin !== undefined
+        ? Math.max(0, Math.min(16, Math.trunc(Number(patch.ageMin) || 0)))
+        : existing.ageMin;
+    const nextAgeMax =
+      patch.ageMax !== undefined
+        ? Math.max(nextAgeMin, Math.min(18, Math.trunc(Number(patch.ageMax) || nextAgeMin)))
+        : Math.max(nextAgeMin, existing.ageMax);
+
+    const nextTags =
+      patch.tags !== undefined ? sanitizeTagList(patch.tags, 10) : existing.tags;
+
+    const nextReadingLevelHint = inferReadingLevelHint({
+      readingStage: nextStage,
+      format: nextFormat,
+      pageCount: nextPages,
+      tags: nextTags,
+      textCorpus: nextTitle,
+    });
+
+    /** @type {import('../types/models.js').Book} */
+    const updatedBook = {
+      id: existing.id,
+      isbn13: nextIsbn13,
+      ...(nextIsbn10 ? { isbn10: nextIsbn10 } : {}),
+      title: nextTitle,
+      authors: nextAuthors,
+      ...(nextPubYear ? { publishedYear: nextPubYear } : {}),
+      ...(nextPages ? { pageCount: nextPages } : {}),
+      format: nextFormat,
+      ageMin: nextAgeMin,
+      ageMax: nextAgeMax,
+      readingStage: nextStage,
+      ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
+      tags: nextTags,
+      ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
+      spineColor: existing.spineColor,
+      addedAt: existing.addedAt,
+      ...(existing.lastRotatedAt ? { lastRotatedAt: existing.lastRotatedAt } : {}),
+      sources: existing.sources,
+    };
+
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(`Updated "${updatedBook.title}".`, 'success');
+    return updatedBook;
   }
 
   /**
@@ -1032,6 +1168,7 @@ export function createAppStore(storage, deps = {}) {
   async function resetProviderSettingsToSafeDefaults() {
     const safeDefaults = createSafeDefaultSettings({
       theme: state.settings.theme,
+      coverAspectRatio: state.settings.coverAspectRatio,
       preferredScanMode: state.settings.preferredScanMode,
     });
     await commit({
@@ -1095,6 +1232,7 @@ export function createAppStore(storage, deps = {}) {
     deleteProfile,
     addManualBook,
     addBookFromCandidate,
+    updateBook,
     addBookTag,
     removeBookTag,
     enrichSingleBook,

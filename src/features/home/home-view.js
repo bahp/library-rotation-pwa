@@ -17,13 +17,19 @@ import { renderIcon } from '../../ui/icons.js';
  * Renders the compact Home Shelf view markup.
  * @param {{
  *   state: import('../../types/models.js').AppState,
- *   uiState: { catalogFilter: string, searchQuery: string, inspectedBookId: string | null }
+ *   uiState: {
+ *     catalogFilter: string,
+ *     searchQuery: string,
+ *     inspectedBookId: string | null,
+ *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState
+ *   }
  * }} params
  * @returns {string}
  */
 export function renderHomeView({ state, uiState }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+  const coverAspectRatio = state.settings.coverAspectRatio;
 
   const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
   const activeRotation = profileRotations.find((r) => r.status === 'active') || null;
@@ -84,7 +90,7 @@ export function renderHomeView({ state, uiState }) {
                       aria-label="Inspect ${escapeHtml(book.title)} by ${escapeHtml(primaryAuthor)}"
                       class="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
                     >
-                      ${renderBookCover(book, 'grid')}
+                      ${renderBookCover(book, 'grid', coverAspectRatio)}
                     </button>
 
                     <!-- 44x44px Thumb Hitbox around Bottom-Left Read Check Badge -->
@@ -234,7 +240,7 @@ export function renderHomeView({ state, uiState }) {
                       data-book-id="${escapeHtml(book.id)}"
                       class="flex items-center gap-2.5 min-w-0 text-left flex-1"
                     >
-                      ${renderBookCover(book, 'xs')}
+                      ${renderBookCover(book, 'xs', coverAspectRatio)}
                       <span class="min-w-0">
                         <span class="block text-xs font-bold text-forest-900 dark:text-white truncate">
                           ${escapeHtml(book.title)}
@@ -309,6 +315,8 @@ export function renderHomeView({ state, uiState }) {
         book: inspectedBook,
         activeRotation,
         canSwapInActiveRotation,
+        coverAspectRatio,
+        inspectorUiState: uiState.inspectorUi,
       })}
     </div>
   `;

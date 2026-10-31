@@ -45,7 +45,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
   return `
     <div
       data-backdrop-action="close-generate-rotation-sheet"
-      class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+      class="sheet-backdrop fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="generate-rotation-sheet-title"
@@ -84,7 +84,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               name="title"
               type="text"
               placeholder="${escapeHtml(activeProfile.name)}’s Winter Reads"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -97,7 +97,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               name="objective"
               type="text"
               placeholder="e.g., hardcover + winter & nature themes"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -111,7 +111,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               type="text"
               value="${escapeHtml(activeProfile.favoriteTopics.join(', '))}"
               placeholder="animals, nature, bedtime"
-              class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -127,7 +127,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 min="1"
                 max="15"
                 value="${activeProfile.defaultRotationSize}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -142,7 +142,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 min="0"
                 max="90"
                 value="${activeProfile.cooldownDays}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
@@ -155,7 +155,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               <select
                 id="rot-format"
                 name="requiredFormat"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="any" selected>Any Binding</option>
                 <option value="hardcover">Hardcover Preferred</option>
@@ -173,7 +173,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 name="seed"
                 type="text"
                 placeholder="e.g., dec-holiday-01"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
@@ -262,7 +262,7 @@ function renderRotationPickerModal({ state, editorState }) {
               return `
                 <div class="py-2.5 flex items-center justify-between gap-3">
                   <div class="flex items-center gap-2.5 min-w-0">
-                    ${renderBookCover(book, 'xs')}
+                    ${renderBookCover(book, 'xs', state.settings.coverAspectRatio)}
                     <div class="min-w-0">
                       <h4 class="font-display text-sm font-semibold text-forest-900 dark:text-white truncate">
                         ${escapeHtml(book.title)}
@@ -330,7 +330,7 @@ function renderRotationPickerModal({ state, editorState }) {
   return `
     <div
       data-backdrop-action="close-rotation-modal"
-      class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+      class="sheet-backdrop fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="rotation-picker-modal-title"
@@ -378,7 +378,7 @@ function renderRotationPickerModal({ state, editorState }) {
               aria-label="Filter available off-shelf books"
               value="${escapeHtml(editorState.searchQuery)}"
               placeholder="Filter available books by title, author, or topic…"
-              class="w-full min-h-[44px] pl-10 pr-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 pl-10 pr-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -463,17 +463,25 @@ function renderRotationPickerModal({ state, editorState }) {
 /**
  * Renders a single rotation section:
  * - Default mode (`!isEditing`): Brief summary + clean book covers ONLY (zero nested boxes)
- * - Edit mode (`isEditing`): Expands icon-only controls (`check`, `shuffle`, `replace`, `close`)
- *   under each book cover + shelf addition & deletion bar
+ * - Edit mode (`isEditing`): 1-per-row on mobile (`grid-cols-1`) and multi-column on wider screens
+ *   (`md:grid-cols-2 xl:grid-cols-3`) with rich book metadata (cover, title, author, age range,
+ *   binding format, reading stage, and topic tags) alongside the 4 icon-only controls (`check`, `shuffle`, `replace`, `close`)
  * @param {{
  *   rot: import('../../types/models.js').RotationList,
  *   bookMap: Map<string, import('../../types/models.js').Book>,
  *   totalCatalogCount: number,
- *   isEditing: boolean
+ *   isEditing: boolean,
+ *   coverAspectRatio: import('../../types/models.js').CoverAspectRatio
  * }} params
  * @returns {string}
  */
-function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
+function renderRotationSection({
+  rot,
+  bookMap,
+  totalCatalogCount,
+  isEditing,
+  coverAspectRatio,
+}) {
   const books = rot.bookIds
     .map((id) => bookMap.get(id))
     .filter(/** @returns {b is import('../../types/models.js').Book} */ (b) => Boolean(b));
@@ -483,31 +491,60 @@ function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
 
   const coversAreaHtml = isEditing
     ? `
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-3.5 gap-y-4 pt-1">
+      <!-- Rich 1-Row-Per-Book Mobile / Multi-Column Tablet & Desktop Edit Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pt-1">
         ${books
           .map((book) => {
             const isRead = completedSet.has(book.id);
             const canRemove = books.length > 1;
-            return `
-              <div class="flex flex-col min-w-0">
-                <button
-                  type="button"
-                  data-action="inspect-book"
-                  data-book-id="${escapeHtml(book.id)}"
-                  aria-label="Inspect ${escapeHtml(book.title)}"
-                  class="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
-                >
-                  ${renderBookCover(book, 'grid')}
-                </button>
+            const topicsLabel =
+              book.tags.length > 0 ? book.tags.slice(0, 4).join(' · ') : 'general';
 
-                <p class="text-[11px] font-semibold text-forest-900 dark:text-white truncate mt-1.5 ${
-                  isRead ? 'line-through opacity-70' : ''
-                }">
-                  ${escapeHtml(book.title)}
-                </p>
+            return `
+              <article class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3 flex flex-col justify-between gap-2.5 min-w-0">
+                <div class="flex items-start gap-3 min-w-0">
+                  <button
+                    type="button"
+                    data-action="inspect-book"
+                    data-book-id="${escapeHtml(book.id)}"
+                    aria-label="Inspect ${escapeHtml(book.title)}"
+                    class="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
+                  >
+                    ${renderBookCover(book, 'sm', coverAspectRatio)}
+                  </button>
+
+                  <div class="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      data-action="inspect-book"
+                      data-book-id="${escapeHtml(book.id)}"
+                      class="text-left block w-full focus-visible:outline-2 focus-visible:outline-forest-700 rounded"
+                    >
+                      <h3 class="font-display text-sm font-bold text-forest-900 dark:text-white leading-snug line-clamp-2 ${
+                        isRead ? 'line-through opacity-70' : ''
+                      }">
+                        ${escapeHtml(book.title)}
+                      </h3>
+                      <p class="text-xs text-stone-ink dark:text-slate-300 truncate mt-0.5">
+                        ${escapeHtml(book.authors.join(', '))}
+                      </p>
+                    </button>
+
+                    <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-1">
+                      Ages ${book.ageMin}–${book.ageMax} · ${escapeHtml(
+                        formatBookBinding(book.format)
+                      )} · ${escapeHtml(formatReadingStage(book.readingStage))}${
+                        book.pageCount ? ` · ${book.pageCount} pp` : ''
+                      }
+                    </p>
+                    <p class="text-[11px] text-forest-700 dark:text-[#5ED3DA] truncate mt-0.5">
+                      Topics: ${escapeHtml(topicsLabel)}
+                    </p>
+                  </div>
+                </div>
 
                 <!-- 4-Icon Slot Control Strip: Read, Random Swap, Manual Replace, Remove (x) -->
-                <div class="mt-1.5 grid grid-cols-4 gap-1">
+                <div class="grid grid-cols-4 gap-1.5 pt-2 border-t border-linen-200/70 dark:border-night-800">
                   <button
                     type="button"
                     data-action="toggle-rotation-read"
@@ -516,10 +553,10 @@ function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
                     aria-pressed="${isRead ? 'true' : 'false'}"
                     aria-label="${isRead ? `Mark ${escapeHtml(book.title)} unread` : `Mark ${escapeHtml(book.title)} read`}"
                     title="${isRead ? 'Read' : 'Mark Read'}"
-                    class="min-h-[40px] rounded-xl transition-colors flex items-center justify-center ${
+                    class="min-h-[42px] rounded-xl transition-colors flex items-center justify-center ${
                       isRead
                         ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                        : 'bg-ivory hover:bg-linen-100 text-stone-ink dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
+                        : 'bg-linen-50 hover:bg-linen-100 text-stone-ink dark:bg-night-950 dark:hover:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
                     }"
                   >
                     ${renderIcon('check', 'w-4 h-4')}
@@ -532,7 +569,7 @@ function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
                     data-book-id="${escapeHtml(book.id)}"
                     ${!hasOffShelfBooks ? 'disabled title="No off-shelf books available"' : 'title="Swap with random eligible book"'}
                     aria-label="Swap ${escapeHtml(book.title)} randomly"
-                    class="min-h-[40px] rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-40 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
+                    class="min-h-[42px] rounded-xl bg-linen-50 hover:bg-linen-100 disabled:opacity-40 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
                   >
                     ${renderIcon('shuffle', 'w-4 h-4')}
                   </button>
@@ -544,7 +581,7 @@ function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
                     data-book-id="${escapeHtml(book.id)}"
                     ${!hasOffShelfBooks ? 'disabled title="No off-shelf books available"' : 'title="Replace manually from catalog"'}
                     aria-label="Replace ${escapeHtml(book.title)} manually"
-                    class="min-h-[40px] rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-40 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
+                    class="min-h-[42px] rounded-xl bg-linen-50 hover:bg-linen-100 disabled:opacity-40 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
                   >
                     ${renderIcon('replace', 'w-4 h-4')}
                   </button>
@@ -556,12 +593,12 @@ function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
                     data-book-id="${escapeHtml(book.id)}"
                     ${!canRemove ? 'disabled title="At least one book required"' : `title="Remove from shelf"`}
                     aria-label="Remove ${escapeHtml(book.title)} from shelf"
-                    class="min-h-[40px] rounded-xl bg-ivory hover:bg-rose-50 disabled:opacity-35 dark:bg-night-900 dark:hover:bg-rose-950/40 border border-linen-200 dark:border-night-700 text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-colors flex items-center justify-center"
+                    class="min-h-[42px] rounded-xl bg-linen-50 hover:bg-rose-50 disabled:opacity-35 dark:bg-night-950 dark:hover:bg-rose-950/40 border border-linen-200 dark:border-night-700 text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-colors flex items-center justify-center"
                   >
                     ${renderIcon('close', 'w-4 h-4')}
                   </button>
                 </div>
-              </div>
+              </article>
             `;
           })
           .join('')}
@@ -620,7 +657,7 @@ function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
                   aria-label="Inspect ${escapeHtml(book.title)}"
                   class="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
                 >
-                  ${renderBookCover(book, 'grid')}
+                  ${renderBookCover(book, 'grid', coverAspectRatio)}
                 </button>
                 ${
                   isRead
@@ -713,11 +750,17 @@ function renderRotationSection({ rot, bookMap, totalCatalogCount, isEditing }) {
  * @param {{
  *   state: import('../../types/models.js').AppState,
  *   editorState: RotationEditorUiState,
- *   inspectedBookId?: string | null
+ *   inspectedBookId?: string | null,
+ *   inspectorUiState?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState
  * }} params
  * @returns {string}
  */
-export function renderRotationsView({ state, editorState, inspectedBookId = null }) {
+export function renderRotationsView({
+  state,
+  editorState,
+  inspectedBookId = null,
+  inspectorUiState,
+}) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
 
@@ -725,6 +768,7 @@ export function renderRotationsView({ state, editorState, inspectedBookId = null
   const activeRotation = profileRotations.find((r) => r.status === 'active') || null;
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
   const ageLabel = formatProfileAgeLabel(activeProfile);
+  const coverAspectRatio = state.settings.coverAspectRatio;
 
   const rotationsListHtml =
     profileRotations.length > 0
@@ -737,6 +781,7 @@ export function renderRotationsView({ state, editorState, inspectedBookId = null
                 bookMap,
                 totalCatalogCount: state.books.length,
                 isEditing: editorState.editingRotationId === rot.id,
+                coverAspectRatio,
               })
             )
             .join('')}
@@ -803,6 +848,8 @@ export function renderRotationsView({ state, editorState, inspectedBookId = null
         book: inspectedBook,
         activeRotation,
         canSwapInActiveRotation,
+        coverAspectRatio,
+        inspectorUiState,
       })}
     </div>
   `;

@@ -35,24 +35,36 @@ const PALETTES = {
 };
 
 /**
- * Renders a 3:4 book cover card with automatic image fallback to an archival cloth edition design.
+ * Renders a book cover card ('portrait' 3:4 or 'square' 1:1) with automatic image fallback to an archival cloth edition design.
  * @param {import('../../types/models.js').Book} book
  * @param {'xs' | 'sm' | 'md' | 'lg' | 'grid'} [size]
+ * @param {import('../../types/models.js').CoverAspectRatio} [aspectRatio]
  * @returns {string}
  */
-export function renderBookCover(book, size = 'md') {
+export function renderBookCover(book, size = 'md', aspectRatio = 'portrait') {
   const palette = PALETTES[book.spineColor] || PALETTES.teal;
   const isGrid = size === 'grid';
+  const isSquare = aspectRatio === 'square';
 
-  const dims = isGrid
-    ? 'w-full aspect-[3/4] rounded-xl shadow-xs'
-    : size === 'xs'
-      ? 'w-11 h-[58px] rounded-lg'
-      : size === 'sm'
-        ? 'w-14 h-[74px] rounded-lg'
-        : size === 'lg'
-          ? 'w-28 h-[148px] rounded-xl'
-          : 'w-20 h-[106px] rounded-xl';
+  const dims = isSquare
+    ? isGrid
+      ? 'w-full aspect-square rounded-xl shadow-xs'
+      : size === 'xs'
+        ? 'w-11 h-11 aspect-square rounded-lg'
+        : size === 'sm'
+          ? 'w-14 h-14 aspect-square rounded-lg'
+          : size === 'lg'
+            ? 'w-28 h-28 aspect-square rounded-xl'
+            : 'w-20 h-20 aspect-square rounded-xl'
+    : isGrid
+      ? 'w-full aspect-[3/4] rounded-xl shadow-xs'
+      : size === 'xs'
+        ? 'w-11 h-[58px] rounded-lg'
+        : size === 'sm'
+          ? 'w-14 h-[74px] rounded-lg'
+          : size === 'lg'
+            ? 'w-28 h-[148px] rounded-xl'
+            : 'w-20 h-[106px] rounded-xl';
 
   const radiusClass = isGrid || size === 'md' || size === 'lg' ? 'rounded-xl' : 'rounded-lg';
 
@@ -80,7 +92,7 @@ export function renderBookCover(book, size = 'md') {
           src="${escapeHtml(book.coverUrl)}"
           alt="Cover of ${escapeHtml(book.title)}"
           width="180"
-          height="240"
+          height="${isSquare ? '180' : '240'}"
           referrerpolicy="no-referrer"
           loading="lazy"
           decoding="async"

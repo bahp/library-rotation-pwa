@@ -106,7 +106,7 @@ export function renderProfileSwitcherSheet({ state, isOpen }) {
   return `
     <div
       data-backdrop-action="close-profile-switcher"
-      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
+      class="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
     >
       <div
         role="dialog"
@@ -222,7 +222,7 @@ export function renderProfileFormSheet({
   return `
     <div
       data-backdrop-action="close-profile-form-sheet"
-      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
+      class="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
     >
       <div
         role="dialog"
@@ -268,7 +268,7 @@ export function renderProfileFormSheet({
                 required
                 value="${escapeHtml(editingProfile?.name || '')}"
                 placeholder="e.g., Clara"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -288,7 +288,7 @@ export function renderProfileFormSheet({
                 required
                 max="${todayIso}"
                 value="${escapeHtml(defaultDob)}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -299,7 +299,7 @@ export function renderProfileFormSheet({
               <select
                 id="profile-stage"
                 name="readingStage"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="board-toddler" ${defaultStage === 'board-toddler' ? 'selected' : ''}>Board & Toddler</option>
                 <option value="picture-book" ${defaultStage === 'picture-book' ? 'selected' : ''}>Picture Book</option>
@@ -315,7 +315,7 @@ export function renderProfileFormSheet({
               <select
                 id="profile-tone"
                 name="avatarTone"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="teal" ${defaultTone === 'teal' ? 'selected' : ''}>Forest Teal</option>
                 <option value="amber" ${defaultTone === 'amber' ? 'selected' : ''}>Warm Bronze</option>
@@ -335,7 +335,7 @@ export function renderProfileFormSheet({
                 min="2"
                 max="15"
                 value="${defaultSize}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -350,7 +350,7 @@ export function renderProfileFormSheet({
                 min="0"
                 max="90"
                 value="${defaultCooldown}"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -364,7 +364,7 @@ export function renderProfileFormSheet({
                 type="text"
                 value="${escapeHtml(defaultTopics)}"
                 placeholder="dinosaurs, music, bedtime, winter"
-                class="w-full min-h-[44px] px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
