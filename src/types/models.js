@@ -343,7 +343,12 @@ export function normalizeIsbn(rawInput) {
     if (expected !== cleaned[12]) {
       return { valid: false, isbn13: '', error: 'Invalid ISBN-13 check digit.' };
     }
-    return { valid: true, isbn13: cleaned };
+    const derivedIsbn10 = computeIsbn10FromIsbn13(cleaned);
+    return {
+      valid: true,
+      isbn13: cleaned,
+      ...(derivedIsbn10 ? { isbn10: derivedIsbn10 } : {}),
+    };
   }
 
   return {
@@ -365,6 +370,63 @@ export function computeIsbn13CheckDigit(prefix12) {
   }
   const remainder = (10 - (sum % 10)) % 10;
   return String(remainder);
+}
+
+/**
+ * Derives the mathematical 10-digit ISBN from a valid `978`-prefixed ISBN-13.
+ * Returns `undefined` for `979` ISBNs (which have no ISBN-10 equivalent) or invalid inputs.
+ * @param {string} isbn13
+ * @returns {string | undefined}
+ */
+export function computeIsbn10FromIsbn13(isbn13) {
+  const cleaned = String(isbn13 || '').replace(/[-\s]/g, '');
+  if (!/^978\d{10}$/.test(cleaned)) return undefined;
+  const core9 = cleaned.slice(3, 12);
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += (10 - i) * Number(core9[i]);
+  }
+  const rem = (11 - (sum % 11)) % 11;
+  const check = rem === 10 ? 'X' : String(rem);
+  return `${core9}${check}`;
+}
+
+/**
+ * Infers a normalized non-English language tag from an ISBN-13 registration group prefix
+ * (e.g. `978-84` Spain, `978-607`/`978-950` LatAm -> `'spanish'`; `978-88`/`979-12` Italy -> `'italian'`).
+ * @param {string | undefined | null} isbn13
+ * @returns {string}
+ */
+export function inferLanguageTagFromIsbn(isbn13) {
+  const cleaned = String(isbn13 || '').replace(/[-\s]/g, '');
+  if (!/^\d{13}$/.test(cleaned)) return '';
+  if (
+    cleaned.startsWith('97884') ||
+    cleaned.startsWith('978607') ||
+    cleaned.startsWith('978950') ||
+    cleaned.startsWith('978956') ||
+    cleaned.startsWith('978958') ||
+    cleaned.startsWith('978987')
+  ) {
+    return 'spanish';
+  }
+  if (cleaned.startsWith('97888') || cleaned.startsWith('97912')) {
+    return 'italian';
+  }
+  if (cleaned.startsWith('9782') || cleaned.startsWith('97910')) {
+    return 'french';
+  }
+  if (cleaned.startsWith('9783')) {
+    return 'german';
+  }
+  if (
+    cleaned.startsWith('97885') ||
+    cleaned.startsWith('978972') ||
+    cleaned.startsWith('978989')
+  ) {
+    return 'portuguese';
+  }
+  return '';
 }
 
 /**

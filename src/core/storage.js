@@ -55,7 +55,7 @@ export function createSafeDefaultSettings(overrides = {}) {
 
   return {
     theme: overrides.theme || 'system',
-    coverAspectRatio: overrides.coverAspectRatio === 'square' ? 'square' : 'portrait',
+    coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
     retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
     enabledMetadataProviders:
       rawProviders.length > 0 ? Array.from(new Set(rawProviders)) : [...DEFAULT_METADATA_PROVIDERS],

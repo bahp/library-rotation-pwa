@@ -263,7 +263,7 @@ export function createSeedState() {
     rotations,
     settings: {
       theme: 'system',
-      coverAspectRatio: 'portrait',
+      coverAspectRatio: 'square',
       retainRawProviderPayloads: false,
       enabledMetadataProviders: ['google-books', 'open-library'],
       autoLocalTagging: true,

@@ -203,15 +203,31 @@ export function renderAppShell({
       </a>
       ${offlineBannerHtml}
 
-      <!-- Floating Sticky Top Bar: Wordmark | Desktop Nav | Active Reader Avatar Trigger -->
-      <header class="sticky top-0 z-30 pt-2 sm:pt-3 px-3 sm:px-6 pointer-events-none">
-        <div class="pointer-events-auto max-w-6xl mx-auto flex items-center justify-between gap-4 px-3.5 sm:px-5 h-12 sm:h-14 rounded-2xl bg-ivory/90 dark:bg-night-900/90 backdrop-blur-md border border-linen-200/90 dark:border-night-700 shadow-md">
-          <!-- Zone 1: Brand Wordmark -->
+      <!-- Flush Sticky Top Bar: App Icon + Wordmark | Desktop Nav | Active Reader Avatar Trigger -->
+      <header class="sticky top-0 z-30 w-full bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-b border-linen-200 dark:border-night-800 shadow-xs pt-safe">
+        <div class="max-w-6xl mx-auto flex items-center justify-between gap-4 px-3.5 sm:px-6 h-13 sm:h-14">
+          <!-- Zone 1: App Icon + Brand Wordmark -->
           <a
             href="#/home"
-            class="font-display text-base sm:text-lg font-bold tracking-tight text-forest-900 dark:text-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700"
+            class="inline-flex items-center gap-2.5 font-display text-base sm:text-lg font-bold tracking-tight text-forest-900 dark:text-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700"
           >
-            Book Rotation
+            <span
+              data-brand-icon="true"
+              aria-hidden="true"
+              class="w-8 h-8 rounded-xl bg-forest-900 dark:bg-night-800 border border-forest-800/80 dark:border-night-700 flex items-center justify-center shadow-2xs shrink-0"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" class="w-5 h-5">
+                <path d="M8.5 7.5C11.5 4.3 17.2 3.7 21.5 6L23.5 7.2" stroke="#5ED3DA" stroke-width="2.1" stroke-linecap="round"/>
+                <path d="M22.4 4.2L24 7.5L20.5 8" stroke="#5ED3DA" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M16 11.4C13.6 10.1 10.2 10.1 7.5 11V20.8C10.2 20 13.6 20 16 21.3C18.4 20 21.8 20 24.5 20.8V11C21.8 10.1 18.4 10.1 16 11.4Z" fill="#FAF6EE"/>
+                <path d="M16 11.5V21.2" stroke="#123C42" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M9.8 13.8H13.6M9.8 16.3H13.6" stroke="#9A5B25" stroke-width="1.4" stroke-linecap="round"/>
+                <path d="M18.4 13.8H22.2M18.4 16.3H22.2" stroke="#9A5B25" stroke-width="1.4" stroke-linecap="round"/>
+                <path d="M23.5 24.5C20.5 27.7 14.8 28.3 10.5 26L8.5 24.8" stroke="#E8A849" stroke-width="2.1" stroke-linecap="round"/>
+                <path d="M9.6 27.8L8 24.5L11.5 24" stroke="#E8A849" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+            <span>Book Rotation</span>
           </a>
 
           <!-- Zone 2: Desktop Navigation -->

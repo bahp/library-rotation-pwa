@@ -135,13 +135,13 @@ export function renderSettingsView({
     .join('');
 
   const coverRatios = /** @type {Array<{ id: import('../../types/models.js').CoverAspectRatio, label: string }>} */ ([
-    { id: 'portrait', label: 'Original (3:4)' },
     { id: 'square', label: 'Square (1:1)' },
+    { id: 'portrait', label: 'Original (3:4)' },
   ]);
 
   const coverAspectButtonsHtml = coverRatios
     .map((item) => {
-      const active = (settings.coverAspectRatio || 'portrait') === item.id;
+      const active = (settings.coverAspectRatio || 'square') === item.id;
       return `
         <button
           type="button"

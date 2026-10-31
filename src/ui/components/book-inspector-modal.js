@@ -40,7 +40,7 @@ export function renderBookInspectorModal({
   book,
   activeRotation = null,
   canSwapInActiveRotation = false,
-  coverAspectRatio = 'portrait',
+  coverAspectRatio = 'square',
   inspectorUiState = {
     isCoverPickerOpen: false,
     isEditingBook: false,

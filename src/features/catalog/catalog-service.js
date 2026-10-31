@@ -1,10 +1,12 @@
 /**
  * @fileoverview Extensible provider registry and catalog lookup orchestrator.
  * Queries configured providers in parallel, tolerates partial provider outages,
- * deduplicates search candidates, and merges complementary metadata fields.
+ * deduplicates search candidates, merges complementary metadata fields, and
+ * automatically enriches missing ISBN edition covers from matching sibling editions.
  */
 
 import { normalizeIsbn } from '../../types/models.js';
+import { stripDiacritics } from '../tagging/rule-tagger.js';
 import { mergeBookCandidates } from './normalizer.js';
 import { createHttpClient } from './providers/http-client.js';
 import { createGoogleBooksProvider } from './providers/google-books-provider.js';
@@ -17,6 +19,36 @@ import { createOpenLibraryProvider } from './providers/open-library-provider.js'
  * @property {(isbn13: string, options?: { retainRaw?: boolean, signal?: AbortSignal }) => Promise<import('./normalizer.js').BookCandidate | null>} lookupByIsbn
  * @property {(input: { query: string, author?: string }, options?: { retainRaw?: boolean, signal?: AbortSignal, limit?: number }) => Promise<import('./normalizer.js').BookCandidate[]>} searchBooks
  */
+
+/**
+ * Normalizes a book title to its core alphanumeric stem (before subtitles `:` / `—`)
+ * so sibling-edition cover searches only adopt covers belonging to the same book.
+ * @param {string} rawTitle
+ * @returns {string}
+ */
+function normalizeTitleStem(rawTitle) {
+  const base = String(rawTitle || '').split(/[:—–(]/)[0];
+  return stripDiacritics(base)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+/**
+ * Verifies that a searched sibling candidate shares the same core title stem as the ISBN hit.
+ * @param {string} targetTitle
+ * @param {string} candidateTitle
+ * @returns {boolean}
+ */
+function titlesMatchForCoverEnrichment(targetTitle, candidateTitle) {
+  const a = normalizeTitleStem(targetTitle);
+  const b = normalizeTitleStem(candidateTitle);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  if (a.length >= 5 && b.length >= 5 && (a.startsWith(b) || b.startsWith(a))) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Creates the catalog metadata lookup service with pluggable providers.
@@ -57,8 +89,43 @@ export function createCatalogService(config = {}) {
   }
 
   /**
+   * Searches sibling editions by title + primary author to find a verified cover URL when a
+   * specific ISBN printing lacks cover art in both Google Books and Open Library.
+   * @param {import('./normalizer.js').BookCandidate} target
+   * @param {MetadataProvider[]} activeProviders
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<string | undefined>}
+   */
+  async function findSiblingCoverUrl(target, activeProviders, signal) {
+    const baseTitle = String(target.title || '').split(':')[0].trim();
+    if (!baseTitle) return undefined;
+    const primaryAuthor =
+      target.authors[0] && target.authors[0] !== 'Unknown Author' ? target.authors[0] : undefined;
+
+    const searchSettled = await Promise.allSettled(
+      activeProviders.map((provider) =>
+        provider.searchBooks(
+          { query: baseTitle, author: primaryAuthor },
+          { retainRaw: false, signal, limit: 6 }
+        )
+      )
+    );
+
+    for (const res of searchSettled) {
+      if (res.status !== 'fulfilled' || !Array.isArray(res.value)) continue;
+      for (const cand of res.value) {
+        if (cand.coverUrl && titlesMatchForCoverEnrichment(target.title, cand.title)) {
+          return cand.coverUrl;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Validates ISBN-10/ISBN-13 and queries all active providers concurrently,
-   * merging metadata when multiple providers match.
+   * merging metadata when multiple providers match and automatically enriching
+   * missing edition covers from matching title+author sibling editions.
    * @param {string} rawIsbn
    * @param {{ retainRaw?: boolean, signal?: AbortSignal, enabledProviderIds?: string[] }} [options]
    * @returns {Promise<{
@@ -120,6 +187,15 @@ export function createCatalogService(config = {}) {
 
     if (merged && checked.isbn10 && !merged.isbn10) {
       merged = { ...merged, isbn10: checked.isbn10 };
+    }
+
+    // If the scanned ISBN edition returned bibliographic metadata without cover art,
+    // automatically search sibling editions by title + author to recover the book's cover.
+    if (merged && !merged.coverUrl) {
+      const siblingCover = await findSiblingCoverUrl(merged, activeProviders, options.signal);
+      if (siblingCover) {
+        merged = { ...merged, coverUrl: siblingCover };
+      }
     }
 
     return {

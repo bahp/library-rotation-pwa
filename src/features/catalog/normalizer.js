@@ -4,15 +4,38 @@
  * and merges multi-provider records without data loss.
  */
 
-import { createId, normalizeIsbn } from '../../types/models.js';
+import {
+  createId,
+  inferLanguageTagFromIsbn,
+  normalizeIsbn,
+} from '../../types/models.js';
 import {
   inferAgeAndStageFromSignals,
   inferLocalTopicTags,
   inferReadingLevelHint,
   sanitizeTagList,
+  stripDiacritics,
 } from '../tagging/rule-tagger.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
+
+/** @type {Record<string, string>} */
+const LANGUAGE_CODE_MAP = {
+  es: 'spanish',
+  spa: 'spanish',
+  it: 'italian',
+  ita: 'italian',
+  fr: 'french',
+  fre: 'french',
+  fra: 'french',
+  de: 'german',
+  ger: 'german',
+  deu: 'german',
+  pt: 'portuguese',
+  por: 'portuguese',
+  ca: 'catalan',
+  cat: 'catalan',
+};
 
 /**
  * @typedef {Omit<import('../../types/models.js').Book, 'id' | 'addedAt'> & {
@@ -21,6 +44,41 @@ const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
  *   subjects?: string[]
  * }} BookCandidate
  */
+
+/**
+ * Resolves a normalized non-English language tag (`'spanish'`, `'italian'`, etc.)
+ * from provider ISO-639 codes or ISBN-13 registration group prefixes.
+ * @param {unknown} rawLanguage
+ * @param {string} [isbn13]
+ * @returns {string}
+ */
+export function resolveLanguageTag(rawLanguage, isbn13 = '') {
+  /** @type {string[]} */
+  const codes = [];
+  if (typeof rawLanguage === 'string') {
+    codes.push(rawLanguage);
+  } else if (Array.isArray(rawLanguage)) {
+    for (const entry of rawLanguage) {
+      if (typeof entry === 'string') {
+        codes.push(entry);
+      } else if (entry && typeof entry === 'object' && typeof entry.key === 'string') {
+        codes.push(entry.key);
+      }
+    }
+  }
+
+  for (const raw of codes) {
+    const token = raw
+      .trim()
+      .toLowerCase()
+      .replace(/^\/languages\//, '')
+      .split(/[-_]/)[0];
+    if (token === 'en' || token === 'eng') return '';
+    if (LANGUAGE_CODE_MAP[token]) return LANGUAGE_CODE_MAP[token];
+  }
+
+  return inferLanguageTagFromIsbn(isbn13);
+}
 
 /**
  * Upgrades insecure http:// image URLs to https:// and cleans Google Books curl artifacts.
@@ -67,18 +125,30 @@ export function pickDeterministicSpineColor(seedText) {
 }
 
 /**
- * Infers binding format from raw provider format strings, subjects, and page count.
+ * Infers binding format from raw provider format strings (EN/ES/IT), subjects, and page count.
  * @param {string[]} hints
  * @param {number | undefined} pageCount
  * @returns {import('../../types/models.js').BookFormat}
  */
 export function inferBookFormat(hints, pageCount) {
-  const joined = hints.join(' ').toLowerCase();
-  if (/\bboard\s*book\b/.test(joined) || (pageCount && pageCount <= 26 && /\btoddler|baby\b/.test(joined))) {
+  const joined = stripDiacritics(hints.join(' ')).toLowerCase();
+  if (
+    /\b(board\s*book|libro de carton|todo carton|cartonato)\b/.test(joined) ||
+    (pageCount &&
+      pageCount <= 26 &&
+      /\b(toddler|baby|bebe|bebes|primera infancia|primi passi|cartone)\b/.test(joined))
+  ) {
     return 'board-book';
   }
-  if (/\bpaperback|softcover|mass market\b/.test(joined)) {
+  if (
+    /\b(paperback|softcover|mass market|tapa blanda|rustica|bolsillo|brossura|copertina flessibile)\b/.test(
+      joined
+    )
+  ) {
     return 'paperback';
+  }
+  if (/\b(hardcover|hardback|tapa dura|cartone|copertina rigida|rilegato)\b/.test(joined)) {
+    return 'hardcover';
   }
   return 'hardcover';
 }
@@ -97,19 +167,21 @@ export function inferAgeAndStage({ hints, pageCount, format }) {
  * @param {string[]} rawSubjects
  * @param {string} [summary]
  * @param {string} [title]
+ * @param {string[]} [existingTags]
  * @returns {string[]}
  */
-export function extractNormalizedTags(rawSubjects, summary = '', title = '') {
+export function extractNormalizedTags(rawSubjects, summary = '', title = '', existingTags = []) {
   return inferLocalTopicTags({
     title,
     subjects: rawSubjects,
     summary,
-    maxTags: 7,
+    existingTags,
+    maxTags: 8,
   });
 }
 
 /**
- * Builds a canonical deduplication key for a candidate book.
+ * Builds a canonical deduplication key for a candidate book (diacritic-insensitive).
  * @param {string} isbn13
  * @param {string} title
  * @param {string[]} authors
@@ -117,8 +189,14 @@ export function extractNormalizedTags(rawSubjects, summary = '', title = '') {
  */
 export function buildCandidateKey(isbn13, title, authors) {
   if (isbn13) return `isbn:${isbn13}`;
-  const normTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 40);
-  const normAuthor = (authors[0] || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24);
+  const normTitle = stripDiacritics(title)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 40);
+  const normAuthor = stripDiacritics(authors[0] || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '')
+    .slice(0, 24);
   return `ta:${normTitle}:${normAuthor}`;
 }
 
@@ -150,7 +228,7 @@ export function normalizeGoogleBooksItem(item, options = {}) {
       const checked = normalizeIsbn(String(ident.identifier));
       if (checked.valid && checked.isbn13) {
         isbn13 = isbn13 || checked.isbn13;
-        if (checked.isbn10) isbn10 = checked.isbn10;
+        if (checked.isbn10 && !isbn10) isbn10 = checked.isbn10;
       }
     }
   }
@@ -159,12 +237,14 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     const checked = normalizeIsbn(options.fallbackIsbn);
     if (checked.valid) {
       isbn13 = checked.isbn13;
-      isbn10 = checked.isbn10;
+      isbn10 = isbn10 || checked.isbn10;
     }
   }
 
   const pageCount =
-    typeof info.pageCount === 'number' && info.pageCount > 0 ? Math.trunc(info.pageCount) : undefined;
+    typeof info.pageCount === 'number' && info.pageCount > 0
+      ? Math.trunc(info.pageCount)
+      : undefined;
   const publishedYear = parsePublishedYear(info.publishedDate);
   const categories = Array.isArray(info.categories)
     ? info.categories.map((/** @type {unknown} */ c) => String(c))
@@ -181,10 +261,20 @@ export function normalizeGoogleBooksItem(item, options = {}) {
 
   const links = info.imageLinks || {};
   const coverUrl = sanitizeCoverUrl(
-    links.thumbnail || links.smallThumbnail || links.medium || links.small
+    links.large ||
+      links.medium ||
+      links.thumbnail ||
+      links.small ||
+      links.smallThumbnail
   );
 
-  const tags = extractNormalizedTags(categories, description, title);
+  const langTag = resolveLanguageTag(info.language, isbn13);
+  const tags = extractNormalizedTags(
+    categories,
+    description,
+    title,
+    langTag ? [langTag] : []
+  );
   const readingLevelHint = inferReadingLevelHint({
     readingStage,
     format,
@@ -225,6 +315,8 @@ export function normalizeGoogleBooksItem(item, options = {}) {
 
 /**
  * Normalizes an Open Library `api/books?jscmd=data` record into a BookCandidate.
+ * Only sets `coverUrl` when Open Library explicitly confirms a `cover` object on the record
+ * (avoiding blind `covers.openlibrary.org/...?default=false` URLs that 404 in browsers).
  * @param {Record<string, any>} record
  * @param {{ retainRaw?: boolean, queriedIsbn?: string }} [options]
  * @returns {BookCandidate | null}
@@ -236,11 +328,12 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     ? `${String(record.title).trim()}: ${String(record.subtitle).trim()}`
     : String(record.title).trim();
 
-  const authors = Array.isArray(record.authors) && record.authors.length > 0
-    ? record.authors
-        .map((/** @type {any} */ a) => String(a?.name || a || '').trim())
-        .filter(Boolean)
-    : ['Unknown Author'];
+  const authors =
+    Array.isArray(record.authors) && record.authors.length > 0
+      ? record.authors
+          .map((/** @type {any} */ a) => String(a?.name || a || '').trim())
+          .filter(Boolean)
+      : ['Unknown Author'];
 
   const identifiers = record.identifiers || {};
   const rawIsbns = [
@@ -267,7 +360,9 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
   const publishedYear = parsePublishedYear(record.publish_date);
 
   const subjects = Array.isArray(record.subjects)
-    ? record.subjects.map((/** @type {any} */ s) => String(s?.name || s || '').trim()).filter(Boolean)
+    ? record.subjects
+        .map((/** @type {any} */ s) => String(s?.name || s || '').trim())
+        .filter(Boolean)
     : [];
 
   const physicalFormat = typeof record.physical_format === 'string' ? record.physical_format : '';
@@ -279,11 +374,10 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
   });
 
   const coverObj = record.cover || {};
-  const coverUrl =
-    sanitizeCoverUrl(coverObj.large || coverObj.medium || coverObj.small) ||
-    (isbn13 ? `https://covers.openlibrary.org/b/isbn/${isbn13}-M.jpg?default=false` : undefined);
+  const coverUrl = sanitizeCoverUrl(coverObj.large || coverObj.medium || coverObj.small);
 
-  const tags = extractNormalizedTags(subjects, '', title);
+  const langTag = resolveLanguageTag(record.languages, isbn13);
+  const tags = extractNormalizedTags(subjects, '', title, langTag ? [langTag] : []);
   const readingLevelHint = inferReadingLevelHint({
     readingStage,
     format,
@@ -324,22 +418,32 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
 /**
  * Normalizes an Open Library `search.json` doc into a BookCandidate.
  * @param {Record<string, any>} doc
- * @param {{ retainRaw?: boolean }} [options]
+ * @param {{ retainRaw?: boolean, queriedIsbn?: string }} [options]
  * @returns {BookCandidate | null}
  */
 export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
   if (!doc || typeof doc !== 'object' || !doc.title) return null;
 
   const title = String(doc.title).trim();
-  const authors = Array.isArray(doc.author_name) && doc.author_name.length > 0
-    ? doc.author_name.map((/** @type {unknown} */ a) => String(a).trim()).filter(Boolean)
-    : ['Unknown Author'];
+  const authors =
+    Array.isArray(doc.author_name) && doc.author_name.length > 0
+      ? doc.author_name.map((/** @type {unknown} */ a) => String(a).trim()).filter(Boolean)
+      : ['Unknown Author'];
 
   let isbn13 = '';
   /** @type {string | undefined} */
   let isbn10;
+
+  if (options.queriedIsbn) {
+    const queriedChecked = normalizeIsbn(options.queriedIsbn);
+    if (queriedChecked.valid && queriedChecked.isbn13) {
+      isbn13 = queriedChecked.isbn13;
+      isbn10 = queriedChecked.isbn10;
+    }
+  }
+
   if (Array.isArray(doc.isbn)) {
-    for (const raw of doc.isbn.slice(0, 12)) {
+    for (const raw of doc.isbn.slice(0, 16)) {
       const checked = normalizeIsbn(String(raw));
       if (checked.valid && checked.isbn13) {
         isbn13 = isbn13 || checked.isbn13;
@@ -374,7 +478,8 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
       ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
       : undefined;
 
-  const tags = extractNormalizedTags(subjects, '', title);
+  const langTag = resolveLanguageTag(doc.language, isbn13);
+  const tags = extractNormalizedTags(subjects, '', title, langTag ? [langTag] : []);
   const readingLevelHint = inferReadingLevelHint({
     readingStage,
     format,
@@ -485,7 +590,8 @@ export function candidateToBook(candidate, options = {}) {
     ...(candidate.readingLevelHint ? { readingLevelHint: candidate.readingLevelHint } : {}),
     tags: sanitizeTagList(candidate.tags, 8),
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),
-    spineColor: candidate.spineColor || pickDeterministicSpineColor(candidate.isbn13 || candidate.title),
+    spineColor:
+      candidate.spineColor || pickDeterministicSpineColor(candidate.isbn13 || candidate.title),
     addedAt: now,
     sources,
   };

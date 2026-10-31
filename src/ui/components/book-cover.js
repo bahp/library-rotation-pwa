@@ -41,10 +41,10 @@ const PALETTES = {
  * @param {import('../../types/models.js').CoverAspectRatio} [aspectRatio]
  * @returns {string}
  */
-export function renderBookCover(book, size = 'md', aspectRatio = 'portrait') {
+export function renderBookCover(book, size = 'md', aspectRatio = 'square') {
   const palette = PALETTES[book.spineColor] || PALETTES.teal;
   const isGrid = size === 'grid';
-  const isSquare = aspectRatio === 'square';
+  const isSquare = aspectRatio !== 'portrait';
 
   const dims = isSquare
     ? isGrid

@@ -69,13 +69,16 @@ describe('Phase 9 UX Polish: Rich Rotation Edit Rows, Square/Portrait Covers, Co
     const store = createAppStore(storage);
     await store.init();
 
-    // Default is 'portrait' (3:4)
-    assert.equal(store.getState().settings.coverAspectRatio, 'portrait');
+    // Default is 'square' (1:1)
+    assert.equal(store.getState().settings.coverAspectRatio, 'square');
     const sampleBook = store.getState().books[0];
+    assert.match(renderBookCover(sampleBook, 'grid'), /aspect-square/);
     assert.match(renderBookCover(sampleBook, 'grid', 'portrait'), /aspect-\[3\/4\]/);
     assert.match(renderBookCover(sampleBook, 'grid', 'square'), /aspect-square/);
 
-    // Switch to 'square' in Settings
+    // Switch to 'portrait' and back to 'square' in Settings
+    await store.updateSettings({ coverAspectRatio: 'portrait' });
+    assert.equal(store.getState().settings.coverAspectRatio, 'portrait');
     await store.updateSettings({ coverAspectRatio: 'square' });
     assert.equal(store.getState().settings.coverAspectRatio, 'square');
 
@@ -256,16 +259,15 @@ describe('Phase 9 UX Polish: Rich Rotation Edit Rows, Square/Portrait Covers, Co
       contentHtml: '<div>Body</div>',
     });
 
-    // Header must be sticky on mobile too (sticky top-0, not lg:sticky only) and render a floating rounded-2xl bar
+    // Header must be sticky at top-0 across mobile & desktop, span flush from bottom border to top edge, and include brand app icon
     assert.match(
       shellHtml,
-      /<header[^>]*class="[^"]*\bsticky\s+top-0\b/,
-      'Header should float sticky at top-0 on mobile as well as desktop'
+      /<header[^>]*class="[^"]*\bsticky\s+top-0\b[^"]*\bborder-b\b/,
+      'Header should stick flush to top-0 down to its bottom border line'
     );
-    assert.match(
-      shellHtml,
-      /<header[\s\S]*?rounded-2xl[^>]*backdrop-blur-md[\s\S]*?<\/header>/,
-      'Header inner container should be styled as a floating rounded glass capsule'
+    assert.ok(
+      shellHtml.includes('data-brand-icon="true"'),
+      'Header should display the app icon on the left side next to the title'
     );
   });
 
