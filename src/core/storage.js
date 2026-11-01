@@ -9,6 +9,7 @@ import {
   normalizeBirthDate,
 } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
+import { normalizeRotationPresetInput } from '../features/rotations/rotation-presets.js';
 
 const DB_NAME = 'library_rotation_db';
 const DB_VERSION = 1;
@@ -95,12 +96,25 @@ export function migrateState(state, referenceDate = new Date()) {
     };
   });
 
+  /** @type {import('../types/models.js').RotationPreset[]} */
+  const normalizedCustomPresets = [];
+  if (Array.isArray(state.customPresets)) {
+    for (const rawPreset of state.customPresets) {
+      try {
+        normalizedCustomPresets.push(normalizeRotationPresetInput(rawPreset));
+      } catch (_) {
+        // Skip malformed custom preset entries without breaking state load
+      }
+    }
+  }
+
   const activeExists = normalizedProfiles.some((p) => p.id === state.activeProfileId);
   return {
     ...state,
     schemaVersion: CURRENT_SCHEMA_VERSION,
     activeProfileId: activeExists ? state.activeProfileId : normalizedProfiles[0].id,
     profiles: normalizedProfiles,
+    customPresets: normalizedCustomPresets,
     settings: createSafeDefaultSettings(state.settings || {}),
   };
 }

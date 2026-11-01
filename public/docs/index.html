@@ -2,138 +2,282 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>User Guide &amp; Overview · Book Rotation Docs</title>
-    <link rel="icon" type="image/svg+xml" href="../icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Guide — Little Shelf Docs</title>
+    <link rel="icon" type="image/png" href="../icons/favicon-32.png" />
     <link rel="stylesheet" href="./docs.css" />
   </head>
   <body>
-    <header class="docs-topbar">
-      <div class="docs-topbar-inner">
-        <a class="docs-brand" href="./index.html">Book Rotation · Documentation</a>
-        <nav class="docs-nav" aria-label="Documentation sections">
+    <header class="docs-header">
+      <div class="docs-header-inner">
+        <a href="./index.html" class="docs-brand">
+          <img src="../icons/icon-192.png" alt="Little Shelf" />
+          <span>Little Shelf Docs</span>
+        </a>
+        <nav class="docs-nav" aria-label="Documentation pages">
           <a href="./index.html" aria-current="page">User Guide</a>
-          <a href="./configuration.html">Google Books &amp; Proxy</a>
-          <a href="./tagging-and-ai.html">Local Tag Rules &amp; AI</a>
-          <a href="./architecture-and-providers.html">Developer Architecture</a>
+          <a href="./configuration.html">Google Books Setup</a>
+          <a href="./tagging-and-ai.html">Tag Rules &amp; Presets</a>
+          <a href="./architecture-and-providers.html">Developer Guide</a>
         </nav>
-        <a class="docs-back-app" href="../#/settings">&larr; Back to App</a>
+        <a href="../#/home" class="docs-back-app">Open App →</a>
       </div>
     </header>
 
-    <div class="docs-shell">
-      <aside class="docs-toc" aria-label="On this page">
-        <p class="docs-toc-title">On This Page</p>
-        <ul>
-          <li><a href="#quickstart">1. Quickstart &amp; PWA Install</a></li>
-          <li><a href="#profiles">2. Reader Profiles &amp; DOB Ages</a></li>
-          <li><a href="#scanning">3. Scanning &amp; Adding Books</a></li>
-          <li><a href="#library">4. Family Library &amp; Filters</a></li>
-          <li><a href="#rotations">5. Rotations &amp; Swap Day</a></li>
-          <li><a href="#play">6. Play Tools &amp; Backups</a></li>
-        </ul>
-      </aside>
-
-      <main class="docs-article">
-        <p class="docs-kicker">User &amp; Maintainer Manual · v1.18.0</p>
-        <h1>Book Rotation User Guide &amp; Overview</h1>
-        <p>
-          <strong>Book Rotation</strong> is a privacy-first, offline-capable Progressive Web App (PWA) built for families to catalog children’s books, track shared or per-child ownership, plan fresh shelf rotations with automatic cooldowns, and turn reading into active play.
+    <main class="docs-main">
+      <section class="hero">
+        <p class="eyebrow">Quickstart &amp; Daily Use</p>
+        <h1>Little Shelf in 2 Minutes</h1>
+        <p class="lead">
+          Catalog your child’s books offline, rotate small face-out shelves so forgotten favorites get read again, and turn cleanup or bedtime into a quick game.
         </p>
-
-        <div class="card-grid">
-          <a class="doc-card" href="./configuration.html">
-            <h3>Google Books &amp; Proxy Setup &rarr;</h3>
-            <p>Configure a free Google Cloud Console credential safely via <code>.env</code> or a personal GitHub Pages phone proxy.</p>
-          </a>
-          <a class="doc-card" href="./tagging-and-ai.html">
-            <h3>Local Tag Rules &amp; AI Adapters &rarr;</h3>
-            <p>Learn where offline topic rules live (<code>rule-tagger.js</code>), how to edit them, and how to plug in custom LLMs.</p>
-          </a>
-          <a class="doc-card" href="./architecture-and-providers.html">
-            <h3>Architecture &amp; Providers &rarr;</h3>
-            <p>Explore the codebase layout and add new book catalog <code>MetadataProvider</code> integrations.</p>
-          </a>
+        <div class="jump-bar">
+          <a href="#screens">Phone Screens</a>
+          <a href="#quickstart">3-Step Start</a>
+          <a href="#rotations">Rotations &amp; Presets</a>
+          <a href="#install">Install on Phone</a>
+          <a href="#backups">Backups</a>
         </div>
+      </section>
 
-        <h2 id="quickstart">1. Installing on iPhone, iPad, or Android</h2>
-        <ul>
-          <li><strong>iPhone / iPad (Safari):</strong> Open the app in Safari &rarr; tap <strong>Share</strong> &rarr; tap <strong>Add to Home Screen</strong>. If you updated from an older build and see a cached status bar style, remove the icon from your Home Screen once and re-add it so iOS refreshes <code>viewport-fit=cover</code> and <code>black-translucent</code> edge-to-edge mode.</li>
-          <li><strong>Android / Desktop Chrome:</strong> Open <strong>Settings</strong> (gear icon at top right) &rarr; tap <strong>Install App</strong> inside the <em>Installable Phone App (PWA)</em> card.</li>
-          <li><strong>100% Local Storage:</strong> Your books, custom cover photos, profiles, and rotation history are stored locally in IndexedDB on your device. Nothing leaves your phone unless you search an external book catalog or opt into an AI enrichment webhook.</li>
-        </ul>
-
-        <h2 id="profiles">2. Reader Profiles &amp; Automatic Age Progression</h2>
+      <section id="screens" class="section-block">
+        <h2>1. Phone Interface Tour</h2>
         <p>
-          Tap the active reader chip in the top-right header bar to switch children or add a new profile. When you enter a child’s <strong>Date of Birth</strong>:
+          Everything runs from the 5 bottom tabs (plus Settings in the top-right corner).
+          Drop real phone screenshots (`390×844` PNG) into <code>public/docs/screenshots/</code> anytime to replace any preview frame automatically.
         </p>
-        <ul>
-          <li>Ages update automatically (in months for babies under 24 months, and in years thereafter).</li>
-          <li>Default reading stages (<em>Board Book</em>, <em>Picture Book</em>, <em>Early Reader</em>, <em>Chapter Book</em>) adapt to the child’s age and guide smart shelf rotation scoring.</li>
-        </ul>
 
-        <h2 id="scanning">3. Scanning &amp; Adding Books</h2>
-        <p>Open the center <strong>Scan</strong> tab to add books using three studio modes:</p>
+        <div class="phone-gallery">
+          <!-- Phone 1: Home -->
+          <div class="phone-card">
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <img
+                class="phone-screenshot"
+                src="./screenshots/home-shelf.png"
+                alt="Home Active Shelf screen"
+                loading="lazy"
+                onerror="this.style.display='none'"
+              />
+              <div class="phone-placeholder">
+                <div class="mock-topbar">
+                  <span>Leo · 2y 8m</span>
+                  <span class="mock-pill">Active</span>
+                </div>
+                <div class="mock-body">
+                  <div class="mock-card">
+                    <strong>Cozy Winter Shelf</strong>
+                    <span>2/5 read · Swap in 9d</span>
+                    <div class="mock-covers">
+                      <div class="mock-cover"></div>
+                      <div class="mock-cover alt"></div>
+                      <div class="mock-cover berry"></div>
+                      <div class="mock-cover"></div>
+                    </div>
+                  </div>
+                  <div class="mock-card">
+                    <strong>Seasonal Alert</strong>
+                    <span>Dec 1 · Winter Holidays ready</span>
+                  </div>
+                </div>
+                <div class="mock-slot-hint">screenshots/home-shelf.png · 390×844</div>
+              </div>
+            </div>
+            <div class="phone-caption">Home — Active Shelf</div>
+            <div class="phone-subcaption">Tap covers to mark read; alerts pop up when a swap or holiday preset arrives.</div>
+          </div>
+
+          <!-- Phone 2: Scan -->
+          <div class="phone-card">
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <img
+                class="phone-screenshot"
+                src="./screenshots/scan-barcode.png"
+                alt="Barcode scanner and smart lookup screen"
+                loading="lazy"
+                onerror="this.style.display='none'"
+              />
+              <div class="phone-placeholder">
+                <div class="mock-topbar">
+                  <span>Add Books</span>
+                  <span class="mock-pill">EAN-13</span>
+                </div>
+                <div class="mock-body">
+                  <div class="mock-viewfinder">
+                    <span>[ |||| |||| |||| ]</span>
+                    <span>Point at ISBN barcode</span>
+                  </div>
+                  <div class="mock-card">
+                    <strong>Found: The Snowy Day</strong>
+                    <span>Ezra Jack Keats · Ages 1–4</span>
+                  </div>
+                </div>
+                <div class="mock-slot-hint">screenshots/scan-barcode.png · 390×844</div>
+              </div>
+            </div>
+            <div class="phone-caption">Scan — Camera &amp; Search</div>
+            <div class="phone-subcaption">Live ISBN camera with torch button, plus unified title/author/ISBN search.</div>
+          </div>
+
+          <!-- Phone 3: Rotations -->
+          <div class="phone-card">
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <img
+                class="phone-screenshot"
+                src="./screenshots/rotations-edit.png"
+                alt="Rotations inline rename and preset shelves"
+                loading="lazy"
+                onerror="this.style.display='none'"
+              />
+              <div class="phone-placeholder">
+                <div class="mock-topbar">
+                  <span>Rotations</span>
+                  <span class="mock-pill">Presets</span>
+                </div>
+                <div class="mock-body">
+                  <div class="mock-card">
+                    <strong>Bedtime Favorites ✎</strong>
+                    <span>Tap ✎ to edit title &amp; full notes inline</span>
+                    <div class="mock-covers">
+                      <div class="mock-cover berry"></div>
+                      <div class="mock-cover"></div>
+                      <div class="mock-cover alt"></div>
+                      <div class="mock-cover"></div>
+                    </div>
+                  </div>
+                  <div class="mock-card">
+                    <strong>15+ Collection Presets</strong>
+                    <span>Winter · Ramadan · First Day · Potty</span>
+                  </div>
+                </div>
+                <div class="mock-slot-hint">screenshots/rotations-edit.png · 390×844</div>
+              </div>
+            </div>
+            <div class="phone-caption">Rotations &amp; Presets</div>
+            <div class="phone-subcaption">Tap the pen icon next to any shelf name to rename inline, or generate from presets.</div>
+          </div>
+
+          <!-- Phone 4: Play -->
+          <div class="phone-card">
+            <div class="phone-frame">
+              <div class="phone-notch"></div>
+              <img
+                class="phone-screenshot"
+                src="./screenshots/play-games.png"
+                alt="Book Hunt and Storytime Picker games"
+                loading="lazy"
+                onerror="this.style.display='none'"
+              />
+              <div class="phone-placeholder">
+                <div class="mock-topbar">
+                  <span>Play</span>
+                  <span class="mock-pill">2 Games</span>
+                </div>
+                <div class="mock-body">
+                  <div class="mock-card">
+                    <strong>Book Hunt!</strong>
+                    <span>“Find the book about animals &amp; bedtime!”</span>
+                  </div>
+                  <div class="mock-card">
+                    <strong>Storytime Picker</strong>
+                    <span>Pick 2 or 3 tonight’s books — zero negotiation</span>
+                  </div>
+                </div>
+                <div class="mock-slot-hint">screenshots/play-games.png · 390×844</div>
+              </div>
+            </div>
+            <div class="phone-caption">Play — Shelf Games</div>
+            <div class="phone-subcaption">Turn active shelf books into a physical treasure hunt or instant bedtime pick.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="quickstart" class="section-block">
+        <h2>2. Start in 3 Steps</h2>
+        <div class="step-grid">
+          <div class="step-card">
+            <span class="step-num">1</span>
+            <h3>Set Child’s Birth Date</h3>
+            <p>Tap the child chip in the top-left header. Age in months automatically tunes rotation sizes and reading-stage fits.</p>
+          </div>
+          <div class="step-card">
+            <span class="step-num">2</span>
+            <h3>Scan a Stack of Books</h3>
+            <p>Open <strong>Scan</strong>, point at the back-cover ISBN barcode (`978…`), and tap <strong>Save Owned</strong>. Use <strong>Search</strong> for older books without barcodes.</p>
+          </div>
+          <div class="step-card">
+            <span class="step-num">3</span>
+            <h3>Generate Your Shelf</h3>
+            <p>Open <strong>Rotations</strong> → tap <strong>+</strong> (or <strong>Presets</strong>) to pick 5–8 age-matched books and place those physical books face-out.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="rotations" class="section-block">
+        <h2>3. Editing Shelves &amp; Collection Presets</h2>
         <table>
           <thead>
             <tr>
-              <th>Intake Tab</th>
-              <th>What It Does</th>
+              <th>What you want to do</th>
+              <th>How to do it</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Camera</strong></td>
-              <td>
-                Tap directly on the viewfinder frame (or <em>Start Camera</em>) to stream your rear camera. Switch between three optical frame shapes:
-                <strong>Barcode / QR</strong> (wide EAN-13 / ISBN-13 box), <strong>ISBN Text</strong> (narrow OCR strip for printed <code>ISBN 978-...</code> lines), and <strong>Cover</strong> (3:4 jacket frame with OCR title/ISBN extraction). Includes live <strong>Flashlight</strong> (rear torch) and <strong>Upload Photo</strong> fallback.
-              </td>
+              <td><strong>Rename a shelf or edit its description</strong></td>
+              <td>On <strong>Rotations</strong>, tap the <strong>pen icon (✎)</strong> right next to the shelf title. The title becomes a textbox and the description expands to show all lines. Press <strong>Save</strong>.</td>
             </tr>
             <tr>
-              <td><strong>Search &amp; ISBN</strong></td>
-              <td>
-                Single smart search bar: type any book title, keyword, author, or paste a 10/13-digit ISBN. Checksum-verified ISBNs jump straight to exact edition lookup; text queries search enabled providers in parallel.
-              </td>
+              <td><strong>Swap, add, or remove books</strong></td>
+              <td>Tap <strong>Edit</strong> on a shelf card to reveal per-book <em>Read</em>, <em>Random Swap</em>, <em>Manual Replace</em>, and <em>Remove</em> buttons.</td>
             </tr>
             <tr>
-              <td><strong>Manual</strong></td>
-              <td>
-                Full form for handmade, vintage, or unlisted editions—complete with one-tap offline <strong>Suggest Topics</strong> from the title.
-              </td>
+              <td><strong>Use a seasonal or milestone preset</strong></td>
+              <td>Open <strong>Rotations → Presets</strong> (<code>#/presets</code>). Browse 15+ ready-made themes (Winter Holidays, Lunar New Year, Back to School, New Sibling, Calm Bedtime) with countdown badges like <em>In 12 days</em>.</td>
+            </tr>
+            <tr>
+              <td><strong>Create your own preset</strong></td>
+              <td>In <strong>Presets</strong>, tap <strong>+ Add Preset</strong>. Set topic tags, book count, swap cycle, cooldown, and an optional yearly start date (month + day).</td>
             </tr>
           </tbody>
         </table>
-        <p>
-          By default, scanned books save to <strong>Shared</strong> ownership as <strong>Owned</strong> so all siblings can enjoy them, or you can assign specific readers, mark a ♥ favorite, or save to your <strong>Wishlist</strong> right in the Found Book sheet.
-        </p>
+      </section>
 
-        <h2 id="library">4. Family Library, Filters &amp; Book Inspector</h2>
-        <ul>
-          <li><strong>Quick Status Icons &amp; Filter Drawer:</strong> Filter instantaneously by <em>All</em>, <em>Owned</em>, <em>Wishlist</em> (bookmark icon), or <em>Loved</em> (heart icon), or open the slide-in <strong>Filters</strong> drawer to combine Format (Board Book, Paperback, Hardcover), Themes, Condition, and Multi-Reader Ownership.</li>
-          <li><strong>Book Inspector Card:</strong> Tap any book to view its cover-tinted detail sheet, see whether metadata came from <strong>Google Books</strong>, <strong>Open Library</strong>, or both, replace cover art from camera/gallery/online search, log reads, or edit topics.</li>
-        </ul>
+      <section id="install" class="section-block">
+        <h2>4. Install on Your Phone (Offline PWA)</h2>
+        <div class="card-grid">
+          <div class="card">
+            <h3>iPhone / iPad (Safari)</h3>
+            <ol>
+              <li>Open Little Shelf in <strong>Safari</strong>.</li>
+              <li>Tap <strong>Share</strong> (square with upward arrow).</li>
+              <li>Tap <strong>Add to Home Screen</strong> → <strong>Add</strong>.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <h3>Android (Chrome)</h3>
+            <ol>
+              <li>Open Little Shelf in <strong>Chrome</strong>.</li>
+              <li>Tap <strong>Install</strong> on the in-app banner (or <strong>⋮ → Install app</strong>).</li>
+            </ol>
+          </div>
+        </div>
+      </section>
 
-        <h2 id="rotations">5. Shelf Rotations &amp; Library Swap Day</h2>
-        <p>
-          Montessori and early-literacy research shows children engage far more deeply with 5–8 curated books on a forward-facing shelf than 80 crowded spines. In <strong>Rotations</strong>:
-        </p>
-        <ul>
-          <li><strong>Smart Rotation Builder:</strong> Automatically scores owned books by age fit, reading stage, favorite topics, format variety, and rest cooldowns so recently shelved books rest before reappearing.</li>
-          <li><strong>Library Swap Day Cadence:</strong> Choose a rotation cycle (e.g., every 7, 10, 14, 21, or 30 days). Both <strong>Home</strong> and <strong>Rotations</strong> show when the shelf was set, the target Swap Day date, a visual progress bar, and a gentle reminder banner when it is time to refresh the shelf.</li>
-        </ul>
+      <section id="backups" class="section-block">
+        <h2>5. Private Storage &amp; Backups</h2>
+        <div class="callout">
+          <strong>100% On-Device Storage</strong>
+          Books, covers, profiles, rotations, and custom presets stay in IndexedDB on your phone or laptop. Before switching phones or clearing browser data, open <strong>Settings → Export Backup (.json)</strong>.
+        </div>
+      </section>
 
-        <h2 id="play">6. Play Mode &amp; Portable JSON Backups</h2>
-        <ul>
-          <li><strong>Storytime Picker:</strong> Ends bedtime negotiation by randomly dealing 1–4 books from the Active Shelf (or Owned Library), optionally filtered by a bedtime topic such as <em>bears</em>, <em>space</em>, or <em>winter</em>.</li>
-          <li><strong>Book Hunt ("Find It!"):</strong> Gives toddlers an energetic physical shelf treasure hunt clue (by cover color, topic, or title peek) to find and bring back from their real bookcase.</li>
-          <li><strong>Export / Import JSON:</strong> In <strong>Settings &rarr; Backup &amp; Portability</strong>, export your entire catalog and rotation history as a portable <code>.json</code> file anytime.</li>
-        </ul>
-
-        <footer class="docs-footer">
-          <span>Book Rotation v1.18.0 · Offline-First Family Library PWA</span>
-          <a href="./configuration.html">Next: Google Books &amp; Proxy Configuration &rarr;</a>
-        </footer>
-      </main>
-    </div>
+      <footer class="docs-footer">
+        <span>Little Shelf Documentation</span>
+        <a href="./configuration.html">Next: Google Books Setup →</a>
+      </footer>
+    </main>
   </body>
 </html>

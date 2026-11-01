@@ -43,6 +43,14 @@ import {
 } from './features/scan/scan-shell-view.js';
 import { renderRotationsView } from './features/rotations/rotations-view.js';
 import {
+  createDefaultPresetsUiState,
+  renderPresetsView,
+} from './features/rotations/presets-view.js';
+import {
+  buildMonthDayFromParts,
+  getAllRotationPresets,
+} from './features/rotations/rotation-presets.js';
+import {
   createDefaultPlayUiState,
   renderPlayView,
 } from './features/play/play-view.js';
@@ -106,6 +114,7 @@ function createBlankInspectorUi(book) {
 }
 
 const SWAP_REMINDER_STORAGE_KEY = 'lr_dismissed_swap_reminders_v1';
+const PRESET_ALERT_STORAGE_KEY = 'lr_dismissed_preset_alerts_v1';
 
 /**
  * Loads previously dismissed Swap Day reminder cycle keys from localStorage.
@@ -135,6 +144,34 @@ function saveDismissedSwapReminders(keys) {
   } catch (_) {}
 }
 
+/**
+ * Loads previously dismissed annual preset start-date alert keys from localStorage.
+ * @returns {string[]}
+ */
+function loadDismissedPresetAlerts() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const raw = window.localStorage.getItem(PRESET_ALERT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * Persists dismissed annual preset start-date alert keys to localStorage.
+ * @param {string[]} keys
+ */
+function saveDismissedPresetAlerts(keys) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(PRESET_ALERT_STORAGE_KEY, JSON.stringify(keys.slice(-60)));
+    }
+  } catch (_) {}
+}
+
 const uiState = {
   catalogFilter: 'all',
   ownerFilter: 'active-reader',
@@ -147,6 +184,7 @@ const uiState = {
   inspectedBookId: /** @type {string | null} */ (null),
   inspectorUi: createBlankInspectorUi(),
   dismissedSwapReminderKeys: loadDismissedSwapReminders(),
+  dismissedPresetAlertKeys: loadDismissedPresetAlerts(),
   /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */
   intakeTab: 'scanner',
   /** @type {import('./types/models.js').CollectionStatus} */
@@ -192,7 +230,9 @@ const uiState = {
     randomAddCount: 1,
     isGeneratorOpen: false,
     editingRotationId: null,
+    renamingRotationId: null,
   },
+  presetsUi: createDefaultPresetsUiState(),
   playUi: createDefaultPlayUiState(),
   settingsUi: {
     testingAdapter: false,
@@ -243,6 +283,7 @@ const PRESERVED_INPUT_IDS = new Set([
   'inspector-new-owner-input',
   'inspector-cover-search-input',
   'play-topic-input',
+  'presets-search-input',
   'device-books-proxy-url-input',
 ]);
 
@@ -571,6 +612,14 @@ function render() {
         inspectedBookId: uiState.inspectedBookId,
         inspectorUiState: uiState.inspectorUi,
         dismissedSwapReminderKeys: uiState.dismissedSwapReminderKeys,
+        dismissedPresetAlertKeys: uiState.dismissedPresetAlertKeys,
+      });
+      break;
+    case 'presets':
+      contentHtml = renderPresetsView({
+        state,
+        presetsUiState: uiState.presetsUi,
+        dismissedPresetAlertKeys: uiState.dismissedPresetAlertKeys,
       });
       break;
     case 'play':
@@ -655,6 +704,23 @@ function render() {
   }
 
   syncDynamicCoverTints();
+  syncAutoResizeTextareas();
+}
+
+/**
+ * Ensures any visible auto-resize `<textarea>` expands to show all of its content without clipping.
+ */
+function syncAutoResizeTextareas() {
+  if (!rootEl) return;
+  const textareas = rootEl.querySelectorAll('textarea[data-auto-resize="true"]');
+  for (const el of textareas) {
+    if (el instanceof HTMLTextAreaElement) {
+      el.style.height = 'auto';
+      if (el.scrollHeight > 0) {
+        el.style.height = `${Math.max(el.scrollHeight + 2, 68)}px`;
+      }
+    }
+  }
 }
 
 /**
@@ -976,6 +1042,15 @@ function bindEvents() {
         });
         return;
       }
+      if (uiState.presetsUi.isFormOpen) {
+        event.preventDefault();
+        closeSheetWithMotion(() => {
+          uiState.presetsUi.isFormOpen = false;
+          uiState.presetsUi.editingPresetId = null;
+          uiState.presetsUi.formError = '';
+        });
+        return;
+      }
       if (uiState.rotationEditor.modalMode) {
         event.preventDefault();
         closeSheetWithMotion(() => {
@@ -1012,6 +1087,12 @@ function bindEvents() {
         closeSheetWithMotion(() => {
           pwa.closeIosGuide();
         });
+        return;
+      }
+      if (uiState.rotationEditor.renamingRotationId) {
+        event.preventDefault();
+        uiState.rotationEditor.renamingRotationId = null;
+        render();
         return;
       }
       if (store.getToast()) {
@@ -1069,6 +1150,14 @@ function bindEvents() {
       if (backdropAction === 'close-generate-rotation-sheet') {
         closeSheetWithMotion(() => {
           uiState.rotationEditor.isGeneratorOpen = false;
+        });
+        return;
+      }
+      if (backdropAction === 'close-preset-form-sheet') {
+        closeSheetWithMotion(() => {
+          uiState.presetsUi.isFormOpen = false;
+          uiState.presetsUi.editingPresetId = null;
+          uiState.presetsUi.formError = '';
         });
         return;
       }
@@ -1512,11 +1601,71 @@ function bindEvents() {
         }
         break;
       }
+      case 'browse-presets-from-sheet': {
+        uiState.rotationEditor.isGeneratorOpen = false;
+        break;
+      }
+      case 'start-rename-rotation': {
+        const rotationId = target.getAttribute('data-rotation-id');
+        if (rotationId) {
+          uiState.rotationEditor.renamingRotationId = rotationId;
+          render();
+          const titleInput = document.getElementById(`edit-rot-title-${rotationId}`);
+          if (titleInput instanceof HTMLInputElement) {
+            titleInput.focus();
+            const endPos = titleInput.value.length;
+            try {
+              titleInput.setSelectionRange(endPos, endPos);
+            } catch (_) {}
+          }
+          syncAutoResizeTextareas();
+        }
+        break;
+      }
+      case 'cancel-rename-rotation': {
+        uiState.rotationEditor.renamingRotationId = null;
+        render();
+        break;
+      }
       case 'toggle-edit-rotation': {
         const rotationId = target.getAttribute('data-rotation-id');
         if (rotationId) {
-          uiState.rotationEditor.editingRotationId =
-            uiState.rotationEditor.editingRotationId === rotationId ? null : rotationId;
+          const isClosingEdit = uiState.rotationEditor.editingRotationId === rotationId;
+          if (isClosingEdit && rootEl) {
+            const detailsForm = rootEl.querySelector(
+              `form[data-form="edit-rotation-details"][data-rotation-id="${CSS.escape ? CSS.escape(rotationId) : rotationId}"]`
+            );
+            if (detailsForm instanceof HTMLFormElement) {
+              const fd = new FormData(detailsForm);
+              const draftTitle = String(fd.get('title') || '').trim();
+              const draftDesc = String(fd.get('description') || '').trim();
+              const currentRot = store
+                .getState()
+                .rotations.find((r) => r.id === rotationId);
+              if (
+                currentRot &&
+                draftTitle &&
+                (draftTitle !== currentRot.title ||
+                  draftDesc !== (currentRot.rules.objective || ''))
+              ) {
+                try {
+                  await store.updateRotationDetails(rotationId, {
+                    title: draftTitle,
+                    description: draftDesc,
+                  });
+                } catch (err) {
+                  store.notify(
+                    err instanceof Error ? err.message : 'Could not update rotation details.',
+                    'error'
+                  );
+                }
+              }
+            }
+            if (uiState.rotationEditor.renamingRotationId === rotationId) {
+              uiState.rotationEditor.renamingRotationId = null;
+            }
+          }
+          uiState.rotationEditor.editingRotationId = isClosingEdit ? null : rotationId;
           render();
         }
         break;
@@ -1549,11 +1698,120 @@ function bindEvents() {
         }
         break;
       }
+      case 'dismiss-preset-start-alert': {
+        const alertKey = target.getAttribute('data-alert-key');
+        if (alertKey && !uiState.dismissedPresetAlertKeys.includes(alertKey)) {
+          uiState.dismissedPresetAlertKeys = [
+            ...uiState.dismissedPresetAlertKeys,
+            alertKey,
+          ];
+          saveDismissedPresetAlerts(uiState.dismissedPresetAlertKeys);
+          render();
+        }
+        break;
+      }
+      case 'apply-rotation-preset': {
+        const presetId = target.getAttribute('data-preset-id');
+        if (presetId) {
+          try {
+            await store.generateRotationFromPreset(presetId);
+            if (router.getCurrent().route === 'presets') {
+              router.navigate('rotations');
+            } else {
+              render();
+            }
+          } catch (err) {
+            store.notify(
+              err instanceof Error ? err.message : 'Could not generate shelf from preset.',
+              'error'
+            );
+          }
+        }
+        break;
+      }
+      case 'set-preset-category-filter': {
+        const nextFilter = /** @type {import('./features/rotations/presets-view.js').PresetFilterId} */ (
+          target.getAttribute('data-preset-filter') || 'all'
+        );
+        uiState.presetsUi.categoryFilter = nextFilter;
+        render();
+        break;
+      }
+      case 'open-preset-form-sheet': {
+        rememberModalTrigger(target);
+        uiState.presetsUi = {
+          ...uiState.presetsUi,
+          isFormOpen: true,
+          editingPresetId: null,
+          formDraft: null,
+          formError: '',
+        };
+        render();
+        focusActiveDialogControl();
+        break;
+      }
+      case 'customize-rotation-preset': {
+        const presetId = target.getAttribute('data-preset-id');
+        const preset = getAllRotationPresets(store.getState()).find((p) => p.id === presetId);
+        if (preset) {
+          rememberModalTrigger(target);
+          uiState.presetsUi = {
+            ...uiState.presetsUi,
+            isFormOpen: true,
+            editingPresetId: null,
+            formDraft: {
+              ...preset,
+              title: `${preset.title} (Custom)`,
+              seed: `${preset.seed}-custom`,
+            },
+            formError: '',
+          };
+          render();
+          focusActiveDialogControl();
+        }
+        break;
+      }
+      case 'edit-rotation-preset': {
+        const presetId = target.getAttribute('data-preset-id');
+        const customPresets = store.getState().customPresets || [];
+        const preset = customPresets.find((p) => p.id === presetId);
+        if (preset) {
+          rememberModalTrigger(target);
+          uiState.presetsUi = {
+            ...uiState.presetsUi,
+            isFormOpen: true,
+            editingPresetId: preset.id,
+            formDraft: { ...preset },
+            formError: '',
+          };
+          render();
+          focusActiveDialogControl();
+        }
+        break;
+      }
+      case 'close-preset-form-sheet': {
+        closeSheetWithMotion(() => {
+          uiState.presetsUi.isFormOpen = false;
+          uiState.presetsUi.editingPresetId = null;
+          uiState.presetsUi.formError = '';
+        });
+        break;
+      }
+      case 'delete-rotation-preset': {
+        const presetId = target.getAttribute('data-preset-id');
+        if (presetId) {
+          await store.deleteRotationPreset(presetId);
+        }
+        break;
+      }
       case 'delete-rotation': {
         const rotationId = target.getAttribute('data-rotation-id');
         if (rotationId) {
           if (uiState.rotationEditor.editingRotationId === rotationId) {
             uiState.rotationEditor.editingRotationId = null;
+          }
+          if (uiState.rotationEditor.renamingRotationId === rotationId) {
+            uiState.rotationEditor.renamingRotationId = null;
           }
           await store.deleteRotation(rotationId);
         }
@@ -2260,6 +2518,16 @@ function bindEvents() {
 
   rootEl.addEventListener('input', (event) => {
     const target = event.target;
+    if (
+      target instanceof HTMLTextAreaElement &&
+      target.getAttribute('data-auto-resize') === 'true'
+    ) {
+      target.style.height = 'auto';
+      if (target.scrollHeight > 0) {
+        target.style.height = `${Math.max(target.scrollHeight + 2, 68)}px`;
+      }
+      return;
+    }
     if (!(target instanceof HTMLInputElement)) return;
 
     if (target.id === 'catalog-search-input') {
@@ -2285,6 +2553,9 @@ function bindEvents() {
     } else if (target.id === 'play-topic-input') {
       uiState.playUi.randomizerTopic = target.value;
       uiState.playUi.randomizerNoTopicMatches = false;
+      render();
+    } else if (target.id === 'presets-search-input') {
+      uiState.presetsUi.searchQuery = target.value;
       render();
     } else if (target.id === 'profile-birth-date') {
       // Live in-DOM preview of auto-computed age & stage without disrupting native date picker focus
@@ -2512,6 +2783,75 @@ function bindEvents() {
       } catch (err) {
         store.notify(err instanceof Error ? err.message : 'Could not generate rotation.', 'error');
       }
+    } else if (form.getAttribute('data-form') === 'edit-rotation-details') {
+      const rotationId = form.getAttribute('data-rotation-id');
+      if (!rotationId) return;
+      try {
+        await store.updateRotationDetails(rotationId, {
+          title: String(data.get('title') || ''),
+          description: String(data.get('description') || ''),
+        });
+        uiState.rotationEditor.renamingRotationId = null;
+        render();
+      } catch (err) {
+        store.notify(
+          err instanceof Error ? err.message : 'Could not update rotation details.',
+          'error'
+        );
+      }
+    } else if (form.id === 'rotation-preset-form') {
+      const monthCheck = buildMonthDayFromParts(
+        String(data.get('suggestedMonth') || ''),
+        String(data.get('suggestedDay') || '')
+      );
+      const rawTags = String(data.get('preferredTags') || '')
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const draftSnapshot = {
+        title: String(data.get('title') || ''),
+        description: String(data.get('description') || ''),
+        category: /** @type {import('./types/models.js').PresetCategory} */ (
+          data.get('category') || 'seasonal-holidays'
+        ),
+        preferredTags: rawTags,
+        count: Number(data.get('count') || 5),
+        swapDays: Number(data.get('swapDays') || 14),
+        cooldownDays: Number(data.get('cooldownDays') || 21),
+        requiredFormat: /** @type {import('./types/models.js').BookFormat | 'any'} */ (
+          data.get('requiredFormat') || 'any'
+        ),
+        varietyMix: data.get('varietyMix') !== null,
+        seed: String(data.get('seed') || ''),
+        suggestedStartMonthDay: monthCheck.monthDay,
+      };
+
+      if (!monthCheck.valid) {
+        uiState.presetsUi.formDraft = draftSnapshot;
+        uiState.presetsUi.formError =
+          monthCheck.error || 'Select a valid suggested start month and day.';
+        render();
+        return;
+      }
+
+      try {
+        if (uiState.presetsUi.editingPresetId) {
+          await store.updateRotationPreset(uiState.presetsUi.editingPresetId, draftSnapshot);
+        } else {
+          await store.addRotationPreset(draftSnapshot);
+        }
+        uiState.presetsUi.isFormOpen = false;
+        uiState.presetsUi.editingPresetId = null;
+        uiState.presetsUi.formDraft = null;
+        uiState.presetsUi.formError = '';
+        render();
+        restoreModalTriggerFocus();
+      } catch (err) {
+        uiState.presetsUi.formDraft = draftSnapshot;
+        uiState.presetsUi.formError =
+          err instanceof Error ? err.message : 'Could not save collection preset.';
+        render();
+      }
     } else if (form.id === 'inspector-cover-search-form') {
       const rawCoverQuery = String(data.get('coverQuery') || '');
       await executeInspectorCoverSearch(rawCoverQuery);
@@ -2660,6 +3000,15 @@ async function bootstrap() {
       }
       const editRotId = next.params.get('edit');
       uiState.rotationEditor.editingRotationId = editRotId || null;
+      uiState.rotationEditor.renamingRotationId = null;
+    }
+    if (next.route === 'presets') {
+      if (next.params.get('new') === '1') {
+        uiState.presetsUi.isFormOpen = true;
+        uiState.presetsUi.editingPresetId = null;
+        uiState.presetsUi.formDraft = null;
+        uiState.presetsUi.formError = '';
+      }
     }
     if (next.route === 'library') {
       const filterParam = next.params.get('filter');

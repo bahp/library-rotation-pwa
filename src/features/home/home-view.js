@@ -14,6 +14,10 @@ import {
 } from '../../types/models.js';
 import { getProfileRecommendations } from '../tagging/recommendations.js';
 import {
+  getAllRotationPresets,
+  renderPresetStartDateAlertBanner,
+} from '../rotations/rotation-presets.js';
+import {
   computeRotationSchedule,
   renderSwapDayAlertBanner,
 } from '../rotations/rotation-schedule.js';
@@ -31,7 +35,8 @@ import { renderIcon } from '../../ui/icons.js';
  *     searchQuery: string,
  *     inspectedBookId: string | null,
  *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
- *     dismissedSwapReminderKeys?: string[]
+ *     dismissedSwapReminderKeys?: string[],
+ *     dismissedPresetAlertKeys?: string[]
  *   },
  *   referenceDate?: Date | string | number
  * }} params
@@ -55,6 +60,15 @@ export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
     profile: activeProfile,
     schedule: activeSchedule,
     dismissedReminderKeys: uiState.dismissedSwapReminderKeys || [],
+  });
+
+  const presetStartAlertHtml = renderPresetStartDateAlertBanner({
+    presets: getAllRotationPresets(state),
+    activeProfile,
+    activeRotation,
+    dismissedAlertKeys: uiState.dismissedPresetAlertKeys || [],
+    referenceDate,
+    showBrowseLink: true,
   });
 
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
@@ -200,13 +214,20 @@ export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
         <p class="mt-1.5 text-xs sm:text-sm text-stone-ink dark:text-slate-400 max-w-sm mx-auto">
           Generate a fresh book rotation matched to ${escapeHtml(activeProfile.name)}’s age and favorite themes.
         </p>
-        <div class="mt-4 flex justify-center">
+        <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
           <a
             href="#/rotations?new=1"
             class="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors"
           >
             ${renderIcon('plus', 'w-4 h-4')}
             Create Shelf
+          </a>
+          <a
+            href="#/presets"
+            class="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-colors"
+          >
+            ${renderIcon('sparkles', 'w-4 h-4 text-forest-700 dark:text-[#5ED3DA]')}
+            Presets
           </a>
         </div>
       </section>
@@ -220,9 +241,14 @@ export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
             <h2 id="saved-rotations-heading" class="font-sans text-xs font-bold tracking-wide text-espresso-800 dark:text-slate-300">
               Saved Rotations
             </h2>
-            <a href="#/rotations" class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline">
-              All shelves
-            </a>
+            <div class="flex items-center gap-3">
+              <a href="#/presets" class="text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white hover:underline">
+                Presets
+              </a>
+              <a href="#/rotations" class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline">
+                All shelves
+              </a>
+            </div>
           </div>
           <div class="divide-y divide-linen-200/70 dark:divide-night-800 rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 px-3.5">
             ${savedRotations
@@ -371,6 +397,7 @@ export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
 
   return `
     <div class="space-y-5">
+      ${presetStartAlertHtml}
       ${swapDayAlertHtml}
       ${activeShelfHtml}
       ${savedRotationsHtml}

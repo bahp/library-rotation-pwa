@@ -25,6 +25,10 @@ import {
   pickRandomEligibleBooks,
 } from '../features/rotations/rotation-engine.js';
 import {
+  getAllRotationPresets,
+  normalizeRotationPresetInput,
+} from '../features/rotations/rotation-presets.js';
+import {
   inferReadingLevelHint,
   sanitizeTag,
   sanitizeTagList,
@@ -1282,6 +1286,144 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
+   * Updates an existing rotation shelf's name (`title`) and description (`rules.objective`)
+   * while preserving its books, read completion status, and schedule timestamps.
+   *
+   * @param {string} rotationId
+   * @param {{ title?: string, description?: string, objective?: string }} patch
+   */
+  async function updateRotationDetails(rotationId, patch) {
+    const existing = state.rotations.find((r) => r.id === rotationId);
+    if (!existing) {
+      throw new Error('Rotation shelf not found.');
+    }
+
+    const nextTitle =
+      patch.title !== undefined ? String(patch.title).trim() : existing.title;
+    if (!nextTitle) {
+      throw new Error('Rotation name is required.');
+    }
+
+    const rawDesc =
+      patch.description !== undefined
+        ? patch.description
+        : patch.objective !== undefined
+          ? patch.objective
+          : existing.rules.objective;
+    const nextObjective = String(rawDesc ?? '').trim();
+
+    const now = new Date().toISOString();
+    /** @type {import('../types/models.js').RotationList} */
+    const updatedRotation = {
+      ...existing,
+      title: nextTitle,
+      rules: {
+        ...existing.rules,
+        objective: nextObjective,
+      },
+      updatedAt: now,
+    };
+
+    await commit({
+      ...state,
+      rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
+    });
+    notify(`Updated "${updatedRotation.title}".`, 'success');
+    return updatedRotation;
+  }
+
+  /**
+   * Adds a new user-defined `RotationPreset` configuration to `state.customPresets`.
+   * @param {Parameters<typeof normalizeRotationPresetInput>[0]} input
+   */
+  async function addRotationPreset(input) {
+    const preset = normalizeRotationPresetInput({
+      ...input,
+      id: undefined,
+    });
+    const currentCustom = Array.isArray(state.customPresets) ? state.customPresets : [];
+    await commit({
+      ...state,
+      customPresets: [preset, ...currentCustom],
+    });
+    notify(`Saved collection preset "${preset.title}".`, 'success');
+    return preset;
+  }
+
+  /**
+   * Updates an existing user-defined custom `RotationPreset`.
+   * @param {string} presetId
+   * @param {Parameters<typeof normalizeRotationPresetInput>[0]} patch
+   */
+  async function updateRotationPreset(presetId, patch) {
+    const currentCustom = Array.isArray(state.customPresets) ? state.customPresets : [];
+    const existing = currentCustom.find((p) => p.id === presetId);
+    if (!existing) {
+      throw new Error('Custom collection preset not found.');
+    }
+
+    const updated = normalizeRotationPresetInput({
+      ...existing,
+      ...patch,
+      id: existing.id,
+      createdAt: existing.createdAt,
+    });
+
+    await commit({
+      ...state,
+      customPresets: currentCustom.map((p) => (p.id === presetId ? updated : p)),
+    });
+    notify(`Updated collection preset "${updated.title}".`, 'success');
+    return updated;
+  }
+
+  /**
+   * Deletes a user-defined custom `RotationPreset`.
+   * @param {string} presetId
+   */
+  async function deleteRotationPreset(presetId) {
+    const currentCustom = Array.isArray(state.customPresets) ? state.customPresets : [];
+    const target = currentCustom.find((p) => p.id === presetId);
+    if (!target) return false;
+
+    await commit({
+      ...state,
+      customPresets: currentCustom.filter((p) => p.id !== presetId),
+    });
+    notify(`Removed preset "${target.title}".`, 'info');
+    return true;
+  }
+
+  /**
+   * Generates a curated rotation shelf from any built-in or custom `RotationPreset` using the
+   * user's library books and the preset's title, description, topic preferences, book count,
+   * swap cycle, cooldown, binding preference, and deterministic seed.
+   *
+   * @param {string} presetId
+   * @param {{ profileId?: string }} [options]
+   */
+  async function generateRotationFromPreset(presetId, options = {}) {
+    const allPresets = getAllRotationPresets(state);
+    const preset = allPresets.find((p) => p.id === presetId);
+    if (!preset) {
+      throw new Error('Collection preset not found.');
+    }
+
+    return generateRotation({
+      title: preset.title,
+      objective: preset.description,
+      count: preset.count,
+      preferredTags: preset.preferredTags,
+      cooldownDays: preset.cooldownDays,
+      swapDays: preset.swapDays,
+      varietyMix: preset.varietyMix,
+      requiredFormat: preset.requiredFormat,
+      seed: preset.seed,
+      profileId: options.profileId,
+    });
+  }
+
+  /**
    * Updates user settings (theme, provider configuration, AI opt-in, scan mode).
    * @param {Partial<import('../types/models.js').AppSettings>} patch
    */
@@ -1405,6 +1547,11 @@ export function createAppStore(storage, deps = {}) {
     removeBookFromRotation,
     deleteRotation,
     setActiveRotation,
+    updateRotationDetails,
+    addRotationPreset,
+    updateRotationPreset,
+    deleteRotationPreset,
+    generateRotationFromPreset,
     updateSettings,
     toggleMetadataProvider,
     resetProviderSettingsToSafeDefaults,

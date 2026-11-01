@@ -2,195 +2,184 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Developer Architecture &amp; Metadata Providers · Book Rotation Docs</title>
-    <link rel="icon" type="image/svg+xml" href="../icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Developer Guide — Little Shelf Docs</title>
+    <link rel="icon" type="image/png" href="../icons/favicon-32.png" />
     <link rel="stylesheet" href="./docs.css" />
   </head>
   <body>
-    <header class="docs-topbar">
-      <div class="docs-topbar-inner">
-        <a class="docs-brand" href="./index.html">Book Rotation · Documentation</a>
-        <nav class="docs-nav" aria-label="Documentation sections">
+    <header class="docs-header">
+      <div class="docs-header-inner">
+        <a href="./index.html" class="docs-brand">
+          <img src="../icons/icon-192.png" alt="Little Shelf" />
+          <span>Little Shelf Docs</span>
+        </a>
+        <nav class="docs-nav" aria-label="Documentation pages">
           <a href="./index.html">User Guide</a>
-          <a href="./configuration.html">Google Books &amp; Proxy</a>
-          <a href="./tagging-and-ai.html">Local Tag Rules &amp; AI</a>
-          <a href="./architecture-and-providers.html" aria-current="page">Developer Architecture</a>
+          <a href="./configuration.html">Google Books Setup</a>
+          <a href="./tagging-and-ai.html">Tag Rules &amp; Presets</a>
+          <a href="./architecture-and-providers.html" aria-current="page">Developer Guide</a>
         </nav>
-        <a class="docs-back-app" href="../#/settings">&larr; Back to App</a>
+        <a href="../#/home" class="docs-back-app">Open App →</a>
       </div>
     </header>
 
-    <div class="docs-shell">
-      <aside class="docs-toc" aria-label="On this page">
-        <p class="docs-toc-title">On This Page</p>
-        <ul>
-          <li><a href="#codebase-map">1. Codebase Directory Map</a></li>
-          <li><a href="#dom-reconciler">2. Zero-Flash DOM Reconciler</a></li>
-          <li><a href="#catalog-pipeline">3. Catalog Merge Pipeline</a></li>
-          <li><a href="#add-provider">4. Adding a Metadata Provider</a></li>
-          <li><a href="#testing">5. Running Checks &amp; Tests</a></li>
-        </ul>
-      </aside>
-
-      <main class="docs-article">
-        <p class="docs-kicker">Maintainer &amp; Contributor Reference</p>
-        <h1>Developer Architecture &amp; Custom Catalog Providers</h1>
-        <p>
-          Book Rotation is engineered as a lightweight, zero-framework-bloat ES Module TypeScript/JSDoc application styled with Tailwind CSS v4, backed by an IndexedDB persistence adapter and an optional Express server proxy (<code>server.ts</code>).
+    <main class="docs-main">
+      <section class="hero">
+        <p class="eyebrow">Architecture &amp; Extension Points</p>
+        <h1>Developer Guide</h1>
+        <p class="lead">
+          Framework-free ES modules, JSDoc TypeScript checking (<code>checkJs: true</code>), IndexedDB persistence, and pluggable book metadata providers.
         </p>
+        <div class="jump-bar">
+          <a href="#pipeline">Data Flow</a>
+          <a href="#folders">Folder Map</a>
+          <a href="#add-provider">Add a MetadataProvider</a>
+          <a href="#commands">Dev &amp; Test Commands</a>
+        </div>
+      </section>
 
-        <h2 id="codebase-map">1. Codebase Directory Map</h2>
+      <section id="pipeline" class="section-block">
+        <h2>1. End-to-End Data Flow</h2>
+        <div class="flow-strip" aria-label="Architecture pipeline">
+          <span class="flow-node">Scan / Search</span>
+          <span class="flow-sep">→</span>
+          <span class="flow-node">CatalogService (Parallel Providers)</span>
+          <span class="flow-sep">→</span>
+          <span class="flow-node">Normalizer + Merge</span>
+          <span class="flow-sep">→</span>
+          <span class="flow-node">RuleTagger</span>
+          <span class="flow-sep">→</span>
+          <span class="flow-node">Store (IndexedDB)</span>
+          <span class="flow-sep">→</span>
+          <span class="flow-node">patchRootHtml()</span>
+        </div>
+        <ul>
+          <li><strong>No cover flicker:</strong> <code>src/core/dom-patch.js</code> diffs live DOM nodes in place so unchanged <code>&lt;img&gt;</code> book covers never unmount or re-fetch on navigation.</li>
+          <li><strong>Deterministic shelves:</strong> Both manual rotations and <code>#/presets</code> collections run through a seeded PRNG (<code>src/features/rotations/rotation-engine.js</code>) for reproducible tests and predictable swaps.</li>
+        </ul>
+      </section>
+
+      <section id="folders" class="section-block">
+        <h2>2. Folder Cheat-Sheet</h2>
         <table>
           <thead>
             <tr>
-              <th>Directory / File</th>
-              <th>Purpose</th>
+              <th>Path</th>
+              <th>Responsibility</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><code>src/types/models.js</code></td>
-              <td>Domain types (<code>Book</code>, <code>ChildProfile</code>, <code>Rotation</code>, <code>AppSettings</code>), ISBN-10/13 checksum math, and DOB age helpers.</td>
+              <td><code>src/core/</code></td>
+              <td><code>store.js</code> (actions &amp; state), <code>storage.js</code> (IndexedDB + fallback), <code>router.js</code>, <code>dom-patch.js</code>.</td>
             </tr>
             <tr>
-              <td><code>src/core/storage.js</code> &amp; <code>store.js</code></td>
-              <td>IndexedDB + localStorage/memory fallback adapter, schema migrations, reactive state mutations, and backup validation.</td>
+              <td><code>src/data/</code></td>
+              <td><code>seed-books.js</code> (starter catalog) &amp; <code>rotation-presets-config.js</code> (seasonal/milestone collection defaults).</td>
             </tr>
             <tr>
               <td><code>src/features/catalog/</code></td>
-              <td><code>catalog-service.js</code>, <code>normalizer.js</code>, <code>cover-color-extractor.js</code>, and <code>providers/</code> (Google Books + Open Library + cached HTTP client).</td>
+              <td><code>catalog-service.js</code>, <code>normalizer.js</code>, and <code>providers/</code> (Google Books + Open Library).</td>
             </tr>
             <tr>
-              <td><code>src/features/scan/</code></td>
-              <td><code>scanner-controller.js</code> (camera stream + torch + polling), <code>barcode-decoder.js</code> (native <code>BarcodeDetector</code> + ZXing fallback), <code>ocr-engine.js</code> (Tesseract WASM), and <code>scan-shell-view.js</code>.</td>
+              <td><code>src/features/scanner/</code></td>
+              <td><code>scanner-controller.js</code> (native <code>BarcodeDetector</code> + ZXing fallback + torch toggle).</td>
             </tr>
             <tr>
               <td><code>src/features/rotations/</code></td>
-              <td>Deterministic seeded rotation generator (<code>rotation-engine.js</code>), Library Swap Day schedule math (<code>swap-schedule.js</code>), and shelf management UI.</td>
+              <td><code>rotation-engine.js</code>, <code>rotation-presets.js</code>, <code>rotations-view.js</code>, and <code>presets-view.js</code>.</td>
             </tr>
             <tr>
               <td><code>src/features/play/</code></td>
-              <td><em>Storytime Picker</em> randomizer and <em>Book Hunt</em> active shelf treasure search game logic + views.</td>
-            </tr>
-            <tr>
-              <td><code>src/features/tagging/</code></td>
-              <td>Offline multilingual children’s book rule tagger (<code>rule-tagger.js</code>) and pluggable AI adapters (<code>ai-tag-adapter.js</code>).</td>
-            </tr>
-            <tr>
-              <td><code>src/ui/dom-patch.js</code></td>
-              <td>Keyed in-place DOM reconciler that keeps mounted book cover <code>&lt;img&gt;</code> elements alive across route/modal updates so covers never flash.</td>
+              <td><code>play-engine.js</code> &amp; <code>play-view.js</code> (Book Hunt + Storytime Picker).</td>
             </tr>
             <tr>
               <td><code>server.ts</code></td>
-              <td>Express server mounting <code>/api/books/volumes</code> and <code>/api/books/status</code> (injecting <code>GOOGLE_BOOKS_API_KEY</code> server-side) + Vite middleware in dev / <code>dist/</code> in prod.</td>
+              <td>Dev/Node Express server + optional <code>/api/books/*</code> Google Books key proxy.</td>
             </tr>
           </tbody>
         </table>
+      </section>
 
-        <h2 id="dom-reconciler">2. Rendering &amp; Zero-Flash DOM Reconciliation</h2>
+      <section id="add-provider" class="section-block">
+        <h2>3. Add a Custom <code>MetadataProvider</code> in 2 Steps</h2>
         <p>
-          Views are pure functions of state (<code>(props) =&gt; htmlString</code>), making every screen fast to unit-test in Node without a heavy browser DOM harness. At runtime, <code>patchRootHtml(rootEl, nextShellHtml)</code> in <code>src/ui/dom-patch.js</code> reconciles live DOM nodes by key (<code>id</code>, <code>data-book-card</code>, <code>data-backdrop-action</code>) and adopts/hydrates media elements (<code>&lt;video&gt;</code>) cleanly.
+          Every catalog source implements <code>MetadataProvider</code> (<code>lookupByIsbn</code> + <code>searchBooks</code>) and returns normalized <code>BookCandidate</code> objects.
+          <code>CatalogService</code> runs all providers via <code>Promise.allSettled</code>, merges ISBN matches, and stamps provenance (<code>sources</code>).
         </p>
 
-        <h2 id="catalog-pipeline">3. How <code>CatalogService</code> Queries &amp; Merges Providers</h2>
-        <ol>
-          <li><code>catalogService.lookupByIsbn(rawIsbn)</code> normalizes any ISBN-10 or ISBN-13 into canonical 13-digit ISBN.</li>
-          <li>All enabled providers run concurrently via <code>Promise.allSettled</code>—a timeout or HTTP 429 on one provider never blocks the remaining providers.</li>
-          <li><code>mergeBookCandidates()</code> in <code>src/features/catalog/normalizer.js</code> combines hits, preferring verified titles, high-resolution HTTPS covers, complete page counts, unioned topic tags, and full <code>sources[]</code> provenance (so the UI displays whether a book came from Google Books, Open Library, or both).</li>
-          <li>If an ISBN edition lacks cover art in all providers, <code>findSiblingCoverUrl()</code> automatically searches sibling printings of the same title + author to recover a verified cover image.</li>
-        </ol>
+        <div class="step-grid">
+          <div class="step-card">
+            <span class="step-num">1</span>
+            <h3>Create Provider Module</h3>
+            <p>Add <code>src/features/catalog/providers/my-provider.js</code> implementing <code>lookupByIsbn</code> and <code>searchBooks</code>.</p>
+          </div>
+          <div class="step-card">
+            <span class="step-num">2</span>
+            <h3>Register in CatalogService</h3>
+            <p>Add it to the default array in <code>createCatalogService()</code> inside <code>src/features/catalog/catalog-service.js</code>.</p>
+          </div>
+        </div>
 
-        <h2 id="add-provider">4. Step-by-Step: Adding a New Book Catalog Metadata Provider</h2>
-        <p>
-          Every catalog provider implements the <code>MetadataProvider</code> contract defined in <code>src/features/catalog/catalog-service.js</code>:
-        </p>
-<pre><code>/**
- * @typedef {Object} MetadataProvider
- * @property {string} id          - Stable kebab-case ID (e.g. 'library-of-congress')
- * @property {string} label       - Human-readable name shown in Settings &amp; attribution
- * @property {(isbn13: string, options?: { retainRaw?: boolean, signal?: AbortSignal }) =&gt; Promise&lt;BookCandidate | null&gt;} lookupByIsbn
- * @property {(input: { query: string, author?: string }, options?: { retainRaw?: boolean, signal?: AbortSignal, limit?: number }) =&gt; Promise&lt;BookCandidate[]&gt;} searchBooks
- */</code></pre>
-
-        <h3>Example: Creating <code>src/features/catalog/providers/loc-provider.js</code></h3>
-<pre><code>import { normalizeProviderRecord } from '../normalizer.js';
+        <pre><code>// src/features/catalog/providers/national-library-provider.js
+import { normalizeIsbn } from '../isbn.js';
 
 /**
- * @param {ReturnType&lt;typeof import('./http-client.js').createHttpClient&gt;} httpClient
  * @returns {import('../catalog-service.js').MetadataProvider}
  */
-export function createLibraryOfCongressProvider(httpClient) {
+export function createNationalLibraryProvider({ fetchImpl = globalThis.fetch } = {}) {
   return {
-    id: 'loc-catalog',
-    label: 'Library of Congress Catalog',
+    name: 'national-library',
 
-    async lookupByIsbn(isbn13, options = {}) {
-      const url = `https://www.loc.gov/books/?q=${encodeURIComponent(isbn13)}&amp;fo=json&amp;c=5`;
-      const payload = await httpClient.getJson(url, { signal: options.signal });
-      const first = Array.isArray(payload?.results) ? payload.results[0] : null;
-      if (!first) return null;
-
-      return normalizeProviderRecord({
-        provider: /** @type {any} */ ('loc-catalog'),
-        externalId: String(first.id || isbn13),
-        title: String(first.title || ''),
-        authors: Array.isArray(first.contributor) ? first.contributor : [],
-        isbn13,
-        publishedDate: String(first.date || ''),
-        subjects: Array.isArray(first.subject) ? first.subject : [],
-        coverUrl: Array.isArray(first.image_url) ? first.image_url[0] : undefined,
-        raw: options.retainRaw ? first : undefined,
-      });
+    async lookupByIsbn(rawIsbn) {
+      const isbn = normalizeIsbn(rawIsbn);
+      if (!isbn) return [];
+      const res = await fetchImpl(`https://example-library.org/api/isbn/${isbn}`);
+      if (!res.ok) return [];
+      const item = await res.json();
+      return [
+        {
+          isbn,
+          title: item.title,
+          authors: item.authors || ['Unknown Author'],
+          coverUrl: item.cover || '',
+          coverCandidates: item.cover ? [item.cover] : [],
+          publisher: item.publisher || '',
+          publishedDate: item.year || '',
+          pageCount: Number(item.pages) || 32,
+          description: item.summary || '',
+          categories: item.subjects || [],
+          language: item.lang || 'en',
+          format: 'paperback',
+          source: 'manual',
+          sources: ['manual'],
+        },
+      ];
     },
 
-    async searchBooks({ query, author }, options = {}) {
-      const q = [query, author].filter(Boolean).join(' ');
-      const limit = options.limit || 8;
-      const url = `https://www.loc.gov/books/?q=${encodeURIComponent(q)}&amp;fo=json&amp;c=${limit}`;
-      const payload = await httpClient.getJson(url, { signal: options.signal });
-      const rows = Array.isArray(payload?.results) ? payload.results : [];
-
-      return rows
-        .filter((item) =&gt; item &amp;&amp; item.title)
-        .map((item) =&gt;
-          normalizeProviderRecord({
-            provider: /** @type {any} */ ('loc-catalog'),
-            externalId: String(item.id || item.title),
-            title: String(item.title),
-            authors: Array.isArray(item.contributor) ? item.contributor : [],
-            publishedDate: String(item.date || ''),
-            subjects: Array.isArray(item.subject) ? item.subject : [],
-            coverUrl: Array.isArray(item.image_url) ? item.image_url[0] : undefined,
-            raw: options.retainRaw ? item : undefined,
-          })
-        );
+    async searchBooks({ title, author }) {
+      const q = [title, author].filter(Boolean).join(' ');
+      if (!q) return [];
+      // Query search endpoint and return BookCandidate[]
+      return [];
     },
   };
 }</code></pre>
+      </section>
 
-        <h3>Wiring Your New Provider Into the App</h3>
-        <ol>
-          <li><strong>Register in <code>CatalogService</code>:</strong> Add <code>createLibraryOfCongressProvider(client)</code> to the default <code>providers</code> list in <code>src/features/catalog/catalog-service.js</code> (or call <code>catalogService.registerProvider(...)</code> in <code>src/main.js</code>).</li>
-          <li><strong>Expose Toggle in Settings:</strong> Add <code>'loc-catalog'</code> to <code>DEFAULT_SETTINGS.enabledMetadataProviders</code> in <code>src/core/seed.js</code> and to the <code>catalogProviders</code> list in <code>src/features/settings/settings-view.js</code>.</li>
-          <li><strong>Attribution Badge (Optional):</strong> Add a display label/icon entry in <code>src/ui/components/provider-attribution.js</code>.</li>
-        </ol>
+      <section id="commands" class="section-block">
+        <h2>4. Developer Commands</h2>
+        <pre><code>npm run dev          # Start server on http://localhost:3000
+npm run lint         # Strict TypeScript / JSDoc check (tsc --noEmit)
+npm test             # Run full Node test suite (tests/*.test.js)
+npm run build        # Build production static bundle + PWA service worker</code></pre>
+      </section>
 
-        <h2 id="testing">5. Verification, Typechecking &amp; Automated Tests</h2>
-<pre><code># 1. TypeScript + JSDoc static type verification (zero errors expected)
-npm run lint
-
-# 2. Run all Node unit &amp; integration test suites (tests/phase1 .. phase18)
-npm test
-
-# 3. Build production Vite + PWA bundle into dist/
-npm run build</code></pre>
-
-        <footer class="docs-footer">
-          <a href="./tagging-and-ai.html">&larr; Local Tag Rules &amp; AI Adapters</a>
-          <a href="../#/settings">Return to Book Rotation Settings &rarr;</a>
-        </footer>
-      </main>
-    </div>
+      <footer class="docs-footer">
+        <a href="./tagging-and-ai.html">← Tag Rules &amp; Presets</a>
+        <a href="./index.html">Back to User Guide →</a>
+      </footer>
+    </main>
   </body>
 </html>

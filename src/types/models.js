@@ -4,7 +4,7 @@
  */
 
 /**
- * @typedef {'home' | 'library' | 'scan' | 'rotations' | 'play' | 'profiles' | 'settings'} RouteId
+ * @typedef {'home' | 'library' | 'scan' | 'rotations' | 'presets' | 'play' | 'profiles' | 'settings'} RouteId
  */
 
 /**
@@ -127,12 +127,35 @@
  */
 
 /**
+ * @typedef {'seasonal-holidays' | 'calendar-events' | 'evergreen'} PresetCategory
+ */
+
+/**
+ * @typedef {Object} RotationPreset
+ * @property {string} id - Unique preset slug/ID
+ * @property {string} title - Human-friendly collection preset title
+ * @property {string} description - Description & rotation engine objective
+ * @property {PresetCategory} category - Grouping category
+ * @property {string[]} preferredTags - Normalized lowercase topic preferences
+ * @property {number} count - Target number of books to select
+ * @property {number} swapDays - Suggested swap cycle duration in days
+ * @property {number} cooldownDays - Recency exclusion window in days
+ * @property {BookFormat | 'any'} requiredFormat - Optional binding format preference
+ * @property {boolean} varietyMix - Whether to enforce author & topic variety
+ * @property {string} seed - Pre-defined deterministic PRNG seed
+ * @property {string} [suggestedStartMonthDay] - Optional annual start date in 'MM-DD' format (omitted when anytime)
+ * @property {boolean} [isCustom] - True when created locally by the user
+ * @property {string} [createdAt] - Optional ISO-8601 creation timestamp
+ */
+
+/**
  * @typedef {Object} AppState
  * @property {number} schemaVersion - Storage schema version
  * @property {string} activeProfileId - Currently selected ChildProfile ID
  * @property {ChildProfile[]} profiles - All child profiles
  * @property {Book[]} books - Family book catalog
  * @property {RotationList[]} rotations - Saved and active rotation lists
+ * @property {RotationPreset[]} [customPresets] - User-defined rotation collection presets
  * @property {AppSettings} settings - User preferences
  * @property {string} updatedAt - Last state persistence ISO timestamp
  */

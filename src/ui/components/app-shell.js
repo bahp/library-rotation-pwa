@@ -63,7 +63,8 @@ export function renderAppShell({
   const isSettingsActive = activeRoute === 'settings' || activeRoute === 'profiles';
 
   const desktopNavHtml = NAV_ITEMS.map((item) => {
-    const isActive = item.id === activeRoute;
+    const isActive =
+      item.id === activeRoute || (item.id === 'rotations' && activeRoute === 'presets');
     const activeClasses = isActive
       ? 'text-forest-900 dark:text-[#5ED3DA] font-semibold underline underline-offset-8 decoration-2 decoration-forest-700 dark:decoration-[#5ED3DA]'
       : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white hover:underline hover:underline-offset-8';
@@ -80,7 +81,8 @@ export function renderAppShell({
   }).join('');
 
   const mobileTabsHtml = NAV_ITEMS.map((item) => {
-    const isActive = item.id === activeRoute;
+    const isActive =
+      item.id === activeRoute || (item.id === 'rotations' && activeRoute === 'presets');
     const activeTopBarHtml = isActive
       ? '<span data-nav-active-indicator="true" aria-hidden="true" class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2.5px] rounded-b-full bg-forest-700 dark:bg-[#5ED3DA]"></span>'
       : '';

@@ -20,6 +20,10 @@ import { renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
 import { scoreEligibleBooks } from './rotation-engine.js';
 import {
+  getAllRotationPresets,
+  renderPresetStartDateAlertBanner,
+} from './rotation-presets.js';
+import {
   computeRotationSchedule,
   renderSwapDayAlertBanner,
 } from './rotation-schedule.js';
@@ -34,7 +38,26 @@ import {
  * @property {number} randomAddCount - Count for random batch add inside modal
  * @property {boolean} [isGeneratorOpen] - Whether the Generate Shelf bottom sheet is open
  * @property {string | null} [editingRotationId] - Rotation ID currently in expanded Edit mode
+ * @property {string | null} [renamingRotationId] - Rotation ID whose title & description are editing inline
  */
+
+/**
+ * Computes initial `<textarea rows>` large enough to display the entire rotation description
+ * without clipping or inner scrolling (~44 characters per mobile line).
+ *
+ * @param {string | undefined | null} rawText
+ * @returns {number}
+ */
+export function computeDescriptionRows(rawText) {
+  const text = String(rawText || '').trim();
+  if (!text) return 2;
+  const paragraphs = text.split(/\r?\n/);
+  let totalLines = 0;
+  for (const line of paragraphs) {
+    totalLines += Math.max(1, Math.ceil(line.length / 44));
+  }
+  return Math.max(2, Math.min(14, totalLines));
+}
 
 /**
  * Renders the slide-up Generate Shelf bottom sheet (`max-h-[85vh]`) when `+` is clicked.
@@ -81,6 +104,19 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
         </div>
 
         <form id="generate-rotation-form" class="flex-1 overflow-y-auto p-5 space-y-3.5">
+          <div class="rounded-xl bg-linen-100/80 dark:bg-night-800/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
+            <span class="text-stone-ink dark:text-slate-300">
+              Seasonal holiday, milestone, or anytime seed?
+            </span>
+            <a
+              href="#/presets"
+              data-action="browse-presets-from-sheet"
+              class="font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline whitespace-nowrap shrink-0"
+            >
+              Browse Presets →
+            </a>
+          </div>
+
           <div>
             <label for="rot-title" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Shelf Title
@@ -493,6 +529,7 @@ function renderRotationPickerModal({ state, editorState }) {
  *   profiles: import('../../types/models.js').ChildProfile[],
  *   totalCatalogCount: number,
  *   isEditing: boolean,
+ *   isRenaming: boolean,
  *   coverAspectRatio: import('../../types/models.js').CoverAspectRatio,
  *   activeProfile: import('../../types/models.js').ChildProfile,
  *   referenceDate: Date | string | number
@@ -505,6 +542,7 @@ function renderRotationSection({
   profiles,
   totalCatalogCount,
   isEditing,
+  isRenaming,
   coverAspectRatio,
   activeProfile,
   referenceDate,
@@ -516,6 +554,7 @@ function renderRotationSection({
   const isActive = rot.status === 'active';
   const hasOffShelfBooks = totalCatalogCount > books.length;
   const schedule = computeRotationSchedule(rot, activeProfile, referenceDate);
+  const descRows = computeDescriptionRows(rot.rules.objective);
 
   const coversAreaHtml = isEditing
     ? `
@@ -714,75 +753,152 @@ function renderRotationSection({
       </div>
     `;
 
+  const scheduleLineHtml = `
+    <p
+      data-rotation-schedule="${isActive ? 'active' : 'saved'}"
+      class="text-[11px] font-mono-tabular mt-0.5 truncate ${
+        isActive && schedule.isDue
+          ? 'font-semibold text-amber-800 dark:text-amber-300'
+          : isActive && schedule.isDueSoon
+            ? 'font-medium text-espresso-800 dark:text-[#5ED3DA]'
+            : 'text-stone-ink dark:text-slate-400'
+      }"
+    >${escapeHtml(isActive ? schedule.activeScheduleLine : schedule.savedScheduleLine)}</p>
+  `;
+
   return `
     <section class="py-4 first:pt-1 border-b border-linen-200/90 dark:border-night-800 last:border-b-0 space-y-3">
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400">
-            <span class="${
-              isActive
-                ? 'font-bold text-espresso-800 dark:text-[#5ED3DA]'
-                : 'font-medium'
-            }">${isActive ? 'Active' : 'Saved'}</span>
-            <span aria-hidden="true">·</span>
-            <span class="font-mono-tabular">${completedSet.size}/${books.length} read</span>
-            <span aria-hidden="true">·</span>
-            <span class="font-mono-tabular">${books.length} ${books.length === 1 ? 'book' : 'books'}</span>
+      <div class="space-y-1.5">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400">
+              <span class="${
+                isActive
+                  ? 'font-bold text-espresso-800 dark:text-[#5ED3DA]'
+                  : 'font-medium'
+              }">${isActive ? 'Active' : 'Saved'}</span>
+              <span aria-hidden="true">·</span>
+              <span class="font-mono-tabular">${completedSet.size}/${books.length} read</span>
+              <span aria-hidden="true">·</span>
+              <span class="font-mono-tabular">${books.length} ${books.length === 1 ? 'book' : 'books'}</span>
+            </div>
+
+            ${
+              !isRenaming
+                ? `
+                  <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
+                    <h2 class="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug truncate">
+                      ${escapeHtml(rot.title)}
+                    </h2>
+                    <button
+                      type="button"
+                      data-action="start-rename-rotation"
+                      data-rotation-id="${escapeHtml(rot.id)}"
+                      aria-label="Edit name and description for ${escapeHtml(rot.title)}"
+                      title="Edit name &amp; description"
+                      class="min-h-[34px] min-w-[34px] -my-1 rounded-lg text-stone-ink/75 hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-800 inline-flex items-center justify-center shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700"
+                    >
+                      ${renderIcon('edit', 'w-3.5 h-3.5')}
+                    </button>
+                  </div>
+                  ${scheduleLineHtml}
+                  ${
+                    rot.rules.objective
+                      ? `<p
+                          data-rotation-description="${escapeHtml(rot.id)}"
+                          class="text-xs text-stone-ink dark:text-slate-300 mt-0.5 ${
+                            isEditing ? 'whitespace-pre-line leading-relaxed' : 'truncate dark:text-slate-400'
+                          }"
+                        >${escapeHtml(rot.rules.objective)}</p>`
+                      : ''
+                  }
+                `
+                : ''
+            }
           </div>
 
-          <h2 class="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug truncate mt-0.5">
-            ${escapeHtml(rot.title)}
-          </h2>
-          <p
-            data-rotation-schedule="${isActive ? 'active' : 'saved'}"
-            class="text-[11px] font-mono-tabular mt-0.5 truncate ${
-              isActive && schedule.isDue
-                ? 'font-semibold text-amber-800 dark:text-amber-300'
-                : isActive && schedule.isDueSoon
-                  ? 'font-medium text-espresso-800 dark:text-[#5ED3DA]'
-                  : 'text-stone-ink dark:text-slate-400'
-            }"
-          >${escapeHtml(isActive ? schedule.activeScheduleLine : schedule.savedScheduleLine)}</p>
-          ${
-            rot.rules.objective
-              ? `<p class="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5">${escapeHtml(
-                  rot.rules.objective
-                )}</p>`
-              : ''
-          }
+          <div class="flex items-center gap-1.5 shrink-0">
+            ${
+              !isActive
+                ? `
+                  <button
+                    type="button"
+                    data-action="activate-rotation"
+                    data-rotation-id="${escapeHtml(rot.id)}"
+                    class="min-h-[44px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors whitespace-nowrap"
+                  >
+                    Activate
+                  </button>
+                `
+                : ''
+            }
+            <button
+              type="button"
+              data-action="toggle-edit-rotation"
+              data-rotation-id="${escapeHtml(rot.id)}"
+              aria-pressed="${isEditing ? 'true' : 'false'}"
+              aria-label="${isEditing ? `Finish editing ${escapeHtml(rot.title)}` : `Edit ${escapeHtml(rot.title)}`}"
+              class="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                isEditing
+                  ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                  : 'bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200'
+              }"
+            >
+              ${renderIcon(isEditing ? 'check' : 'edit', 'w-3.5 h-3.5')}
+              <span>${isEditing ? 'Done' : 'Edit'}</span>
+            </button>
+          </div>
         </div>
 
-        <div class="flex items-center gap-1.5 shrink-0">
-          ${
-            !isActive
-              ? `
-                <button
-                  type="button"
-                  data-action="activate-rotation"
-                  data-rotation-id="${escapeHtml(rot.id)}"
-                  class="min-h-[44px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors whitespace-nowrap"
-                >
-                  Activate
-                </button>
-              `
-              : ''
-          }
-          <button
-            type="button"
-            data-action="toggle-edit-rotation"
-            data-rotation-id="${escapeHtml(rot.id)}"
-            aria-pressed="${isEditing ? 'true' : 'false'}"
-            aria-label="${isEditing ? `Finish editing ${escapeHtml(rot.title)}` : `Edit ${escapeHtml(rot.title)}`}"
-            class="min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
-              isEditing
-                ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                : 'bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200'
-            }"
-          >
-            ${renderIcon(isEditing ? 'check' : 'edit', 'w-3.5 h-3.5')}
-            <span>${isEditing ? 'Done' : 'Edit'}</span>
-          </button>
-        </div>
+        ${
+          isRenaming
+            ? `
+              <form
+                data-form="edit-rotation-details"
+                data-rotation-id="${escapeHtml(rot.id)}"
+                class="space-y-2 w-full pt-0.5"
+              >
+                <input
+                  id="edit-rot-title-${escapeHtml(rot.id)}"
+                  name="title"
+                  type="text"
+                  required
+                  aria-label="Rotation name"
+                  value="${escapeHtml(rot.title)}"
+                  placeholder="Rotation name"
+                  class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-forest-700/65 dark:border-[#5ED3DA]/65 font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${scheduleLineHtml}
+                <textarea
+                  id="edit-rot-desc-${escapeHtml(rot.id)}"
+                  name="description"
+                  rows="${descRows}"
+                  data-auto-resize="true"
+                  aria-label="Rotation description"
+                  placeholder="Add a description or theme note (optional)…"
+                  class="w-full px-3.5 py-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs leading-relaxed text-forest-900 dark:text-slate-200 resize-y focus:outline-2 focus:outline-forest-700"
+                >${escapeHtml(rot.rules.objective || '')}</textarea>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    class="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    ${renderIcon('check', 'w-3.5 h-3.5')}
+                    <span>Save</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-action="cancel-rename-rotation"
+                    data-rotation-id="${escapeHtml(rot.id)}"
+                    class="min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-stone-ink dark:text-slate-300 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            `
+            : ''
+        }
       </div>
 
       ${coversAreaHtml}
@@ -799,6 +915,7 @@ function renderRotationSection({
  *   inspectedBookId?: string | null,
  *   inspectorUiState?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
  *   dismissedSwapReminderKeys?: string[],
+ *   dismissedPresetAlertKeys?: string[],
  *   referenceDate?: Date | string | number
  * }} params
  * @returns {string}
@@ -809,6 +926,7 @@ export function renderRotationsView({
   inspectedBookId = null,
   inspectorUiState,
   dismissedSwapReminderKeys = [],
+  dismissedPresetAlertKeys = [],
   referenceDate = new Date(),
 }) {
   const activeProfile =
@@ -824,6 +942,14 @@ export function renderRotationsView({
     profile: activeProfile,
     schedule: activeSchedule,
     dismissedReminderKeys: dismissedSwapReminderKeys,
+  });
+  const presetStartAlertHtml = renderPresetStartDateAlertBanner({
+    presets: getAllRotationPresets(state),
+    activeProfile,
+    activeRotation,
+    dismissedAlertKeys: dismissedPresetAlertKeys,
+    referenceDate,
+    showBrowseLink: true,
   });
 
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
@@ -844,6 +970,7 @@ export function renderRotationsView({
                 profiles: state.profiles,
                 totalCatalogCount: rotatableCatalogCount,
                 isEditing: editorState.editingRotationId === rot.id,
+                isRenaming: editorState.renamingRotationId === rot.id,
                 coverAspectRatio,
                 activeProfile,
                 referenceDate,
@@ -890,18 +1017,30 @@ export function renderRotationsView({
           </h1>
         </div>
 
-        <button
-          type="button"
-          data-action="open-generate-rotation-sheet"
-          aria-label="Generate new rotation shelf"
-          title="Generate new rotation shelf"
-          class="min-h-[44px] min-w-[44px] px-3 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0"
-        >
-          ${renderIcon('plus', 'w-5 h-5')}
-          <span class="hidden sm:inline">New Shelf</span>
-        </button>
+        <div class="flex items-center gap-2 shrink-0">
+          <a
+            href="#/presets"
+            data-presets-link="true"
+            class="min-h-[44px] px-3 py-2 rounded-2xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+          >
+            ${renderIcon('sparkles', 'w-4 h-4 text-forest-700 dark:text-[#5ED3DA]')}
+            <span>Presets</span>
+          </a>
+
+          <button
+            type="button"
+            data-action="open-generate-rotation-sheet"
+            aria-label="Generate new rotation shelf"
+            title="Generate new rotation shelf"
+            class="min-h-[44px] min-w-[44px] px-3 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0"
+          >
+            ${renderIcon('plus', 'w-5 h-5')}
+            <span class="hidden sm:inline">New Shelf</span>
+          </button>
+        </div>
       </div>
 
+      ${presetStartAlertHtml}
       ${swapDayAlertHtml}
       ${rotationsListHtml}
 
