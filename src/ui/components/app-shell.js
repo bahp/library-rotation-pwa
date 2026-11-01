@@ -1,7 +1,7 @@
 /**
  * @fileoverview Warm editorial responsive application shell:
- * - Compact Top Bar with single-text Brand Wordmark, Desktop Nav, and Top Active Reader Avatar Switcher
- * - Mobile thumb-friendly Fixed Bottom Tab Bar: Home | Library | Scan | Rotations | Settings (<= 8% viewport height)
+ * - Compact Top Bar with single-text Brand Wordmark, Desktop Nav, Top Active Reader Avatar Switcher & Top-Right Settings link
+ * - Mobile thumb-friendly Fixed Bottom Tab Bar: Home | Library | Scan | Rotations | Play (<= 8% viewport height)
  * - Global Profile Switcher & Add/Edit Profile slide-up bottom sheets
  * - Offline connectivity banner, polite toast notifications, and iOS install guide
  */
@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { id: 'library', label: 'Library', mobileLabel: 'Library', icon: 'library' },
   { id: 'scan', label: 'Scan & Add', mobileLabel: 'Scan', icon: 'scan', emphasize: true },
   { id: 'rotations', label: 'Rotations', mobileLabel: 'Rotations', icon: 'rotations' },
-  { id: 'settings', label: 'Settings', mobileLabel: 'Settings', icon: 'settings' },
+  { id: 'play', label: 'Play', mobileLabel: 'Play', icon: 'dice' },
 ];
 
 /**
@@ -55,10 +55,10 @@ export function renderAppShell({
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   const ageLabel = formatProfileAgeLabel(activeProfile);
+  const isSettingsActive = activeRoute === 'settings' || activeRoute === 'profiles';
 
   const desktopNavHtml = NAV_ITEMS.map((item) => {
-    const isActive =
-      item.id === activeRoute || (item.id === 'settings' && activeRoute === 'profiles');
+    const isActive = item.id === activeRoute;
     const activeClasses = isActive
       ? 'text-forest-900 dark:text-[#5ED3DA] font-semibold underline underline-offset-8 decoration-2 decoration-forest-700 dark:decoration-[#5ED3DA]'
       : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white hover:underline hover:underline-offset-8';
@@ -66,7 +66,7 @@ export function renderAppShell({
       <a
         href="#/${item.id}"
         class="py-1 text-sm transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-forest-700 ${activeClasses}"
-        ${item.id === activeRoute ? 'aria-current="page"' : ''}
+        ${isActive ? 'aria-current="page"' : ''}
       >
         ${escapeHtml(item.label)}
       </a>
@@ -74,8 +74,7 @@ export function renderAppShell({
   }).join('');
 
   const mobileTabsHtml = NAV_ITEMS.map((item) => {
-    const isActive =
-      item.id === activeRoute || (item.id === 'settings' && activeRoute === 'profiles');
+    const isActive = item.id === activeRoute;
     if (item.emphasize) {
       return `
         <a
@@ -250,8 +249,8 @@ export function renderAppShell({
             ${desktopNavHtml}
           </nav>
 
-          <!-- Zone 3: Active Reader Avatar Switcher -->
-          <div class="flex items-center shrink-0">
+          <!-- Zone 3: Active Reader Avatar Switcher + Top-Right Settings -->
+          <div class="flex items-center gap-2 shrink-0">
             <button
               type="button"
               data-action="open-profile-switcher"
@@ -271,6 +270,20 @@ export function renderAppShell({
               </span>
               ${renderIcon('chevronDown', 'w-3.5 h-3.5 text-stone-ink dark:text-slate-400')}
             </button>
+            <a
+              href="#/settings"
+              data-top-settings-link="true"
+              aria-label="Settings and preferences"
+              title="Settings"
+              ${isSettingsActive ? 'aria-current="page"' : ''}
+              class="min-h-[40px] min-w-[40px] rounded-full border inline-flex items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
+                isSettingsActive
+                  ? 'bg-forest-900 text-ivory border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA]'
+                  : 'bg-linen-50/90 hover:bg-linen-100 text-forest-900 border-linen-200 dark:bg-night-950/90 dark:hover:bg-night-800 dark:text-slate-200 dark:border-night-700'
+              }"
+            >
+              ${renderIcon('settings', 'w-[19px] h-[19px]')}
+            </a>
           </div>
         </div>
       </header>

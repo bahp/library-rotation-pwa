@@ -3,7 +3,15 @@
  */
 
 /** @type {Set<import('../types/models.js').RouteId>} */
-const VALID_ROUTES = new Set(['home', 'library', 'scan', 'rotations', 'profiles', 'settings']);
+const VALID_ROUTES = new Set([
+  'home',
+  'library',
+  'scan',
+  'rotations',
+  'play',
+  'profiles',
+  'settings',
+]);
 
 /** @type {Record<import('../types/models.js').RouteId, string>} */
 const ROUTE_TITLES = {
@@ -11,6 +19,7 @@ const ROUTE_TITLES = {
   library: 'Family Library · Library Rotation',
   scan: 'Add & Scan Books · Library Rotation',
   rotations: 'Rotations · Library Rotation',
+  play: 'Play & Storytime · Library Rotation',
   profiles: 'Reader Profiles · Library Rotation',
   settings: 'Settings · Library Rotation',
 };

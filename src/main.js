@@ -30,6 +30,14 @@ import {
 } from './features/library/library-view.js';
 import { renderScanShellView } from './features/scan/scan-shell-view.js';
 import { renderRotationsView } from './features/rotations/rotations-view.js';
+import {
+  createDefaultPlayUiState,
+  renderPlayView,
+} from './features/play/play-view.js';
+import {
+  createBookHuntChallenge,
+  pickStorytimeBooks,
+} from './features/play/play-activities.js';
 import { renderProfilesView } from './features/profiles/profiles-view.js';
 import { renderSettingsView } from './features/settings/settings-view.js';
 import { validateProxyEndpointUrl } from './features/tagging/ai-tag-adapter.js';
@@ -172,6 +180,7 @@ const uiState = {
     isGeneratorOpen: false,
     editingRotationId: null,
   },
+  playUi: createDefaultPlayUiState(),
   settingsUi: {
     testingAdapter: false,
     enrichingCatalog: false,
@@ -179,6 +188,9 @@ const uiState = {
     endpointError: '',
     checkingGoogleBooks: false,
     googleBooksHealthReport: '',
+    /** @type {'unknown' | 'configured' | 'shared-quota' | 'static-host'} */
+    googleBooksKeyStatus: 'unknown',
+    isGoogleKeyGuideOpen: false,
   },
 };
 
@@ -215,7 +227,119 @@ const PRESERVED_INPUT_IDS = new Set([
   'inspector-new-tag-input',
   'inspector-new-owner-input',
   'inspector-cover-search-input',
+  'play-topic-input',
 ]);
+
+/**
+ * Queries the leak-free server status endpoint (`/api/books/status`) to display whether
+ * `GOOGLE_BOOKS_API_KEY` is configured on the server without ever exposing or storing the secret.
+ */
+async function refreshGoogleBooksKeyStatus() {
+  if (typeof fetch !== 'function') return;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const res = await fetch('/api/books/status', {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    const contentType = res.headers?.get?.('content-type') || '';
+    if (!res.ok || !contentType.includes('application/json')) {
+      uiState.settingsUi.googleBooksKeyStatus = 'static-host';
+      render();
+      return;
+    }
+    const payload = await res.json();
+    if (payload && payload.ok === true) {
+      uiState.settingsUi.googleBooksKeyStatus =
+        payload.keyConfigured === true ? 'configured' : 'shared-quota';
+    } else {
+      uiState.settingsUi.googleBooksKeyStatus = 'static-host';
+    }
+    render();
+  } catch (_) {
+    if (uiState.settingsUi.googleBooksKeyStatus === 'unknown') {
+      uiState.settingsUi.googleBooksKeyStatus = 'static-host';
+      render();
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Runs the Storytime / Topic Picker against the active reader's pool and updates `uiState.playUi`.
+ */
+function runStorytimeRandomizer() {
+  const state = store.getState();
+  const activeProfile =
+    state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+  const activeRotation =
+    state.rotations.find(
+      (r) => r.profileId === activeProfile.id && r.status === 'active'
+    ) || null;
+
+  const result = pickStorytimeBooks({
+    books: state.books,
+    activeRotation,
+    activeProfile,
+    count: uiState.playUi.randomizerCount,
+    scope: uiState.playUi.randomizerScope,
+    topicQuery: uiState.playUi.randomizerTopic,
+    unreadFirst: uiState.playUi.randomizerUnreadFirst,
+  });
+
+  uiState.playUi = {
+    ...uiState.playUi,
+    pickedBookIds: result.selectedBooks.map((b) => b.id),
+    pickedReasonsByBookId: result.matchedReasonsByBookId,
+    randomizerHasRun: true,
+    randomizerNoTopicMatches: result.noTopicMatches,
+    randomizerExpandedToLibrary: result.expandedToLibraryForTopic,
+  };
+}
+
+/**
+ * Picks a new target book & treasure clue for Book Hunt ("Find It!").
+ */
+function startNextBookHunt() {
+  const state = store.getState();
+  const activeProfile =
+    state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+  const activeRotation =
+    state.rotations.find(
+      (r) => r.profileId === activeProfile.id && r.status === 'active'
+    ) || null;
+
+  const challenge = createBookHuntChallenge({
+    books: state.books,
+    activeRotation,
+    activeProfile,
+    scope: uiState.playUi.huntScope,
+    previousBookId: uiState.playUi.huntBookId,
+  });
+
+  if (!challenge) {
+    uiState.playUi = {
+      ...uiState.playUi,
+      huntBookId: null,
+      huntPrompt: '',
+      huntClueLine: '',
+      huntPeekRevealed: false,
+      huntCelebrated: false,
+    };
+    return;
+  }
+
+  uiState.playUi = {
+    ...uiState.playUi,
+    huntBookId: challenge.book.id,
+    huntPrompt: challenge.prompt,
+    huntClueLine: challenge.clueLine,
+    huntPeekRevealed: false,
+    huntCelebrated: false,
+  };
+}
 
 /** @type {Set<string>} */
 const attemptedCoverColorKeys = new Set();
@@ -409,6 +533,14 @@ function render() {
         inspectedBookId: uiState.inspectedBookId,
         inspectorUiState: uiState.inspectorUi,
         dismissedSwapReminderKeys: uiState.dismissedSwapReminderKeys,
+      });
+      break;
+    case 'play':
+      contentHtml = renderPlayView({
+        state,
+        playUiState: uiState.playUi,
+        inspectedBookId: uiState.inspectedBookId,
+        inspectorUiState: uiState.inspectorUi,
       });
       break;
     case 'profiles':
@@ -953,7 +1085,21 @@ function bindEvents() {
       case 'switch-profile': {
         const profileId = target.getAttribute('data-profile-id');
         uiState.shellUi.isProfileSwitcherOpen = false;
-        if (profileId) await store.setActiveProfile(profileId);
+        if (profileId) {
+          uiState.playUi = {
+            ...uiState.playUi,
+            pickedBookIds: [],
+            pickedReasonsByBookId: {},
+            randomizerNoTopicMatches: false,
+            randomizerExpandedToLibrary: false,
+            huntBookId: null,
+            huntPrompt: '',
+            huntClueLine: '',
+            huntPeekRevealed: false,
+            huntCelebrated: false,
+          };
+          await store.setActiveProfile(profileId);
+        }
         break;
       }
       case 'delete-profile': {
@@ -1651,6 +1797,11 @@ function bindEvents() {
         render();
         try {
           const diag = await catalogService.checkProviderHealth('google-books');
+          if (diag.keyConfigured === true) {
+            uiState.settingsUi.googleBooksKeyStatus = 'configured';
+          } else if (diag.keyConfigured === false) {
+            uiState.settingsUi.googleBooksKeyStatus = 'shared-quota';
+          }
           const keyModeSuffix =
             diag.keyConfigured === true
               ? ' · Auth: Dedicated server key (GOOGLE_BOOKS_API_KEY)'
@@ -1673,6 +1824,92 @@ function bindEvents() {
             err instanceof Error ? err.message : 'Google Books API check failed.';
         } finally {
           uiState.settingsUi.checkingGoogleBooks = false;
+          render();
+        }
+        break;
+      }
+      case 'set-randomizer-count': {
+        const nextCount = Math.max(1, Math.min(6, Number(target.getAttribute('data-count') || 3)));
+        uiState.playUi.randomizerCount = nextCount;
+        if (uiState.playUi.randomizerHasRun) {
+          runStorytimeRandomizer();
+        }
+        render();
+        break;
+      }
+      case 'set-randomizer-scope': {
+        const scope =
+          target.getAttribute('data-scope') === 'owned-library'
+            ? 'owned-library'
+            : 'active-shelf';
+        uiState.playUi.randomizerScope = scope;
+        if (uiState.playUi.randomizerHasRun) {
+          runStorytimeRandomizer();
+        }
+        render();
+        break;
+      }
+      case 'toggle-randomizer-unread': {
+        uiState.playUi.randomizerUnreadFirst = !uiState.playUi.randomizerUnreadFirst;
+        if (uiState.playUi.randomizerHasRun) {
+          runStorytimeRandomizer();
+        }
+        render();
+        break;
+      }
+      case 'set-randomizer-topic': {
+        const topic = target.getAttribute('data-topic') || '';
+        uiState.playUi.randomizerTopic = topic;
+        uiState.playUi.randomizerNoTopicMatches = false;
+        if (uiState.playUi.randomizerHasRun || topic) {
+          runStorytimeRandomizer();
+        }
+        render();
+        break;
+      }
+      case 'spin-storytime-randomizer': {
+        runStorytimeRandomizer();
+        render();
+        break;
+      }
+      case 'set-book-hunt-mode': {
+        const clueMode =
+          target.getAttribute('data-clue-mode') === 'clue-first'
+            ? 'clue-first'
+            : 'cover-and-clue';
+        uiState.playUi.huntClueMode = clueMode;
+        uiState.playUi.huntPeekRevealed = false;
+        render();
+        break;
+      }
+      case 'set-book-hunt-scope': {
+        const scope =
+          target.getAttribute('data-scope') === 'owned-library'
+            ? 'owned-library'
+            : 'active-shelf';
+        uiState.playUi.huntScope = scope;
+        if (uiState.playUi.huntBookId) {
+          startNextBookHunt();
+        }
+        render();
+        break;
+      }
+      case 'start-book-hunt': {
+        startNextBookHunt();
+        render();
+        break;
+      }
+      case 'toggle-book-hunt-peek': {
+        uiState.playUi.huntPeekRevealed = !uiState.playUi.huntPeekRevealed;
+        render();
+        break;
+      }
+      case 'complete-book-hunt': {
+        if (uiState.playUi.huntBookId && !uiState.playUi.huntCelebrated) {
+          uiState.playUi.huntCelebrated = true;
+          uiState.playUi.huntPeekRevealed = true;
+          uiState.playUi.huntFoundCount += 1;
+          store.notify('Book found! Awesome shelf treasure hunting!', 'success');
           render();
         }
         break;
@@ -1889,6 +2126,10 @@ function bindEvents() {
       render();
     } else if (target.id === 'inspector-cover-search-input') {
       uiState.inspectorUi.coverSearchQuery = target.value;
+    } else if (target.id === 'play-topic-input') {
+      uiState.playUi.randomizerTopic = target.value;
+      uiState.playUi.randomizerNoTopicMatches = false;
+      render();
     } else if (target.id === 'profile-birth-date') {
       // Live in-DOM preview of auto-computed age & stage without disrupting native date picker focus
       const rawDob = target.value;
@@ -2289,6 +2530,9 @@ async function bootstrap() {
         scanner.stopCamera();
       }
     }
+    if (next.route === 'settings') {
+      refreshGoogleBooksKeyStatus();
+    }
     render();
   });
 
@@ -2303,6 +2547,7 @@ async function bootstrap() {
   await scanner.initSupport();
   router.start();
   render();
+  refreshGoogleBooksKeyStatus();
 }
 
 bootstrap();

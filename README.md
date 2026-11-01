@@ -36,8 +36,13 @@
 5. **Multi-Child Reader Profiles (`#/profiles`)**
    - Independent reader profiles with age, reading stage (`board-book`, `picture-book`, `early-reader`, `chapter-book`), favorite topics, default shelf size, cooldown days, read history, and saved rotations.
 
-6. **Installable Offline-First PWA & Data Portability (`#/settings`)**
+6. **Play & Storytime Tools (`#/play`)**
+   - **Storytime & Topic Picker**: Randomly picks `1` to `4` books from the child's Active Shelf or Home Library—either for bedtime or filtered by any typed topic/mood (e.g., `"trucks"`, `"winter"`, `"animals"`, `"bedtime"`).
+   - **Book Hunt ("Find It!")**: Interactive physical-shelf treasure hunt displaying a shelf cover + prompt (*"Find the book with the blue truck!"*) or a **Mystery Clue First** mode with a **Peek Cover** reveal and session streak counter.
+
+7. **Installable Offline-First PWA & Data Portability (`#/settings`, Top-Right Header)**
    - Web App Manifest (`standalone`), Workbox service worker precaching + runtime font/cover caching, Chromium `beforeinstallprompt` install button, and iOS Safari **Share → Add to Home Screen** sheet.
+   - Live zero-storage **Google Books Key Status** check (`/api/books/status`) + domain/API restriction guide—raw keys never enter browser forms or JSON backups.
    - Automatic storage cascade: **IndexedDB** → **`localStorage`** → **in-memory** fallback, plus full **JSON Backup Export & Schema-Validated Import**.
 
 ---

@@ -36,7 +36,9 @@ import { renderIcon } from '../../ui/icons.js';
  *     lastAdapterTestReport: string,
  *     endpointError: string,
  *     checkingGoogleBooks?: boolean,
- *     googleBooksHealthReport?: string
+ *     googleBooksHealthReport?: string,
+ *     googleBooksKeyStatus?: 'unknown' | 'configured' | 'shared-quota' | 'static-host',
+ *     isGoogleKeyGuideOpen?: boolean
  *   }
  * }} params
  * @returns {string}
@@ -53,6 +55,8 @@ export function renderSettingsView({
     endpointError: '',
     checkingGoogleBooks: false,
     googleBooksHealthReport: '',
+    googleBooksKeyStatus: 'unknown',
+    isGoogleKeyGuideOpen: false,
   },
 }) {
   const { settings } = state;
@@ -501,14 +505,14 @@ export function renderSettingsView({
             </button>
           </div>
 
-          <div class="pt-3 flex flex-col gap-2.5">
+          <div class="pt-3.5 flex flex-col gap-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div>
                 <p class="text-sm font-semibold text-forest-900 dark:text-white">
-                  Verify Google Books API Connection
+                  Google Books Quota &amp; Zero-Storage Key Protection
                 </p>
                 <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                  Probes Google Books via the leak-free server proxy (<code>/api/books/volumes</code>). Set <code>GOOGLE_BOOKS_API_KEY</code> in server environment secrets for a dedicated daily quota instead of Google’s shared anonymous IP pool.
+                  Probes Google Books via the leak-free server proxy (<code>/api/books/volumes</code>). Raw API keys are never typed into browser forms, saved in local storage, or exported in JSON backups.
                 </p>
               </div>
               <button
@@ -522,6 +526,92 @@ export function renderSettingsView({
               </button>
             </div>
 
+            ${(() => {
+              const keyStatus = settingsUiState.googleBooksKeyStatus || 'unknown';
+              if (keyStatus === 'configured') {
+                return `
+                  <div
+                    role="status"
+                    data-google-key-status="configured"
+                    class="rounded-xl bg-forest-50/90 dark:bg-forest-900/25 border border-forest-700/30 dark:border-[#5ED3DA]/35 px-3.5 py-3 flex items-start gap-2.5"
+                  >
+                    <span class="mt-0.5 text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                      ${renderIcon('shield', 'w-4 h-4')}
+                    </span>
+                    <div class="text-xs leading-relaxed">
+                      <p class="font-semibold text-forest-900 dark:text-[#5ED3DA]">
+                        Google Books Server Key Configured
+                      </p>
+                      <p class="text-stone-ink dark:text-slate-300 mt-0.5">
+                        <code>GOOGLE_BOOKS_API_KEY</code> is active on your server proxy. Lookups use your dedicated daily quota, and the key never touches browser storage, network URLs, or JSON backups.
+                      </p>
+                    </div>
+                  </div>
+                `;
+              }
+              if (keyStatus === 'shared-quota') {
+                return `
+                  <div
+                    role="status"
+                    data-google-key-status="shared-quota"
+                    class="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 px-3.5 py-3 flex items-start gap-2.5"
+                  >
+                    <span class="mt-0.5 text-espresso-800 dark:text-amber-300 shrink-0">
+                      ${renderIcon('shield', 'w-4 h-4')}
+                    </span>
+                    <div class="text-xs leading-relaxed">
+                      <p class="font-semibold text-forest-900 dark:text-white">
+                        Shared Anonymous Quota Active (Server Key Not Configured Yet)
+                      </p>
+                      <p class="text-stone-ink dark:text-slate-300 mt-0.5">
+                        <code>GOOGLE_BOOKS_API_KEY</code> is not set in server environment secrets yet. Lookups work via Google’s shared pool + automatic Open Library fallback, or add a server key for 1,000 dedicated queries/day.
+                      </p>
+                    </div>
+                  </div>
+                `;
+              }
+              if (keyStatus === 'static-host') {
+                return `
+                  <div
+                    role="status"
+                    data-google-key-status="static-host"
+                    class="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 px-3.5 py-3 flex items-start gap-2.5"
+                  >
+                    <span class="mt-0.5 text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                      ${renderIcon('shield', 'w-4 h-4')}
+                    </span>
+                    <div class="text-xs leading-relaxed">
+                      <p class="font-semibold text-forest-900 dark:text-white">
+                        Static Hosting Mode (e.g. GitHub Pages)
+                      </p>
+                      <p class="text-stone-ink dark:text-slate-300 mt-0.5">
+                        Running without a <code>/api/books</code> server proxy. Lookups use keyless browser requests + Open Library fallback so zero secrets are stored in your site or JSON exports.
+                      </p>
+                    </div>
+                  </div>
+                `;
+              }
+              return `
+                <div
+                  role="status"
+                  data-google-key-status="unknown"
+                  class="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 px-3.5 py-3 flex items-start gap-2.5"
+                >
+                  <span class="mt-0.5 text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                    ${renderIcon('shield', 'w-4 h-4')}
+                  </span>
+                  <div class="text-xs leading-relaxed">
+                    <p class="font-semibold text-forest-900 dark:text-white">
+                      Why We Never Ask You to Paste an API Key Here
+                    </p>
+                    <p class="text-stone-ink dark:text-slate-300 mt-0.5">
+                      Pasting a raw key into a browser setting exposes it in DevTools network URLs, Service Worker caches, and local storage or JSON backups. Keep <code>GOOGLE_BOOKS_API_KEY</code> strictly in server environment secrets.
+                    </p>
+                  </div>
+                </div>
+              `;
+            })()}
+
             ${
               settingsUiState.googleBooksHealthReport
                 ? `
@@ -531,6 +621,37 @@ export function renderSettingsView({
                 `
                 : ''
             }
+
+            <details
+              data-google-key-guide="true"
+              ${settingsUiState.isGoogleKeyGuideOpen ? 'open' : ''}
+              class="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5"
+            >
+              <summary class="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
+                <span>How to get &amp; safely restrict a Google Books API key (Server &amp; GitHub Pages)</span>
+                <span class="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
+                  ${renderIcon('chevronDown', 'w-4 h-4')}
+                </span>
+              </summary>
+              <div class="pt-2.5 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                <p>
+                  <strong class="text-forest-900 dark:text-white">1. Enable &amp; create your key:</strong>
+                  In Google Cloud Console, open <strong>APIs &amp; Services &rarr; Library</strong>, enable the <strong>Books API</strong>, then go to <strong>Credentials &rarr; Create Credentials &rarr; API key</strong>.
+                </p>
+                <p>
+                  <strong class="text-forest-900 dark:text-white">2. Lock API restrictions:</strong>
+                  Edit the key, choose <strong>Restrict key</strong> under <em>API restrictions</em>, and select <strong>Books API</strong> only so the credential can never access other Google Cloud services.
+                </p>
+                <p>
+                  <strong class="text-forest-900 dark:text-white">3. Server / Cloud Run / Local setup (Recommended):</strong>
+                  Set <code>GOOGLE_BOOKS_API_KEY=your_key_here</code> in your server environment secrets or local untracked <code>.env</code> file. The built-in <code>/api/books/volumes</code> proxy injects it server-side and automatically displays <em>Google Books Server Key Configured</em> above without ever saving it in browser state or JSON exports.
+                </p>
+                <p>
+                  <strong class="text-forest-900 dark:text-white">4. GitHub Pages &amp; domain restrictions:</strong>
+                  Never commit keys to git or JSON files. On static GitHub Pages (<code>https://&lt;username&gt;.github.io/&lt;repo&gt;/*</code>), either deploy a tiny keyless proxy worker (Cloudflare Worker / Cloud Run) with CORS locked to <code>https://&lt;username&gt;.github.io</code>, or if restricting an HTTP referrer credential in Google Cloud Console, set <em>Application restrictions &rarr; Websites</em> to <code>https://&lt;username&gt;.github.io/*</code> and <code>http://localhost:3000/*</code>.
+                </p>
+              </div>
+            </details>
           </div>
         </div>
       </section>
