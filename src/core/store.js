@@ -39,11 +39,22 @@ const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
  */
 export function applyThemeToDom(theme) {
   if (typeof document === 'undefined' || typeof window === 'undefined') return;
+  try {
+    if (typeof window.localStorage !== 'undefined') {
+      window.localStorage.setItem('lr_theme_pref', theme);
+    }
+  } catch (_) {}
   const prefersDark =
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-color-scheme: dark)').matches;
   const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
   document.documentElement.classList.toggle('dark', isDark);
+  const themeMeta =
+    document.getElementById('lr-theme-color') ||
+    document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.setAttribute('content', isDark ? '#152226' : '#FFFDF9');
+  }
 }
 
 /**
@@ -924,6 +935,7 @@ export function createAppStore(storage, deps = {}) {
    *   count?: number,
    *   preferredTags?: string[],
    *   cooldownDays?: number,
+   *   swapDays?: number,
    *   varietyMix?: boolean,
    *   requiredFormat?: import('../types/models.js').BookFormat | 'any',
    *   seed?: string,
@@ -947,6 +959,15 @@ export function createAppStore(storage, deps = {}) {
       input.cooldownDays !== undefined && !Number.isNaN(Number(input.cooldownDays))
         ? Math.max(0, Math.min(90, Number(input.cooldownDays)))
         : profile.cooldownDays;
+    const swapDays =
+      input.swapDays !== undefined &&
+      input.swapDays !== null &&
+      !Number.isNaN(Number(input.swapDays)) &&
+      Number(input.swapDays) >= 1
+        ? Math.max(1, Math.min(90, Math.trunc(Number(input.swapDays))))
+        : cooldownDays >= 1
+          ? cooldownDays
+          : profile.cooldownDays || 14;
 
     const cleanTags = Array.isArray(input.preferredTags)
       ? input.preferredTags.map((t) => t.toLowerCase().trim()).filter(Boolean)
@@ -963,6 +984,7 @@ export function createAppStore(storage, deps = {}) {
       objective,
       preferredTags: cleanTags,
       cooldownDays,
+      swapDays,
       varietyMix: input.varietyMix !== false,
       ...(input.requiredFormat && input.requiredFormat !== 'any'
         ? { requiredFormat: input.requiredFormat }
@@ -993,6 +1015,7 @@ export function createAppStore(storage, deps = {}) {
       status: 'active',
       createdAt: now,
       updatedAt: now,
+      activatedAt: now,
     };
 
     const updatedExisting = state.rotations.map((r) =>
@@ -1217,9 +1240,15 @@ export function createAppStore(storage, deps = {}) {
 
     // If we deleted the active shelf for this profile, promote their next most recent shelf if one exists
     if (target.status === 'active') {
-      const candidateNext = remaining.find((r) => r.profileId === target.profileId);
-      if (candidateNext) {
-        candidateNext.status = 'active';
+      const candidateIndex = remaining.findIndex((r) => r.profileId === target.profileId);
+      if (candidateIndex !== -1) {
+        const promotedNow = new Date().toISOString();
+        remaining[candidateIndex] = {
+          ...remaining[candidateIndex],
+          status: 'active',
+          activatedAt: promotedNow,
+          updatedAt: promotedNow,
+        };
       }
     }
 
@@ -1234,10 +1263,17 @@ export function createAppStore(storage, deps = {}) {
   async function setActiveRotation(rotationId) {
     const target = state.rotations.find((r) => r.id === rotationId);
     if (!target) return;
+    const now = new Date().toISOString();
     const nextRotations = state.rotations.map((r) => {
       if (r.profileId !== target.profileId) return r;
-      if (r.id === rotationId)
-        return { ...r, status: /** @type {const} */ ('active'), updatedAt: new Date().toISOString() };
+      if (r.id === rotationId) {
+        return {
+          ...r,
+          status: /** @type {const} */ ('active'),
+          activatedAt: now,
+          updatedAt: now,
+        };
+      }
       if (r.status === 'active') return { ...r, status: /** @type {const} */ ('saved') };
       return r;
     });

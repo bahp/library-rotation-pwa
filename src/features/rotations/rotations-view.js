@@ -19,6 +19,10 @@ import { renderBookInspectorModal } from '../../ui/components/book-inspector-mod
 import { renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
 import { scoreEligibleBooks } from './rotation-engine.js';
+import {
+  computeRotationSchedule,
+  renderSwapDayAlertBanner,
+} from './rotation-schedule.js';
 
 /**
  * @typedef {Object} RotationEditorUiState
@@ -117,7 +121,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
             />
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-2.5">
             <div>
               <label for="rot-count" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
                 Book Count
@@ -129,13 +133,28 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 min="1"
                 max="15"
                 value="${activeProfile.defaultRotationSize}"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+            </div>
+
+            <div>
+              <label for="rot-swap-days" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
+                Swap Cycle (d)
+              </label>
+              <input
+                id="rot-swap-days"
+                name="swapDays"
+                type="number"
+                min="1"
+                max="90"
+                value="${activeProfile.cooldownDays || 14}"
+                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
             <div>
               <label for="rot-cooldown" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Cooldown (days)
+                Cooldown (d)
               </label>
               <input
                 id="rot-cooldown"
@@ -144,7 +163,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                 min="0"
                 max="90"
                 value="${activeProfile.cooldownDays}"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
@@ -474,7 +493,9 @@ function renderRotationPickerModal({ state, editorState }) {
  *   profiles: import('../../types/models.js').ChildProfile[],
  *   totalCatalogCount: number,
  *   isEditing: boolean,
- *   coverAspectRatio: import('../../types/models.js').CoverAspectRatio
+ *   coverAspectRatio: import('../../types/models.js').CoverAspectRatio,
+ *   activeProfile: import('../../types/models.js').ChildProfile,
+ *   referenceDate: Date | string | number
  * }} params
  * @returns {string}
  */
@@ -485,6 +506,8 @@ function renderRotationSection({
   totalCatalogCount,
   isEditing,
   coverAspectRatio,
+  activeProfile,
+  referenceDate,
 }) {
   const books = rot.bookIds
     .map((id) => bookMap.get(id))
@@ -492,6 +515,7 @@ function renderRotationSection({
   const completedSet = new Set(rot.completedBookIds);
   const isActive = rot.status === 'active';
   const hasOffShelfBooks = totalCatalogCount > books.length;
+  const schedule = computeRotationSchedule(rot, activeProfile, referenceDate);
 
   const coversAreaHtml = isEditing
     ? `
@@ -506,7 +530,7 @@ function renderRotationSection({
             const ownerBadgesHtml = renderOwnerBadgesStrip(book, profiles);
 
             return `
-              <article class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3 flex flex-col justify-between gap-2.5 min-w-0">
+              <article data-book-card="${escapeHtml(rot.id)}-${escapeHtml(book.id)}" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3 flex flex-col justify-between gap-2.5 min-w-0">
                 <div class="flex items-start gap-3 min-w-0">
                   <div class="relative shrink-0">
                     <button
@@ -661,7 +685,7 @@ function renderRotationSection({
           .map((book) => {
             const isRead = completedSet.has(book.id);
             return `
-              <div class="relative min-w-0">
+              <div data-book-card="${escapeHtml(rot.id)}-${escapeHtml(book.id)}" class="relative min-w-0">
                 <button
                   type="button"
                   data-action="inspect-book"
@@ -709,9 +733,19 @@ function renderRotationSection({
           <h2 class="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug truncate mt-0.5">
             ${escapeHtml(rot.title)}
           </h2>
+          <p
+            data-rotation-schedule="${isActive ? 'active' : 'saved'}"
+            class="text-[11px] font-mono-tabular mt-0.5 truncate ${
+              isActive && schedule.isDue
+                ? 'font-semibold text-amber-800 dark:text-amber-300'
+                : isActive && schedule.isDueSoon
+                  ? 'font-medium text-espresso-800 dark:text-[#5ED3DA]'
+                  : 'text-stone-ink dark:text-slate-400'
+            }"
+          >${escapeHtml(isActive ? schedule.activeScheduleLine : schedule.savedScheduleLine)}</p>
           ${
             rot.rules.objective
-              ? `<p class="text-xs text-stone-ink dark:text-slate-400 truncate">${escapeHtml(
+              ? `<p class="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5">${escapeHtml(
                   rot.rules.objective
                 )}</p>`
               : ''
@@ -763,7 +797,9 @@ function renderRotationSection({
  *   state: import('../../types/models.js').AppState,
  *   editorState: RotationEditorUiState,
  *   inspectedBookId?: string | null,
- *   inspectorUiState?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState
+ *   inspectorUiState?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
+ *   dismissedSwapReminderKeys?: string[],
+ *   referenceDate?: Date | string | number
  * }} params
  * @returns {string}
  */
@@ -772,12 +808,24 @@ export function renderRotationsView({
   editorState,
   inspectedBookId = null,
   inspectorUiState,
+  dismissedSwapReminderKeys = [],
+  referenceDate = new Date(),
 }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
 
   const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
   const activeRotation = profileRotations.find((r) => r.status === 'active') || null;
+  const activeSchedule = activeRotation
+    ? computeRotationSchedule(activeRotation, activeProfile, referenceDate)
+    : null;
+  const swapDayAlertHtml = renderSwapDayAlertBanner({
+    rotation: activeRotation,
+    profile: activeProfile,
+    schedule: activeSchedule,
+    dismissedReminderKeys: dismissedSwapReminderKeys,
+  });
+
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
   const ageLabel = formatProfileAgeLabel(activeProfile);
   const coverAspectRatio = state.settings.coverAspectRatio;
@@ -797,6 +845,8 @@ export function renderRotationsView({
                 totalCatalogCount: rotatableCatalogCount,
                 isEditing: editorState.editingRotationId === rot.id,
                 coverAspectRatio,
+                activeProfile,
+                referenceDate,
               })
             )
             .join('')}
@@ -852,6 +902,7 @@ export function renderRotationsView({
         </button>
       </div>
 
+      ${swapDayAlertHtml}
       ${rotationsListHtml}
 
       ${renderGenerateRotationSheet({

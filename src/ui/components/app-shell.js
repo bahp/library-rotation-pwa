@@ -82,20 +82,26 @@ export function renderAppShell({
           href="#/${item.id}"
           aria-label="Scan or add books"
           ${isActive ? 'aria-current="page"' : ''}
-          class="group flex flex-col items-center justify-center min-h-[48px] min-w-[48px] focus-visible:outline-2 focus-visible:outline-forest-700"
+          class="group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] pb-1.5 focus-visible:outline-2 focus-visible:outline-forest-700"
         >
-          <span class="flex items-center justify-center w-11 h-8 rounded-xl transition-transform active:scale-95 ${
-            isActive
-              ? 'bg-forest-700 text-white shadow-xs dark:bg-[#5ED3DA] dark:text-night-950'
-              : 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
-          }">
-            ${renderIcon(item.icon, 'w-[19px] h-[19px]')}
+          <span
+            data-nav-scan-orb="true"
+            class="-mt-6 mb-1 flex items-center justify-center w-12 h-12 rounded-full shadow-md ring-4 ring-ivory dark:ring-night-900 transition-transform active:scale-95 ${
+              isActive
+                ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                : 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
+            }"
+          >
+            ${renderIcon(item.icon, 'w-[22px] h-[22px]')}
           </span>
-          <span class="text-[10px] font-semibold tracking-tight mt-0.5 whitespace-nowrap ${
-            isActive
-              ? 'text-forest-800 dark:text-[#5ED3DA]'
-              : 'text-stone-ink dark:text-slate-300'
-          }">${escapeHtml(item.mobileLabel)}</span>
+          <span
+            data-nav-label="true"
+            class="text-[10px] leading-none font-semibold tracking-tight whitespace-nowrap ${
+              isActive
+                ? 'text-forest-800 dark:text-[#5ED3DA]'
+                : 'text-stone-ink dark:text-slate-300'
+            }"
+          >${escapeHtml(item.mobileLabel)}</span>
         </a>
       `;
     }
@@ -104,16 +110,19 @@ export function renderAppShell({
       <a
         href="#/${item.id}"
         ${item.id === activeRoute ? 'aria-current="page"' : ''}
-        class="flex flex-col items-center justify-center min-h-[48px] min-w-[48px] px-1 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
+        class="relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] px-1 pb-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
           isActive
             ? 'text-espresso-800 dark:text-[#5ED3DA] font-semibold'
             : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-slate-100'
         }"
       >
-        ${renderIcon(item.icon, 'w-[20px] h-[20px]')}
-        <span class="text-[10px] tracking-tight mt-0.5 whitespace-nowrap">${escapeHtml(
-          item.mobileLabel
-        )}</span>
+        <span data-nav-icon-slot="true" class="flex items-center justify-center h-6 mb-1">
+          ${renderIcon(item.icon, 'w-[22px] h-[22px]')}
+        </span>
+        <span
+          data-nav-label="true"
+          class="text-[10px] leading-none tracking-tight whitespace-nowrap"
+        >${escapeHtml(item.mobileLabel)}</span>
       </a>
     `;
   }).join('');
@@ -193,7 +202,13 @@ export function renderAppShell({
       : '';
 
   return `
-    <div class="min-h-screen flex flex-col bg-linen-50 dark:bg-night-950 text-[#1A2423] dark:text-[#F4EFE6]">
+    <div data-app-shell="true" class="min-h-screen flex flex-col bg-linen-50 dark:bg-night-950 text-[#1A2423] dark:text-[#F4EFE6]">
+      <!-- Fixed iOS/PWA Top Safe-Area Curtain: keeps clock/battery notch seamlessly covered even during overscroll -->
+      <div
+        aria-hidden="true"
+        data-safe-top-cover="true"
+        class="fixed top-0 inset-x-0 h-safe-top z-40 pointer-events-none bg-ivory dark:bg-night-900"
+      ></div>
       <a
         href="#main-content"
         data-action="skip-to-main"
@@ -265,12 +280,12 @@ export function renderAppShell({
         ${contentHtml}
       </main>
 
-      <!-- Mobile Fixed Bottom Tab Bar (<= 8% viewport height) -->
+      <!-- Mobile Fixed Bottom Tab Bar (<= 8% viewport height, unified label baseline + elevated Scan orb) -->
       <nav
         aria-label="Mobile bottom navigation"
         class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-t border-linen-200 dark:border-night-800 pb-safe"
       >
-        <div class="grid grid-cols-5 items-center h-14 max-w-lg mx-auto px-1.5">
+        <div class="grid grid-cols-5 items-end h-[58px] max-w-lg mx-auto px-1.5">
           ${mobileTabsHtml}
         </div>
       </nav>

@@ -29,9 +29,14 @@
 
   html {
     font-family: var(--font-sans);
+    background-color: var(--color-ivory);
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     -webkit-text-size-adjust: 100%;
+  }
+
+  html.dark {
+    background-color: var(--color-night-900);
   }
 
   /* Prevent iOS Safari & Android Chrome auto-zoom when focusing text inputs (<16px triggers zoom) */
@@ -67,7 +72,11 @@
   }
 }
 
-/* Safe area padding for notched iOS/Android standalone PWAs */
+/* Safe area padding & height for notched iOS/Android standalone PWAs */
+.h-safe-top {
+  height: env(safe-area-inset-top, 0px);
+}
+
 .pt-safe {
   padding-top: env(safe-area-inset-top, 0px);
 }

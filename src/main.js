@@ -22,6 +22,7 @@ import { extractCoverColorFromUrl } from './features/catalog/cover-color-extract
 import { compressImageFileToDataUrl } from './features/catalog/cover-image-utils.js';
 import { createScannerController } from './features/scan/scanner-controller.js';
 import { renderAppShell } from './ui/components/app-shell.js';
+import { patchRootHtml } from './ui/dom-patch.js';
 import { renderHomeView } from './features/home/home-view.js';
 import {
   renderLibraryView,
@@ -84,6 +85,36 @@ function createBlankInspectorUi(book) {
   };
 }
 
+const SWAP_REMINDER_STORAGE_KEY = 'lr_dismissed_swap_reminders_v1';
+
+/**
+ * Loads previously dismissed Swap Day reminder cycle keys from localStorage.
+ * @returns {string[]}
+ */
+function loadDismissedSwapReminders() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const raw = window.localStorage.getItem(SWAP_REMINDER_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * Persists dismissed Swap Day reminder cycle keys to localStorage.
+ * @param {string[]} keys
+ */
+function saveDismissedSwapReminders(keys) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(SWAP_REMINDER_STORAGE_KEY, JSON.stringify(keys.slice(-40)));
+    }
+  } catch (_) {}
+}
+
 const uiState = {
   catalogFilter: 'all',
   ownerFilter: 'active-reader',
@@ -95,6 +126,7 @@ const uiState = {
   searchQuery: '',
   inspectedBookId: /** @type {string | null} */ (null),
   inspectorUi: createBlankInspectorUi(),
+  dismissedSwapReminderKeys: loadDismissedSwapReminders(),
   /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */
   intakeTab: 'scanner',
   /** @type {import('./types/models.js').CollectionStatus} */
@@ -331,6 +363,10 @@ function render() {
   if (!rootEl) return;
 
   if (!store.isInitialized()) {
+    // Keep the inline animated Book Rotation splash from index.html running smoothly until IndexedDB resolves
+    if (rootEl.querySelector('[data-app-splash="true"]')) {
+      return;
+    }
     rootEl.innerHTML = `
       <div class="min-h-screen flex items-center justify-center bg-linen-50 dark:bg-night-950 p-6">
         <p class="text-sm font-medium text-stone-ink dark:text-slate-400">Loading family library…</p>
@@ -372,6 +408,7 @@ function render() {
         editorState: uiState.rotationEditor,
         inspectedBookId: uiState.inspectedBookId,
         inspectorUiState: uiState.inspectorUi,
+        dismissedSwapReminderKeys: uiState.dismissedSwapReminderKeys,
       });
       break;
     case 'profiles':
@@ -399,7 +436,7 @@ function render() {
       break;
   }
 
-  rootEl.innerHTML = renderAppShell({
+  const nextShellHtml = renderAppShell({
     activeRoute: route,
     state,
     toast: store.getToast(),
@@ -407,6 +444,9 @@ function render() {
     shellUiState: uiState.shellUi,
     contentHtml,
   });
+
+  // Patch live DOM in place so unchanged book cover <img> nodes never unmount, re-decode, or flash
+  patchRootHtml(rootEl, nextShellHtml);
 
   // Mark already-open sheet as settled so typing/toggling inside it does not replay entrance motion
   const nextBackdrop = rootEl.querySelector('.sheet-backdrop');
@@ -681,10 +721,12 @@ function downloadBackupJson() {
 function bindEvents() {
   if (!rootEl) return;
 
-  // Release camera tracks immediately if browser tab is backgrounded
+  // Release camera tracks immediately if browser tab is backgrounded; recompute Swap Day schedule on resume
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       scanner.stopCamera();
+    } else if (store.isInitialized()) {
+      render();
     }
   });
 
@@ -1202,6 +1244,29 @@ function bindEvents() {
       case 'activate-rotation': {
         const rotationId = target.getAttribute('data-rotation-id');
         if (rotationId) await store.setActiveRotation(rotationId);
+        break;
+      }
+      case 'start-swap-day-rotation': {
+        rememberModalTrigger(target);
+        uiState.rotationEditor.isGeneratorOpen = true;
+        if (router.getCurrent().route !== 'rotations') {
+          window.location.hash = '#/rotations?new=1';
+        } else {
+          render();
+          focusActiveDialogControl();
+        }
+        break;
+      }
+      case 'dismiss-swap-reminder': {
+        const reminderKey = target.getAttribute('data-reminder-key');
+        if (reminderKey && !uiState.dismissedSwapReminderKeys.includes(reminderKey)) {
+          uiState.dismissedSwapReminderKeys = [
+            ...uiState.dismissedSwapReminderKeys,
+            reminderKey,
+          ];
+          saveDismissedSwapReminders(uiState.dismissedSwapReminderKeys);
+          render();
+        }
         break;
       }
       case 'delete-rotation': {
@@ -2039,6 +2104,7 @@ function bindEvents() {
             : undefined,
           cooldownDays:
             data.get('cooldownDays') !== null ? Number(data.get('cooldownDays')) : undefined,
+          swapDays: data.get('swapDays') !== null ? Number(data.get('swapDays')) : undefined,
           requiredFormat: formatVal,
           varietyMix: varietyChecked,
           seed: String(data.get('seed') || ''),

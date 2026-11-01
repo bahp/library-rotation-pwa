@@ -94,9 +94,8 @@ export function renderBookCover(book, size = 'md', aspectRatio = 'square') {
           width="180"
           height="${isSquare ? '180' : '240'}"
           referrerpolicy="no-referrer"
-          loading="lazy"
-          decoding="async"
-          class="relative z-10 w-full h-full object-cover transition-opacity duration-150"
+          decoding="sync"
+          class="relative z-10 w-full h-full object-cover"
           onerror="this.style.display='none'"
         />
       </div>

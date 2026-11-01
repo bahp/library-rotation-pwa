@@ -13,6 +13,10 @@ import {
   normalizeCollectionStatus,
 } from '../../types/models.js';
 import { getProfileRecommendations } from '../tagging/recommendations.js';
+import {
+  computeRotationSchedule,
+  renderSwapDayAlertBanner,
+} from '../rotations/rotation-schedule.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
 import { renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
@@ -26,12 +30,14 @@ import { renderIcon } from '../../ui/icons.js';
  *     catalogFilter: string,
  *     searchQuery: string,
  *     inspectedBookId: string | null,
- *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState
- *   }
+ *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
+ *     dismissedSwapReminderKeys?: string[]
+ *   },
+ *   referenceDate?: Date | string | number
  * }} params
  * @returns {string}
  */
-export function renderHomeView({ state, uiState }) {
+export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   const coverAspectRatio = state.settings.coverAspectRatio;
@@ -40,6 +46,16 @@ export function renderHomeView({ state, uiState }) {
   const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
   const activeRotation = profileRotations.find((r) => r.status === 'active') || null;
   const savedRotations = profileRotations.filter((r) => r.status !== 'active');
+  const activeSchedule = activeRotation
+    ? computeRotationSchedule(activeRotation, activeProfile, referenceDate)
+    : null;
+
+  const swapDayAlertHtml = renderSwapDayAlertBanner({
+    rotation: activeRotation,
+    profile: activeProfile,
+    schedule: activeSchedule,
+    dismissedReminderKeys: uiState.dismissedSwapReminderKeys || [],
+  });
 
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
   const rotationBooks = activeRotation
@@ -70,6 +86,17 @@ export function renderHomeView({ state, uiState }) {
             <h1 id="active-shelf-heading" class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight truncate mt-0.5">
               ${escapeHtml(activeRotation.title)}
             </h1>
+            ${
+              activeSchedule
+                ? `<p data-rotation-schedule="active" class="text-[11px] font-mono-tabular mt-0.5 truncate ${
+                    activeSchedule.isDue
+                      ? 'font-semibold text-amber-800 dark:text-amber-300'
+                      : activeSchedule.isDueSoon
+                        ? 'font-medium text-espresso-800 dark:text-[#5ED3DA]'
+                        : 'text-stone-ink dark:text-slate-400'
+                  }">${escapeHtml(activeSchedule.activeScheduleLine)}</p>`
+                : ''
+            }
           </div>
 
           <div class="text-right shrink-0">
@@ -92,7 +119,7 @@ export function renderHomeView({ state, uiState }) {
               const ownerBadgesHtml = renderOwnerBadgesStrip(book, state.profiles);
 
               return `
-                <article class="group flex flex-col min-w-0">
+                <article data-book-card="${escapeHtml(book.id)}" class="group flex flex-col min-w-0">
                   <div class="relative">
                     <button
                       type="button"
@@ -256,7 +283,7 @@ export function renderHomeView({ state, uiState }) {
             ${recommendations
               .map(({ book, matchReasons }) => {
                 return `
-                  <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-2.5 flex items-center justify-between gap-2.5">
+                  <div data-book-card="rec-${escapeHtml(book.id)}" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-2.5 flex items-center justify-between gap-2.5">
                     <button
                       type="button"
                       data-action="inspect-book"
@@ -344,6 +371,7 @@ export function renderHomeView({ state, uiState }) {
 
   return `
     <div class="space-y-5">
+      ${swapDayAlertHtml}
       ${activeShelfHtml}
       ${savedRotationsHtml}
       ${recommendationsHtml}

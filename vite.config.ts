@@ -60,7 +60,7 @@ export default defineConfig(() => {
           short_name: 'LibRotate',
           description:
             "A fast, offline-capable mobile-first PWA for families to catalog children's books, manage multiple reader profiles, and organize curated book rotations.",
-          theme_color: '#123C42',
+          theme_color: '#FFFDF9',
           background_color: '#FAF6EE',
           display: 'standalone',
           orientation: 'portrait-primary',

@@ -759,7 +759,7 @@ export function renderLibraryView({ state, uiState }) {
               }
 
               return `
-                <article class="flex flex-col min-w-0">
+                <article data-book-card="${escapeHtml(book.id)}" class="flex flex-col min-w-0">
                   <div class="relative">
                     <button
                       type="button"

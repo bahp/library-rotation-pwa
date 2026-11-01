@@ -87,6 +87,7 @@
  * @property {string} objective - Free-text rotation objective (e.g., "hardcover + woodland themes")
  * @property {string[]} preferredTags - Explicit topic tags
  * @property {number} cooldownDays - Recency exclusion window
+ * @property {number} [swapDays] - Planned shelf cycle duration in days before Swap Day reminder
  * @property {boolean} [varietyMix] - Enforce author & binding diversity across shelf slots
  * @property {BookFormat | 'any'} [requiredFormat] - Optional explicit binding format filter
  * @property {string} [seed] - Optional deterministic PRNG seed
@@ -103,6 +104,7 @@
  * @property {'active' | 'saved' | 'archived'} status - Lifecycle state for the child profile
  * @property {string} createdAt - ISO-8601 timestamp
  * @property {string} updatedAt - ISO-8601 timestamp
+ * @property {string} [activatedAt] - ISO-8601 timestamp when placed on active shelf
  */
 
 /**
