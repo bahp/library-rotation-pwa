@@ -297,18 +297,21 @@ export function createScannerController(options = {}) {
       videoEl.setAttribute('autoplay', '');
     }
 
+    const triggerPlay = () => {
+      if (activeStream && boundVideoEl === videoEl && typeof videoEl.play === 'function') {
+        videoEl.play().catch(() => {});
+      }
+    };
+
     if (boundVideoEl !== videoEl || videoEl.srcObject !== activeStream) {
       boundVideoEl = videoEl;
       videoEl.srcObject = activeStream;
-      videoEl.onloadedmetadata = () => {
-        if (typeof videoEl.play === 'function') {
-          videoEl.play().catch(() => {});
-        }
-      };
+      videoEl.onloadedmetadata = triggerPlay;
+      videoEl.onloadeddata = triggerPlay;
     }
 
-    if (videoEl.paused !== false && typeof videoEl.play === 'function') {
-      videoEl.play().catch(() => {});
+    if (videoEl.paused !== false) {
+      triggerPlay();
     }
   }
 
@@ -317,7 +320,17 @@ export function createScannerController(options = {}) {
    * @param {boolean} [forceCapture] - True when user explicitly taps "Capture Frame" in OCR/Cover mode
    */
   async function inspectLiveVideoFrame(forceCapture = false) {
-    if (frameBusy || state.phase !== 'streaming' || !boundVideoEl) return;
+    if (frameBusy || state.phase !== 'streaming') return;
+    if ((!boundVideoEl || boundVideoEl.isConnected === false) && typeof document !== 'undefined') {
+      const mountedVideo = document.getElementById('scanner-live-video');
+      if (mountedVideo) {
+        attachVideoElement(/** @type {HTMLVideoElement} */ (mountedVideo));
+      }
+    }
+    if (!boundVideoEl) return;
+    if (boundVideoEl.paused && typeof boundVideoEl.play === 'function') {
+      boundVideoEl.play().catch(() => {});
+    }
     if (boundVideoEl.readyState < 2 || !boundVideoEl.videoWidth || !boundVideoEl.videoHeight) {
       return;
     }
@@ -546,6 +559,10 @@ export function createScannerController(options = {}) {
             ? 'Hold steady over the printed "ISBN 978-..." line…'
             : 'Center the book cover inside the 3:4 frame and tap Capture Cover…';
 
+      // Emit first so render() mounts/patches the live-document #scanner-live-video element,
+      // then bind the active MediaStream immediately after DOM reconciliation completes.
+      emit();
+
       if (typeof document !== 'undefined') {
         const liveVideo = document.getElementById('scanner-live-video');
         if (liveVideo) {
@@ -554,7 +571,6 @@ export function createScannerController(options = {}) {
       }
 
       restartPollingLoop();
-      emit();
     } catch (err) {
       state.phase = 'error';
       state.errorMessage = describeCameraError(err);

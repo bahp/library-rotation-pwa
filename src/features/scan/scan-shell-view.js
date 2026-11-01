@@ -108,6 +108,37 @@ export function parseUnifiedCatalogQuery(rawQuery, rawAuthor = '') {
  * @typedef {'scanner' | 'search' | 'isbn' | 'manual'} IntakeTab
  */
 
+/**
+ * Resolves the target intake tab and camera scan mode when navigating to `#/scan`.
+ * Tapping the Scan button (`#/scan` with no explicit `?tab=` or `?mode=` query params)
+ * always defaults directly to `Camera` (`intakeTab: 'scanner'`) + `Barcode / QR` (`scanMode: 'barcode'`),
+ * while honoring explicit deep-link query params such as `#/scan?tab=search` or `#/scan?mode=cover`.
+ *
+ * @param {URLSearchParams | null | undefined} [params]
+ * @returns {{ intakeTab: IntakeTab, scanMode: import('../../types/models.js').ScanMode }}
+ */
+export function resolveScanEntryState(params) {
+  const modeParam = params ? params.get('mode') : null;
+  const tabParam = params ? params.get('tab') : null;
+
+  /** @type {import('../../types/models.js').ScanMode} */
+  const scanMode =
+    modeParam === 'barcode' || modeParam === 'isbn-ocr' || modeParam === 'cover'
+      ? modeParam
+      : 'barcode';
+
+  /** @type {IntakeTab} */
+  const intakeTab =
+    tabParam === 'search' ||
+    tabParam === 'isbn' ||
+    tabParam === 'manual' ||
+    tabParam === 'scanner'
+      ? tabParam
+      : 'scanner';
+
+  return { intakeTab, scanMode };
+}
+
 /** @type {Record<import('../../types/models.js').ScanMode, { label: string, caption: string, frameClass: string, hint: string }>} */
 const SCAN_MODES = {
   barcode: {
@@ -821,10 +852,10 @@ function renderScannerPanel({ uiState, scannerState }) {
     .join('');
 
   const frameBorderClasses = isLocked
-    ? 'border-emerald-400 bg-emerald-950/30 shadow-[0_0_0_4px_rgba(16,185,129,0.28)]'
+    ? 'border-2 border-emerald-400 bg-emerald-950/30 shadow-[0_0_0_4px_rgba(16,185,129,0.28)]'
     : isActiveSweep
-      ? 'border-[#5ED3DA]/95 shadow-[0_0_0_9999px_rgba(10,16,18,0.32)]'
-      : 'border-[#FAF6EE]/65 group-hover:border-[#5ED3DA] shadow-[0_0_0_9999px_rgba(10,16,18,0.44)]';
+      ? 'border-2 border-[#5ED3DA]/95 bg-transparent'
+      : 'border-2 border-[#FAF6EE]/65 group-hover:border-[#5ED3DA] bg-night-950/25';
 
   const cornerAccentColor = isLocked ? 'border-emerald-300' : 'border-[#5ED3DA]';
 
@@ -862,7 +893,7 @@ function renderScannerPanel({ uiState, scannerState }) {
             muted
             playsinline
             webkit-playsinline
-            class="absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
+            class="block absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
           ></video>`
         : ''
     }
@@ -880,7 +911,7 @@ function renderScannerPanel({ uiState, scannerState }) {
     <div
       data-scan-guide="${escapeHtml(uiState.scanMode)}"
       data-scan-locked="${isLocked ? 'true' : 'false'}"
-      class="relative z-10 flex items-center justify-center border ${frameBorderClasses} ${activeMode.frameClass} transition-all duration-150"
+      class="relative z-10 flex items-center justify-center ${frameBorderClasses} ${activeMode.frameClass} transition-all duration-150"
     >
       <span aria-hidden="true" class="pointer-events-none absolute top-1.5 left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 rounded-tl-xs ${cornerAccentColor}"></span>
       <span aria-hidden="true" class="pointer-events-none absolute top-1.5 right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 rounded-tr-xs ${cornerAccentColor}"></span>
@@ -912,13 +943,13 @@ function renderScannerPanel({ uiState, scannerState }) {
         type="button"
         data-action="start-camera-scan"
         aria-label="Start camera in ${escapeHtml(activeMode.label)} mode"
-        class="group isolate w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
+        class="group w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
       >
         ${viewportInnerHtml}
       </button>
     `
     : `
-      <div class="isolate w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800">
+      <div class="w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800">
         ${viewportInnerHtml}
       </div>
     `;

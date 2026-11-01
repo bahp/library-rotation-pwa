@@ -81,15 +81,27 @@ export function canReuseDomNode(liveNode, nextNode) {
  * @param {Element} nextEl
  */
 function syncElementAttributes(liveEl, nextEl) {
+  const tag = liveEl.tagName.toUpperCase();
   const isSameSrcImg =
-    liveEl.tagName.toUpperCase() === 'IMG' &&
-    liveEl.getAttribute('src') === nextEl.getAttribute('src');
+    tag === 'IMG' && liveEl.getAttribute('src') === nextEl.getAttribute('src');
+  const isStreamingVideo =
+    tag === 'VIDEO' && Boolean(/** @type {HTMLVideoElement} */ (liveEl).srcObject);
   const preserveRuntimeStyle =
-    !nextEl.hasAttribute('style') && (isSameSrcImg || liveEl.hasAttribute('data-cover-tint'));
+    !nextEl.hasAttribute('style') &&
+    (isSameSrcImg || isStreamingVideo || liveEl.hasAttribute('data-cover-tint'));
 
   const liveAttrs = Array.from(liveEl.attributes);
   for (const attr of liveAttrs) {
     if (attr.name === 'style' && preserveRuntimeStyle) continue;
+    if (
+      isStreamingVideo &&
+      (attr.name === 'muted' ||
+        attr.name === 'playsinline' ||
+        attr.name === 'webkit-playsinline' ||
+        attr.name === 'autoplay')
+    ) {
+      continue;
+    }
     if (!nextEl.hasAttribute(attr.name)) {
       liveEl.removeAttribute(attr.name);
     }
@@ -149,45 +161,87 @@ function syncFormControlProperties(liveEl, nextEl) {
       liveSel.value = nextSel.value;
     }
   } else if (tag === 'VIDEO') {
-    hydrateVideoElementProperties(liveEl);
+    hydrateSingleVideoProperties(liveEl);
   }
 }
 
 /**
- * Ensures `<video>` elements parsed inside an inert `<template>` have their runtime IDL
- * properties (`muted`, `defaultMuted`, `playsInline`, `autoplay`) initialized in the live document
- * so WebKit/iOS Safari and Chromium never block programmatic camera stream playback.
+ * Initializes runtime IDL properties (`muted`, `defaultMuted`, `playsInline`, `autoplay`)
+ * on a `<video>` element so WebKit/iOS Safari and Chromium never block programmatic camera playback.
  *
- * @param {Node} rootNode
+ * @param {Element} el
  */
-function hydrateVideoElementProperties(rootNode) {
-  if (!rootNode || rootNode.nodeType !== ELEMENT_NODE) return;
-  const rootEl = /** @type {Element} */ (rootNode);
+function hydrateSingleVideoProperties(el) {
+  const video = /** @type {HTMLVideoElement} */ (el);
+  if (el.hasAttribute('muted')) {
+    video.defaultMuted = true;
+    video.muted = true;
+  }
+  if (el.hasAttribute('playsinline') || el.hasAttribute('webkit-playsinline')) {
+    video.playsInline = true;
+  }
+  if (el.hasAttribute('autoplay')) {
+    video.autoplay = true;
+  }
+}
 
-  /** @param {Element} el */
-  const syncSingleVideo = (el) => {
-    const video = /** @type {HTMLVideoElement} */ (el);
-    if (el.hasAttribute('muted')) {
-      video.defaultMuted = true;
-      video.muted = true;
+/**
+ * Replaces `<video>` elements parsed inside an inert `<template>` document with brand-new
+ * `ownerDoc.createElement('video')` elements created directly in the active browsing-context `Document`.
+ *
+ * Why this is critical: In WebKit (iOS Safari / macOS Safari / PWA standalone) and mobile Chromium,
+ * an `HTMLVideoElement` constructed by `<template>.innerHTML` belongs to a browsing-context-less inert
+ * document without a hardware `MediaPlayer` renderer—even after `document.adoptNode()`—causing
+ * `getUserMedia` to record while painting a blank box. Creating `<video>` via `ownerDoc.createElement('video')`
+ * guarantees a genuine active-document media player.
+ *
+ * @param {Node} node
+ * @param {Document | null} ownerDoc
+ * @returns {Node}
+ */
+function materializeLiveMediaElements(node, ownerDoc) {
+  if (!node || node.nodeType !== ELEMENT_NODE) return node;
+  const el = /** @type {Element} */ (node);
+
+  /**
+   * @param {Element} tplVideo
+   * @returns {Element}
+   */
+  const createLiveVideo = (tplVideo) => {
+    if (ownerDoc && typeof ownerDoc.createElement === 'function') {
+      const fresh = ownerDoc.createElement('video');
+      if (fresh && fresh.nodeType === ELEMENT_NODE && typeof fresh.setAttribute === 'function') {
+        for (const attr of Array.from(tplVideo.attributes || [])) {
+          fresh.setAttribute(attr.name, attr.value);
+        }
+        hydrateSingleVideoProperties(fresh);
+        return fresh;
+      }
     }
-    if (el.hasAttribute('playsinline')) {
-      video.playsInline = true;
-    }
-    if (el.hasAttribute('autoplay')) {
-      video.autoplay = true;
-    }
+    hydrateSingleVideoProperties(tplVideo);
+    return tplVideo;
   };
 
-  if (rootEl.tagName.toUpperCase() === 'VIDEO') {
-    syncSingleVideo(rootEl);
+  if (el.tagName.toUpperCase() === 'VIDEO') {
+    return createLiveVideo(el);
   }
-  if (typeof rootEl.querySelectorAll === 'function') {
-    const nestedVideos = rootEl.querySelectorAll('video');
-    for (const v of Array.from(nestedVideos)) {
-      syncSingleVideo(v);
+
+  if (typeof el.querySelectorAll === 'function') {
+    const nestedVideos = Array.from(el.querySelectorAll('video'));
+    for (const tplVideo of nestedVideos) {
+      const freshVideo = createLiveVideo(tplVideo);
+      if (freshVideo !== tplVideo && tplVideo.parentNode) {
+        if (typeof tplVideo.parentNode.replaceChild === 'function') {
+          tplVideo.parentNode.replaceChild(freshVideo, tplVideo);
+        } else {
+          tplVideo.parentNode.insertBefore(freshVideo, tplVideo);
+          tplVideo.parentNode.removeChild(tplVideo);
+        }
+      }
     }
   }
+
+  return el;
 }
 
 /**
@@ -263,8 +317,8 @@ export function reconcileDomChildren(liveParent, nextParent) {
       ownerDoc && typeof ownerDoc.adoptNode === 'function' && nextChild.ownerDocument !== ownerDoc
         ? ownerDoc.adoptNode(nextChild)
         : nextChild;
-    hydrateVideoElementProperties(adoptedChild);
-    liveParent.insertBefore(adoptedChild, currentAtIndex);
+    const liveReadyChild = materializeLiveMediaElements(adoptedChild, ownerDoc);
+    liveParent.insertBefore(liveReadyChild, currentAtIndex);
   }
 
   while (liveParent.childNodes.length > nextChildren.length) {

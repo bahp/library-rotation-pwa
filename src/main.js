@@ -39,6 +39,7 @@ import {
 import {
   parseUnifiedCatalogQuery,
   renderScanShellView,
+  resolveScanEntryState,
 } from './features/scan/scan-shell-view.js';
 import { renderRotationsView } from './features/rotations/rotations-view.js';
 import {
@@ -636,8 +637,8 @@ function render() {
 
   if (route === 'scan' && uiState.intakeTab === 'scanner') {
     const videoEl = document.getElementById('scanner-live-video');
-    if (videoEl instanceof HTMLVideoElement) {
-      scanner.attachVideoElement(videoEl);
+    if (videoEl && videoEl.tagName && videoEl.tagName.toUpperCase() === 'VIDEO') {
+      scanner.attachVideoElement(/** @type {HTMLVideoElement} */ (videoEl));
     }
   }
 
@@ -1104,6 +1105,23 @@ function bindEvents() {
         });
         return;
       }
+    }
+
+    const navScanLink =
+      event.target instanceof Element ? event.target.closest('a[data-nav-scan="true"]') : null;
+    if (navScanLink) {
+      uiState.activeCandidate = null;
+      uiState.isFoundSheetOpen = false;
+      uiState.lastScanLockBanner = '';
+      uiState.formError = '';
+      uiState.intakeTab = 'scanner';
+      uiState.scanMode = 'barcode';
+      scanner.setMode('barcode');
+      scanner.initSupport();
+      if (router.getCurrent().route === 'scan') {
+        render();
+      }
+      return;
     }
 
     const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
@@ -2673,21 +2691,14 @@ async function bootstrap() {
     ) {
       uiState.intakeTargetStatus = statusParam;
     }
-    const modeParam = next.params.get('mode');
-    if (modeParam === 'barcode' || modeParam === 'isbn-ocr' || modeParam === 'cover') {
-      uiState.scanMode = modeParam;
-      scanner.setMode(modeParam);
-      uiState.intakeTab = 'scanner';
-    }
-    const tabParam = next.params.get('tab');
-    if (
-      tabParam === 'search' ||
-      tabParam === 'isbn' ||
-      tabParam === 'manual' ||
-      tabParam === 'scanner'
-    ) {
-      uiState.intakeTab = tabParam;
-      if (tabParam !== 'scanner') {
+    if (next.route === 'scan') {
+      const scanEntry = resolveScanEntryState(next.params);
+      uiState.activeCandidate = null;
+      uiState.isFoundSheetOpen = false;
+      uiState.intakeTab = scanEntry.intakeTab;
+      uiState.scanMode = scanEntry.scanMode;
+      scanner.setMode(scanEntry.scanMode);
+      if (scanEntry.intakeTab !== 'scanner') {
         scanner.stopCamera();
       }
     }
@@ -2703,8 +2714,8 @@ async function bootstrap() {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   uiState.manualDraft = createBlankDraft(activeProfile);
-  uiState.scanMode = state.settings.preferredScanMode || 'barcode';
-  scanner.setMode(uiState.scanMode);
+  uiState.scanMode = 'barcode';
+  scanner.setMode('barcode');
   await scanner.initSupport();
   router.start();
   render();

@@ -70,6 +70,7 @@ export function renderAppShell({
     return `
       <a
         href="#/${item.id}"
+        ${item.id === 'scan' ? 'data-nav-scan="true"' : ''}
         class="py-1 text-sm transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-forest-700 ${activeClasses}"
         ${isActive ? 'aria-current="page"' : ''}
       >
@@ -89,6 +90,7 @@ export function renderAppShell({
       return `
         <a
           href="#/${item.id}"
+          data-nav-scan="true"
           aria-label="Scan or add books"
           ${isActive ? 'aria-current="page"' : ''}
           class="group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] pb-1.5 focus-visible:outline-2 focus-visible:outline-forest-700"
