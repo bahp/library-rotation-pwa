@@ -12,9 +12,11 @@ import {
   formatBookBinding,
   formatProfileAgeLabel,
   formatReadingStage,
+  isBookRotatable,
 } from '../../types/models.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
+import { renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
 import { scoreEligibleBooks } from './rotation-engine.js';
 
@@ -469,6 +471,7 @@ function renderRotationPickerModal({ state, editorState }) {
  * @param {{
  *   rot: import('../../types/models.js').RotationList,
  *   bookMap: Map<string, import('../../types/models.js').Book>,
+ *   profiles: import('../../types/models.js').ChildProfile[],
  *   totalCatalogCount: number,
  *   isEditing: boolean,
  *   coverAspectRatio: import('../../types/models.js').CoverAspectRatio
@@ -478,6 +481,7 @@ function renderRotationPickerModal({ state, editorState }) {
 function renderRotationSection({
   rot,
   bookMap,
+  profiles,
   totalCatalogCount,
   isEditing,
   coverAspectRatio,
@@ -499,19 +503,27 @@ function renderRotationSection({
             const canRemove = books.length > 1;
             const topicsLabel =
               book.tags.length > 0 ? book.tags.slice(0, 4).join(' · ') : 'general';
+            const ownerBadgesHtml = renderOwnerBadgesStrip(book, profiles);
 
             return `
               <article class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3 flex flex-col justify-between gap-2.5 min-w-0">
                 <div class="flex items-start gap-3 min-w-0">
-                  <button
-                    type="button"
-                    data-action="inspect-book"
-                    data-book-id="${escapeHtml(book.id)}"
-                    aria-label="Inspect ${escapeHtml(book.title)}"
-                    class="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
-                  >
-                    ${renderBookCover(book, 'sm', coverAspectRatio)}
-                  </button>
+                  <div class="relative shrink-0">
+                    <button
+                      type="button"
+                      data-action="inspect-book"
+                      data-book-id="${escapeHtml(book.id)}"
+                      aria-label="Inspect ${escapeHtml(book.title)}"
+                      class="block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
+                    >
+                      ${renderBookCover(book, 'sm', coverAspectRatio)}
+                    </button>
+                    ${
+                      ownerBadgesHtml
+                        ? `<div class="pointer-events-none absolute -bottom-1 -right-1 z-20">${ownerBadgesHtml}</div>`
+                        : ''
+                    }
+                  </div>
 
                   <div class="min-w-0 flex-1">
                     <button
@@ -769,6 +781,8 @@ export function renderRotationsView({
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
   const ageLabel = formatProfileAgeLabel(activeProfile);
   const coverAspectRatio = state.settings.coverAspectRatio;
+  const dynamicTint = state.settings.dynamicCoverTint !== false;
+  const rotatableCatalogCount = state.books.filter((b) => isBookRotatable(b)).length;
 
   const rotationsListHtml =
     profileRotations.length > 0
@@ -779,7 +793,8 @@ export function renderRotationsView({
               renderRotationSection({
                 rot,
                 bookMap,
-                totalCatalogCount: state.books.length,
+                profiles: state.profiles,
+                totalCatalogCount: rotatableCatalogCount,
                 isEditing: editorState.editingRotationId === rot.id,
                 coverAspectRatio,
               })
@@ -810,7 +825,7 @@ export function renderRotationsView({
 
   const inspectedBook = inspectedBookId ? bookMap.get(inspectedBookId) : null;
   const canSwapInActiveRotation = activeRotation
-    ? state.books.length > activeRotation.bookIds.length
+    ? rotatableCatalogCount > activeRotation.bookIds.length
     : false;
 
   return `
@@ -846,9 +861,11 @@ export function renderRotationsView({
       ${renderRotationPickerModal({ state, editorState })}
       ${renderBookInspectorModal({
         book: inspectedBook,
+        profiles: state.profiles,
         activeRotation,
         canSwapInActiveRotation,
         coverAspectRatio,
+        dynamicCoverTint: dynamicTint,
         inspectorUiState,
       })}
     </div>

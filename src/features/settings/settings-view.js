@@ -34,7 +34,9 @@ import { renderIcon } from '../../ui/icons.js';
  *     testingAdapter: boolean,
  *     enrichingCatalog: boolean,
  *     lastAdapterTestReport: string,
- *     endpointError: string
+ *     endpointError: string,
+ *     checkingGoogleBooks?: boolean,
+ *     googleBooksHealthReport?: string
  *   }
  * }} params
  * @returns {string}
@@ -49,6 +51,8 @@ export function renderSettingsView({
     enrichingCatalog: false,
     lastAdapterTestReport: '',
     endpointError: '',
+    checkingGoogleBooks: false,
+    googleBooksHealthReport: '',
   },
 }) {
   const { settings } = state;
@@ -420,6 +424,30 @@ export function renderSettingsView({
             ${coverAspectButtonsHtml}
           </div>
         </div>
+
+        <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-semibold text-forest-900 dark:text-white">
+              Dynamic Cover Art Card Tint
+            </p>
+            <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+              Samples the dominant color from each book’s cover image to lightly tint the Book Detail card when opened.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked="${settings.dynamicCoverTint !== false ? 'true' : 'false'}"
+            data-action="toggle-dynamic-cover-tint"
+            class="min-h-[42px] px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+              settings.dynamicCoverTint !== false
+                ? 'bg-forest-700 text-white'
+                : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
+            }"
+          >
+            ${settings.dynamicCoverTint !== false ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
       </section>
 
       <!-- In-App PWA Install & Offline Readiness Card -->
@@ -471,6 +499,38 @@ export function renderSettingsView({
             >
               ${settings.retainRawProviderPayloads ? 'Enabled' : 'Disabled'}
             </button>
+          </div>
+
+          <div class="pt-3 flex flex-col gap-2.5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <p class="text-sm font-semibold text-forest-900 dark:text-white">
+                  Verify Google Books API Connection
+                </p>
+                <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                  Probes Google Books via the leak-free server proxy (<code>/api/books/volumes</code>). Set <code>GOOGLE_BOOKS_API_KEY</code> in server environment secrets for a dedicated daily quota instead of Google’s shared anonymous IP pool.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-action="check-google-books-api"
+                ${settingsUiState.checkingGoogleBooks ? 'disabled' : ''}
+                class="min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-60 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+              >
+                ${renderIcon('activity', 'w-3.5 h-3.5')}
+                <span>${settingsUiState.checkingGoogleBooks ? 'Checking API…' : 'Check Google Books API'}</span>
+              </button>
+            </div>
+
+            ${
+              settingsUiState.googleBooksHealthReport
+                ? `
+                  <div role="status" class="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 text-xs font-medium text-forest-900 dark:text-slate-200 leading-relaxed">
+                    ${escapeHtml(settingsUiState.googleBooksHealthReport)}
+                  </div>
+                `
+                : ''
+            }
           </div>
         </div>
       </section>

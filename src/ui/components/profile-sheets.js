@@ -9,6 +9,7 @@ import {
   formatProfileAgeLabel,
   formatReadingStage,
   inferReadingStageFromAge,
+  resolveBookOwnerBadges,
 } from '../../types/models.js';
 import { renderIcon } from '../icons.js';
 
@@ -18,6 +19,7 @@ export const AVATAR_TONES = {
   amber: 'bg-[#9A5B25] text-white',
   indigo: 'bg-[#2C4257] text-white',
   rose: 'bg-[#963E47] text-white',
+  emerald: 'bg-[#2E6B4E] text-white',
 };
 
 /**
@@ -39,6 +41,45 @@ export function renderAvatarBadge(profile, size = 'md') {
   return `
     <span class="inline-flex items-center justify-center font-display font-bold shrink-0 select-none ${dims} ${toneClass}" aria-hidden="true">
       ${escapeHtml(initial)}
+    </span>
+  `;
+}
+
+/**
+ * Renders a compact overlapping strip of subtle colored avatar/initial badges for a book's assigned owners.
+ * @param {import('../../types/models.js').Book} book
+ * @param {import('../../types/models.js').ChildProfile[]} profiles
+ * @returns {string}
+ */
+export function renderOwnerBadgesStrip(book, profiles) {
+  const badges = resolveBookOwnerBadges(book, profiles);
+  if (badges.length === 0) return '';
+  if (badges.length === 1 && badges[0].key === 'shared') return '';
+
+  const visible = badges.slice(0, 3);
+  const extraCount = badges.length - visible.length;
+  const summaryTitle = badges.map((b) => b.label).join(', ');
+
+  return `
+    <span
+      class="pointer-events-none inline-flex items-center -space-x-1"
+      title="Owner: ${escapeHtml(summaryTitle)}"
+      aria-label="Owner: ${escapeHtml(summaryTitle)}"
+    >
+      ${visible
+        .map((badge) => {
+          const toneClass = AVATAR_TONES[badge.tone] || AVATAR_TONES.teal;
+          return `<span
+            data-owner-badge="true"
+            class="w-5 h-5 rounded-full text-[9px] font-bold tracking-tight inline-flex items-center justify-center ring-1 ring-ivory dark:ring-night-900 shadow-2xs select-none ${toneClass}"
+          >${escapeHtml(badge.shortInitial)}</span>`;
+        })
+        .join('')}
+      ${
+        extraCount > 0
+          ? `<span class="w-5 h-5 rounded-full text-[9px] font-bold inline-flex items-center justify-center bg-night-800 text-white ring-1 ring-ivory dark:ring-night-900">+${extraCount}</span>`
+          : ''
+      }
     </span>
   `;
 }

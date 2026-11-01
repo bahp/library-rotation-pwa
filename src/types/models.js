@@ -24,6 +24,14 @@
  */
 
 /**
+ * @typedef {'owned' | 'wishlist' | 'interested' | 'library'} CollectionStatus
+ */
+
+/**
+ * @typedef {'good' | 'torn' | 'broken' | 'retired'} BookCondition
+ */
+
+/**
  * @typedef {Object} ProviderSource
  * @property {string} provider - Identifier such as 'manual', 'seed', 'google-books', 'open-library'
  * @property {string} [externalId] - Provider-specific record ID
@@ -46,7 +54,12 @@
  * @property {ReadingStage} readingStage - Reading stage hint
  * @property {string} [readingLevelHint] - Human-readable reading complexity and read-aloud duration hint
  * @property {string[]} tags - Normalized lowercase topic/theme tags
+ * @property {CollectionStatus} [collectionStatus] - Acquisition/shelf status ('owned' default, 'wishlist', 'interested', 'library')
+ * @property {BookCondition} [condition] - Physical book condition ('good' default, 'torn', 'broken', 'retired')
+ * @property {boolean} [loved] - Whether this book is marked as a family/child favorite
+ * @property {string[]} [owners] - Assigned owners (ChildProfile IDs, 'shared', or custom labels like "Cousin Maya" / "Grandma's House")
  * @property {string} [coverUrl] - Optional verified cover image URL or data URL
+ * @property {string} [dominantColor] - Optional #RRGGBB hex extracted from cover art for dynamic card tinting
  * @property {string} spineColor - Deterministic archival cloth palette key
  * @property {string} addedAt - ISO-8601 timestamp
  * @property {string} [lastRotatedAt] - ISO-8601 timestamp of most recent rotation inclusion
@@ -100,6 +113,7 @@
  * @typedef {Object} AppSettings
  * @property {ThemeMode} theme - UI color mode preference
  * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
+ * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)
  * @property {boolean} retainRawProviderPayloads - Keep raw API responses for debugging/extension
  * @property {string[]} enabledMetadataProviders - Enabled catalog lookup provider IDs (default: Google Books + Open Library)
  * @property {boolean} autoLocalTagging - Automatically run offline rule-based taxonomy & reading-level tagging
@@ -466,3 +480,178 @@ export function formatBookBinding(format) {
       return 'Hardcover';
   }
 }
+
+const VALID_COLLECTION_STATUSES = new Set(['owned', 'wishlist', 'interested', 'library']);
+const VALID_BOOK_CONDITIONS = new Set(['good', 'torn', 'broken', 'retired']);
+const OWNER_TONE_PALETTE = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
+
+/**
+ * Normalizes a raw collection/acquisition status, defaulting to `'owned'` for backwards compatibility.
+ * @param {unknown} raw
+ * @returns {CollectionStatus}
+ */
+export function normalizeCollectionStatus(raw) {
+  const val = String(raw || '').trim().toLowerCase();
+  if (VALID_COLLECTION_STATUSES.has(val)) {
+    return /** @type {CollectionStatus} */ (val);
+  }
+  return 'owned';
+}
+
+/**
+ * Formats a `CollectionStatus` into concise human-readable UI prose.
+ * @param {CollectionStatus | undefined} status
+ * @returns {string}
+ */
+export function formatCollectionStatus(status) {
+  switch (normalizeCollectionStatus(status)) {
+    case 'wishlist':
+      return 'Wishlist';
+    case 'interested':
+      return 'Interested';
+    case 'library':
+      return 'Library Loan';
+    case 'owned':
+    default:
+      return 'Owned';
+  }
+}
+
+/**
+ * Normalizes a book's physical/lifecycle state, defaulting to `'good'` for backwards compatibility.
+ * @param {unknown} raw
+ * @returns {BookCondition}
+ */
+export function normalizeBookCondition(raw) {
+  const val = String(raw || '').trim().toLowerCase();
+  if (VALID_BOOK_CONDITIONS.has(val)) {
+    return /** @type {BookCondition} */ (val);
+  }
+  return 'good';
+}
+
+/**
+ * Formats a `BookCondition` into concise human-readable UI prose.
+ * @param {BookCondition | undefined} condition
+ * @returns {string}
+ */
+export function formatBookCondition(condition) {
+  switch (normalizeBookCondition(condition)) {
+    case 'torn':
+      return 'Torn';
+    case 'broken':
+      return 'Broken';
+    case 'retired':
+      return 'Retired';
+    case 'good':
+    default:
+      return 'Good';
+  }
+}
+
+/**
+ * Determines whether a book is physically available at home and playable for active shelf rotations.
+ * Books in `'wishlist'` or `'interested'` (not at home yet) or in `'broken'` / `'retired'` state
+ * are excluded from automatic rotation shelves and off-shelf recommendations.
+ * @param {Pick<Book, 'collectionStatus' | 'condition'> | null | undefined} book
+ * @returns {boolean}
+ */
+export function isBookRotatable(book) {
+  if (!book) return false;
+  const status = normalizeCollectionStatus(book.collectionStatus);
+  const condition = normalizeBookCondition(book.condition);
+  const availableAtHome = status === 'owned' || status === 'library';
+  const usableCondition = condition === 'good' || condition === 'torn';
+  return availableAtHome && usableCondition;
+}
+
+/**
+ * Deduplicates and trims a list of book owner keys/labels (profile IDs, `'shared'`, or custom names).
+ * @param {unknown} rawOwners
+ * @returns {string[]}
+ */
+export function normalizeOwnersList(rawOwners) {
+  if (!Array.isArray(rawOwners)) return [];
+  /** @type {string[]} */
+  const out = [];
+  /** @type {Set<string>} */
+  const seenLower = new Set();
+
+  for (const item of rawOwners) {
+    const raw = String(item || '').trim().slice(0, 48);
+    if (!raw) continue;
+    const canonical = raw.toLowerCase() === 'shared' ? 'shared' : raw;
+    const dedupeKey = canonical.toLowerCase();
+    if (seenLower.has(dedupeKey)) continue;
+    seenLower.add(dedupeKey);
+    out.push(canonical);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+
+/**
+ * Computes a 1–2 character uppercase initial monogram from an owner name (e.g. `"Leo"` -> `"L"`, `"Grandma's House"` -> `"GH"`).
+ * @param {string} label
+ * @returns {string}
+ */
+export function computeOwnerInitials(label) {
+  const words = String(label || '')
+    .trim()
+    .split(/\s+/)
+    .map((w) => w.replace(/^[^a-zA-Z0-9]+/, ''))
+    .filter(Boolean);
+  if (words.length === 0) return '?';
+  if (words.length === 1) return words[0][0].toUpperCase();
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+}
+
+/**
+ * Resolves a book's `owners` array against `ChildProfile[]` into structured badge descriptors.
+ * @param {Pick<Book, 'owners'> | null | undefined} book
+ * @param {ChildProfile[]} [profiles]
+ * @returns {Array<{ key: string, label: string, shortInitial: string, tone: string, isProfile: boolean }>}
+ */
+export function resolveBookOwnerBadges(book, profiles = []) {
+  const owners = normalizeOwnersList(book?.owners);
+  if (owners.length === 0) return [];
+
+  const profileById = new Map((profiles || []).map((p) => [p.id, p]));
+
+  return owners.map((ownerKey) => {
+    const matchedProfile = profileById.get(ownerKey);
+    if (matchedProfile) {
+      return {
+        key: matchedProfile.id,
+        label: matchedProfile.name,
+        shortInitial: computeOwnerInitials(matchedProfile.name),
+        tone: matchedProfile.avatarTone || 'teal',
+        isProfile: true,
+      };
+    }
+
+    if (ownerKey.toLowerCase() === 'shared') {
+      return {
+        key: 'shared',
+        label: 'Shared',
+        shortInitial: 'S',
+        tone: 'emerald',
+        isProfile: false,
+      };
+    }
+
+    let hash = 0;
+    for (let i = 0; i < ownerKey.length; i++) {
+      hash = (hash * 31 + ownerKey.charCodeAt(i)) >>> 0;
+    }
+    const tone = OWNER_TONE_PALETTE[hash % OWNER_TONE_PALETTE.length];
+    return {
+      key: ownerKey,
+      label: ownerKey,
+      shortInitial: computeOwnerInitials(ownerKey),
+      tone,
+      isProfile: false,
+    };
+  });
+}
+

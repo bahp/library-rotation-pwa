@@ -16,7 +16,7 @@ import { createOpenLibraryProvider } from './providers/open-library-provider.js'
  * @typedef {Object} MetadataProvider
  * @property {string} id
  * @property {string} label
- * @property {(isbn13: string, options?: { retainRaw?: boolean, signal?: AbortSignal }) => Promise<import('./normalizer.js').BookCandidate | null>} lookupByIsbn
+ * @property {(isbn13: string, options?: { retainRaw?: boolean, signal?: AbortSignal, bypassCooldown?: boolean }) => Promise<import('./normalizer.js').BookCandidate | null>} lookupByIsbn
  * @property {(input: { query: string, author?: string }, options?: { retainRaw?: boolean, signal?: AbortSignal, limit?: number }) => Promise<import('./normalizer.js').BookCandidate[]>} searchBooks
  */
 
@@ -54,15 +54,23 @@ function titlesMatchForCoverEnrichment(targetTitle, candidateTitle) {
  * Creates the catalog metadata lookup service with pluggable providers.
  * @param {{
  *   providers?: MetadataProvider[],
- *   httpClient?: ReturnType<typeof createHttpClient>
+ *   httpClient?: ReturnType<typeof createHttpClient>,
+ *   useServerProxy?: boolean
  * }} [config]
  */
 export function createCatalogService(config = {}) {
   const client = config.httpClient || createHttpClient();
+  const useServerProxy =
+    config.useServerProxy !== undefined
+      ? config.useServerProxy
+      : typeof window !== 'undefined' && !config.httpClient;
   /** @type {MetadataProvider[]} */
   const providers = config.providers
     ? [...config.providers]
-    : [createGoogleBooksProvider(client), createOpenLibraryProvider(client)];
+    : [
+        createGoogleBooksProvider(client, { useServerProxy }),
+        createOpenLibraryProvider(client),
+      ];
 
   /**
    * Registers an additional external metadata provider adapter at runtime.
@@ -285,10 +293,121 @@ export function createCatalogService(config = {}) {
     };
   }
 
+  /**
+   * Executes a live connectivity & payload probe against a specific metadata provider
+   * (defaults to `'google-books'` with ISBN `9780064430173` — *Goodnight Moon*) so users can
+   * verify in-app that the API is reachable and returning volume title, ID, and cover image links.
+   *
+   * @param {string} [providerId='google-books']
+   * @param {{ probeIsbn?: string, signal?: AbortSignal }} [options]
+   * @returns {Promise<{
+   *   ok: boolean,
+   *   providerId: string,
+   *   providerLabel: string,
+   *   probeIsbn: string,
+   *   latencyMs: number,
+   *   matchedTitle: string,
+   *   hasCover: boolean,
+   *   externalId: string,
+   *   endpointUrl: string,
+   *   checkedAt: string,
+   *   keyConfigured?: boolean,
+   *   error?: string
+   * }>}
+   */
+  async function checkProviderHealth(providerId = 'google-books', options = {}) {
+    const probeIsbn = options.probeIsbn || '9780064430173';
+    const endpointUrl =
+      providerId === 'google-books'
+        ? `https://www.googleapis.com/books/v1/volumes?q=isbn%3A${probeIsbn}&maxResults=5`
+        : `https://openlibrary.org/api/books?bibkeys=ISBN:${probeIsbn}&format=json&jscmd=data`;
+    const checkedAt = new Date().toISOString();
+    const provider = providers.find((p) => p.id === providerId);
+
+    if (!provider) {
+      return {
+        ok: false,
+        providerId,
+        providerLabel: providerId,
+        probeIsbn,
+        latencyMs: 0,
+        matchedTitle: '',
+        hasCover: false,
+        externalId: '',
+        endpointUrl,
+        checkedAt,
+        error: `Provider "${providerId}" is not registered.`,
+      };
+    }
+
+    const startMs = Date.now();
+    try {
+      const candidate = await provider.lookupByIsbn(probeIsbn, {
+        retainRaw: false,
+        signal: options.signal,
+        bypassCooldown: true,
+      });
+      const latencyMs = Math.max(0, Date.now() - startMs);
+      if (!candidate) {
+        return {
+          ok: false,
+          providerId: provider.id,
+          providerLabel: provider.label,
+          probeIsbn,
+          latencyMs,
+          matchedTitle: '',
+          hasCover: false,
+          externalId: '',
+          endpointUrl,
+          checkedAt,
+          error: `Connected to ${provider.label}, but no book record was returned for ISBN ${probeIsbn}.`,
+        };
+      }
+      const proxyDiag =
+        typeof (/** @type {any} */ (provider).getProxyDiagnostics) === 'function'
+          ? /** @type {any} */ (provider).getProxyDiagnostics()
+          : null;
+      return {
+        ok: true,
+        providerId: provider.id,
+        providerLabel: provider.label,
+        probeIsbn,
+        latencyMs,
+        matchedTitle: candidate.title || '',
+        hasCover: Boolean(candidate.coverUrl),
+        externalId: candidate.sources?.[0]?.externalId || '',
+        endpointUrl,
+        checkedAt,
+        keyConfigured: proxyDiag?.keyConfigured,
+      };
+    } catch (err) {
+      const latencyMs = Math.max(0, Date.now() - startMs);
+      const proxyDiag =
+        typeof (/** @type {any} */ (provider).getProxyDiagnostics) === 'function'
+          ? /** @type {any} */ (provider).getProxyDiagnostics()
+          : null;
+      return {
+        ok: false,
+        providerId: provider.id,
+        providerLabel: provider.label,
+        probeIsbn,
+        latencyMs,
+        matchedTitle: '',
+        hasCover: false,
+        externalId: '',
+        endpointUrl,
+        checkedAt,
+        keyConfigured: proxyDiag?.keyConfigured,
+        error: err instanceof Error ? err.message : String(err || 'Provider request failed'),
+      };
+    }
+  }
+
   return {
     getProviders: () => [...providers],
     registerProvider,
     lookupByIsbn,
     searchBooks,
+    checkProviderHealth,
   };
 }

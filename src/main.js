@@ -9,17 +9,24 @@ import {
   computeAgeFromBirthDate,
   formatProfileAgeLabel,
   inferReadingStageFromAge,
+  normalizeBookCondition,
+  normalizeCollectionStatus,
+  normalizeOwnersList,
 } from './types/models.js';
 import { createRouter } from './core/router.js';
 import { createStorageAdapter } from './core/storage.js';
 import { createAppStore } from './core/store.js';
 import { createPwaManager } from './features/pwa/pwa-manager.js';
 import { createCatalogService } from './features/catalog/catalog-service.js';
+import { extractCoverColorFromUrl } from './features/catalog/cover-color-extractor.js';
 import { compressImageFileToDataUrl } from './features/catalog/cover-image-utils.js';
 import { createScannerController } from './features/scan/scanner-controller.js';
 import { renderAppShell } from './ui/components/app-shell.js';
 import { renderHomeView } from './features/home/home-view.js';
-import { renderLibraryView } from './features/library/library-view.js';
+import {
+  renderLibraryView,
+  toggleUnifiedOwnerSelection,
+} from './features/library/library-view.js';
 import { renderScanShellView } from './features/scan/scan-shell-view.js';
 import { renderRotationsView } from './features/rotations/rotations-view.js';
 import { renderProfilesView } from './features/profiles/profiles-view.js';
@@ -52,6 +59,9 @@ function createBlankDraft(profile) {
     ageMin: Math.max(1, (profile?.age || 4) - 1),
     ageMax: (profile?.age || 4) + 2,
     tags: '',
+    /** @type {import('./types/models.js').BookCondition} */
+    condition: 'good',
+    customOwners: '',
     /** @type {import('./types/models.js').ProviderSource[] | undefined} */
     sources: undefined,
   };
@@ -76,11 +86,25 @@ function createBlankInspectorUi(book) {
 
 const uiState = {
   catalogFilter: 'all',
+  ownerFilter: 'active-reader',
+  selectedOwners: /** @type {string[]} */ ([]),
+  selectedFormats: /** @type {string[]} */ ([]),
+  selectedThemes: /** @type {string[]} */ ([]),
+  conditionFilter: 'all',
+  isFilterDrawerOpen: false,
   searchQuery: '',
   inspectedBookId: /** @type {string | null} */ (null),
   inspectorUi: createBlankInspectorUi(),
   /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */
   intakeTab: 'scanner',
+  /** @type {import('./types/models.js').CollectionStatus} */
+  intakeTargetStatus: 'owned',
+  intakeLoved: false,
+  intakeOwners: /** @type {string[]} */ (['shared']),
+  /** @type {import('./types/models.js').BookCondition} */
+  intakeCondition: 'good',
+  activeCandidate: /** @type {import('./features/catalog/normalizer.js').BookCandidate | null} */ (null),
+  isFoundSheetOpen: false,
   isbnInput: '',
   isbnLoading: false,
   isbnError: '',
@@ -121,6 +145,8 @@ const uiState = {
     enrichingCatalog: false,
     lastAdapterTestReport: '',
     endpointError: '',
+    checkingGoogleBooks: false,
+    googleBooksHealthReport: '',
   },
 };
 
@@ -130,11 +156,11 @@ const scanner = createScannerController({
   },
   onLock: async (lock) => {
     if (lock.kind === 'isbn' && lock.isbn13) {
-      uiState.lastScanLockBanner = `Locked ISBN ${lock.isbn13} via ${lock.sourceLabel} — enriched metadata loaded below.`;
-      uiState.intakeTab = 'isbn';
-      await executeIsbnLookup(lock.isbn13);
+      uiState.lastScanLockBanner = '';
+      // Stay right on the current scanner page and slide up the Found Book bottom sheet when metadata resolves
+      await executeIsbnLookup(lock.isbn13, { openSheet: true });
     } else if (lock.kind === 'cover-title' && lock.titleQuery) {
-      uiState.lastScanLockBanner = `Extracted cover title "${lock.titleQuery}" via ${lock.sourceLabel} — matching editions loaded below.`;
+      uiState.lastScanLockBanner = `Extracted cover title "${lock.titleQuery}" via ${lock.sourceLabel} — tap a match below.`;
       uiState.titleQuery = lock.titleQuery;
       uiState.authorQuery = '';
       uiState.intakeTab = 'search';
@@ -155,8 +181,58 @@ const PRESERVED_INPUT_IDS = new Set([
   'isbn-lookup-input',
   'rotation-modal-search-input',
   'inspector-new-tag-input',
+  'inspector-new-owner-input',
   'inspector-cover-search-input',
 ]);
+
+/** @type {Set<string>} */
+const attemptedCoverColorKeys = new Set();
+
+/**
+ * Applies `--lr-cover-tint` custom properties to visible `.lr-tinted-card` elements
+ * and asynchronously samples dominant cover colors for unsampled cover URLs when enabled.
+ */
+function syncDynamicCoverTints() {
+  if (!rootEl) return;
+  const state = store.getState();
+  if (state.settings.dynamicCoverTint === false) return;
+
+  const bookMap = new Map(state.books.map((b) => [b.id, b]));
+  const tintedEls = rootEl.querySelectorAll('[data-cover-tint]');
+  tintedEls.forEach((el) => {
+    if (!(el instanceof HTMLElement)) return;
+    const hex = el.getAttribute('data-cover-tint');
+    if (hex) {
+      el.style.setProperty('--lr-cover-tint', hex);
+    }
+
+    const bookId = el.getAttribute('data-tint-book-id');
+    if (bookId) {
+      const book = bookMap.get(bookId);
+      if (!book || !book.coverUrl || book.dominantColor) return;
+
+      const cacheKey = `${book.id}::${book.coverUrl}`;
+      if (attemptedCoverColorKeys.has(cacheKey)) return;
+      attemptedCoverColorKeys.add(cacheKey);
+
+      extractCoverColorFromUrl(book.coverUrl).then((sampledHex) => {
+        if (sampledHex) {
+          store.setBookDominantColor(book.id, sampledHex);
+        }
+      });
+      return;
+    }
+
+    const previewCoverUrl = el.getAttribute('data-cover-tint-url');
+    if (previewCoverUrl) {
+      extractCoverColorFromUrl(previewCoverUrl).then((sampledHex) => {
+        if (sampledHex && el.isConnected) {
+          el.style.setProperty('--lr-cover-tint', sampledHex);
+        }
+      });
+    }
+  });
+}
 
 /** @type {string | null} */
 let lastModalTriggerSelector = null;
@@ -364,6 +440,8 @@ function render() {
       }
     }
   }
+
+  syncDynamicCoverTints();
 }
 
 /**
@@ -501,13 +579,17 @@ function scheduleDebouncedSearch() {
 /**
  * Executes an ISBN-10 / ISBN-13 metadata lookup across registered providers.
  * @param {string} rawIsbn
+ * @param {{ openSheet?: boolean }} [options]
  */
-async function executeIsbnLookup(rawIsbn) {
+async function executeIsbnLookup(rawIsbn, options = {}) {
+  const shouldOpenSheet = options.openSheet !== false;
   uiState.isbnInput = rawIsbn;
   uiState.isbnLoading = true;
   uiState.isbnError = '';
   uiState.isbnNotFound = '';
   uiState.isbnCandidate = null;
+  uiState.activeCandidate = null;
+  uiState.isFoundSheetOpen = false;
   uiState.isbnProviderWarnings = [];
   render();
 
@@ -523,15 +605,34 @@ async function executeIsbnLookup(rawIsbn) {
 
     if (result.candidate) {
       uiState.isbnCandidate = result.candidate;
+      if (shouldOpenSheet) {
+        uiState.activeCandidate = result.candidate;
+        uiState.isFoundSheetOpen = true;
+      }
     } else {
       uiState.isbnNotFound = result.isbn13;
     }
     render();
+    if (result.candidate && shouldOpenSheet) {
+      focusActiveDialogControl();
+    }
   } catch (err) {
     uiState.isbnLoading = false;
     uiState.isbnError = err instanceof Error ? err.message : 'ISBN lookup failed.';
     render();
   }
+}
+
+/**
+ * Resets transient book intake flags back to clean defaults (`Shared` + `Owned` + `Good`) after saving.
+ */
+function resetIntakeSelectionDefaults() {
+  uiState.intakeTargetStatus = 'owned';
+  uiState.intakeLoved = false;
+  uiState.intakeCondition = 'good';
+  uiState.intakeOwners = ['shared'];
+  uiState.activeCandidate = null;
+  uiState.isFoundSheetOpen = false;
 }
 
 /**
@@ -551,8 +652,12 @@ function loadCandidateIntoManualDraft(candidate) {
     ageMin: candidate.ageMin,
     ageMax: candidate.ageMax,
     tags: candidate.tags.join(', '),
+    condition: uiState.intakeCondition || 'good',
+    customOwners: '',
     sources: candidate.sources,
   };
+  uiState.activeCandidate = null;
+  uiState.isFoundSheetOpen = false;
   uiState.formError = '';
   uiState.intakeTab = 'manual';
   render();
@@ -625,6 +730,21 @@ function bindEvents() {
         });
         return;
       }
+      if (uiState.activeCandidate || uiState.isFoundSheetOpen) {
+        event.preventDefault();
+        closeSheetWithMotion(() => {
+          uiState.activeCandidate = null;
+          uiState.isFoundSheetOpen = false;
+        });
+        return;
+      }
+      if (uiState.isFilterDrawerOpen) {
+        event.preventDefault();
+        closeSheetWithMotion(() => {
+          uiState.isFilterDrawerOpen = false;
+        });
+        return;
+      }
       if (pwa.getStatus().showIosInstructions) {
         event.preventDefault();
         closeSheetWithMotion(() => {
@@ -694,6 +814,19 @@ function bindEvents() {
         closeSheetWithMotion(() => {
           uiState.rotationEditor.modalMode = null;
           uiState.rotationEditor.selectedAddBookIds = [];
+        });
+        return;
+      }
+      if (backdropAction === 'close-found-book-sheet') {
+        closeSheetWithMotion(() => {
+          uiState.activeCandidate = null;
+          uiState.isFoundSheetOpen = false;
+        });
+        return;
+      }
+      if (backdropAction === 'close-library-filters') {
+        closeSheetWithMotion(() => {
+          uiState.isFilterDrawerOpen = false;
         });
         return;
       }
@@ -786,8 +919,120 @@ function bindEvents() {
         if (profileId) await store.deleteProfile(profileId);
         break;
       }
+      case 'open-library-filters': {
+        rememberModalTrigger(target);
+        uiState.isFilterDrawerOpen = true;
+        render();
+        focusActiveDialogControl();
+        break;
+      }
+      case 'close-library-filters': {
+        closeSheetWithMotion(() => {
+          uiState.isFilterDrawerOpen = false;
+        });
+        break;
+      }
+      case 'reset-library-filters': {
+        uiState.catalogFilter = 'all';
+        uiState.ownerFilter = 'all';
+        uiState.selectedOwners = [];
+        uiState.selectedFormats = [];
+        uiState.selectedThemes = [];
+        uiState.conditionFilter = 'all';
+        render();
+        break;
+      }
       case 'set-catalog-filter': {
         uiState.catalogFilter = target.getAttribute('data-filter') || 'all';
+        render();
+        break;
+      }
+      case 'set-owner-filter': {
+        uiState.ownerFilter = target.getAttribute('data-owner') || 'all';
+        uiState.selectedOwners = [];
+        render();
+        break;
+      }
+      case 'toggle-library-owner': {
+        const toggledOwner = target.getAttribute('data-owner') || '';
+        const state = store.getState();
+        const activeProfile =
+          state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+        const next = toggleUnifiedOwnerSelection({
+          currentOwnerFilter: uiState.ownerFilter,
+          currentSelectedOwners: uiState.selectedOwners,
+          toggledOwner,
+          activeProfileId: activeProfile.id,
+        });
+        uiState.ownerFilter = next.ownerFilter;
+        uiState.selectedOwners = next.selectedOwners;
+        render();
+        break;
+      }
+      case 'toggle-library-format': {
+        const fmt = target.getAttribute('data-format') || '';
+        if (!fmt) break;
+        const exists = uiState.selectedFormats.includes(fmt);
+        uiState.selectedFormats = exists
+          ? uiState.selectedFormats.filter((f) => f !== fmt)
+          : [...uiState.selectedFormats, fmt];
+        if (
+          uiState.catalogFilter === 'hardcover' ||
+          uiState.catalogFilter === 'board-book' ||
+          uiState.catalogFilter === 'paperback'
+        ) {
+          uiState.catalogFilter = 'all';
+        }
+        render();
+        break;
+      }
+      case 'toggle-library-theme': {
+        const tag = (target.getAttribute('data-theme-tag') || '').trim().toLowerCase();
+        if (!tag) break;
+        const exists = uiState.selectedThemes.some((t) => t.toLowerCase() === tag);
+        uiState.selectedThemes = exists
+          ? uiState.selectedThemes.filter((t) => t.toLowerCase() !== tag)
+          : [...uiState.selectedThemes, tag];
+        render();
+        break;
+      }
+      case 'set-library-condition': {
+        uiState.conditionFilter = target.getAttribute('data-condition-filter') || 'all';
+        if (uiState.catalogFilter === 'needs-care') {
+          uiState.catalogFilter = 'all';
+        }
+        render();
+        break;
+      }
+      case 'set-intake-status': {
+        uiState.intakeTargetStatus = normalizeCollectionStatus(
+          target.getAttribute('data-status') || 'owned'
+        );
+        render();
+        break;
+      }
+      case 'set-intake-condition': {
+        uiState.intakeCondition = normalizeBookCondition(
+          target.getAttribute('data-condition') || 'good'
+        );
+        render();
+        break;
+      }
+      case 'toggle-intake-loved': {
+        uiState.intakeLoved = !uiState.intakeLoved;
+        render();
+        break;
+      }
+      case 'toggle-intake-owner': {
+        const ownerKey = (target.getAttribute('data-owner') || '').trim();
+        if (!ownerKey) break;
+        const exists = uiState.intakeOwners.some(
+          (o) => o.toLowerCase() === ownerKey.toLowerCase()
+        );
+        const nextOwners = exists
+          ? uiState.intakeOwners.filter((o) => o.toLowerCase() !== ownerKey.toLowerCase())
+          : normalizeOwnersList([...uiState.intakeOwners, ownerKey]);
+        uiState.intakeOwners = nextOwners.length > 0 ? nextOwners : ['shared'];
         render();
         break;
       }
@@ -795,6 +1040,8 @@ function bindEvents() {
         rememberModalTrigger(target);
         const bookId = target.getAttribute('data-book-id');
         const book = store.getState().books.find((b) => b.id === bookId);
+        uiState.activeCandidate = null;
+        uiState.isFoundSheetOpen = false;
         uiState.inspectedBookId = bookId;
         uiState.inspectorUi = createBlankInspectorUi(book);
         render();
@@ -860,6 +1107,54 @@ function bindEvents() {
           } catch (err) {
             store.notify(err instanceof Error ? err.message : 'Could not clear cover.', 'error');
           }
+        }
+        break;
+      }
+      case 'toggle-book-loved': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        if (bookId) {
+          await store.toggleBookLoved(bookId);
+        }
+        break;
+      }
+      case 'set-book-status': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        const status = normalizeCollectionStatus(target.getAttribute('data-status'));
+        if (bookId) {
+          await store.updateBook(bookId, { collectionStatus: status });
+        }
+        break;
+      }
+      case 'set-book-condition': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        const condition = normalizeBookCondition(target.getAttribute('data-condition'));
+        if (bookId) {
+          await store.updateBook(bookId, { condition });
+        }
+        break;
+      }
+      case 'toggle-book-owner': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        const ownerKey = (target.getAttribute('data-owner') || '').trim();
+        if (bookId && ownerKey) {
+          const existing = store.getState().books.find((b) => b.id === bookId);
+          if (existing) {
+            const currentOwners = normalizeOwnersList(existing.owners);
+            const hasOwner = currentOwners.some(
+              (o) => o.toLowerCase() === ownerKey.toLowerCase()
+            );
+            const nextOwners = hasOwner
+              ? currentOwners.filter((o) => o.toLowerCase() !== ownerKey.toLowerCase())
+              : [...currentOwners, ownerKey];
+            await store.updateBook(bookId, { owners: nextOwners });
+          }
+        }
+        break;
+      }
+      case 'upgrade-existing-owned': {
+        const bookId = target.getAttribute('data-book-id');
+        if (bookId) {
+          await store.updateBook(bookId, { collectionStatus: 'owned' });
         }
         break;
       }
@@ -1057,20 +1352,42 @@ function bindEvents() {
         } else {
           scanner.initSupport();
         }
+        uiState.activeCandidate = null;
+        uiState.isFoundSheetOpen = false;
         uiState.intakeTab = tab;
         uiState.formError = '';
         render();
         break;
       }
+      case 'close-found-book-sheet': {
+        closeSheetWithMotion(() => {
+          uiState.activeCandidate = null;
+          uiState.isFoundSheetOpen = false;
+        });
+        break;
+      }
+      case 'rescan-book':
       case 'scan-another-book': {
         uiState.lastScanLockBanner = '';
+        uiState.activeCandidate = null;
+        uiState.isFoundSheetOpen = false;
+        uiState.isbnCandidate = null;
+        uiState.isbnNotFound = '';
+        uiState.isbnError = '';
         uiState.intakeTab = 'scanner';
         scanner.resetLock();
         render();
+        if (action === 'rescan-book') {
+          await scanner.startCamera();
+        }
         break;
       }
       case 'start-camera-scan': {
         uiState.lastScanLockBanner = '';
+        uiState.activeCandidate = null;
+        uiState.isFoundSheetOpen = false;
+        uiState.isbnNotFound = '';
+        uiState.isbnError = '';
         await scanner.startCamera();
         break;
       }
@@ -1088,12 +1405,16 @@ function bindEvents() {
       }
       case 'reset-scanner': {
         uiState.lastScanLockBanner = '';
+        uiState.activeCandidate = null;
+        uiState.isFoundSheetOpen = false;
+        uiState.isbnNotFound = '';
+        uiState.isbnError = '';
         scanner.resetLock();
         break;
       }
       case 'fill-sample-isbn': {
         const sampleIsbn = target.getAttribute('data-isbn') || '';
-        if (sampleIsbn) await executeIsbnLookup(sampleIsbn);
+        if (sampleIsbn) await executeIsbnLookup(sampleIsbn, { openSheet: true });
         break;
       }
       case 'prefill-manual-isbn': {
@@ -1105,6 +1426,9 @@ function bindEvents() {
           ...createBlankDraft(activeProfile),
           isbn,
         };
+        uiState.activeCandidate = null;
+        uiState.isFoundSheetOpen = false;
+        uiState.isbnNotFound = '';
         uiState.intakeTab = 'manual';
         render();
         break;
@@ -1118,15 +1442,97 @@ function bindEvents() {
         render();
         break;
       }
+      case 'open-candidate-sheet': {
+        rememberModalTrigger(target);
+        const idx = Number(target.getAttribute('data-candidate-index'));
+        const candidate =
+          idx === -1 ? uiState.isbnCandidate : uiState.searchCandidates[idx] || null;
+        if (candidate) {
+          uiState.activeCandidate = candidate;
+          uiState.isFoundSheetOpen = true;
+          render();
+          focusActiveDialogControl();
+        }
+        break;
+      }
+      case 'save-found-library': {
+        const candidate = uiState.activeCandidate || uiState.isbnCandidate;
+        if (!candidate) break;
+        const saveStatus =
+          uiState.intakeTargetStatus === 'wishlist' ? 'owned' : uiState.intakeTargetStatus;
+        try {
+          await store.addBookFromCandidate(candidate, {
+            collectionStatus: saveStatus,
+            condition: uiState.intakeCondition,
+            loved: uiState.intakeLoved,
+            owners: uiState.intakeOwners.length > 0 ? uiState.intakeOwners : ['shared'],
+          });
+          resetIntakeSelectionDefaults();
+          scanner.resetLock();
+          render();
+        } catch (err) {
+          store.notify(err instanceof Error ? err.message : 'Could not add book.', 'error');
+        }
+        break;
+      }
+      case 'save-found-wishlist': {
+        const candidate = uiState.activeCandidate || uiState.isbnCandidate;
+        if (!candidate) break;
+        try {
+          await store.addBookFromCandidate(candidate, {
+            collectionStatus: 'wishlist',
+            condition: uiState.intakeCondition,
+            loved: uiState.intakeLoved,
+            owners: uiState.intakeOwners.length > 0 ? uiState.intakeOwners : ['shared'],
+          });
+          resetIntakeSelectionDefaults();
+          scanner.resetLock();
+          render();
+        } catch (err) {
+          store.notify(err instanceof Error ? err.message : 'Could not save to Wishlist.', 'error');
+        }
+        break;
+      }
+      case 'edit-found-book-manual': {
+        const candidate = uiState.activeCandidate || uiState.isbnCandidate;
+        if (candidate) {
+          loadCandidateIntoManualDraft(candidate);
+        }
+        break;
+      }
       case 'add-candidate': {
         const idx = Number(target.getAttribute('data-candidate-index'));
         const candidate =
           idx === -1 ? uiState.isbnCandidate : uiState.searchCandidates[idx] || null;
         if (!candidate) break;
+        const saveStatus =
+          uiState.intakeTargetStatus === 'wishlist' ? 'owned' : uiState.intakeTargetStatus;
         try {
-          await store.addBookFromCandidate(candidate);
+          await store.addBookFromCandidate(candidate, {
+            collectionStatus: saveStatus,
+            condition: uiState.intakeCondition,
+            loved: uiState.intakeLoved,
+            owners: uiState.intakeOwners.length > 0 ? uiState.intakeOwners : ['shared'],
+          });
         } catch (err) {
           store.notify(err instanceof Error ? err.message : 'Could not add book.', 'error');
+        }
+        break;
+      }
+      case 'add-candidate-wishlist': {
+        const idx = Number(target.getAttribute('data-candidate-index'));
+        const candidate =
+          idx === -1 ? uiState.isbnCandidate : uiState.searchCandidates[idx] || null;
+        if (!candidate) break;
+        try {
+          await store.addBookFromCandidate(candidate, {
+            collectionStatus: 'wishlist',
+            condition: uiState.intakeCondition,
+            loved: uiState.intakeLoved,
+            owners: uiState.intakeOwners.length > 0 ? uiState.intakeOwners : ['shared'],
+          });
+        } catch (err) {
+          store.notify(err instanceof Error ? err.message : 'Could not save to Wishlist.', 'error');
         }
         break;
       }
@@ -1161,6 +1567,49 @@ function bindEvents() {
           target.getAttribute('data-cover-aspect') === 'square' ? 'square' : 'portrait'
         );
         await store.updateSettings({ coverAspectRatio: aspect });
+        break;
+      }
+      case 'toggle-dynamic-cover-tint': {
+        const current = store.getState().settings.dynamicCoverTint !== false;
+        await store.updateSettings({ dynamicCoverTint: !current });
+        store.notify(
+          !current
+            ? 'Enabled Dynamic Cover Art Card Tint.'
+            : 'Disabled Dynamic Cover Art Card Tint.',
+          'info'
+        );
+        break;
+      }
+      case 'check-google-books-api': {
+        uiState.settingsUi.checkingGoogleBooks = true;
+        uiState.settingsUi.googleBooksHealthReport = '';
+        render();
+        try {
+          const diag = await catalogService.checkProviderHealth('google-books');
+          const keyModeSuffix =
+            diag.keyConfigured === true
+              ? ' · Auth: Dedicated server key (GOOGLE_BOOKS_API_KEY)'
+              : diag.keyConfigured === false
+                ? ' · Auth: Shared anonymous quota (set GOOGLE_BOOKS_API_KEY on server for dedicated quota)'
+                : '';
+          if (diag.ok) {
+            uiState.settingsUi.googleBooksHealthReport = `Google Books API OK (${diag.latencyMs} ms) · Retrieved "${diag.matchedTitle}"${
+              diag.externalId ? ` [id: ${diag.externalId}]` : ''
+            } · Cover image: ${diag.hasCover ? 'Yes' : 'None on this edition'}${keyModeSuffix}.`;
+            store.notify(`Google Books API connected (${diag.latencyMs} ms).`, 'success');
+          } else {
+            uiState.settingsUi.googleBooksHealthReport = `Google Books API check failed (${diag.latencyMs} ms): ${
+              diag.error || 'Unreachable'
+            }`;
+            store.notify('Google Books API check reported an issue.', 'error');
+          }
+        } catch (err) {
+          uiState.settingsUi.googleBooksHealthReport =
+            err instanceof Error ? err.message : 'Google Books API check failed.';
+        } finally {
+          uiState.settingsUi.checkingGoogleBooks = false;
+          render();
+        }
         break;
       }
       case 'toggle-raw-payloads': {
@@ -1462,6 +1911,8 @@ function bindEvents() {
       const pubYearRaw = String(data.get('publishedYear') || '').trim();
       const pagesRaw = String(data.get('pageCount') || '').trim();
       const coverUrlRaw = String(data.get('coverUrl') || '').trim();
+      const conditionVal = normalizeBookCondition(data.get('condition'));
+      const customOwnersRaw = String(data.get('customOwners') || '');
 
       uiState.manualDraft = {
         ...uiState.manualDraft,
@@ -1480,7 +1931,17 @@ function bindEvents() {
         ageMin: Number(data.get('ageMin') || 2),
         ageMax: Number(data.get('ageMax') || 6),
         tags: tagsRaw,
+        condition: conditionVal,
+        customOwners: customOwnersRaw,
       };
+
+      const mergedOwners = normalizeOwnersList([
+        ...uiState.intakeOwners,
+        ...customOwnersRaw
+          .split(',')
+          .map((o) => o.trim())
+          .filter(Boolean),
+      ]);
 
       try {
         await store.addManualBook({
@@ -1501,13 +1962,22 @@ function bindEvents() {
             .split(',')
             .map((t) => t.trim())
             .filter(Boolean),
+          collectionStatus: uiState.intakeTargetStatus,
+          condition: conditionVal,
+          loved: uiState.intakeLoved,
+          owners: mergedOwners,
           sources: uiState.manualDraft.sources,
         });
         const state = store.getState();
         const activeProfile =
           state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+        const savedStatus = uiState.intakeTargetStatus;
         uiState.manualDraft = createBlankDraft(activeProfile);
         uiState.lastScanLockBanner = '';
+        resetIntakeSelectionDefaults();
+        if (savedStatus === 'wishlist') {
+          uiState.catalogFilter = 'wishlist';
+        }
         router.navigate('library');
       } catch (err) {
         uiState.formError = err instanceof Error ? err.message : 'Could not save book.';
@@ -1619,6 +2089,8 @@ function bindEvents() {
           pageCount: pagesRaw ? Number(pagesRaw) : null,
           publishedYear: pubYearRaw ? Number(pubYearRaw) : null,
           coverUrl: nextCoverPatch,
+          collectionStatus: normalizeCollectionStatus(data.get('collectionStatus')),
+          condition: normalizeBookCondition(data.get('condition')),
           tags: tagsRaw
             .split(',')
             .map((t) => t.trim())
@@ -1631,6 +2103,17 @@ function bindEvents() {
         uiState.inspectorUi.editError =
           err instanceof Error ? err.message : 'Could not update book details.';
         render();
+      }
+    } else if (form.id === 'inspector-add-owner-form') {
+      const bookId = form.getAttribute('data-book-id') || uiState.inspectedBookId;
+      const rawOwner = String(data.get('owner') || '').trim();
+      if (bookId && rawOwner) {
+        const existing = store.getState().books.find((b) => b.id === bookId);
+        if (existing) {
+          const nextOwners = normalizeOwnersList([...(existing.owners || []), rawOwner]);
+          await store.updateBook(bookId, { owners: nextOwners });
+          form.reset();
+        }
       }
     } else if (form.id === 'inspector-add-tag-form') {
       const bookId = form.getAttribute('data-book-id');
@@ -1696,12 +2179,31 @@ async function bootstrap() {
       const filterParam = next.params.get('filter');
       if (
         filterParam === 'all' ||
+        filterParam === 'owned' ||
+        filterParam === 'wishlist' ||
+        filterParam === 'loved' ||
+        filterParam === 'library' ||
+        filterParam === 'interested' ||
+        filterParam === 'needs-care' ||
         filterParam === 'hardcover' ||
         filterParam === 'board-book' ||
         filterParam === 'paperback'
       ) {
         uiState.catalogFilter = filterParam;
       }
+      const ownerParam = next.params.get('owner');
+      if (ownerParam) {
+        uiState.ownerFilter = ownerParam;
+      }
+    }
+    const statusParam = next.params.get('status');
+    if (
+      statusParam === 'owned' ||
+      statusParam === 'wishlist' ||
+      statusParam === 'library' ||
+      statusParam === 'interested'
+    ) {
+      uiState.intakeTargetStatus = statusParam;
     }
     const modeParam = next.params.get('mode');
     if (modeParam === 'barcode' || modeParam === 'isbn-ocr' || modeParam === 'cover') {

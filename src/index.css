@@ -132,9 +132,33 @@
   animation: lr-sheet-up 280ms cubic-bezier(0.05, 0.7, 0.1, 1.0) both;
 }
 
-/* Prevent re-running entrance animation when typing or toggling inside an already-open sheet */
+@keyframes lr-drawer-left-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes lr-drawer-left-out {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.animate-drawer-left {
+  will-change: transform;
+  animation: lr-drawer-left-in 260ms cubic-bezier(0.05, 0.7, 0.1, 1.0) both;
+}
+
+/* Prevent re-running entrance animation when typing or toggling inside an already-open sheet/drawer */
 [data-sheet-settled="true"].sheet-backdrop,
-[data-sheet-settled="true"] .animate-sheet-up {
+[data-sheet-settled="true"] .animate-sheet-up,
+[data-sheet-settled="true"] .animate-drawer-left {
   animation: none;
 }
 
@@ -145,6 +169,10 @@
 
 .is-closing .animate-sheet-up {
   animation: lr-sheet-down 190ms cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
+}
+
+.is-closing .animate-drawer-left {
+  animation: lr-drawer-left-out 190ms cubic-bezier(0.3, 0, 0.8, 0.15) forwards;
 }
 
 /* Scan line animation for camera/upload preview guides */
@@ -161,6 +189,30 @@
 
 .animate-scan-sweep {
   animation: lr-scan-sweep 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* Dynamic Cover Art Detail Card Tint (applied to the slide-up card when a book is clicked; toggleable in Settings) */
+.lr-tinted-card {
+  background-color: color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 14%, var(--color-ivory));
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 22%, var(--color-ivory)) 0%,
+    color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 8%, var(--color-ivory)) 48%,
+    var(--color-ivory) 100%
+  );
+  border-color: color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 28%, var(--color-linen-200));
+  transition: background-color 220ms ease, border-color 220ms ease;
+}
+
+.dark .lr-tinted-card {
+  background-color: color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 20%, var(--color-night-900));
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 28%, var(--color-night-900)) 0%,
+    color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 12%, var(--color-night-900)) 52%,
+    var(--color-night-900) 100%
+  );
+  border-color: color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 34%, var(--color-night-700));
 }
 
 @media (prefers-reduced-motion: reduce) {

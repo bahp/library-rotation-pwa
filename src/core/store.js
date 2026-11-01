@@ -6,13 +6,18 @@
 import {
   computeAgeFromBirthDate,
   createId,
+  formatCollectionStatus,
   inferReadingStageFromAge,
   normalizeBirthDate,
+  normalizeBookCondition,
+  normalizeCollectionStatus,
   normalizeIsbn,
+  normalizeOwnersList,
 } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 import { createSafeDefaultSettings, isValidAppState, migrateState } from './storage.js';
 import { candidateToBook, sanitizeCoverUrl } from '../features/catalog/normalizer.js';
+import { normalizeHexColor } from '../features/catalog/cover-color-extractor.js';
 import {
   applyBookAdditions,
   applyBookReplacement,
@@ -302,6 +307,11 @@ export function createAppStore(storage, deps = {}) {
    *   ageMax: number,
    *   readingStage: import('../types/models.js').ReadingStage,
    *   tags: string[],
+   *   collectionStatus?: import('../types/models.js').CollectionStatus,
+   *   condition?: import('../types/models.js').BookCondition,
+   *   loved?: boolean,
+   *   owners?: string[],
+   *   dominantColor?: string,
    *   sources?: import('../types/models.js').ProviderSource[]
    * }} input
    */
@@ -363,6 +373,13 @@ export function createAppStore(storage, deps = {}) {
       ? [...incomingSources, enriched.aiProvenance]
       : incomingSources;
 
+    const collectionStatus = normalizeCollectionStatus(input.collectionStatus);
+    const condition = normalizeBookCondition(input.condition);
+    const loved = Boolean(input.loved);
+    const parsedOwners = normalizeOwnersList(input.owners);
+    const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
+    const dominantColor = normalizeHexColor(input.dominantColor);
+
     /** @type {import('../types/models.js').Book} */
     const book = {
       id: createId('book'),
@@ -379,6 +396,11 @@ export function createAppStore(storage, deps = {}) {
       readingStage: enriched.readingStage,
       ...(enriched.readingLevelHint ? { readingLevelHint: enriched.readingLevelHint } : {}),
       tags: enriched.tags,
+      collectionStatus,
+      condition,
+      loved,
+      owners,
+      ...(dominantColor ? { dominantColor } : {}),
       spineColor: SPINE_COLORS[colorIndex],
       addedAt: now,
       sources: finalSources,
@@ -388,16 +410,26 @@ export function createAppStore(storage, deps = {}) {
       ...state,
       books: [book, ...state.books],
     });
-    notify(`Added "${book.title}" to your library.`, 'success');
+    const destLabel =
+      collectionStatus === 'owned' ? 'your library' : formatCollectionStatus(collectionStatus);
+    notify(`Added "${book.title}" to ${destLabel}.`, 'success');
     return book;
   }
 
   /**
    * Saves a normalized provider BookCandidate directly to the catalog in one tap,
-   * applying local rule tagging + optional user-opt-in AI enrichment.
+   * applying local rule tagging + optional user-opt-in AI enrichment and optional
+   * intake overrides (e.g. saving directly to Wishlist, Loved, or child owners).
    * @param {import('../features/catalog/normalizer.js').BookCandidate} candidate
+   * @param {{
+   *   collectionStatus?: import('../types/models.js').CollectionStatus,
+   *   condition?: import('../types/models.js').BookCondition,
+   *   loved?: boolean,
+   *   owners?: string[],
+   *   dominantColor?: string
+   * }} [intakeOptions]
    */
-  async function addBookFromCandidate(candidate) {
+  async function addBookFromCandidate(candidate, intakeOptions = {}) {
     if (candidate.isbn13 && state.books.some((b) => b.isbn13 === candidate.isbn13)) {
       throw new Error(`"${candidate.title}" (ISBN ${candidate.isbn13}) is already in your library.`);
     }
@@ -429,6 +461,13 @@ export function createAppStore(storage, deps = {}) {
         ? [...baseBook.sources, enriched.aiProvenance]
         : baseBook.sources;
 
+    const collectionStatus = normalizeCollectionStatus(intakeOptions.collectionStatus);
+    const condition = normalizeBookCondition(intakeOptions.condition);
+    const loved = Boolean(intakeOptions.loved);
+    const parsedOwners = normalizeOwnersList(intakeOptions.owners);
+    const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
+    const dominantColor = normalizeHexColor(intakeOptions.dominantColor);
+
     /** @type {import('../types/models.js').Book} */
     const book = {
       ...baseBook,
@@ -439,6 +478,11 @@ export function createAppStore(storage, deps = {}) {
         ? { readingLevelHint: enriched.readingLevelHint }
         : {}),
       tags: enriched.tags,
+      collectionStatus,
+      condition,
+      loved,
+      owners,
+      ...(dominantColor ? { dominantColor } : {}),
       sources,
     };
 
@@ -446,7 +490,9 @@ export function createAppStore(storage, deps = {}) {
       ...state,
       books: [book, ...state.books],
     });
-    notify(`Added "${book.title}" to your library.`, 'success');
+    const destLabel =
+      collectionStatus === 'owned' ? 'your library' : formatCollectionStatus(collectionStatus);
+    notify(`Added "${book.title}" to ${destLabel}.`, 'success');
     return book;
   }
 
@@ -464,7 +510,12 @@ export function createAppStore(storage, deps = {}) {
    *   ageMin?: number,
    *   ageMax?: number,
    *   readingStage?: import('../types/models.js').ReadingStage,
-   *   tags?: string[]
+   *   tags?: string[],
+   *   collectionStatus?: import('../types/models.js').CollectionStatus,
+   *   condition?: import('../types/models.js').BookCondition,
+   *   loved?: boolean,
+   *   owners?: string[],
+   *   dominantColor?: string | null
    * }} patch
    */
   async function updateBook(bookId, patch) {
@@ -552,6 +603,28 @@ export function createAppStore(storage, deps = {}) {
       textCorpus: nextTitle,
     });
 
+    const nextCollectionStatus =
+      patch.collectionStatus !== undefined
+        ? normalizeCollectionStatus(patch.collectionStatus)
+        : existing.collectionStatus;
+    const nextCondition =
+      patch.condition !== undefined
+        ? normalizeBookCondition(patch.condition)
+        : existing.condition;
+    const nextLoved =
+      patch.loved !== undefined ? Boolean(patch.loved) : existing.loved;
+    const nextOwners =
+      patch.owners !== undefined ? normalizeOwnersList(patch.owners) : existing.owners;
+
+    const coverChanged = patch.coverUrl !== undefined && nextCoverUrl !== existing.coverUrl;
+    let nextDominantColor = existing.dominantColor;
+    if (patch.dominantColor !== undefined) {
+      nextDominantColor = patch.dominantColor ? normalizeHexColor(patch.dominantColor) : undefined;
+    } else if (coverChanged) {
+      // Clear cached dominant color when cover art changes so extractor re-samples the new cover
+      nextDominantColor = undefined;
+    }
+
     /** @type {import('../types/models.js').Book} */
     const updatedBook = {
       id: existing.id,
@@ -567,7 +640,12 @@ export function createAppStore(storage, deps = {}) {
       readingStage: nextStage,
       ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
       tags: nextTags,
+      ...(nextCollectionStatus ? { collectionStatus: nextCollectionStatus } : {}),
+      ...(nextCondition ? { condition: nextCondition } : {}),
+      ...(nextLoved !== undefined ? { loved: nextLoved } : {}),
+      ...(nextOwners && nextOwners.length > 0 ? { owners: nextOwners } : {}),
       ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
+      ...(nextDominantColor ? { dominantColor: nextDominantColor } : {}),
       spineColor: existing.spineColor,
       addedAt: existing.addedAt,
       ...(existing.lastRotatedAt ? { lastRotatedAt: existing.lastRotatedAt } : {}),
@@ -579,6 +657,46 @@ export function createAppStore(storage, deps = {}) {
       books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
     });
     notify(`Updated "${updatedBook.title}".`, 'success');
+    return updatedBook;
+  }
+
+  /**
+   * Toggles a book's Loved favorite flag in one tap.
+   * @param {string} bookId
+   */
+  async function toggleBookLoved(bookId) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) return null;
+    const nextLoved = !target.loved;
+    const updatedBook = { ...target, loved: nextLoved };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(
+      nextLoved
+        ? `Marked "${target.title}" as Loved.`
+        : `Removed Loved mark from "${target.title}".`,
+      'info'
+    );
+    return updatedBook;
+  }
+
+  /**
+   * Silently caches a sampled dominant cover hex color onto a book record without triggering a toast.
+   * @param {string} bookId
+   * @param {string} rawHex
+   */
+  async function setBookDominantColor(bookId, rawHex) {
+    const cleanHex = normalizeHexColor(rawHex);
+    if (!cleanHex) return null;
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target || target.dominantColor === cleanHex) return target || null;
+    const updatedBook = { ...target, dominantColor: cleanHex };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
     return updatedBook;
   }
 
@@ -1169,6 +1287,7 @@ export function createAppStore(storage, deps = {}) {
     const safeDefaults = createSafeDefaultSettings({
       theme: state.settings.theme,
       coverAspectRatio: state.settings.coverAspectRatio,
+      dynamicCoverTint: state.settings.dynamicCoverTint,
       preferredScanMode: state.settings.preferredScanMode,
     });
     await commit({
@@ -1233,6 +1352,8 @@ export function createAppStore(storage, deps = {}) {
     addManualBook,
     addBookFromCandidate,
     updateBook,
+    toggleBookLoved,
+    setBookDominantColor,
     addBookTag,
     removeBookTag,
     enrichSingleBook,

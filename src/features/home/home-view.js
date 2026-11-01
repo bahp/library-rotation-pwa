@@ -7,10 +7,15 @@
  * - Shared slide-up Book Inspector sheet on book tap
  */
 
-import { escapeHtml } from '../../types/models.js';
+import {
+  escapeHtml,
+  isBookRotatable,
+  normalizeCollectionStatus,
+} from '../../types/models.js';
 import { getProfileRecommendations } from '../tagging/recommendations.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
+import { renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
 
 /**
@@ -30,6 +35,7 @@ export function renderHomeView({ state, uiState }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   const coverAspectRatio = state.settings.coverAspectRatio;
+  const dynamicTint = state.settings.dynamicCoverTint !== false;
 
   const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
   const activeRotation = profileRotations.find((r) => r.status === 'active') || null;
@@ -46,7 +52,11 @@ export function renderHomeView({ state, uiState }) {
     ? activeRotation.completedBookIds.filter((id) => activeRotation.bookIds.includes(id)).length
     : 0;
 
-  const canSwapInActiveRotation = state.books.length > rotationBooks.length;
+  const rotatableCatalogCount = state.books.filter((b) => isBookRotatable(b)).length;
+  const wishlistCount = state.books.filter(
+    (b) => normalizeCollectionStatus(b.collectionStatus) === 'wishlist'
+  ).length;
+  const canSwapInActiveRotation = rotatableCatalogCount > rotationBooks.length;
 
   const activeShelfHtml = activeRotation
     ? `
@@ -79,6 +89,7 @@ export function renderHomeView({ state, uiState }) {
             .map((book) => {
               const isRead = activeRotation.completedBookIds.includes(book.id);
               const primaryAuthor = book.authors[0] || 'Unknown Author';
+              const ownerBadgesHtml = renderOwnerBadgesStrip(book, state.profiles);
 
               return `
                 <article class="group flex flex-col min-w-0">
@@ -92,6 +103,18 @@ export function renderHomeView({ state, uiState }) {
                     >
                       ${renderBookCover(book, 'grid', coverAspectRatio)}
                     </button>
+
+                    ${
+                      book.loved
+                        ? `<span class="pointer-events-none absolute top-1.5 right-1.5 z-20 w-5 h-5 rounded-full bg-ivory/92 dark:bg-night-900/92 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-2xs" title="Loved favorite">${renderIcon('heartFilled', 'w-3 h-3')}</span>`
+                        : ''
+                    }
+
+                    ${
+                      ownerBadgesHtml
+                        ? `<div class="pointer-events-none absolute bottom-1.5 right-1.5 z-20">${ownerBadgesHtml}</div>`
+                        : ''
+                    }
 
                     <!-- 44x44px Thumb Hitbox around Bottom-Left Read Check Badge -->
                     <button
@@ -288,10 +311,24 @@ export function renderHomeView({ state, uiState }) {
         <p class="text-xs text-stone-ink dark:text-slate-400 font-mono-tabular truncate">
           ${state.books.length} ${state.books.length === 1 ? 'book' : 'books'} · ${
             activeProfile.readHistoryBookIds.length
-          } read with ${escapeHtml(activeProfile.name)}
+          } read with ${escapeHtml(activeProfile.name)}${
+            wishlistCount > 0 ? ` · ${wishlistCount} wishlisted` : ''
+          }
         </p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
+        ${
+          wishlistCount > 0
+            ? `
+              <a
+                href="#/library?filter=wishlist"
+                class="min-h-[44px] px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
+              >
+                Wishlist (${wishlistCount})
+              </a>
+            `
+            : ''
+        }
         <a
           href="#/library"
           class="min-h-[44px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
@@ -313,9 +350,11 @@ export function renderHomeView({ state, uiState }) {
       ${collectionCardHtml}
       ${renderBookInspectorModal({
         book: inspectedBook,
+        profiles: state.profiles,
         activeRotation,
         canSwapInActiveRotation,
         coverAspectRatio,
+        dynamicCoverTint: dynamicTint,
         inspectorUiState: uiState.inspectorUi,
       })}
     </div>

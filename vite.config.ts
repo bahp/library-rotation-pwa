@@ -1,14 +1,49 @@
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+/**
+ * Vite 8 unconditionally injects `/@vite/client` (needed by dev CSS `updateStyle`) even when
+ * `server.hmr === false` and `server.ws === false`.
+ * - Leaving `createWebSocketModuleRunnerTransport` active causes eager WebSocket dials that fail
+ *   with `Error: WebSocket closed without opened.` in iframe/proxy environments where HMR is off.
+ * - Skipping `transport.connect(...)` leaves `normalizeModuleRunnerTransport` in `isConnected = false`,
+ *   which causes any `import.meta.hot.send(...)` call (e.g. `vite-plugin-pwa`) to throw
+ *   `SendBeforeConnectError: send was called before connect`.
+ * Returning a synchronous no-op `{ connect() {}, disconnect() {}, send() {} }` transport marks
+ * `transport` as connected immediately with zero WebSocket connections and zero send errors.
+ */
+export function createSuppressDisabledHmrWebSocketPlugin(enableHmr: boolean): Plugin {
+  return {
+    name: 'suppress-disabled-hmr-websocket',
+    apply: 'serve',
+    enforce: 'post',
+    transform(code, id) {
+      if (enableHmr) return null;
+      const cleanId = id.split('?')[0].replace(/\\/g, '/');
+      if (!cleanId.endsWith('/vite/dist/client/client.mjs')) return null;
+      const target = 'const createWebSocketModuleRunnerTransport = (options) => {';
+      if (!code.includes(target)) return null;
+      return {
+        code: code.replace(
+          target,
+          'const createWebSocketModuleRunnerTransport = (options) => { if (options || true) return { connect() {}, disconnect() {}, send() {} };'
+        ),
+        map: null,
+      };
+    },
+  };
+}
 
 export default defineConfig(() => {
   const base = process.env.BASE_URL || '/';
+  const enableHmr = process.env.ENABLE_HMR === 'true';
 
   return {
     base,
     plugins: [
+      createSuppressDisabledHmrWebSocketPlugin(enableHmr),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
@@ -94,7 +129,7 @@ export default defineConfig(() => {
           ],
         },
         devOptions: {
-          enabled: true,
+          enabled: enableHmr,
           type: 'module',
         },
       }),
@@ -112,8 +147,9 @@ export default defineConfig(() => {
       },
     },
     server: {
-      hmr: process.env.DISABLE_HMR !== 'true',
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      hmr: enableHmr,
+      ws: enableHmr ? undefined : (false as const),
+      watch: process.env.DISABLE_HMR === 'true' ? null : undefined,
     },
   };
 });

@@ -131,6 +131,42 @@ npm run preview
 
 ---
 
+## Configuring `GOOGLE_BOOKS_API_KEY` (Dedicated Quota & Leak-Free Server Proxy)
+
+Without an API key, unauthenticated requests to Google Books API v1 share a global anonymous IP quota bucket on shared cloud infrastructure (which can trigger `HTTP 429: Quota exceeded ... project_number:624717413613` even if you personally made very few queries). Configuring a server-only `GOOGLE_BOOKS_API_KEY` gives your instance its own dedicated free daily quota while keeping the secret strictly off the client.
+
+### Step 1: Create & Restrict Your Google Books API Key
+1. Open the [Google Cloud Console](https://console.cloud.google.com/) and create or select a project.
+2. Navigate to **APIs & Services → Library**, search for **Books API** (`books.googleapis.com`), and click **Enable**.
+3. Navigate to **APIs & Services → Credentials → + Create Credentials → API key** and copy the generated key.
+4. Click **Edit API key** to harden it:
+   - Under **API restrictions**, select **Restrict key** and check **Books API** only.
+   - *(Optional)* Under **Application restrictions**, restrict to your server's outbound IP addresses if hosting on a fixed IP. Do **not** use HTTP referrer restrictions because the key is called server-to-server by `server.ts`, never from the browser.
+
+### Step 2: Set `GOOGLE_BOOKS_API_KEY` on the Server Only
+- **In Google AI Studio / Cloud Run**:
+  1. Open the **Secrets / Environment Variables** panel in the UI.
+  2. Add a secret named `GOOGLE_BOOKS_API_KEY` pasted with your Google Books API key, then restart/redeploy the server.
+- **In Local Development (`npm run dev` / `npm start`)**:
+  1. Copy `.env.example` to `.env` (`.env` is gitignored):
+     ```bash
+     cp .env.example .env
+     ```
+  2. Set your key inside `.env`:
+     ```dotenv
+     GOOGLE_BOOKS_API_KEY="AIzaSyYourRestrictedBooksApiKey"
+     ```
+  3. Run `npm run dev` (starts the Express + Vite server in `server.ts` on `http://localhost:3000`).
+
+> **Security Rule (Zero Leakage)**: **Never** prefix this variable with `VITE_` (do **not** use `VITE_GOOGLE_BOOKS_API_KEY`) and never commit `.env` to Git. `server.ts` attaches `process.env.GOOGLE_BOOKS_API_KEY` exclusively on server-to-Google requests inside `/api/books/volumes`, strips any echoed `?key=` parameters from upstream `selfLink` URLs, and redacts secrets from all error messages via `redactApiKeyFromText`.
+
+### Step 3: Verify That Your Key Is Active
+- In the app, open **Settings → Catalog Providers** and tap **Verify Google Books API Connection** (reports whether `dedicated-server-key` mode is active and confirms live volume retrieval), **or**
+- Check `GET /api/books/status` (`http://localhost:3000/api/books/status`), which returns `{ "ok": true, "keyConfigured": true, "mode": "dedicated-server-key" }` without ever exposing the key value.
+- *Static Hosting Note*: When deployed as a pure static bundle (e.g., GitHub Pages where `/api/books/volumes` returns `404`), `createGoogleBooksProvider` automatically falls back to direct client-side Google Books + Open Library queries.
+
+---
+
 ## Deploying to GitHub Pages (v1.0 Deployment Guide)
 
 Because **Library Rotation** uses hash-based SPA routing (`#/home`, `#/scan`, etc.), relative-capable asset paths (`BASE_URL`), and client-side IndexedDB storage, it runs natively on GitHub Pages without server rewrites or 404 hacks.

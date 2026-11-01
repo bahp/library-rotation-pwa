@@ -4,6 +4,7 @@
  * match explanations, plus topic gap hints for future library visits.
  */
 
+import { isBookRotatable } from '../../types/models.js';
 import { isBookInCooldown } from '../rotations/rotation-engine.js';
 
 /**
@@ -45,7 +46,7 @@ export function getProfileRecommendations(input) {
   const candidates = [];
 
   for (const book of books) {
-    if (activeBookSet.has(book.id)) continue;
+    if (activeBookSet.has(book.id) || !isBookRotatable(book)) continue;
 
     const inCooldown = isBookInCooldown(book, profile.cooldownDays, nowIso);
     const isUnread = !readSet.has(book.id);
@@ -89,6 +90,11 @@ export function getProfileRecommendations(input) {
     } else {
       score -= 25;
       reasons.push('Recently rotated');
+    }
+
+    if (book.loved === true) {
+      score += 8;
+      reasons.push('Loved favorite');
     }
 
     if (book.readingLevelHint) {

@@ -117,6 +117,95 @@ export function validateBarcodeAsIsbn(rawBarcode) {
 }
 
 /**
+ * Parses a raw camera/photo scan payload from either a 1D retail barcode or a 2D QR code
+ * (such as public library catalog QR stickers, Open Library / WorldCat / bookstore product URLs,
+ * or ISBN-prefixed strings) into a verified Bookland ISBN-13 while ignoring non-book QR codes
+ * (restaurant menus, Wi-Fi codes, non-book retail EANs).
+ *
+ * @param {string} rawPayload
+ * @returns {{ matched: boolean, kind?: 'isbn', isbn13: string, isbn10?: string, reason?: string }}
+ */
+export function parseScannedCodePayload(rawPayload) {
+  const raw = String(rawPayload || '').trim();
+  if (!raw) {
+    return { matched: false, isbn13: '', reason: 'Empty scan payload.' };
+  }
+
+  // 1. Direct 1D Bookland EAN-13 / EAN-13+supplement / ISBN-10 check
+  const direct = validateBarcodeAsIsbn(raw);
+  if (direct.valid && direct.isbn13) {
+    return {
+      matched: true,
+      kind: 'isbn',
+      isbn13: direct.isbn13,
+      isbn10: direct.isbn10,
+    };
+  }
+
+  // Reject pure 12/13-digit non-978/979 retail barcodes immediately
+  const compactDigits = raw.replace(/[-\s]/g, '');
+  if (/^\d{12,13}$/.test(compactDigits) && !compactDigits.startsWith('978') && !compactDigits.startsWith('979')) {
+    return {
+      matched: false,
+      isbn13: '',
+      reason: direct.reason || `Retail barcode (${compactDigits}) is not a 978/979 Bookland ISBN.`,
+    };
+  }
+
+  // 2. Decode URL-encoded QR payloads (e.g. https://openlibrary.org/isbn/9780140501742 or Amazon /dp/0064430170)
+  let decoded = raw;
+  try {
+    decoded = decodeURIComponent(raw);
+  } catch (_) {
+    decoded = raw;
+  }
+
+  // 2a. Look for any verified 978/979 Bookland ISBN-13 inside the QR text or URL path/query
+  const isbn13TokenRegex = /(?:978|979)[\d\-\s]{10,16}/g;
+  let m13;
+  while ((m13 = isbn13TokenRegex.exec(decoded)) !== null) {
+    const cleaned13 = m13[0].replace(/[-\s]/g, '').slice(0, 13);
+    const norm13 = normalizeIsbn(cleaned13);
+    if (norm13.valid && norm13.isbn13) {
+      return {
+        matched: true,
+        kind: 'isbn',
+        isbn13: norm13.isbn13,
+        isbn10: norm13.isbn10,
+      };
+    }
+  }
+
+  // 2b. Check for ISBN-10 inside book-related QR URLs or ISBN-labeled text
+  const hasBookQrCue =
+    /(?:\bisbn\b|\/isbn\/|\/dp\/|\/gp\/product\/|\/books\/|\/work\/|worldcat\.org|openlibrary\.org|goodreads\.com|books\.google)/i.test(
+      decoded
+    );
+  if (hasBookQrCue) {
+    const isbn10Tokens = decoded.match(/\b\d{9}[0-9Xx]\b/g) || [];
+    for (const tok of isbn10Tokens) {
+      const norm10 = normalizeIsbn(tok);
+      if (norm10.valid && norm10.isbn13) {
+        return {
+          matched: true,
+          kind: 'isbn',
+          isbn13: norm10.isbn13,
+          isbn10: norm10.isbn10,
+        };
+      }
+    }
+  }
+
+  return {
+    matched: false,
+    isbn13: '',
+    reason: /^https?:\/\//i.test(raw)
+      ? 'QR link does not contain a recognizable book ISBN.'
+      : direct.reason || 'Code is not a valid Bookland ISBN.',
+  };
+}
+
+/**
  * Extracts all valid ISBN-13 / ISBN-10 numbers from multi-line noisy OCR text,
  * prioritizing explicit "ISBN" labeled lines and exact matches before OCR-repaired matches.
  *

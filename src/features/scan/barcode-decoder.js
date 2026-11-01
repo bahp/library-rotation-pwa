@@ -5,7 +5,7 @@
  *    so iOS Safari, Firefox, and desktop browsers without Shape Detection API work out-of-the-box while keeping the main bundle lean.
  */
 
-import { validateBarcodeAsIsbn } from './isbn-extractor.js';
+import { parseScannedCodePayload } from './isbn-extractor.js';
 
 /**
  * @typedef {Object} BarcodeDecodeOutcome
@@ -74,18 +74,25 @@ export async function decodeRgbaWithZxing(imageBuffer) {
     GlobalHistogramBinarizer,
     HybridBinarizer,
     MultiFormatOneDReader,
+    MultiFormatReader,
     RGBLuminanceSource,
   } = await loadZxingModule();
 
-  const hints = new Map();
-  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+  const formats = [
     BarcodeFormat.EAN_13,
     BarcodeFormat.UPC_A,
     BarcodeFormat.EAN_8,
-  ]);
+    ...(BarcodeFormat.QR_CODE !== undefined ? [BarcodeFormat.QR_CODE] : []),
+  ];
+  const hints = new Map();
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, formats);
   hints.set(DecodeHintType.TRY_HARDER, true);
 
-  const reader = new MultiFormatOneDReader(hints);
+  const ReaderCtor = MultiFormatReader || MultiFormatOneDReader;
+  const reader = new ReaderCtor();
+  if (typeof reader.setHints === 'function') {
+    reader.setHints(hints);
+  }
   const luminances = rgbaToLuminanceBuffer(data, width, height);
   const source = new RGBLuminanceSource(luminances, width, height);
 
@@ -139,15 +146,20 @@ export function createBarcodeDecoder(options = {}) {
     }
 
     try {
+      /** @type {string[]} */
+      let formatsToRequest = ['ean_13', 'upc_a', 'ean_8', 'qr_code'];
       if (typeof DetectorCtor.getSupportedFormats === 'function') {
         const supported = await DetectorCtor.getSupportedFormats();
-        if (Array.isArray(supported) && !supported.includes('ean_13')) {
-          nativeSupported = false;
-          return null;
+        if (Array.isArray(supported)) {
+          if (!supported.includes('ean_13') && !supported.includes('qr_code')) {
+            nativeSupported = false;
+            return null;
+          }
+          formatsToRequest = formatsToRequest.filter((fmt) => supported.includes(fmt));
         }
       }
       nativeDetector = new DetectorCtor({
-        formats: ['ean_13', 'upc_a', 'ean_8'],
+        formats: formatsToRequest.length > 0 ? formatsToRequest : ['ean_13', 'upc_a', 'ean_8'],
       });
       nativeSupported = true;
       return nativeDetector;
@@ -171,7 +183,7 @@ export function createBarcodeDecoder(options = {}) {
   }
 
   /**
-   * Decodes a cropped frame (`canvas` + `imageData`) and validates Bookland ISBN check digits.
+   * Decodes a cropped frame (`canvas` + `imageData`) for 1D Bookland barcodes or book QR codes.
    *
    * @param {{ canvas?: HTMLCanvasElement, imageData: { data: Uint8ClampedArray, width: number, height: number } }} frame
    * @returns {Promise<BarcodeDecodeOutcome>}
@@ -187,8 +199,8 @@ export function createBarcodeDecoder(options = {}) {
           for (const item of barcodes) {
             const rawValue = String(item?.rawValue || '').trim();
             if (!rawValue) continue;
-            const checked = validateBarcodeAsIsbn(rawValue);
-            if (checked.valid) {
+            const checked = parseScannedCodePayload(rawValue);
+            if (checked.matched) {
               return {
                 matched: true,
                 isbn13: checked.isbn13,
@@ -209,8 +221,8 @@ export function createBarcodeDecoder(options = {}) {
 
     const zxingRaw = await zxingDecode(frame.imageData);
     if (zxingRaw) {
-      const checked = validateBarcodeAsIsbn(zxingRaw);
-      if (checked.valid) {
+      const checked = parseScannedCodePayload(zxingRaw);
+      if (checked.matched) {
         return {
           matched: true,
           isbn13: checked.isbn13,

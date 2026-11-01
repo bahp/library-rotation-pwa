@@ -1,6 +1,7 @@
 /**
  * @fileoverview Resilient JSON HTTP client with bounded TTL caching, request timeouts,
- * and exponential backoff retry on HTTP 429 / 5xx responses.
+ * upstream error message extraction, and smart retry/backoff on transient HTTP 429 / 5xx responses
+ * (failing fast without stalling when daily quota exhaustion is reported without Retry-After).
  */
 
 const CACHE_STORAGE_KEY = 'lr_provider_cache_v1';
@@ -31,6 +32,30 @@ function delay(ms, signal) {
       );
     }
   });
+}
+
+/**
+ * Extracts a concise human-readable upstream error reason from a non-OK HTTP response body if JSON.
+ * @param {Response} response
+ * @returns {Promise<string>}
+ */
+async function readUpstreamErrorDetail(response) {
+  try {
+    const text = await response.text();
+    if (!text) return '';
+    try {
+      const parsed = JSON.parse(text);
+      const msg =
+        (parsed && typeof parsed.error === 'object' && parsed.error?.message) ||
+        (typeof parsed?.error === 'string' ? parsed.error : '') ||
+        (typeof parsed?.message === 'string' ? parsed.message : '');
+      return msg ? String(msg).trim() : '';
+    } catch (_) {
+      return text.length <= 140 ? text.trim() : '';
+    }
+  } catch (_) {
+    return '';
+  }
 }
 
 /**
@@ -97,7 +122,7 @@ export function createHttpClient(config = {}) {
   }
 
   /**
-   * Fetches JSON with cache lookup, timeout, and retry/backoff on 429/5xx.
+   * Fetches JSON with cache lookup, timeout, and retry/backoff on transient 429/5xx.
    * @param {string} url
    * @param {{ signal?: AbortSignal, bypassCache?: boolean }} [options]
    * @returns {Promise<any>}
@@ -134,17 +159,30 @@ export function createHttpClient(config = {}) {
         });
 
         if (response.ok) {
+          const contentType = response.headers?.get?.('content-type') || '';
+          if (contentType && /text\/html/i.test(contentType)) {
+            throw new Error('Expected JSON payload but received HTML document');
+          }
           const data = await response.json();
           setCached(url, data);
           return data;
         }
 
-        const retryable = response.status === 429 || response.status >= 500;
+        const retryAfterHeader = response.headers?.get?.('Retry-After');
+        const detail = await readUpstreamErrorDetail(response);
+        const isHardQuotaExhausted =
+          (response.status === 429 || response.status === 403) &&
+          !retryAfterHeader &&
+          /quota exceeded|queries per day|dailylimitexceeded/i.test(detail);
+
+        const retryable =
+          !isHardQuotaExhausted && (response.status === 429 || response.status >= 500);
+
         if (!retryable || attempt >= maxRetries) {
-          throw new Error(`HTTP ${response.status} from metadata provider`);
+          const suffix = detail ? `: ${detail}` : ' from metadata provider';
+          throw new Error(`HTTP ${response.status}${suffix}`);
         }
 
-        const retryAfterHeader = response.headers?.get?.('Retry-After');
         const retryAfterSec = retryAfterHeader ? Number(retryAfterHeader) : NaN;
         const waitMs =
           !Number.isNaN(retryAfterSec) && retryAfterSec > 0

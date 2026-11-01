@@ -56,6 +56,7 @@ export function createSafeDefaultSettings(overrides = {}) {
   return {
     theme: overrides.theme || 'system',
     coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
+    dynamicCoverTint: overrides.dynamicCoverTint !== false,
     retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
     enabledMetadataProviders:
       rawProviders.length > 0 ? Array.from(new Set(rawProviders)) : [...DEFAULT_METADATA_PROVIDERS],

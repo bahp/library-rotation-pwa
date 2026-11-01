@@ -10,6 +10,8 @@
  *   3) `applyBookAdditions`: Append one or multiple manual/random books cleanly
  */
 
+import { isBookRotatable } from '../../types/models.js';
+
 const DAY_MS = 1000 * 60 * 60 * 24;
 
 const OBJECTIVE_STOP_WORDS = new Set([
@@ -209,9 +211,10 @@ export function scoreEligibleBooks({
   );
   const readHistorySet = new Set(profile.readHistoryBookIds || []);
 
-  // Sort input books by stable ID first so seeded tie-breakers are 100% order-independent
+  // Sort input books by stable ID first so seeded tie-breakers are 100% order-independent,
+  // excluding non-home (wishlist/interested) and broken/retired books.
   const sortedCatalog = [...books]
-    .filter((b) => !excluded.has(b.id))
+    .filter((b) => !excluded.has(b.id) && isBookRotatable(b))
     .sort((a, b) => a.id.localeCompare(b.id));
 
   // If explicit format filter is set and at least one book matches it, enforce hard filter;
@@ -290,6 +293,12 @@ export function scoreEligibleBooks({
     // Slight novelty bonus for unread books
     if (!readHistorySet.has(book.id)) {
       score += 6;
+    }
+
+    // Gentle favorite bonus when explicitly marked Loved
+    if (book.loved === true) {
+      score += 10;
+      reasons.push('Loved favorite');
     }
 
     scored.push({

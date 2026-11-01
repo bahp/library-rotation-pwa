@@ -1,17 +1,36 @@
 /**
- * @fileoverview Slide-up bottom-sheet Book Inspector used across Home, Library, and Rotations views:
- * - Tapping the book cover opens Cover Studio (choose picture from phone gallery, take camera photo,
- *   or search online book covers via Google Books & Open Library)
- * - Inline "Edit Info" form (`#edit-book-form`) with uniform `h-12` inputs & dropdowns to edit book metadata
- * - Quick active-shelf actions (Mark Read / Swap Book / Add to Active Shelf), Phase 5 tag curation, and provenance
+ * @fileoverview Redesigned slide-up Book Individual Card (`renderBookInspectorModal`) used across
+ * Home, Family Library, and Rotations views:
+ * - Single clickable book cover trigger (`data-action="toggle-cover-picker"`) with a horizontally
+ *   centered camera overlay badge (no duplicate Change Cover button).
+ * - Crisp top header bar showing provider provenance (`Google Books`, `Open Library`, or both with
+ *   inline marks) alongside one-tap `Love`, `Edit`, and `Close` actions.
+ * - Streamlined bibliographic `Edit Book Details` form (`#edit-book-form`) without redundant status,
+ *   condition, or tag fields (preserving those values via hidden inputs).
+ * - Unified `Customize` table (`Reader`, `Shelf`, `Condition`) matching the Scan/ISBN Found sheet,
+ *   with labels aligned on the left and option buttons aligned on the right.
+ * - Clean `Topics` curation section + quiet footer for raw payload inspection and `Remove Book`.
  */
 
 import {
+  computeOwnerInitials,
   escapeHtml,
   formatBookBinding,
+  formatBookCondition,
+  formatCollectionStatus,
   formatReadingStage,
+  isBookRotatable,
+  normalizeBookCondition,
+  normalizeCollectionStatus,
+  normalizeOwnersList,
 } from '../../types/models.js';
+import { resolveBookCardTintHex } from '../../features/catalog/cover-color-extractor.js';
 import { renderBookCover } from './book-cover.js';
+import {
+  formatSingleProviderName,
+  renderProviderAttribution,
+} from './provider-attribution.js';
+import { AVATAR_TONES } from './profile-sheets.js';
 import { renderIcon } from '../icons.js';
 
 /**
@@ -26,21 +45,25 @@ import { renderIcon } from '../icons.js';
  */
 
 /**
- * Renders the slide-up Book Details, Cover Studio, Book Info Editor & Tag Curation sheet when `book` is non-null.
+ * Renders the slide-up Book Individual Card, Cover Studio, Bibliographic Editor, Customize rows & Topics.
  * @param {{
  *   book: import('../../types/models.js').Book | null | undefined,
+ *   profiles?: import('../../types/models.js').ChildProfile[],
  *   activeRotation?: import('../../types/models.js').RotationList | null,
  *   canSwapInActiveRotation?: boolean,
  *   coverAspectRatio?: import('../../types/models.js').CoverAspectRatio,
+ *   dynamicCoverTint?: boolean,
  *   inspectorUiState?: BookInspectorUiState
  * }} params
  * @returns {string}
  */
 export function renderBookInspectorModal({
   book,
+  profiles = [],
   activeRotation = null,
   canSwapInActiveRotation = false,
   coverAspectRatio = 'square',
+  dynamicCoverTint = true,
   inspectorUiState = {
     isCoverPickerOpen: false,
     isEditingBook: false,
@@ -57,21 +80,37 @@ export function renderBookInspectorModal({
   const isReadInActive = Boolean(
     activeRotation && activeRotation.completedBookIds.includes(book.id)
   );
+  const currentStatus = normalizeCollectionStatus(book.collectionStatus);
+  const currentCondition = normalizeBookCondition(book.condition);
+  const isLoved = Boolean(book.loved);
+  const rawOwners = normalizeOwnersList(book.owners);
+  const currentOwners = rawOwners.length > 0 ? rawOwners : ['shared'];
+  const rotatable = isBookRotatable(book);
+  const tintHex = resolveBookCardTintHex(book);
+  const dialogSurfaceClasses =
+    dynamicCoverTint !== false
+      ? 'lr-tinted-card bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700'
+      : 'bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700';
+  const dialogTintAttrs =
+    dynamicCoverTint !== false
+      ? `data-cover-tint="${escapeHtml(tintHex)}" data-tint-book-id="${escapeHtml(book.id)}"`
+      : '';
 
   const searchSeed =
     inspectorUiState.coverSearchQuery ||
     `${book.title} ${book.authors[0] || ''}`.trim();
 
+  // Contextual Drawer 1: Cover Studio (opens only when tapping the book cover)
   const coverStudioHtml = inspectorUiState.isCoverPickerOpen
     ? `
-      <div class="mt-4 pt-3.5 border-t border-linen-200 dark:border-night-700 space-y-3">
+      <section aria-label="Change book cover" class="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3.5 space-y-3">
         <div class="flex items-center justify-between gap-2">
           <div>
             <p class="text-xs font-bold text-forest-900 dark:text-white">
-              Change Book Cover
+              Cover Studio
             </p>
             <p class="text-[11px] text-stone-ink dark:text-slate-400">
-              Select a photo from your phone, take a picture, or search Google Books & Open Library.
+              Choose a photo, snap a picture, or search Google Books & Open Library.
             </p>
           </div>
           ${
@@ -93,7 +132,7 @@ export function renderBookInspectorModal({
         <div class="grid grid-cols-2 gap-2.5">
           <label
             for="inspector-cover-gallery-input"
-            class="min-h-[44px] px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            class="min-h-[44px] px-3 py-2 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
           >
             ${renderIcon('photo', 'w-4 h-4')}
             <span>From Phone</span>
@@ -129,7 +168,7 @@ export function renderBookInspectorModal({
             type="search"
             value="${escapeHtml(searchSeed)}"
             placeholder="Search Google Books / Open Library covers…"
-            class="flex-1 h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+            class="flex-1 h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
           />
           <button
             type="submit"
@@ -155,16 +194,17 @@ export function renderBookInspectorModal({
             ? `
               <div class="grid grid-cols-4 gap-2 pt-0.5">
                 ${inspectorUiState.coverSearchResults
-                  .map(
-                    (res) => `
+                  .map((res) => {
+                    const readableSource = formatSingleProviderName(res.source);
+                    return `
                       <button
                         type="button"
                         data-action="select-searched-cover"
                         data-book-id="${escapeHtml(book.id)}"
                         data-cover-url="${escapeHtml(res.coverUrl)}"
-                        title="Use cover from ${escapeHtml(res.source)}"
+                        title="Use cover from ${escapeHtml(readableSource)}"
                         aria-label="Apply cover for ${escapeHtml(res.title)}"
-                        class="group flex flex-col items-center text-left rounded-xl p-1 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-forest-700"
+                        class="group flex flex-col items-center text-left rounded-xl p-1 bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-forest-700"
                       >
                         <div class="w-full ${
                           coverAspectRatio === 'square' ? 'aspect-square' : 'aspect-[3/4]'
@@ -178,37 +218,42 @@ export function renderBookInspectorModal({
                           />
                         </div>
                         <span class="mt-1 text-[10px] text-stone-ink dark:text-slate-400 truncate w-full text-center">
-                          ${escapeHtml(res.source)}
+                          ${escapeHtml(readableSource)}
                         </span>
                       </button>
-                    `
-                  )
+                    `;
+                  })
                   .join('')}
               </div>
             `
             : ''
         }
-      </div>
+      </section>
     `
     : '';
 
   const httpsCoverUrlValue =
     book.coverUrl && book.coverUrl.startsWith('https://') ? book.coverUrl : '';
 
+  // Contextual Drawer 2: Bibliographic Details Editor (opens only when tapping Edit; avoids duplicating Customize/Topics)
   const editBookFormHtml = inspectorUiState.isEditingBook
     ? `
       <form
         id="edit-book-form"
         data-book-id="${escapeHtml(book.id)}"
-        class="mt-4 pt-3.5 border-t border-linen-200 dark:border-night-700 space-y-3"
+        class="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3.5 space-y-3"
         novalidate
       >
+        <input type="hidden" name="collectionStatus" value="${escapeHtml(currentStatus)}" />
+        <input type="hidden" name="condition" value="${escapeHtml(currentCondition)}" />
+        <input type="hidden" name="tags" value="${escapeHtml(book.tags.join(', '))}" />
+
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs font-bold text-forest-900 dark:text-white">
-            Edit Book Details
+            Edit Bibliographic Info
           </p>
           <span class="text-[11px] text-stone-ink dark:text-slate-400">
-            Saved directly to device library
+            Saved on device
           </span>
         </div>
 
@@ -231,20 +276,20 @@ export function renderBookInspectorModal({
               type="text"
               required
               value="${escapeHtml(book.title)}"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
           <div>
             <label for="edit-book-authors" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-              Author(s) (comma-separated)
+              Author(s)
             </label>
             <input
               id="edit-book-authors"
               name="authors"
               type="text"
               value="${escapeHtml(book.authors.join(', '))}"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -257,7 +302,7 @@ export function renderBookInspectorModal({
               name="isbn"
               type="text"
               value="${escapeHtml(book.isbn13 || book.isbn10 || '')}"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -268,7 +313,7 @@ export function renderBookInspectorModal({
             <select
               id="edit-book-format"
               name="format"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             >
               <option value="hardcover" ${book.format === 'hardcover' ? 'selected' : ''}>Hardcover</option>
               <option value="board-book" ${book.format === 'board-book' ? 'selected' : ''}>Board Book</option>
@@ -283,7 +328,7 @@ export function renderBookInspectorModal({
             <select
               id="edit-book-stage"
               name="readingStage"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             >
               <option value="board-toddler" ${book.readingStage === 'board-toddler' ? 'selected' : ''}>Board & Toddler</option>
               <option value="picture-book" ${book.readingStage === 'picture-book' ? 'selected' : ''}>Picture Book</option>
@@ -304,7 +349,7 @@ export function renderBookInspectorModal({
                 min="0"
                 max="16"
                 value="${book.ageMin}"
-                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -319,7 +364,7 @@ export function renderBookInspectorModal({
                 min="0"
                 max="18"
                 value="${book.ageMax}"
-                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
@@ -337,7 +382,7 @@ export function renderBookInspectorModal({
                 max="2000"
                 value="${book.pageCount ? book.pageCount : ''}"
                 placeholder="—"
-                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
@@ -353,7 +398,7 @@ export function renderBookInspectorModal({
                 max="2100"
                 value="${book.publishedYear ? book.publishedYear : ''}"
                 placeholder="—"
-                class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
           </div>
@@ -372,21 +417,7 @@ export function renderBookInspectorModal({
               type="url"
               value="${escapeHtml(httpsCoverUrlValue)}"
               placeholder="https://covers.openlibrary.org/..."
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
-          </div>
-
-          <div class="sm:col-span-2">
-            <label for="edit-book-tags" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-              Topics & Themes (comma-separated)
-            </label>
-            <input
-              id="edit-book-tags"
-              name="tags"
-              type="text"
-              value="${escapeHtml(book.tags.join(', '))}"
-              placeholder="winter, animals, bedtime"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
         </div>
@@ -410,11 +441,39 @@ export function renderBookInspectorModal({
     `
     : '';
 
+  const profileIdsLower = new Set(profiles.map((p) => p.id.toLowerCase()));
+  const customAssignedOwners = currentOwners.filter(
+    (o) => o.toLowerCase() !== 'shared' && !profileIdsLower.has(o.toLowerCase())
+  );
+
+  const ownerToggleChips = [
+    { key: 'shared', label: 'Shared', initial: 'S', tone: 'emerald' },
+    ...profiles.map((p) => ({
+      key: p.id,
+      label: p.name,
+      initial: computeOwnerInitials(p.name),
+      tone: p.avatarTone || 'teal',
+    })),
+    ...customAssignedOwners.map((custom) => ({
+      key: custom,
+      label: custom,
+      initial: computeOwnerInitials(custom),
+      tone: 'indigo',
+    })),
+  ];
+
+  // Active Shelf Bar (when an active rotation shelf exists)
   const quickShelfBarHtml = activeRotation
     ? `
-      <div class="mt-4 pt-3.5 border-t border-linen-200 dark:border-night-700 flex flex-wrap items-center justify-between gap-2">
+      <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
         <span class="text-xs font-medium text-stone-ink dark:text-slate-300">
-          ${inActiveShelf ? 'On current rotation shelf' : 'Available in family library'}
+          ${
+            inActiveShelf
+              ? 'On current rotation shelf'
+              : rotatable
+                ? 'Available for active shelf'
+                : `${escapeHtml(formatCollectionStatus(currentStatus))} (${escapeHtml(formatBookCondition(currentCondition))}) — off auto-rotations`
+          }
         </span>
         <div class="flex flex-wrap items-center gap-2">
           ${
@@ -429,7 +488,7 @@ export function renderBookInspectorModal({
                   class="min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
                     isReadInActive
                       ? 'bg-forest-700 text-white dark:bg-forest-600'
-                      : 'bg-linen-100 hover:bg-linen-200 text-forest-900 dark:bg-night-800 dark:hover:bg-night-700 dark:text-slate-100'
+                      : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
                   }"
                 >
                   ${renderIcon('check', 'w-3.5 h-3.5')}
@@ -443,7 +502,7 @@ export function renderBookInspectorModal({
                         data-action="replace-book-random"
                         data-rotation-id="${escapeHtml(activeRotation.id)}"
                         data-book-id="${escapeHtml(book.id)}"
-                        class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                        class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                       >
                         ${renderIcon('shuffle', 'w-3.5 h-3.5')}
                         Swap Book
@@ -452,23 +511,157 @@ export function renderBookInspectorModal({
                     : ''
                 }
               `
-              : `
-                <button
-                  type="button"
-                  data-action="add-recommended-to-shelf"
-                  data-rotation-id="${escapeHtml(activeRotation.id)}"
-                  data-book-id="${escapeHtml(book.id)}"
-                  class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  ${renderIcon('plus', 'w-3.5 h-3.5')}
-                  Add to Active Shelf
-                </button>
-              `
+              : rotatable
+                ? `
+                  <button
+                    type="button"
+                    data-action="add-recommended-to-shelf"
+                    data-rotation-id="${escapeHtml(activeRotation.id)}"
+                    data-book-id="${escapeHtml(book.id)}"
+                    class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    ${renderIcon('plus', 'w-3.5 h-3.5')}
+                    Add to Active Shelf
+                  </button>
+                `
+                : ''
           }
         </div>
       </div>
     `
     : '';
+
+  // Unified Customize Table (matching Scan/ISBN Found card: left labels, right option buttons)
+  const customizeSectionHtml = `
+    <section aria-label="Customize reader, shelf status, and condition" class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 text-xs">
+      <div class="divide-y divide-linen-200/70 dark:divide-night-800/80">
+        <!-- Row 1: Reader / Household Owners -->
+        <div data-customize-row="owner" class="py-2 first:pt-0 last:pb-0 space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <span class="text-xs font-semibold text-stone-ink dark:text-slate-300 shrink-0">Reader</span>
+            <div class="flex flex-wrap items-center justify-end gap-1.5">
+              ${ownerToggleChips
+                .map((chip) => {
+                  const active = currentOwners.some((o) => o.toLowerCase() === chip.key.toLowerCase());
+                  return `
+                    <button
+                      type="button"
+                      data-action="toggle-book-owner"
+                      data-book-id="${escapeHtml(book.id)}"
+                      data-owner="${escapeHtml(chip.key)}"
+                      aria-pressed="${active ? 'true' : 'false'}"
+                      class="min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                        active
+                          ? 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
+                          : 'bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300'
+                      }"
+                    >
+                      <span class="w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center ${
+                        AVATAR_TONES[chip.tone] || AVATAR_TONES.teal
+                      }">${escapeHtml(chip.initial)}</span>
+                      <span>${escapeHtml(chip.label)}</span>
+                    </button>
+                  `;
+                })
+                .join('')}
+            </div>
+          </div>
+
+          <details class="group">
+            <summary class="cursor-pointer list-none flex justify-end text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] select-none">
+              <span>+ Custom owner / house</span>
+            </summary>
+            <form id="inspector-add-owner-form" data-book-id="${escapeHtml(book.id)}" class="mt-2 flex items-center gap-2">
+              <label for="inspector-new-owner-input" class="sr-only">Add custom household or relative owner</label>
+              <input
+                id="inspector-new-owner-input"
+                name="owner"
+                type="text"
+                placeholder="e.g., Grandma's House, Cousin Maya"
+                class="flex-1 h-11 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              <button
+                type="submit"
+                class="h-11 px-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+              >
+                Add
+              </button>
+            </form>
+          </details>
+        </div>
+
+        <!-- Row 2: Shelf Status (Owned vs Wishlist) -->
+        <div data-customize-row="status" class="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+          <span class="text-xs font-semibold text-stone-ink dark:text-slate-300 shrink-0">Shelf</span>
+          <div class="flex flex-wrap items-center justify-end gap-1.5">
+            ${/** @type {Array<import('../../types/models.js').CollectionStatus>} */ ([
+              'owned',
+              'wishlist',
+            ])
+              .map((st) => {
+                const active = currentStatus === st;
+                return `
+                  <button
+                    type="button"
+                    data-action="set-book-status"
+                    data-book-id="${escapeHtml(book.id)}"
+                    data-status="${st}"
+                    aria-pressed="${active ? 'true' : 'false'}"
+                    class="min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                      active
+                        ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                        : 'bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300'
+                    }"
+                  >
+                    ${escapeHtml(formatCollectionStatus(st))}
+                  </button>
+                `;
+              })
+              .join('')}
+          </div>
+        </div>
+
+        <!-- Row 3: Physical Condition -->
+        <div data-customize-row="condition" class="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+          <span class="text-xs font-semibold text-stone-ink dark:text-slate-300 shrink-0">Condition</span>
+          <div class="flex flex-wrap items-center justify-end gap-1.5">
+            ${/** @type {Array<import('../../types/models.js').BookCondition>} */ ([
+              'good',
+              'torn',
+              'broken',
+              'retired',
+            ])
+              .map((cond) => {
+                const active = currentCondition === cond;
+                const activeClass =
+                  cond === 'broken' || cond === 'retired'
+                    ? 'bg-rose-700 text-white'
+                    : cond === 'torn'
+                      ? 'bg-amber-700 text-white'
+                      : 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950';
+                return `
+                  <button
+                    type="button"
+                    data-action="set-book-condition"
+                    data-book-id="${escapeHtml(book.id)}"
+                    data-condition="${cond}"
+                    aria-pressed="${active ? 'true' : 'false'}"
+                    class="min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                      active
+                        ? activeClass
+                        : 'bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300'
+                    }"
+                  >
+                    ${escapeHtml(formatBookCondition(cond))}
+                  </button>
+                `;
+              })
+              .join('')}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
 
   return `
     <div
@@ -479,13 +672,63 @@ export function renderBookInspectorModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="inspect-book-title"
-        class="animate-sheet-up w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 px-5 pb-6 pt-3 sm:p-6 shadow-2xl"
+        ${dialogTintAttrs}
+        class="animate-sheet-up w-full max-w-lg max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-2xl ${dialogSurfaceClasses} shadow-2xl overflow-hidden"
       >
-        <div class="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mb-3 sm:hidden" aria-hidden="true"></div>
+        <div class="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 sm:hidden" aria-hidden="true"></div>
 
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex items-start gap-3.5 min-w-0">
-            <!-- Clickable Book Cover Trigger -> Opens Cover Studio (Gallery / Camera / Search) -->
+        <!-- Top Utility Header: Provenance (left) + Love / Edit / Close (right) -->
+        <div class="px-5 pt-3 pb-2.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
+          <div class="min-w-0 truncate">
+            ${renderProviderAttribution(book.sources)}
+          </div>
+
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              data-action="toggle-book-loved"
+              data-book-id="${escapeHtml(book.id)}"
+              aria-pressed="${isLoved ? 'true' : 'false'}"
+              aria-label="${isLoved ? 'Remove Loved mark' : 'Mark as Loved'}"
+              class="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                isLoved
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
+              }"
+            >
+              ${renderIcon(isLoved ? 'heartFilled' : 'heart', 'w-3.5 h-3.5')}
+              <span>${isLoved ? 'Loved' : 'Love'}</span>
+            </button>
+
+            <button
+              type="button"
+              data-action="toggle-edit-book-info"
+              aria-pressed="${inspectorUiState.isEditingBook ? 'true' : 'false'}"
+              class="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                inspectorUiState.isEditingBook
+                  ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                  : 'bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
+              }"
+            >
+              ${renderIcon('edit', 'w-3.5 h-3.5')}
+              <span>Edit</span>
+            </button>
+
+            <button
+              type="button"
+              data-action="close-inspect-book"
+              aria-label="Close book details"
+              class="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800"
+            >
+              ${renderIcon('close', 'w-4 h-4')}
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable Card Body -->
+        <div class="p-5 overflow-y-auto space-y-4">
+          <!-- Hero Identity: Single Clickable Cover (centered Cover badge) + Bibliographic Metadata -->
+          <div class="flex items-start gap-4 min-w-0">
             <button
               type="button"
               data-action="toggle-cover-picker"
@@ -495,20 +738,26 @@ export function renderBookInspectorModal({
               class="group relative shrink-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
             >
               ${renderBookCover(book, 'md', coverAspectRatio)}
-              <span class="pointer-events-none absolute bottom-1 right-1 z-20 px-1.5 py-0.5 rounded-md bg-night-950/80 text-ivory text-[10px] font-semibold inline-flex items-center gap-1 shadow-xs">
-                ${renderIcon('camera', 'w-3 h-3')}
-                <span>Cover</span>
+              <span
+                data-cover-badge="centered"
+                class="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-20 flex justify-center"
+              >
+                <span class="px-2 py-0.5 rounded-lg bg-night-950/80 backdrop-blur-xs text-ivory text-[10px] font-semibold inline-flex items-center justify-center gap-1 shadow-xs whitespace-nowrap">
+                  ${renderIcon('camera', 'w-3 h-3')}
+                  <span>${inspectorUiState.isCoverPickerOpen ? 'Close' : 'Cover'}</span>
+                </span>
               </span>
             </button>
 
-            <div class="min-w-0">
-              <h2 id="inspect-book-title" class="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug">
+            <div class="min-w-0 flex-1">
+              <h2 id="inspect-book-title" class="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white leading-snug text-balance">
                 ${escapeHtml(book.title)}
               </h2>
-              <p class="text-xs sm:text-sm text-stone-ink dark:text-slate-300 mt-0.5">
+              <p class="text-xs sm:text-sm font-medium text-stone-ink dark:text-slate-300 mt-0.5">
                 ${escapeHtml(book.authors.join(', '))}
               </p>
-              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-stone-ink dark:text-slate-400 mt-1.5">
+
+              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-stone-ink dark:text-slate-400 mt-2">
                 <span>Ages ${book.ageMin}–${book.ageMax}</span>
                 <span aria-hidden="true">·</span>
                 <span>${escapeHtml(formatReadingStage(book.readingStage))}</span>
@@ -525,6 +774,7 @@ export function renderBookInspectorModal({
                     : ''
                 }
               </div>
+
               ${
                 book.readingLevelHint
                   ? `<p class="text-xs text-forest-700 dark:text-[#5ED3DA] mt-1.5">${escapeHtml(
@@ -532,6 +782,7 @@ export function renderBookInspectorModal({
                     )}</p>`
                   : ''
               }
+
               ${
                 book.isbn13
                   ? `<p class="text-[11px] font-mono-tabular text-stone-ink dark:text-slate-400 mt-1">ISBN ${escapeHtml(
@@ -539,145 +790,110 @@ export function renderBookInspectorModal({
                     )}${book.isbn10 ? ` · ${escapeHtml(book.isbn10)}` : ''}</p>`
                   : ''
               }
-
-              <!-- Quick Cover & Metadata Edit Triggers -->
-              <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  data-action="toggle-cover-picker"
-                  aria-pressed="${inspectorUiState.isCoverPickerOpen ? 'true' : 'false'}"
-                  class="min-h-[36px] px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                    inspectorUiState.isCoverPickerOpen
-                      ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
-                  }"
-                >
-                  ${renderIcon('camera', 'w-3.5 h-3.5')}
-                  <span>Change Cover</span>
-                </button>
-
-                <button
-                  type="button"
-                  data-action="toggle-edit-book-info"
-                  aria-pressed="${inspectorUiState.isEditingBook ? 'true' : 'false'}"
-                  class="min-h-[36px] px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
-                    inspectorUiState.isEditingBook
-                      ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
-                  }"
-                >
-                  ${renderIcon('edit', 'w-3.5 h-3.5')}
-                  <span>Edit Info</span>
-                </button>
-              </div>
             </div>
           </div>
 
-          <button
-            type="button"
-            data-action="close-inspect-book"
-            aria-label="Close book details"
-            class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 shrink-0"
-          >
-            ${renderIcon('close', 'w-4 h-4')}
-          </button>
-        </div>
+          ${coverStudioHtml}
+          ${editBookFormHtml}
+          ${quickShelfBarHtml}
+          ${customizeSectionHtml}
 
-        ${coverStudioHtml}
-        ${editBookFormHtml}
-        ${quickShelfBarHtml}
+          <!-- Topics & Themes Curation -->
+          <section aria-label="Topics and themes" class="space-y-2.5 text-xs text-stone-ink dark:text-slate-300">
+            <div class="flex items-center justify-between gap-2">
+              <strong class="text-xs font-bold text-forest-900 dark:text-white">Topics & Themes</strong>
+              <button
+                type="button"
+                data-action="enrich-book-tags"
+                data-book-id="${escapeHtml(book.id)}"
+                class="min-h-[36px] px-2.5 py-1 rounded-xl bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              >
+                ${renderIcon('sparkles', 'w-3.5 h-3.5')}
+                <span>Auto-Enrich</span>
+              </button>
+            </div>
 
-        <!-- Phase 5 Tag Curation & Auto-Enrichment Controls -->
-        <div class="mt-4 pt-4 border-t border-linen-200 dark:border-night-700 space-y-3 text-xs text-stone-ink dark:text-slate-300">
-          <div class="flex items-center justify-between gap-2">
-            <strong class="text-forest-900 dark:text-white">Topics & Themes</strong>
-            <button
-              type="button"
-              data-action="enrich-book-tags"
-              data-book-id="${escapeHtml(book.id)}"
-              class="min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-            >
-              ${renderIcon('sparkles', 'w-3.5 h-3.5')}
-              Auto-Enrich Tags
-            </button>
+            ${
+              book.tags.length > 0
+                ? `
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    ${book.tags
+                      .map(
+                        (tag) => `
+                          <button
+                            type="button"
+                            data-action="remove-book-tag"
+                            data-book-id="${escapeHtml(book.id)}"
+                            data-tag="${escapeHtml(tag)}"
+                            title="Remove topic ${escapeHtml(tag)}"
+                            aria-label="Remove topic ${escapeHtml(tag)}"
+                            class="min-h-[34px] px-2.5 py-1 rounded-lg bg-linen-100/90 hover:bg-rose-50 dark:bg-night-800 dark:hover:bg-rose-950/50 text-xs font-medium text-forest-900 hover:text-rose-700 dark:text-slate-200 dark:hover:text-rose-300 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                          >
+                            <span>${escapeHtml(tag)}</span>
+                            <span aria-hidden="true" class="opacity-60">×</span>
+                          </button>
+                        `
+                      )
+                      .join('')}
+                  </div>
+                `
+                : `<p class="text-stone-ink dark:text-slate-400">No topics tagged yet.</p>`
+            }
+
+            <form id="inspector-add-tag-form" data-book-id="${escapeHtml(book.id)}" class="flex items-center gap-2">
+              <label for="inspector-new-tag-input" class="sr-only">Add topic tag</label>
+              <input
+                id="inspector-new-tag-input"
+                name="tag"
+                type="text"
+                placeholder="Add topic (e.g., bedtime, dinosaurs)"
+                class="flex-1 h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              <button
+                type="submit"
+                class="h-11 px-3.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+              >
+                Add Tag
+              </button>
+            </form>
+          </section>
+
+          <!-- Quiet Footer: Detailed Provenance + Optional Raw Payloads + Remove Book -->
+          <div class="pt-3 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                ${renderProviderAttribution(book.sources, {
+                  prefix: 'Retrieved from',
+                  includeExternalIds: true,
+                })}
+              </div>
+              <button
+                type="button"
+                data-action="delete-book"
+                data-book-id="${escapeHtml(book.id)}"
+                aria-label="Remove ${escapeHtml(book.title)} from catalog"
+                class="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+              >
+                ${renderIcon('trash', 'w-3.5 h-3.5')}
+                <span>Remove Book</span>
+              </button>
+            </div>
+
+            ${
+              book.sources.some((s) => Boolean(s.rawPayload))
+                ? `
+                  <details class="pt-0.5">
+                    <summary class="cursor-pointer font-semibold text-forest-700 dark:text-[#5ED3DA]">
+                      View Captured Raw Provider Payloads
+                    </summary>
+                    <pre class="mt-2 p-3 rounded-xl bg-night-950 text-slate-100 font-mono-tabular text-[11px] overflow-x-auto max-h-52">${escapeHtml(
+                      JSON.stringify(book.sources, null, 2)
+                    )}</pre>
+                  </details>
+                `
+                : ''
+            }
           </div>
-
-          ${
-            book.tags.length > 0
-              ? `
-                <div class="flex flex-wrap items-center gap-2">
-                  ${book.tags
-                    .map(
-                      (tag) => `
-                        <button
-                          type="button"
-                          data-action="remove-book-tag"
-                          data-book-id="${escapeHtml(book.id)}"
-                          data-tag="${escapeHtml(tag)}"
-                          title="Remove topic ${escapeHtml(tag)}"
-                          aria-label="Remove topic ${escapeHtml(tag)}"
-                          class="min-h-[36px] px-2.5 py-1 rounded-lg bg-linen-100 hover:bg-rose-50 dark:bg-night-800 dark:hover:bg-rose-950/50 text-xs font-medium text-forest-900 hover:text-rose-700 dark:text-slate-200 dark:hover:text-rose-300 inline-flex items-center gap-1.5 transition-colors"
-                        >
-                          <span>${escapeHtml(tag)}</span>
-                          <span aria-hidden="true" class="opacity-60">×</span>
-                        </button>
-                      `
-                    )
-                    .join('')}
-                </div>
-              `
-              : `<p class="text-stone-ink dark:text-slate-400">No topics tagged yet.</p>`
-          }
-
-          <form id="inspector-add-tag-form" data-book-id="${escapeHtml(book.id)}" class="flex items-center gap-2 pt-1">
-            <label for="inspector-new-tag-input" class="sr-only">Add topic tag</label>
-            <input
-              id="inspector-new-tag-input"
-              name="tag"
-              type="text"
-              placeholder="Add topic (e.g., christmas, dinosaurs, feelings)"
-              class="flex-1 h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
-            <button
-              type="submit"
-              class="h-12 px-3.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap"
-            >
-              Add Tag
-            </button>
-          </form>
-
-          <div class="pt-3 border-t border-linen-200 dark:border-night-700 flex items-center justify-between gap-3">
-            <p class="truncate">
-              <strong class="text-forest-900 dark:text-slate-200">Source:</strong> ${escapeHtml(
-                book.sources.map((s) => s.provider).join(' · ')
-              )}
-            </p>
-            <button
-              type="button"
-              data-action="delete-book"
-              data-book-id="${escapeHtml(book.id)}"
-              aria-label="Remove ${escapeHtml(book.title)} from catalog"
-              class="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 inline-flex items-center gap-1.5 transition-colors shrink-0"
-            >
-              ${renderIcon('trash', 'w-3.5 h-3.5')}
-              Remove Book
-            </button>
-          </div>
-
-          ${
-            book.sources.some((s) => Boolean(s.rawPayload))
-              ? `
-                <details class="pt-1">
-                  <summary class="cursor-pointer font-semibold text-forest-700 dark:text-[#5ED3DA]">
-                    View Captured Raw Provider Payloads
-                  </summary>
-                  <pre class="mt-2 p-3 rounded-xl bg-night-950 text-slate-100 font-mono-tabular text-[11px] overflow-x-auto max-h-52">${escapeHtml(
-                    JSON.stringify(book.sources, null, 2)
-                  )}</pre>
-                </details>
-              `
-              : ''
-          }
         </div>
       </div>
     </div>
