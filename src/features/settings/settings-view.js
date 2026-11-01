@@ -38,7 +38,9 @@ import { renderIcon } from '../../ui/icons.js';
  *     checkingGoogleBooks?: boolean,
  *     googleBooksHealthReport?: string,
  *     googleBooksKeyStatus?: 'unknown' | 'configured' | 'shared-quota' | 'static-host',
- *     isGoogleKeyGuideOpen?: boolean
+ *     isGoogleKeyGuideOpen?: boolean,
+ *     deviceBooksProxyUrl?: string,
+ *     deviceBooksProxyError?: string
  *   }
  * }} params
  * @returns {string}
@@ -57,6 +59,8 @@ export function renderSettingsView({
     googleBooksHealthReport: '',
     googleBooksKeyStatus: 'unknown',
     isGoogleKeyGuideOpen: false,
+    deviceBooksProxyUrl: '',
+    deviceBooksProxyError: '',
   },
 }) {
   const { settings } = state;
@@ -527,6 +531,30 @@ export function renderSettingsView({
             </div>
 
             ${(() => {
+              const deviceProxyUrl = String(settingsUiState.deviceBooksProxyUrl || '').trim();
+              if (deviceProxyUrl) {
+                return `
+                  <div
+                    role="status"
+                    data-google-key-status="device-proxy"
+                    class="rounded-xl bg-forest-50/90 dark:bg-forest-900/25 border border-forest-700/30 dark:border-[#5ED3DA]/35 px-3.5 py-3 flex items-start gap-2.5"
+                  >
+                    <span class="mt-0.5 text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                      ${renderIcon('shield', 'w-4 h-4')}
+                    </span>
+                    <div class="text-xs leading-relaxed min-w-0">
+                      <p class="font-semibold text-forest-900 dark:text-[#5ED3DA]">
+                        Personal Phone Proxy Active (This Device Only)
+                      </p>
+                      <p class="text-stone-ink dark:text-slate-300 mt-0.5 break-all">
+                        Routing Google Books lookups on this device through <code>${escapeHtml(
+                          deviceProxyUrl
+                        )}</code>. Never included in JSON backups, and zero raw keys touch browser storage.
+                      </p>
+                    </div>
+                  </div>
+                `;
+              }
               const keyStatus = settingsUiState.googleBooksKeyStatus || 'unknown';
               if (keyStatus === 'configured') {
                 return `
@@ -564,7 +592,7 @@ export function renderSettingsView({
                         Shared Anonymous Quota Active (Server Key Not Configured Yet)
                       </p>
                       <p class="text-stone-ink dark:text-slate-300 mt-0.5">
-                        <code>GOOGLE_BOOKS_API_KEY</code> is not set in server environment secrets yet. Lookups work via Google’s shared pool + automatic Open Library fallback, or add a server key for 1,000 dedicated queries/day.
+                        <code>GOOGLE_BOOKS_API_KEY</code> is not set in server environment secrets yet. Lookups work via Google’s shared pool + automatic Open Library fallback, or connect a personal proxy URL below on your phone.
                       </p>
                     </div>
                   </div>
@@ -585,7 +613,7 @@ export function renderSettingsView({
                         Static Hosting Mode (e.g. GitHub Pages)
                       </p>
                       <p class="text-stone-ink dark:text-slate-300 mt-0.5">
-                        Running without a <code>/api/books</code> server proxy. Lookups use keyless browser requests + Open Library fallback so zero secrets are stored in your site or JSON exports.
+                        Running without a built-in <code>/api/books</code> server route. Each user can optionally enter their own keyless HTTPS proxy URL below on their phone PWA for dedicated quota.
                       </p>
                     </div>
                   </div>
@@ -602,15 +630,71 @@ export function renderSettingsView({
                   </span>
                   <div class="text-xs leading-relaxed">
                     <p class="font-semibold text-forest-900 dark:text-white">
-                      Why We Never Ask You to Paste an API Key Here
+                      Per-Device Quota Without Exposing Raw Secrets
                     </p>
                     <p class="text-stone-ink dark:text-slate-300 mt-0.5">
-                      Pasting a raw key into a browser setting exposes it in DevTools network URLs, Service Worker caches, and local storage or JSON backups. Keep <code>GOOGLE_BOOKS_API_KEY</code> strictly in server environment secrets.
+                      Raw Google credentials are never entered directly into browser inputs (which would expose them in network URLs and Service Worker caches). Use <code>GOOGLE_BOOKS_API_KEY</code> on your server or enter your personal keyless proxy URL below on your phone.
                     </p>
                   </div>
                 </div>
               `;
             })()}
+
+            <form
+              id="device-books-proxy-form"
+              class="rounded-xl bg-linen-50/90 dark:bg-night-950/80 border border-linen-200 dark:border-night-700 p-3.5 space-y-2.5"
+              novalidate
+            >
+              <div class="flex flex-col sm:flex-row sm:items-end gap-2.5">
+                <div class="flex-1 min-w-0">
+                  <label
+                    for="device-books-proxy-url-input"
+                    class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                  >
+                    Personal Phone PWA Books Proxy URL (Optional · Saved on This Device Only)
+                  </label>
+                  <input
+                    id="device-books-proxy-url-input"
+                    name="deviceBooksProxyUrl"
+                    type="url"
+                    value="${escapeHtml(settingsUiState.deviceBooksProxyUrl || '')}"
+                    placeholder="https://my-books-proxy.workers.dev/volumes"
+                    class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  />
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  <button
+                    type="submit"
+                    class="h-11 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                  >
+                    Save on Device
+                  </button>
+                  ${
+                    settingsUiState.deviceBooksProxyUrl
+                      ? `
+                        <button
+                          type="button"
+                          data-action="clear-device-books-proxy"
+                          class="h-11 px-3 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-stone-ink dark:text-slate-300 transition-colors whitespace-nowrap"
+                        >
+                          Clear
+                        </button>
+                      `
+                      : ''
+                  }
+                </div>
+              </div>
+              <p class="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
+                Lets every phone PWA user connect their own free Cloudflare Worker / Cloud Run Books proxy URL manually—stored only in this device’s local browser storage and excluded from JSON backups.
+              </p>
+              ${
+                settingsUiState.deviceBooksProxyError
+                  ? `<p role="alert" class="text-xs font-medium text-rose-700 dark:text-rose-300">${escapeHtml(
+                      settingsUiState.deviceBooksProxyError
+                    )}</p>`
+                  : ''
+              }
+            </form>
 
             ${
               settingsUiState.googleBooksHealthReport
@@ -628,28 +712,37 @@ export function renderSettingsView({
               class="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5"
             >
               <summary class="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
-                <span>How to get &amp; safely restrict a Google Books API key (Server &amp; GitHub Pages)</span>
+                <span>How each phone PWA user can set up a safe personal Google Books quota</span>
                 <span class="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
                   ${renderIcon('chevronDown', 'w-4 h-4')}
                 </span>
               </summary>
               <div class="pt-2.5 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
                 <p>
-                  <strong class="text-forest-900 dark:text-white">1. Enable &amp; create your key:</strong>
-                  In Google Cloud Console, open <strong>APIs &amp; Services &rarr; Library</strong>, enable the <strong>Books API</strong>, then go to <strong>Credentials &rarr; Create Credentials &rarr; API key</strong>.
+                  <strong class="text-forest-900 dark:text-white">1. Enable &amp; restrict your Google credential:</strong>
+                  In Google Cloud Console &rarr; <strong>APIs &amp; Services &rarr; Library</strong>, enable <strong>Books API</strong>, create a credential under <strong>Credentials</strong>, and restrict it strictly to <strong>Books API</strong>.
                 </p>
                 <p>
-                  <strong class="text-forest-900 dark:text-white">2. Lock API restrictions:</strong>
-                  Edit the key, choose <strong>Restrict key</strong> under <em>API restrictions</em>, and select <strong>Books API</strong> only so the credential can never access other Google Cloud services.
+                  <strong class="text-forest-900 dark:text-white">2. Server / Cloud Run / Local setup:</strong>
+                  Set <code>GOOGLE_BOOKS_API_KEY=your_secret_here</code> in server environment variables or local untracked <code>.env</code>. The built-in <code>/api/books/volumes</code> proxy injects it automatically.
                 </p>
                 <p>
-                  <strong class="text-forest-900 dark:text-white">3. Server / Cloud Run / Local setup (Recommended):</strong>
-                  Set <code>GOOGLE_BOOKS_API_KEY=your_key_here</code> in your server environment secrets or local untracked <code>.env</code> file. The built-in <code>/api/books/volumes</code> proxy injects it server-side and automatically displays <em>Google Books Server Key Configured</em> above without ever saving it in browser state or JSON exports.
+                  <strong class="text-forest-900 dark:text-white">3. Per-user Phone PWA on GitHub Pages (Free Cloudflare Worker):</strong>
+                  Deploy a tiny Worker storing <code>GOOGLE_BOOKS_API_KEY</code> in Worker Secrets, lock CORS to your GitHub Pages origin (<code>https://&lt;username&gt;.github.io</code>), and paste your Worker HTTPS URL in the box above on your phone:
                 </p>
-                <p>
-                  <strong class="text-forest-900 dark:text-white">4. GitHub Pages &amp; domain restrictions:</strong>
-                  Never commit keys to git or JSON files. On static GitHub Pages (<code>https://&lt;username&gt;.github.io/&lt;repo&gt;/*</code>), either deploy a tiny keyless proxy worker (Cloudflare Worker / Cloud Run) with CORS locked to <code>https://&lt;username&gt;.github.io</code>, or if restricting an HTTP referrer credential in Google Cloud Console, set <em>Application restrictions &rarr; Websites</em> to <code>https://&lt;username&gt;.github.io/*</code> and <code>http://localhost:3000/*</code>.
-                </p>
+                <pre class="p-2.5 rounded-lg bg-night-950 text-ivory font-mono-tabular text-[11px] overflow-x-auto">export default {
+  async fetch(req, env) {
+    const u = new URL(req.url);
+    const out = new URL('https://www.googleapis.com/books/v1/volumes');
+    out.search = u.search;
+    out.searchParams.set('key', env.GOOGLE_BOOKS_API_KEY);
+    const res = await fetch(out);
+    return new Response(res.body, {
+      status: res.status,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+};</pre>
               </div>
             </details>
           </div>

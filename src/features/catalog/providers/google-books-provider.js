@@ -15,6 +15,45 @@ import { mergeBookCandidates, normalizeGoogleBooksItem } from '../normalizer.js'
 const GOOGLE_BOOKS_ENDPOINT = 'https://www.googleapis.com/books/v1/volumes';
 const SERVER_PROXY_ENDPOINT = '/api/books/volumes';
 const QUOTA_COOLDOWN_MS = 1000 * 60 * 5; // 5 minutes cooldown on anonymous 429 quota exhaustion
+export const DEVICE_BOOKS_PROXY_STORAGE_KEY = 'lr_device_books_proxy_url_v1';
+
+/**
+ * Reads the optional per-device keyless Google Books proxy URL stored locally on this phone/browser.
+ * Never persisted in `AppState` or exported JSON backups so each user/device controls its own endpoint.
+ * @param {Pick<Storage, 'getItem'>} [storageImpl]
+ * @returns {string}
+ */
+export function getDeviceBooksProxyUrl(storageImpl) {
+  try {
+    const store =
+      storageImpl ||
+      (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
+    if (!store) return '';
+    return String(store.getItem(DEVICE_BOOKS_PROXY_STORAGE_KEY) || '').trim();
+  } catch (_) {
+    return '';
+  }
+}
+
+/**
+ * Saves or clears the per-device keyless Google Books proxy URL in local browser storage only.
+ * @param {string} url
+ * @param {Pick<Storage, 'setItem' | 'removeItem'>} [storageImpl]
+ */
+export function setDeviceBooksProxyUrl(url, storageImpl) {
+  try {
+    const store =
+      storageImpl ||
+      (typeof window !== 'undefined' && window.localStorage ? window.localStorage : null);
+    if (!store) return;
+    const trimmed = String(url || '').trim();
+    if (trimmed) {
+      store.setItem(DEVICE_BOOKS_PROXY_STORAGE_KEY, trimmed);
+    } else {
+      store.removeItem(DEVICE_BOOKS_PROXY_STORAGE_KEY);
+    }
+  } catch (_) {}
+}
 
 /**
  * Checks whether a raw Google Books volume item explicitly matches the target ISBN-13 or ISBN-10.
@@ -103,7 +142,7 @@ function isProxyRouteMissingError(err) {
 /**
  * Creates a Google Books metadata provider adapter.
  * @param {ReturnType<typeof import('./http-client.js').createHttpClient>} httpClient
- * @param {{ useServerProxy?: boolean, proxyEndpoint?: string }} [providerOptions]
+ * @param {{ useServerProxy?: boolean, proxyEndpoint?: string, getCustomProxyUrl?: () => string }} [providerOptions]
  */
 export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
   let quotaCooldownUntilMs = 0;
@@ -111,10 +150,13 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
   let serverProxyAvailable = Boolean(providerOptions.useServerProxy);
   let lastKnownKeyConfigured = /** @type {boolean | undefined} */ (undefined);
   const proxyBase = providerOptions.proxyEndpoint || SERVER_PROXY_ENDPOINT;
+  const resolveCustomProxyUrl =
+    providerOptions.getCustomProxyUrl ||
+    (providerOptions.proxyEndpoint ? () => '' : () => getDeviceBooksProxyUrl());
 
   /**
-   * Executes a single Google Books Volumes query with optional leak-free server proxy + static fallback
-   * and quota circuit-breaker protection.
+   * Executes a single Google Books Volumes query with per-device keyless proxy priority,
+   * leak-free server proxy, static fallback, and quota circuit-breaker protection.
    * @param {string} q
    * @param {string} maxResults
    * @param {{ signal?: AbortSignal, bypassCooldown?: boolean }} [reqOpts]
@@ -134,7 +176,16 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
     try {
       /** @type {any} */
       let payload;
-      if (serverProxyAvailable) {
+      const customProxyUrl = String(resolveCustomProxyUrl() || '').trim();
+      if (customProxyUrl) {
+        const separator = customProxyUrl.includes('?') ? '&' : '?';
+        payload = await httpClient.getJson(`${customProxyUrl}${separator}${params.toString()}`, {
+          signal: reqOpts.signal,
+          bypassCache: Boolean(reqOpts.bypassCooldown),
+        });
+        lastKnownKeyConfigured =
+          payload && typeof payload.keyConfigured === 'boolean' ? payload.keyConfigured : true;
+      } else if (serverProxyAvailable) {
         try {
           payload = await httpClient.getJson(`${proxyBase}?${params.toString()}`, {
             signal: reqOpts.signal,
@@ -281,6 +332,7 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
     searchBooks,
     getProxyDiagnostics: () => ({
       serverProxyActive: serverProxyAvailable,
+      customProxyUrl: String(resolveCustomProxyUrl() || '').trim(),
       keyConfigured: lastKnownKeyConfigured,
     }),
   };

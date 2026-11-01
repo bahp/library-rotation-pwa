@@ -191,7 +191,7 @@ function renderLibraryFilterDrawer({
       aria-labelledby="library-filter-drawer-title"
     >
       <aside
-        class="animate-drawer-left w-80 sm:w-96 max-w-[86vw] h-full bg-ivory dark:bg-night-900 border-r border-linen-200 dark:border-night-700 shadow-2xl flex flex-col pt-safe"
+        class="animate-drawer-left w-[94vw] sm:w-[440px] md:w-[480px] max-w-[95vw] h-full bg-ivory dark:bg-night-900 border-r border-linen-200 dark:border-night-700 shadow-2xl flex flex-col pt-safe"
       >
         <!-- Drawer Header -->
         <div class="px-5 py-4 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">

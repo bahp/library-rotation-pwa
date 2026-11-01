@@ -140,6 +140,8 @@ export function createScannerController(options = {}) {
     /** @type {BrowserScanSupport | null} */
     support: null,
     facingMode: /** @type {'environment' | 'user'} */ ('environment'),
+    torchSupported: false,
+    torchOn: false,
   };
 
   function emit() {
@@ -186,11 +188,18 @@ export function createScannerController(options = {}) {
     if (activeStream) {
       for (const track of activeStream.getTracks()) {
         try {
+          if (state.torchOn && typeof track.applyConstraints === 'function') {
+            track.applyConstraints(/** @type {any} */ ({ advanced: [{ torch: false }] })).catch(() => {});
+          }
+        } catch (_) {}
+        try {
           track.stop();
         } catch (_) {}
       }
       activeStream = null;
     }
+    state.torchSupported = false;
+    state.torchOn = false;
 
     if (!stopOpts.preserveUpload) {
       revokeUploadPreview();
@@ -472,6 +481,17 @@ export function createScannerController(options = {}) {
         activeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       }
 
+      const primaryVideoTrack =
+        activeStream && typeof activeStream.getVideoTracks === 'function'
+          ? activeStream.getVideoTracks()[0] || null
+          : null;
+      const trackCaps =
+        primaryVideoTrack && typeof primaryVideoTrack.getCapabilities === 'function'
+          ? /** @type {any} */ (primaryVideoTrack.getCapabilities())
+          : null;
+      state.torchSupported = Boolean(trackCaps && 'torch' in trackCaps && trackCaps.torch);
+      state.torchOn = false;
+
       state.phase = 'streaming';
       state.statusMessage =
         state.mode === 'barcode'
@@ -486,6 +506,41 @@ export function createScannerController(options = {}) {
       state.errorMessage = describeCameraError(err);
       state.statusMessage = 'Camera unavailable — Upload Photo fallback ready.';
       emit();
+    }
+  }
+
+  /**
+   * Toggles the rear camera hardware flashlight (`torch` constraint) when supported by the device.
+   * @returns {Promise<{ ok: boolean, torchOn: boolean, message?: string }>}
+   */
+  async function toggleTorch() {
+    const track =
+      activeStream && typeof activeStream.getVideoTracks === 'function'
+        ? activeStream.getVideoTracks()[0] || null
+        : null;
+    if (!track || state.phase !== 'streaming' || typeof track.applyConstraints !== 'function') {
+      return {
+        ok: false,
+        torchOn: false,
+        message: 'Start the rear camera first to toggle the flashlight.',
+      };
+    }
+
+    const nextTorch = !state.torchOn;
+    try {
+      await track.applyConstraints(/** @type {any} */ ({ advanced: [{ torch: nextTorch }] }));
+      state.torchSupported = true;
+      state.torchOn = nextTorch;
+      emit();
+      return { ok: true, torchOn: nextTorch };
+    } catch (_) {
+      state.torchOn = false;
+      emit();
+      return {
+        ok: false,
+        torchOn: false,
+        message: 'Flashlight control is not supported by this camera or browser.',
+      };
     }
   }
 
@@ -666,6 +721,7 @@ export function createScannerController(options = {}) {
     startCamera,
     stopCamera,
     flipCamera,
+    toggleTorch,
     attachVideoElement,
     captureCurrentFrame: () => inspectLiveVideoFrame(true),
     scanUploadedFile,

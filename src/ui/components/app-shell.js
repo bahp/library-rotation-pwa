@@ -75,6 +75,10 @@ export function renderAppShell({
 
   const mobileTabsHtml = NAV_ITEMS.map((item) => {
     const isActive = item.id === activeRoute;
+    const activeTopBarHtml = isActive
+      ? '<span data-nav-active-indicator="true" aria-hidden="true" class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-b-full bg-forest-700 dark:bg-[#5ED3DA]"></span>'
+      : '';
+
     if (item.emphasize) {
       return `
         <a
@@ -83,22 +87,23 @@ export function renderAppShell({
           ${isActive ? 'aria-current="page"' : ''}
           class="group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] pb-1.5 focus-visible:outline-2 focus-visible:outline-forest-700"
         >
+          ${activeTopBarHtml}
           <span
             data-nav-scan-orb="true"
-            class="-mt-6 mb-1 flex items-center justify-center w-12 h-12 rounded-full shadow-md ring-4 ring-ivory dark:ring-night-900 transition-transform active:scale-95 ${
+            class="-mt-6 mb-1 flex items-center justify-center w-12 h-12 rounded-full shadow-md transition-all active:scale-95 ${
               isActive
-                ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                : 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
+                ? 'bg-forest-700 text-white ring-4 ring-forest-700/25 dark:bg-[#5ED3DA] dark:text-night-950 dark:ring-[#5ED3DA]/30 scale-[1.04]'
+                : 'bg-forest-900 text-white ring-4 ring-ivory dark:bg-night-800 dark:text-linen-100 dark:ring-night-900'
             }"
           >
             ${renderIcon(item.icon, 'w-[22px] h-[22px]')}
           </span>
           <span
             data-nav-label="true"
-            class="text-[10px] leading-none font-semibold tracking-tight whitespace-nowrap ${
+            class="text-[10px] leading-none tracking-tight whitespace-nowrap ${
               isActive
-                ? 'text-forest-800 dark:text-[#5ED3DA]'
-                : 'text-stone-ink dark:text-slate-300'
+                ? 'font-bold text-forest-900 dark:text-[#5ED3DA]'
+                : 'font-medium text-stone-ink/80 dark:text-slate-400'
             }"
           >${escapeHtml(item.mobileLabel)}</span>
         </a>
@@ -111,16 +116,28 @@ export function renderAppShell({
         ${item.id === activeRoute ? 'aria-current="page"' : ''}
         class="relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] px-1 pb-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
           isActive
-            ? 'text-espresso-800 dark:text-[#5ED3DA] font-semibold'
-            : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-slate-100'
+            ? 'text-forest-900 dark:text-[#5ED3DA]'
+            : 'text-stone-ink/80 dark:text-slate-400 hover:text-forest-900 dark:hover:text-slate-100'
         }"
       >
-        <span data-nav-icon-slot="true" class="flex items-center justify-center h-6 mb-1">
+        ${activeTopBarHtml}
+        <span
+          data-nav-icon-slot="true"
+          class="flex items-center justify-center h-6 mb-1 rounded-full transition-colors ${
+            isActive
+              ? 'px-3.5 bg-forest-900 text-ivory dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
+              : 'px-2'
+          }"
+        >
           ${renderIcon(item.icon, 'w-[22px] h-[22px]')}
         </span>
         <span
           data-nav-label="true"
-          class="text-[10px] leading-none tracking-tight whitespace-nowrap"
+          class="text-[10px] leading-none tracking-tight whitespace-nowrap ${
+            isActive
+              ? 'font-bold text-forest-900 dark:text-[#5ED3DA]'
+              : 'font-medium'
+          }"
         >${escapeHtml(item.mobileLabel)}</span>
       </a>
     `;

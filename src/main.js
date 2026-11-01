@@ -18,6 +18,10 @@ import { createStorageAdapter } from './core/storage.js';
 import { createAppStore } from './core/store.js';
 import { createPwaManager } from './features/pwa/pwa-manager.js';
 import { createCatalogService } from './features/catalog/catalog-service.js';
+import {
+  getDeviceBooksProxyUrl,
+  setDeviceBooksProxyUrl,
+} from './features/catalog/providers/google-books-provider.js';
 import { extractCoverColorFromUrl } from './features/catalog/cover-color-extractor.js';
 import { compressImageFileToDataUrl } from './features/catalog/cover-image-utils.js';
 import { createScannerController } from './features/scan/scanner-controller.js';
@@ -28,7 +32,10 @@ import {
   renderLibraryView,
   toggleUnifiedOwnerSelection,
 } from './features/library/library-view.js';
-import { renderScanShellView } from './features/scan/scan-shell-view.js';
+import {
+  parseUnifiedCatalogQuery,
+  renderScanShellView,
+} from './features/scan/scan-shell-view.js';
 import { renderRotationsView } from './features/rotations/rotations-view.js';
 import {
   createDefaultPlayUiState,
@@ -191,6 +198,8 @@ const uiState = {
     /** @type {'unknown' | 'configured' | 'shared-quota' | 'static-host'} */
     googleBooksKeyStatus: 'unknown',
     isGoogleKeyGuideOpen: false,
+    deviceBooksProxyUrl: getDeviceBooksProxyUrl(),
+    deviceBooksProxyError: '',
   },
 };
 
@@ -228,6 +237,7 @@ const PRESERVED_INPUT_IDS = new Set([
   'inspector-new-owner-input',
   'inspector-cover-search-input',
   'play-topic-input',
+  'device-books-proxy-url-input',
 ]);
 
 /**
@@ -704,6 +714,9 @@ async function executeProviderSearch() {
 
   const controller = new AbortController();
   activeSearchAbort = controller;
+  uiState.isbnError = '';
+  uiState.isbnNotFound = '';
+  uiState.isbnCandidate = null;
   uiState.searchLoading = true;
   uiState.searchError = '';
   render();
@@ -739,12 +752,48 @@ async function executeProviderSearch() {
 }
 
 /**
- * Schedules a debounced provider search while the user types.
+ * Runs either a checksum-verified ISBN lookup or a parallel Title/Author/Keyword search
+ * from the unified `Search & ISBN` input.
+ * @param {{ fromSubmit?: boolean }} [opts]
+ */
+async function executeUnifiedCatalogSearch(opts = {}) {
+  const parsed = parseUnifiedCatalogQuery(uiState.titleQuery, uiState.authorQuery);
+  if (parsed.mode === 'empty') {
+    uiState.isbnError = '';
+    uiState.isbnNotFound = '';
+    uiState.isbnCandidate = null;
+    await executeProviderSearch();
+    return;
+  }
+  if (parsed.mode === 'isbn') {
+    uiState.searchLoading = false;
+    uiState.searchError = '';
+    uiState.searchHasRun = false;
+    uiState.searchCandidates = [];
+    await executeIsbnLookup(parsed.isbn13, { openSheet: true });
+    return;
+  }
+  if (parsed.mode === 'invalid-isbn') {
+    if (opts.fromSubmit) {
+      uiState.searchLoading = false;
+      uiState.searchCandidates = [];
+      uiState.isbnCandidate = null;
+      uiState.isbnNotFound = '';
+      uiState.isbnError = parsed.error;
+      render();
+    }
+    return;
+  }
+  await executeProviderSearch();
+}
+
+/**
+ * Schedules a debounced provider search (or verified ISBN lookup) while the user types.
  */
 function scheduleDebouncedSearch() {
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(() => {
-    executeProviderSearch();
+    executeUnifiedCatalogSearch({ fromSubmit: false });
   }, 380);
 }
 
@@ -1610,6 +1659,13 @@ function bindEvents() {
         await scanner.flipCamera();
         break;
       }
+      case 'toggle-camera-torch': {
+        const res = await scanner.toggleTorch();
+        if (!res.ok && res.message) {
+          store.notify(res.message, 'info');
+        }
+        break;
+      }
       case 'capture-live-frame': {
         await scanner.captureCurrentFrame();
         break;
@@ -1625,7 +1681,11 @@ function bindEvents() {
       }
       case 'fill-sample-isbn': {
         const sampleIsbn = target.getAttribute('data-isbn') || '';
-        if (sampleIsbn) await executeIsbnLookup(sampleIsbn, { openSheet: true });
+        if (sampleIsbn) {
+          uiState.titleQuery = sampleIsbn;
+          uiState.authorQuery = '';
+          await executeIsbnLookup(sampleIsbn, { openSheet: true });
+        }
         break;
       }
       case 'prefill-manual-isbn': {
@@ -1791,22 +1851,33 @@ function bindEvents() {
         );
         break;
       }
+      case 'clear-device-books-proxy': {
+        setDeviceBooksProxyUrl('');
+        uiState.settingsUi.deviceBooksProxyUrl = '';
+        uiState.settingsUi.deviceBooksProxyError = '';
+        uiState.settingsUi.googleBooksHealthReport = '';
+        store.notify('Cleared personal phone Books proxy URL.', 'info');
+        await refreshGoogleBooksKeyStatus();
+        render();
+        break;
+      }
       case 'check-google-books-api': {
         uiState.settingsUi.checkingGoogleBooks = true;
         uiState.settingsUi.googleBooksHealthReport = '';
         render();
         try {
           const diag = await catalogService.checkProviderHealth('google-books');
-          if (diag.keyConfigured === true) {
+          if (diag.keyConfigured === true && !uiState.settingsUi.deviceBooksProxyUrl) {
             uiState.settingsUi.googleBooksKeyStatus = 'configured';
-          } else if (diag.keyConfigured === false) {
+          } else if (diag.keyConfigured === false && !uiState.settingsUi.deviceBooksProxyUrl) {
             uiState.settingsUi.googleBooksKeyStatus = 'shared-quota';
           }
-          const keyModeSuffix =
-            diag.keyConfigured === true
+          const keyModeSuffix = uiState.settingsUi.deviceBooksProxyUrl
+            ? ' · Auth: Personal device Books proxy'
+            : diag.keyConfigured === true
               ? ' · Auth: Dedicated server key (GOOGLE_BOOKS_API_KEY)'
               : diag.keyConfigured === false
-                ? ' · Auth: Shared anonymous quota (set GOOGLE_BOOKS_API_KEY on server for dedicated quota)'
+                ? ' · Auth: Shared anonymous quota (set GOOGLE_BOOKS_API_KEY on server or connect a personal proxy URL)'
                 : '';
           if (diag.ok) {
             uiState.settingsUi.googleBooksHealthReport = `Google Books API OK (${diag.latencyMs} ms) · Retrieved "${diag.matchedTitle}"${
@@ -2206,7 +2277,7 @@ function bindEvents() {
       if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
       uiState.titleQuery = String(data.get('query') || '');
       uiState.authorQuery = String(data.get('author') || '');
-      await executeProviderSearch();
+      await executeUnifiedCatalogSearch({ fromSubmit: true });
     } else if (form.id === 'isbn-lookup-form') {
       const rawIsbn = String(data.get('isbn') || '');
       await executeIsbnLookup(rawIsbn);
@@ -2458,6 +2529,29 @@ function bindEvents() {
         });
         store.notify('Cleared custom proxy URL.', 'info');
       }
+    } else if (form.id === 'device-books-proxy-form') {
+      const rawUrl = String(data.get('deviceBooksProxyUrl') || '').trim();
+      if (rawUrl) {
+        const check = validateProxyEndpointUrl(rawUrl);
+        if (!check.valid) {
+          uiState.settingsUi.deviceBooksProxyError =
+            check.error || 'Enter a valid keyless HTTPS proxy URL.';
+          render();
+          return;
+        }
+        setDeviceBooksProxyUrl(check.normalizedUrl);
+        uiState.settingsUi.deviceBooksProxyUrl = check.normalizedUrl;
+        uiState.settingsUi.deviceBooksProxyError = '';
+        uiState.settingsUi.googleBooksHealthReport = '';
+        store.notify('Saved personal Books proxy URL on this device.', 'success');
+      } else {
+        setDeviceBooksProxyUrl('');
+        uiState.settingsUi.deviceBooksProxyUrl = '';
+        uiState.settingsUi.deviceBooksProxyError = '';
+        uiState.settingsUi.googleBooksHealthReport = '';
+        store.notify('Cleared personal Books proxy URL on this device.', 'info');
+      }
+      render();
     }
   });
 }

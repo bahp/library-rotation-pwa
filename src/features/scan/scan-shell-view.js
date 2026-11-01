@@ -1,15 +1,11 @@
 /**
- * @fileoverview Guided Book Scan & Add Wizard (`#/scan`):
- * - Clean, clutter-free top workspace (zero pre-scan `Save as:` / `For:` bars; newly added books save to
- *   `Shared` by default unless customized)
- * - Step 1: Pick how to find the book (`Scan`, `Search`, `ISBN`, or `Manual`):
- *   - `Scan`: Preserves the 3 distinct guide geometries (`barcode`, `isbn-ocr`, `cover`) + tap-frame-to-start-camera
- *   - `Search`: Title / Author lookup with direct `Wishlist` & `Add to Library` icon actions + `Options` sheet trigger
- *   - `ISBN`: Checksum-verified ISBN-13 / ISBN-10 lookup (suppresses noisy fallback warnings when a book resolves)
- *   - `Manual`: Full offline editor for unnumbered, vintage, or custom editions
- * - Step 2: Slide-up Material Design "Book Found" bottom sheet (`data-found-book-sheet="true"`) right on the page
- *   with `Re-scan`, `Love` heart icon, `Wishlist` bookmark icon, `Add to Library` plus icon, collapsible owner/status
- *   options, and `Edit Details Manually` handoff.
+ * @fileoverview Pro-Grade Optical Book Scanner & Unified Search Studio (`#/scan`):
+ *
+ * REVERSIBLE SCAN REDESIGN TRACE (`SCAN_REDESIGN_TRACE`):
+ * - [TRACE-SCAN-1] Header cleanup: Removed the `"1. Scan or find · 2. Save to Library or Wishlist"` instructional kicker above `Scan & Add Books`.
+ * - [TRACE-SCAN-2] Unified `Search & ISBN` tab: Combined the separate `Search` and `ISBN` tabs into a 3-mode studio switcher (`Camera` | `Search & ISBN` | `Manual`) with automatic ISBN-10/13 vs Title/Keyword/Author detection (`parseUnifiedCatalogQuery`), while retaining full backward compatibility for `intakeTab === 'isbn'`.
+ * - [TRACE-SCAN-3] Optical Camera Viewfinder HUD: Added corner reticles inside the 3 distinct guide geometries (`barcode` `h-24`, `isbn-ocr` `h-12`, `cover` `h-48`), clean floating HUD pills, and studio card framing.
+ * - [TRACE-SCAN-4] Hardware Flashlight (`Torch`): Added live rear-camera `Flashlight` toggle button (`data-action="toggle-camera-torch"`) alongside `Stop`, `Capture Cover` / `Read ISBN`, `Flip`, and `Upload Photo`.
  */
 
 import {
@@ -21,6 +17,7 @@ import {
   formatReadingStage,
   normalizeBookCondition,
   normalizeCollectionStatus,
+  normalizeIsbn,
   normalizeOwnersList,
 } from '../../types/models.js';
 import { resolveBookCardTintHex } from '../catalog/cover-color-extractor.js';
@@ -31,6 +28,81 @@ import {
 } from '../../ui/components/provider-attribution.js';
 import { AVATAR_TONES } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
+
+/**
+ * Structured change trace for `#/scan` so any individual enhancement can be inspected or reverted cleanly.
+ */
+export const SCAN_REDESIGN_TRACE = Object.freeze([
+  {
+    id: 'TRACE-SCAN-1',
+    area: 'header',
+    summary: 'Removed "1. Scan or find · 2. Save to Library or Wishlist" note above Scan & Add Books',
+  },
+  {
+    id: 'TRACE-SCAN-2',
+    area: 'tabs-and-search',
+    summary: 'Combined Search and ISBN into unified "Search & ISBN" tab with automatic ISBN-10/13 vs text detection',
+  },
+  {
+    id: 'TRACE-SCAN-3',
+    area: 'optical-viewfinder',
+    summary: 'Redesigned scanner panel into an optical studio card with corner reticles and 3 distinct scan frame shapes',
+  },
+  {
+    id: 'TRACE-SCAN-4',
+    area: 'flashlight',
+    summary: 'Added live rear-camera Flashlight (torch) button in streaming camera dock',
+  },
+]);
+
+/**
+ * Classifies a unified Search/ISBN query into either a verified ISBN lookup, an invalid-checksum ISBN attempt,
+ * or a general title/author/keyword catalog search.
+ *
+ * @param {string} rawQuery
+ * @param {string} [rawAuthor]
+ * @returns {
+ *   | { mode: 'empty' }
+ *   | { mode: 'isbn', isbn13: string, rawIsbn: string }
+ *   | { mode: 'invalid-isbn', rawIsbn: string, error: string }
+ *   | { mode: 'search', query: string, author: string }
+ * }
+ */
+export function parseUnifiedCatalogQuery(rawQuery, rawAuthor = '') {
+  const trimmedQuery = String(rawQuery || '').trim();
+  const trimmedAuthor = String(rawAuthor || '').trim();
+
+  if (!trimmedQuery && !trimmedAuthor) {
+    return { mode: 'empty' };
+  }
+
+  // Only treat as direct ISBN lookup when author filter is blank and input looks like ISBN digits/hyphens/prefix
+  if (!trimmedAuthor) {
+    const withoutPrefix = trimmedQuery.replace(/^isbn(?:-1[03])?\s*:?\s*/i, '').trim();
+    const compact = withoutPrefix.replace(/[-\s]/g, '');
+    if (/^\d{9}[\dXx]$/.test(compact) || /^\d{13}$/.test(compact)) {
+      const checked = normalizeIsbn(withoutPrefix);
+      if (checked.valid) {
+        return {
+          mode: 'isbn',
+          isbn13: checked.isbn13,
+          rawIsbn: withoutPrefix,
+        };
+      }
+      return {
+        mode: 'invalid-isbn',
+        rawIsbn: withoutPrefix,
+        error: checked.error || 'Invalid ISBN check digit — verify the 10 or 13 printed digits.',
+      };
+    }
+  }
+
+  return {
+    mode: 'search',
+    query: trimmedQuery,
+    author: trimmedAuthor,
+  };
+}
 
 /**
  * @typedef {'scanner' | 'search' | 'isbn' | 'manual'} IntakeTab
@@ -694,6 +766,10 @@ function renderCandidateRow({
 }
 
 /**
+ * @typedef {Omit<ReturnType<ReturnType<typeof import('./scanner-controller.js').createScannerController>['getState']>, 'torchSupported' | 'torchOn'> & { torchSupported?: boolean, torchOn?: boolean }} ScanViewScannerState
+ */
+
+/**
  * Renders the warm editorial Camera & Gallery Upload Scanner panel.
  * Tapping directly on the idle barcode/scanner viewport area starts the live camera.
  *
@@ -705,7 +781,7 @@ function renderCandidateRow({
  *     isbnNotFound?: string,
  *     isbnError?: string
  *   },
- *   scannerState: ReturnType<ReturnType<typeof import('./scanner-controller.js').createScannerController>['getState']>
+ *   scannerState: ScanViewScannerState
  * }} params
  * @returns {string}
  */
@@ -717,6 +793,7 @@ function renderScannerPanel({ uiState, scannerState }) {
   const isAnalyzingUpload = scannerState.phase === 'analyzing-upload';
   const isActiveSweep = isStreaming || isAnalyzingUpload;
   const canTapViewportToStart = !isStreaming && !isStarting && !isAnalyzingUpload;
+  const isTorchOn = Boolean(scannerState.torchOn);
 
   const modeTabsHtml = /** @type {Array<import('../../types/models.js').ScanMode>} */ ([
     'barcode',
@@ -731,9 +808,9 @@ function renderScannerPanel({ uiState, scannerState }) {
           data-action="select-scan-mode"
           data-scan-mode="${modeKey}"
           aria-pressed="${selected ? 'true' : 'false'}"
-          class="flex-1 min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+          class="flex-1 min-h-[38px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
             selected
-              ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-xs'
+              ? 'bg-forest-900 text-ivory dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
               : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
           }"
         >
@@ -746,29 +823,31 @@ function renderScannerPanel({ uiState, scannerState }) {
   const frameBorderClasses = isLocked
     ? 'border-emerald-400 bg-emerald-950/30 shadow-[0_0_0_4px_rgba(16,185,129,0.28)]'
     : isActiveSweep
-      ? 'border-[#5ED3DA] shadow-[0_0_0_9999px_rgba(14,22,24,0.52)]'
-      : 'border-[#FAF6EE]/80 group-hover:border-[#5ED3DA] shadow-[0_0_0_9999px_rgba(14,22,24,0.40)]';
+      ? 'border-[#5ED3DA]/90 shadow-[0_0_0_9999px_rgba(10,16,18,0.58)]'
+      : 'border-[#FAF6EE]/65 group-hover:border-[#5ED3DA] shadow-[0_0_0_9999px_rgba(10,16,18,0.46)]';
+
+  const cornerAccentColor = isLocked ? 'border-emerald-300' : 'border-[#5ED3DA]';
 
   const sweepLineClasses = isLocked
     ? 'bg-emerald-400 top-1/2 -translate-y-1/2 h-0.5 shadow-[0_0_10px_rgba(52,211,153,0.9)]'
     : isActiveSweep
       ? 'bg-[#5ED3DA] top-0 h-0.5 shadow-[0_0_12px_rgba(94,211,218,0.95)] animate-scan-sweep'
-      : 'bg-[#FAF6EE]/35 top-1/2 -translate-y-1/2 h-px';
+      : 'bg-[#FAF6EE]/30 top-1/2 -translate-y-1/2 h-px';
 
   let lockReadoutText = canTapViewportToStart
-    ? `Tap to Scan · ${activeMode.label}`
+    ? `Tap Frame to Start · ${activeMode.label}`
     : activeMode.label;
   if (uiState.isbnLoading) {
-    lockReadoutText = `FETCHING ISBN ${uiState.isbnInput || ''}…`;
+    lockReadoutText = `Looking up ISBN ${uiState.isbnInput || ''}…`;
   } else if (isLocked && scannerState.lock) {
     lockReadoutText =
       scannerState.lock.kind === 'isbn'
-        ? `FOUND · ISBN ${scannerState.lock.isbn13}`
-        : `FOUND · "${scannerState.lock.titleQuery}"`;
+        ? `Locked · ISBN ${scannerState.lock.isbn13}`
+        : `Locked · "${scannerState.lock.titleQuery}"`;
   } else if (isAnalyzingUpload) {
-    lockReadoutText = 'SCANNING PHOTO…';
+    lockReadoutText = 'Scanning photo…';
   } else if (isStarting) {
-    lockReadoutText = 'STARTING CAMERA…';
+    lockReadoutText = 'Starting camera…';
   }
 
   const viewportInnerHtml = `
@@ -797,19 +876,24 @@ function renderScannerPanel({ uiState, scannerState }) {
     <div
       data-scan-guide="${escapeHtml(uiState.scanMode)}"
       data-scan-locked="${isLocked ? 'true' : 'false'}"
-      class="relative z-10 flex items-center justify-center border-2 ${frameBorderClasses} ${activeMode.frameClass} transition-all duration-150 overflow-hidden"
+      class="relative z-10 flex items-center justify-center border ${frameBorderClasses} ${activeMode.frameClass} transition-all duration-150 overflow-hidden"
     >
+      <span aria-hidden="true" class="pointer-events-none absolute top-1.5 left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 rounded-tl-xs ${cornerAccentColor}"></span>
+      <span aria-hidden="true" class="pointer-events-none absolute top-1.5 right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 rounded-tr-xs ${cornerAccentColor}"></span>
+      <span aria-hidden="true" class="pointer-events-none absolute bottom-1.5 left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 rounded-bl-xs ${cornerAccentColor}"></span>
+      <span aria-hidden="true" class="pointer-events-none absolute bottom-1.5 right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 rounded-br-xs ${cornerAccentColor}"></span>
+
       <div class="absolute inset-x-2 ${sweepLineClasses}"></div>
 
-      <span class="px-2.5 py-1 rounded-lg bg-night-950/80 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
+      <span class="px-3 py-1 rounded-full bg-night-950/85 border border-[#FAF6EE]/15 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
         isLocked ? 'text-emerald-300 font-semibold' : 'text-[#FAF6EE]'
       }">
-        ${canTapViewportToStart && !isLocked ? renderIcon('camera', 'w-3.5 h-3.5') : ''}
+        ${canTapViewportToStart && !isLocked ? renderIcon('camera', 'w-3.5 h-3.5 text-[#5ED3DA]') : ''}
         <span>${escapeHtml(lockReadoutText)}</span>
       </span>
     </div>
 
-    <span class="relative z-10 mt-3 px-3 py-1 rounded-lg bg-night-950/75 text-[11px] text-[#FAF6EE]/90 text-center max-w-sm">
+    <span class="relative z-10 mt-3 px-3 py-1 rounded-full bg-night-950/75 text-[11px] text-[#FAF6EE]/85 text-center max-w-sm">
       ${escapeHtml(activeMode.hint)}
     </span>
   `;
@@ -820,13 +904,13 @@ function renderScannerPanel({ uiState, scannerState }) {
         type="button"
         data-action="start-camera-scan"
         aria-label="Start camera in ${escapeHtml(activeMode.label)} mode"
-        class="group w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-linen-200 dark:border-night-700 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.995]"
+        class="group w-full relative h-64 sm:h-76 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
       >
         ${viewportInnerHtml}
       </button>
     `
     : `
-      <div class="w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-linen-200 dark:border-night-700">
+      <div class="w-full relative h-64 sm:h-76 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800">
         ${viewportInnerHtml}
       </div>
     `;
@@ -834,7 +918,7 @@ function renderScannerPanel({ uiState, scannerState }) {
   const scanNotFoundHtml =
     !uiState.isbnLoading && uiState.isbnNotFound
       ? `
-        <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p class="text-sm font-semibold text-forest-900 dark:text-white">
               Scanned ISBN <span class="font-mono-tabular">${escapeHtml(
@@ -869,9 +953,9 @@ function renderScannerPanel({ uiState, scannerState }) {
   const support = scannerState.support;
   const compatibilityDetailsHtml = support
     ? `
-      <details class="text-xs text-stone-ink dark:text-slate-400 pt-1">
+      <details class="text-xs text-stone-ink dark:text-slate-400 pt-0.5">
         <summary class="cursor-pointer font-medium hover:text-forest-900 dark:hover:text-white select-none">
-          Scanner compatibility · ${escapeHtml(support.barcodeEngineLabel)}
+          Scanner engine · ${escapeHtml(support.barcodeEngineLabel)}
         </summary>
         <div class="mt-2 space-y-1 text-[11px] leading-relaxed">
           <p>
@@ -894,45 +978,138 @@ function renderScannerPanel({ uiState, scannerState }) {
     : '';
 
   return `
-    <section aria-label="Camera and photo scanner" class="space-y-3">
-      <!-- Compact 3-Mode Frame Switcher (Barcode, ISBN Text, Cover) -->
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex flex-1 items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-700 max-w-md">
+    <section
+      aria-label="Camera and photo scanner"
+      class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3.5 sm:p-4 space-y-3"
+    >
+      <!-- Top Optical Guide Selector -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div class="flex flex-1 items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-800 max-w-md">
           ${modeTabsHtml}
         </div>
-        <span class="hidden sm:inline text-xs text-stone-ink dark:text-slate-400">
+        <span class="text-[11px] font-medium text-stone-ink dark:text-slate-400">
           ${escapeHtml(activeMode.caption)}
         </span>
       </div>
 
-      <!-- Tap-to-Start Barcode / OCR / Cover Viewport -->
+      <!-- Optical Camera / Photo Viewfinder -->
       ${viewportHtml}
 
-      <!-- Concise Live Status -->
-      <div class="flex items-center justify-between gap-2 text-xs">
-        <p role="status" aria-live="polite" class="font-medium truncate ${
-          isLocked
-            ? 'text-emerald-700 dark:text-emerald-400'
-            : 'text-forest-900 dark:text-slate-300'
-        }">
-          ${escapeHtml(
-            uiState.isbnLoading
-              ? `Looking up ISBN ${uiState.isbnInput || ''}…`
-              : scannerState.statusMessage
-          )}
-        </p>
-        <span class="sm:hidden text-[11px] text-stone-ink dark:text-slate-400 shrink-0">
-          ${escapeHtml(activeMode.caption)}
-        </span>
-      </div>
+      <!-- Live Readout & Camera Action Dock -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+        <div class="min-w-0">
+          <p role="status" aria-live="polite" class="text-xs font-medium truncate ${
+            isLocked
+              ? 'text-emerald-700 dark:text-emerald-400'
+              : 'text-forest-900 dark:text-slate-300'
+          }">
+            ${escapeHtml(
+              uiState.isbnLoading
+                ? `Looking up ISBN ${uiState.isbnInput || ''}…`
+                : scannerState.statusMessage
+            )}
+          </p>
+          ${
+            scannerState.ignoredHint
+              ? `<p class="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">${escapeHtml(
+                  scannerState.ignoredHint
+                )}</p>`
+              : ''
+          }
+        </div>
 
-      ${
-        scannerState.ignoredHint
-          ? `<p class="text-xs text-amber-800 dark:text-amber-300">${escapeHtml(
-              scannerState.ignoredHint
-            )}</p>`
-          : ''
-      }
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          ${
+            isStreaming
+              ? `
+                <button
+                  type="button"
+                  data-action="stop-camera-scan"
+                  class="min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  ${renderIcon('close', 'w-4 h-4')}
+                  <span>Stop</span>
+                </button>
+                ${
+                  uiState.scanMode === 'cover' || uiState.scanMode === 'isbn-ocr'
+                    ? `
+                      <button
+                        type="button"
+                        data-action="capture-live-frame"
+                        class="min-h-[42px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        ${renderIcon('camera', 'w-4 h-4')}
+                        <span>${uiState.scanMode === 'cover' ? 'Capture Cover' : 'Read ISBN'}</span>
+                      </button>
+                    `
+                    : ''
+                }
+                <button
+                  type="button"
+                  data-action="toggle-camera-torch"
+                  aria-pressed="${isTorchOn ? 'true' : 'false'}"
+                  aria-label="${isTorchOn ? 'Turn off flashlight' : 'Turn on flashlight'}"
+                  title="Toggle rear camera flashlight"
+                  class="min-h-[42px] px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+                    isTorchOn
+                      ? 'bg-amber-400 text-night-950 shadow-xs'
+                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white'
+                  }"
+                >
+                  ${renderIcon(isTorchOn ? 'flashlightFilled' : 'flashlight', 'w-4 h-4')}
+                  <span>${isTorchOn ? 'Light On' : 'Flashlight'}</span>
+                </button>
+                <button
+                  type="button"
+                  data-action="flip-camera"
+                  class="min-h-[42px] px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  ${renderIcon('flip', 'w-4 h-4')}
+                  <span>Flip</span>
+                </button>
+              `
+              : `
+                <button
+                  type="button"
+                  data-action="start-camera-scan"
+                  ${isStarting || isAnalyzingUpload ? 'disabled' : ''}
+                  class="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  ${renderIcon('camera', 'w-4 h-4')}
+                  <span>${isStarting ? 'Starting…' : 'Start Camera'}</span>
+                </button>
+              `
+          }
+
+          <label
+            for="scan-photo-upload-input"
+            class="min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+          >
+            ${renderIcon('photo', 'w-4 h-4')}
+            <span>Upload Photo</span>
+            <input
+              id="scan-photo-upload-input"
+              type="file"
+              accept="image/*"
+              class="sr-only"
+            />
+          </label>
+
+          ${
+            isLocked || scannerState.uploadedPreviewUrl
+              ? `
+                <button
+                  type="button"
+                  data-action="reset-scanner"
+                  class="min-h-[42px] px-3 py-2 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white transition-colors whitespace-nowrap"
+                >
+                  Clear
+                </button>
+              `
+              : ''
+          }
+        </div>
+      </div>
 
       ${scanNotFoundHtml}
 
@@ -946,93 +1123,15 @@ function renderScannerPanel({ uiState, scannerState }) {
               <button
                 type="button"
                 data-action="select-intake-tab"
-                data-intake-tab="isbn"
+                data-intake-tab="search"
                 class="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white whitespace-nowrap shrink-0"
               >
-                Type ISBN
+                Search or Type ISBN
               </button>
             </div>
           `
           : ''
       }
-
-      <!-- Compact Camera & Photo Controls -->
-      <div class="flex flex-wrap items-center gap-2.5">
-        ${
-          isStreaming
-            ? `
-              <button
-                type="button"
-                data-action="stop-camera-scan"
-                class="min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-              >
-                ${renderIcon('close', 'w-4 h-4')}
-                Stop
-              </button>
-              ${
-                uiState.scanMode === 'cover' || uiState.scanMode === 'isbn-ocr'
-                  ? `
-                    <button
-                      type="button"
-                      data-action="capture-live-frame"
-                      class="min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      ${renderIcon('camera', 'w-4 h-4')}
-                      ${uiState.scanMode === 'cover' ? 'Capture Cover' : 'Read ISBN'}
-                    </button>
-                  `
-                  : ''
-              }
-              <button
-                type="button"
-                data-action="flip-camera"
-                class="min-h-[44px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-              >
-                ${renderIcon('flip', 'w-4 h-4')}
-                Flip
-              </button>
-            `
-            : `
-              <button
-                type="button"
-                data-action="start-camera-scan"
-                ${isStarting || isAnalyzingUpload ? 'disabled' : ''}
-                class="min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-              >
-                ${renderIcon('camera', 'w-4 h-4')}
-                ${isStarting ? 'Starting…' : 'Start Camera'}
-              </button>
-            `
-        }
-
-        <label
-          for="scan-photo-upload-input"
-          class="min-h-[44px] px-4 py-2 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs sm:text-sm font-semibold text-forest-900 dark:text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-        >
-          ${renderIcon('photo', 'w-4 h-4')}
-          Upload Photo
-          <input
-            id="scan-photo-upload-input"
-            type="file"
-            accept="image/*"
-            class="sr-only"
-          />
-        </label>
-
-        ${
-          isLocked || scannerState.uploadedPreviewUrl
-            ? `
-              <button
-                type="button"
-                data-action="reset-scanner"
-                class="min-h-[44px] px-3 py-2 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white transition-colors whitespace-nowrap"
-              >
-                Clear
-              </button>
-            `
-            : ''
-        }
-      </div>
 
       ${compatibilityDetailsHtml}
     </section>
@@ -1084,7 +1183,7 @@ function renderScannerPanel({ uiState, scannerState }) {
  *     scanMode: import('../../types/models.js').ScanMode,
  *     formError: string
  *   },
- *   scannerState: ReturnType<ReturnType<typeof import('./scanner-controller.js').createScannerController>['getState']>
+ *   scannerState: ScanViewScannerState
  * }} params
  * @returns {string}
  */
@@ -1097,29 +1196,47 @@ export function renderScanShellView({ state, uiState, scannerState }) {
   const intakeOwners = normalizeOwnersList(uiState.intakeOwners);
   const intakeCondition = normalizeBookCondition(uiState.intakeCondition);
 
-  const tabs = /** @type {Array<{ id: IntakeTab, label: string }>} */ ([
-    { id: 'scanner', label: 'Scan' },
-    { id: 'search', label: 'Search' },
-    { id: 'isbn', label: 'ISBN' },
-    { id: 'manual', label: 'Manual' },
+  const isUnifiedSearchActive =
+    uiState.intakeTab === 'search' || uiState.intakeTab === 'isbn';
+
+  const tabs = /** @type {Array<{ id: IntakeTab, label: string, icon: string, active: boolean }>} */ ([
+    {
+      id: 'scanner',
+      label: 'Camera',
+      icon: 'scan',
+      active: uiState.intakeTab === 'scanner',
+    },
+    {
+      id: 'search',
+      label: 'Search & ISBN',
+      icon: 'search',
+      active: isUnifiedSearchActive,
+    },
+    {
+      id: 'manual',
+      label: 'Manual',
+      icon: 'edit',
+      active: uiState.intakeTab === 'manual',
+    },
   ]);
 
   const intakeTabsHtml = tabs
     .map((tab) => {
-      const selected = uiState.intakeTab === tab.id;
+      const selected = tab.active;
       return `
         <button
           type="button"
           data-action="select-intake-tab"
           data-intake-tab="${tab.id}"
           aria-pressed="${selected ? 'true' : 'false'}"
-          class="flex-1 min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0 ${
+          class="flex-1 min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
             selected
               ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
               : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
           }"
         >
-          ${escapeHtml(tab.label)}
+          ${renderIcon(tab.icon, 'w-4 h-4')}
+          <span>${escapeHtml(tab.label)}</span>
         </button>
       `;
     })
@@ -1146,13 +1263,82 @@ export function renderScanShellView({ state, uiState, scannerState }) {
 
   if (uiState.intakeTab === 'scanner') {
     activePanelHtml = renderScannerPanel({ uiState, scannerState });
-  } else if (uiState.intakeTab === 'search') {
+  } else if (isUnifiedSearchActive) {
+    const unifiedQueryValue =
+      uiState.titleQuery || (uiState.intakeTab === 'isbn' ? uiState.isbnInput : '');
+    const sampleButtonsHtml = SAMPLE_ISBNS.map(
+      (item) => `
+        <button
+          type="button"
+          data-action="fill-sample-isbn"
+          data-isbn="${item.isbn}"
+          class="min-h-[34px] px-2.5 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-medium text-forest-900 dark:text-white transition-colors whitespace-nowrap"
+        >
+          ${escapeHtml(item.label)} · <span class="font-mono-tabular">${item.isbn}</span>
+        </button>
+      `
+    ).join('');
+
+    let isbnSectionHtml = '';
+    if (uiState.isbnLoading) {
+      isbnSectionHtml = `
+        <div role="status" class="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-5 text-center">
+          <p class="text-sm font-medium text-forest-900 dark:text-white">
+            Verifying ISBN checksum &amp; fetching metadata…
+          </p>
+        </div>
+      `;
+    } else if (uiState.isbnError) {
+      isbnSectionHtml = `
+        <div role="alert" class="rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-4 py-3 text-xs sm:text-sm font-medium text-rose-800 dark:text-rose-200">
+          ${escapeHtml(uiState.isbnError)}
+        </div>
+      `;
+    } else if (uiState.isbnCandidate) {
+      isbnSectionHtml = `
+        <div class="rounded-2xl bg-linen-50/70 dark:bg-night-950/60 border border-linen-200 dark:border-night-800 px-4 py-1">
+          ${renderCandidateRow({
+            candidate: uiState.isbnCandidate,
+            index: -1,
+            existingBook: uiState.isbnCandidate.isbn13
+              ? existingByIsbn.get(uiState.isbnCandidate.isbn13)
+              : undefined,
+            showRawToggle: state.settings.retainRawProviderPayloads,
+            coverAspectRatio: state.settings.coverAspectRatio,
+          })}
+        </div>
+      `;
+    } else if (uiState.isbnNotFound) {
+      isbnSectionHtml = `
+        <div class="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-forest-900 dark:text-white">
+              No external record for ISBN <span class="font-mono-tabular">${escapeHtml(
+                uiState.isbnNotFound
+              )}</span>
+            </p>
+            <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+              Valid check digit — finish adding this edition manually with the ISBN pre-filled.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-action="prefill-manual-isbn"
+            data-isbn="${escapeHtml(uiState.isbnNotFound)}"
+            class="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+          >
+            Complete Manually
+          </button>
+        </div>
+      `;
+    }
+
     let resultsAreaHtml = '';
     if (uiState.searchLoading) {
       resultsAreaHtml = `
-        <div role="status" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-6 text-center">
+        <div role="status" class="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-6 text-center">
           <p class="text-sm font-medium text-forest-900 dark:text-white">
-            Searching Google Books & Open Library…
+            Searching Google Books &amp; Open Library…
           </p>
         </div>
       `;
@@ -1178,7 +1364,7 @@ export function renderScanShellView({ state, uiState, scannerState }) {
           <span>Tap Wishlist or Add to Library (saves to Shared by default)</span>
           <span class="font-mono-tabular shrink-0">${uiState.searchCandidates.length} found</span>
         </div>
-        <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 px-4 py-1">
+        <div class="rounded-2xl bg-linen-50/70 dark:bg-night-950/60 border border-linen-200 dark:border-night-800 px-4 py-1">
           ${uiState.searchCandidates
             .map((candidate, index) =>
               renderCandidateRow({
@@ -1192,39 +1378,42 @@ export function renderScanShellView({ state, uiState, scannerState }) {
             .join('')}
         </div>
       `;
-    } else if (uiState.searchHasRun) {
+    } else if (uiState.searchHasRun && !isbnSectionHtml) {
       resultsAreaHtml = `
-        <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-6 text-center">
+        <div class="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-6 text-center">
           <p class="text-sm font-semibold text-forest-900 dark:text-white">
             No matching books found
           </p>
           <p class="text-xs text-stone-ink dark:text-slate-400 mt-1">
-            Try fewer title keywords or add the book in the Manual tab.
+            Try fewer keywords, check the ISBN digits, or add the book in Manual.
           </p>
         </div>
       `;
-    } else {
+    } else if (!isbnSectionHtml) {
       resultsAreaHtml = `
         <p class="text-xs text-stone-ink dark:text-slate-400">
-          Searches Google Books and Open Library together with automatic ISBN deduplication.
+          Type a title, topic, author, or paste a 10/13-digit ISBN — searches Google Books &amp; Open Library in parallel.
         </p>
       `;
     }
 
     activePanelHtml = `
-      <section aria-label="Search by title or author" class="space-y-3.5">
+      <section
+        aria-label="Search by title, author, keywords, or ISBN"
+        class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-3.5"
+      >
         <form id="provider-search-form" class="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
           <div class="sm:col-span-6">
             <label for="provider-title-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
-              Title or Keywords
+              Title, Keywords, or ISBN
             </label>
             <input
               id="provider-title-input"
               name="query"
               type="search"
-              value="${escapeHtml(uiState.titleQuery)}"
-              placeholder="e.g., Stellaluna, Corduroy"
-              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              value="${escapeHtml(unifiedQueryValue)}"
+              placeholder="e.g., Gruffalo, bedtime, or 9780140501742"
+              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
           <div class="sm:col-span-4">
@@ -1236,120 +1425,28 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               name="author"
               type="search"
               value="${escapeHtml(uiState.authorQuery)}"
-              placeholder="e.g., Arnold Lobel"
-              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              placeholder="e.g., Julia Donaldson"
+              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
           </div>
           <div class="sm:col-span-2 flex items-end">
             <button
               type="submit"
-              class="w-full h-12 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+              class="w-full h-12 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
             >
-              Search
+              ${renderIcon('search', 'w-4 h-4')}
+              <span>Find</span>
             </button>
           </div>
         </form>
 
-        ${resultsAreaHtml}
-      </section>
-    `;
-  } else if (uiState.intakeTab === 'isbn') {
-    const sampleButtonsHtml = SAMPLE_ISBNS.map(
-      (item) => `
-        <button
-          type="button"
-          data-action="fill-sample-isbn"
-          data-isbn="${item.isbn}"
-          class="min-h-[36px] px-2.5 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-medium text-forest-900 dark:text-white transition-colors whitespace-nowrap"
-        >
-          ${escapeHtml(item.label)} (${item.isbn})
-        </button>
-      `
-    ).join('');
-
-    let isbnResultHtml = '';
-    if (uiState.isbnLoading) {
-      isbnResultHtml = `
-        <div role="status" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-5 text-center">
-          <p class="text-sm font-medium text-forest-900 dark:text-white">
-            Verifying ISBN checksum & fetching metadata…
-          </p>
-        </div>
-      `;
-    } else if (uiState.isbnError) {
-      isbnResultHtml = `
-        <div role="alert" class="rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-4 py-3 text-xs sm:text-sm font-medium text-rose-800 dark:text-rose-200">
-          ${escapeHtml(uiState.isbnError)}
-        </div>
-      `;
-    } else if (uiState.isbnCandidate) {
-      isbnResultHtml = `
-        <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 px-4 py-1">
-          ${renderCandidateRow({
-            candidate: uiState.isbnCandidate,
-            index: -1,
-            existingBook: uiState.isbnCandidate.isbn13
-              ? existingByIsbn.get(uiState.isbnCandidate.isbn13)
-              : undefined,
-            showRawToggle: state.settings.retainRawProviderPayloads,
-            coverAspectRatio: state.settings.coverAspectRatio,
-          })}
-        </div>
-      `;
-    } else if (uiState.isbnNotFound) {
-      isbnResultHtml = `
-        <div class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <p class="text-sm font-semibold text-forest-900 dark:text-white">
-              No external record for ISBN <span class="font-mono-tabular">${escapeHtml(
-                uiState.isbnNotFound
-              )}</span>
-            </p>
-            <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Valid check digit — finish adding this edition manually with the ISBN pre-filled.
-            </p>
-          </div>
-          <button
-            type="button"
-            data-action="prefill-manual-isbn"
-            data-isbn="${escapeHtml(uiState.isbnNotFound)}"
-            class="min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
-          >
-            Complete Manually
-          </button>
-        </div>
-      `;
-    }
-
-    activePanelHtml = `
-      <section aria-label="Lookup by ISBN" class="space-y-3.5">
-        <form id="isbn-lookup-form" class="flex flex-col sm:flex-row gap-2.5">
-          <div class="flex-1">
-            <label for="isbn-lookup-input" class="sr-only">ISBN-13 or ISBN-10</label>
-            <input
-              id="isbn-lookup-input"
-              name="isbn"
-              type="text"
-              inputmode="text"
-              value="${escapeHtml(uiState.isbnInput)}"
-              placeholder="Enter ISBN (e.g., 978-0-14-050174-2)"
-              class="w-full h-12 px-4 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
-          </div>
-          <button
-            type="submit"
-            class="h-12 px-5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap shrink-0"
-          >
-            Look Up ISBN
-          </button>
-        </form>
-
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="text-xs text-stone-ink dark:text-slate-400">Sample ISBNs:</span>
+        <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+          <span class="text-xs text-stone-ink dark:text-slate-400">Quick ISBNs:</span>
           ${sampleButtonsHtml}
         </div>
 
-        ${isbnResultHtml}
+        ${isbnSectionHtml}
+        ${resultsAreaHtml}
       </section>
     `;
   } else {
@@ -1655,18 +1752,20 @@ export function renderScanShellView({ state, uiState, scannerState }) {
 
   return `
     <div class="space-y-3.5">
-      <div>
-        <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-          1. Scan or find · 2. Save to Library or Wishlist
-        </p>
-        <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
-          Scan & Add Books
-        </h1>
-      </div>
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div>
+          <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
+            Scan & Add Books
+          </h1>
+          <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+            Optical barcode, printed ISBN, cover OCR, or parallel catalog search.
+          </p>
+        </div>
 
-      <!-- Segmented Intake Method Switcher -->
-      <div class="flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-700 max-w-xl">
-        ${intakeTabsHtml}
+        <!-- 3-Mode Studio Switcher: Camera | Search & ISBN | Manual -->
+        <div class="flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-700 sm:min-w-[340px]">
+          ${intakeTabsHtml}
+        </div>
       </div>
 
       ${scanHandoffBannerHtml}
