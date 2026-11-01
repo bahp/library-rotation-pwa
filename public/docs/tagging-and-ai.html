@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Local Tagging Rules &amp; AI Enrichment Adapters · Book Rotation Docs</title>
+    <link rel="icon" type="image/svg+xml" href="../icon.svg" />
+    <link rel="stylesheet" href="./docs.css" />
+  </head>
+  <body>
+    <header class="docs-topbar">
+      <div class="docs-topbar-inner">
+        <a class="docs-brand" href="./index.html">Book Rotation · Documentation</a>
+        <nav class="docs-nav" aria-label="Documentation sections">
+          <a href="./index.html">User Guide</a>
+          <a href="./configuration.html">Google Books &amp; Proxy</a>
+          <a href="./tagging-and-ai.html" aria-current="page">Local Tag Rules &amp; AI</a>
+          <a href="./architecture-and-providers.html">Developer Architecture</a>
+        </nav>
+        <a class="docs-back-app" href="../#/settings">&larr; Back to App</a>
+      </div>
+    </header>
+
+    <div class="docs-shell">
+      <aside class="docs-toc" aria-label="On this page">
+        <p class="docs-toc-title">On This Page</p>
+        <ul>
+          <li><a href="#what-are-local-rules">1. What Are Local Tag Rules?</a></li>
+          <li><a href="#where-rules-live">2. Exact Source Files</a></li>
+          <li><a href="#how-to-edit-rules">3. Adding / Editing Topic Rules</a></li>
+          <li><a href="#stage-and-age">4. Stage &amp; Age Band Cues</a></li>
+          <li><a href="#ai-adapters">5. Adding a New LLM / AI Adapter</a></li>
+        </ul>
+      </aside>
+
+      <main class="docs-article">
+        <p class="docs-kicker">Developer &amp; Customization Guide</p>
+        <h1>Local Tagging Rules &amp; Pluggable LLM / AI Adapters</h1>
+        <p>
+          Every book added to Book Rotation passes through a two-tier enrichment pipeline managed by <code>TaggingService</code>:
+          <strong>(1) Deterministic Local Rules</strong> (fast, offline, multilingual, enabled by default) and <strong>(2) Optional AI Enrichment Adapters</strong> (strictly opt-in, falling back cleanly to local rules whenever offline).
+        </p>
+
+        <h2 id="what-are-local-rules">1. What Are the Local Tagging Rules &amp; How Do They Work?</h2>
+        <p>
+          Online book catalogs often return noisy BISAC categories such as <code>"Juvenile Fiction / General"</code> or <code>"Ficción Infantil"</code> instead of child-meaningful themes like <code>bedtime</code>, <code>dinosaurs</code>, <code>emotions</code>, or <code>autumn</code>. The local rule engine runs completely offline in &lt;1 ms per book:
+        </p>
+        <ol>
+          <li><strong>Diacritic Normalization (<code>stripDiacritics</code>):</strong> Converts accented characters (<code>á &rarr; a</code>, <code>ñ &rarr; n</code>, <code>ù &rarr; u</code>) so patterns match English, Spanish, Italian, and French titles/synopses uniformly.</li>
+          <li><strong>Catalog Noise Stripping (<code>NOISE_WORDS</code>):</strong> Removes generic labels like <code>juvenile fiction</code>, <code>picture books</code>, <code>cuentos infantiles</code>, and <code>albo illustrato</code>.</li>
+          <li><strong>Curated Topic Matching (<code>TAXONOMY_RULES</code>):</strong> Tests combined title + subtitle + summary + provider subjects against word-bounded regular expressions to emit normalized lowercase tags (up to 8 clean tags per book).</li>
+          <li><strong>Age &amp; Stage Refinement (<code>inferStageAndAgeCues</code>):</strong> Detects explicit cues like <em>"board book / cartonato"</em>, <em>"level 1 reader / primeros lectores"</em>, or <em>"ages 3–5"</em>, plus page-count heuristics, and generates a human-readable <code>readingLevelHint</code>.</li>
+        </ol>
+
+        <h2 id="where-rules-live">2. Where Do the Tagging Files Live?</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>File Path</th>
+              <th>Responsibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>src/features/tagging/rule-tagger.js</code></td>
+              <td>Contains <code>NOISE_WORDS</code>, <code>TAXONOMY_RULES</code>, <code>inferStageAndAgeCues()</code>, <code>buildReadingLevelHint()</code>, and <code>enrichBookWithLocalRules()</code>.</td>
+            </tr>
+            <tr>
+              <td><code>src/features/tagging/ai-tag-adapter.js</code></td>
+              <td>Defines the <code>AiTagEnrichmentAdapter</code> interface plus the built-in <code>browser-prompt-api</code> (on-device <code>window.ai</code>) and <code>custom-endpoint</code> (HTTPS/localhost webhook) adapters.</td>
+            </tr>
+            <tr>
+              <td><code>src/features/tagging/tagging-service.js</code></td>
+              <td>Orchestrates Local Rules + optional AI enrichment, timeout budgets, adapter registry, and safe fallbacks.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="how-to-edit-rules">3. How to Add or Change Local Topic Rules</h2>
+        <p>
+          Open <code>src/features/tagging/rule-tagger.js</code> and locate the exported <code>TAXONOMY_RULES</code> array. Because text is passed through <code>stripDiacritics()</code> before matching, write all regex keywords in plain ASCII lowercase:
+        </p>
+<pre><code>// src/features/tagging/rule-tagger.js
+export const TAXONOMY_RULES = [
+  // Add your custom family topic near the top for priority:
+  {
+    tag: 'music',
+    pattern:
+      /\b(music|musical|orchestra|piano|guitar|violin|drums?|singing|songs?|lullab(?:y|ies)|musica|canciones|canzoni|strumenti)\b/i,
+  },
+  {
+    tag: 'gardening',
+    pattern:
+      /\b(garden|gardening|seeds?|compost|vegetables?|orchard|huerto|jardin|semillas|orto|giardino)\b/i,
+  },
+  // ...existing rules (christmas, winter, animals, dinosaurs, trucks, emotions, bedtime, etc.)
+];</code></pre>
+        <div class="callout">
+          <strong>Applying Updated Rules to Existing Books:</strong> After editing <code>TAXONOMY_RULES</code>, open <strong>Settings &rarr; Tagging &amp; Optional AI Enrichment</strong> and tap <strong>Re-Enrich (N books)</strong>. Every book in your library will immediately pick up your new topic rules while preserving custom tags you added by hand!
+        </div>
+
+        <h2 id="stage-and-age">4. Customizing Reading Stage &amp; Age Heuristics</h2>
+        <p>
+          In the same file (<code>src/features/tagging/rule-tagger.js</code>), inspect <code>inferStageAndAgeCues(input, normalizedCorpus)</code> to adjust how page counts and format keywords map to <code>board-book</code> (ages 0–3), <code>picture-book</code> (ages 2–6), <code>early-reader</code> (ages 5–8), and <code>chapter-book</code> (ages 7–12). Run <code>npm test</code> after making changes to verify all tagging assertions pass.
+        </p>
+
+        <h2 id="ai-adapters">5. Adding a New LLM / AI Enrichment Adapter</h2>
+        <p>
+          There are two ways to connect an LLM (such as Gemini, Ollama, or OpenAI via your own server proxy) without ever putting API keys in browser code:
+        </p>
+
+        <h3>Approach A — Zero Code Changes (Use Built-in Custom Proxy Webhook)</h3>
+        <p>
+          In <strong>Settings &rarr; Tagging &amp; Optional AI Enrichment</strong>, enable <em>Optional AI-Assisted Tag Enrichment</em>, select <strong>Custom Keyless Proxy / Local Bridge</strong>, and point it at a local bridge (e.g. <code>http://localhost:8787/enrich</code>) or server route (<code>/api/enrich-book</code>) that accepts a <code>POST</code> JSON body (<code>{ book: TaggingBookInput }</code>) and returns:
+        </p>
+<pre><code>{
+  "tags": ["bedtime", "bears", "friendship", "winter"],
+  "ageMin": 2,
+  "ageMax": 5,
+  "readingStage": "picture-book",
+  "readingLevelHint": "Ages 2–5 · Picture book · Gentle rhythmic read-aloud"
+}</code></pre>
+
+        <h3>Approach B — Registering a First-Class Adapter in Code</h3>
+        <p>
+          To add a dedicated selectable card in Settings, implement the <code>AiTagEnrichmentAdapter</code> contract in <code>src/features/tagging/ai-tag-adapter.js</code> (or a new module) and register it on <code>TaggingService</code>:
+        </p>
+<pre><code>// Example: src/features/tagging/ollama-local-adapter.js
+import { parseLooseJsonObject } from './ai-tag-adapter.js';
+import { sanitizeTagList, VALID_READING_STAGES } from './rule-tagger.js';
+
+/** @returns {import('./ai-tag-adapter.js').AiTagEnrichmentAdapter} */
+export function createLocalOllamaAdapter(endpoint = 'http://localhost:11434/api/generate') {
+  return {
+    id: 'local-ollama',
+    label: 'Local Ollama (Llama / Gemma)',
+    transportKind: 'on-device',
+    privacyNote: 'Runs locally on your machine via localhost:11434; zero cloud traffic.',
+
+    checkAvailability() {
+      const isLocal =
+        typeof location === 'undefined' ||
+        location.hostname === 'localhost' ||
+        location.hostname === '127.0.0.1';
+      return isLocal
+        ? { available: true, reason: 'Ready to query local Ollama daemon on port 11434.' }
+        : { available: false, reason: 'Only available when running on localhost.' };
+    },
+
+    async enrichBook(input, { signal }) {
+      const prompt = [
+        'Return strict JSON {"tags":[...],"ageMin":2,"ageMax":6,"readingStage":"picture-book","readingLevelHint":"..."}',
+        `Title: ${input.title}`,
+        `Authors: ${(input.authors || []).join(', ')}`,
+        `Summary: ${input.summary || ''}`,
+      ].join('\n');
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'gemma2:2b', prompt, stream: false, format: 'json' }),
+        signal,
+      });
+      if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+      const data = await res.json();
+      const parsed = parseLooseJsonObject(data.response || '{}');
+
+      return {
+        tags: sanitizeTagList(Array.isArray(parsed.tags) ? parsed.tags : [], 8),
+        ageMin: typeof parsed.ageMin === 'number' ? parsed.ageMin : undefined,
+        ageMax: typeof parsed.ageMax === 'number' ? parsed.ageMax : undefined,
+        readingStage: VALID_READING_STAGES.has(String(parsed.readingStage))
+          ? /** @type {any} */ (parsed.readingStage)
+          : undefined,
+        readingLevelHint:
+          typeof parsed.readingLevelHint === 'string' ? parsed.readingLevelHint : undefined,
+      };
+    },
+  };
+}</code></pre>
+        <p>Then register your adapter during store/service initialization:</p>
+<pre><code>// Inside createBuiltInAiAdapters() in src/features/tagging/ai-tag-adapter.js
+// or at runtime via store.getTaggingService().registerAdapter(createLocalOllamaAdapter());</code></pre>
+
+        <footer class="docs-footer">
+          <a href="./configuration.html">&larr; Google Books &amp; Proxy Setup</a>
+          <a href="./architecture-and-providers.html">Next: Architecture &amp; Catalog Providers &rarr;</a>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>

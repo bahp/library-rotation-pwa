@@ -28,6 +28,8 @@
   }
 
   html {
+    min-height: 100vh;
+    min-height: 100dvh;
     font-family: var(--font-sans);
     background-color: var(--color-ivory);
     -webkit-tap-highlight-color: transparent;
@@ -37,6 +39,12 @@
 
   html.dark {
     background-color: var(--color-night-900);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   /* Prevent iOS Safari & Android Chrome auto-zoom when focusing text inputs (<16px triggers zoom) */
@@ -72,7 +80,14 @@
   }
 }
 
-/* Safe area padding & height for notched iOS/Android standalone PWAs */
+/* Safe area padding & height for notched iOS/Android standalone PWAs (viewport-fit=cover) */
+:root {
+  --lr-safe-top: env(safe-area-inset-top, 0px);
+  --lr-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --lr-safe-left: env(safe-area-inset-left, 0px);
+  --lr-safe-right: env(safe-area-inset-right, 0px);
+}
+
 .h-safe-top {
   height: env(safe-area-inset-top, 0px);
 }
@@ -81,8 +96,13 @@
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+.px-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
 .pb-safe {
-  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 .mb-safe-nav {

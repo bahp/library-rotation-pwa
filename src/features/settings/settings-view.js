@@ -13,7 +13,9 @@ import {
   formatProfileAgeLabel,
   formatReadingStage,
 } from '../../types/models.js';
+import { APP_DOCS_LINKS, APP_VERSION } from '../../version.js';
 import { renderAvatarBadge } from '../../ui/components/profile-sheets.js';
+import { GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL } from '../../ui/components/welcome-setup-modal.js';
 import { renderIcon } from '../../ui/icons.js';
 
 /**
@@ -720,7 +722,7 @@ export function renderSettingsView({
               <div class="pt-2.5 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
                 <p>
                   <strong class="text-forest-900 dark:text-white">1. Enable &amp; restrict your Google credential:</strong>
-                  In Google Cloud Console &rarr; <strong>APIs &amp; Services &rarr; Library</strong>, enable <strong>Books API</strong>, create a credential under <strong>Credentials</strong>, and restrict it strictly to <strong>Books API</strong>.
+                  In <a href="${escapeHtml(GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL)}" target="_blank" rel="noopener noreferrer" class="font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2">Google Cloud Console</a> &rarr; <strong>APIs &amp; Services &rarr; Library</strong>, enable <strong>Books API</strong>, create a credential under <strong>Credentials</strong>, and restrict it strictly to <strong>Books API</strong>.
                 </p>
                 <p>
                   <strong class="text-forest-900 dark:text-white">2. Server / Cloud Run / Local setup:</strong>
@@ -743,6 +745,23 @@ export function renderSettingsView({
     });
   }
 };</pre>
+                <div class="pt-1 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    data-action="open-welcome-books-modal"
+                    class="min-h-[36px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors"
+                  >
+                    Open Startup Setup Prompt
+                  </button>
+                  <a
+                    href="${escapeHtml(APP_DOCS_LINKS.configuration)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white"
+                  >
+                    Read Full Google Books &amp; GitHub Pages Guide &nearr;
+                  </a>
+                </div>
               </div>
             </details>
           </div>
@@ -901,6 +920,107 @@ export function renderSettingsView({
           >
             Reset Sample Data
           </button>
+        </div>
+      </section>
+
+      <!-- About the App & User / Developer Documentation -->
+      <section
+        aria-labelledby="about-app-heading"
+        data-about-app-section="true"
+        class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-3.5"
+      >
+        <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-linen-200/80 dark:border-night-800">
+          <div>
+            <h2 id="about-app-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
+              About Book Rotation
+            </h2>
+            <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+              Offline-first family library catalog, shelf rotation planner, and reading games.
+            </p>
+          </div>
+          <span class="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 whitespace-nowrap">
+            Version <strong class="font-semibold text-forest-900 dark:text-white">${escapeHtml(APP_VERSION)}</strong>
+          </span>
+        </div>
+
+        <p class="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+          All reader profiles, shelf rotations, and book records live privately in your device’s browser storage (${escapeHtml(
+            storageBackend
+          )}). Open the HTML guides below for setup steps, local tagging rule customization, and developer extension APIs.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <a
+            href="${escapeHtml(APP_DOCS_LINKS.overview)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-docs-link="overview"
+            class="rounded-xl p-3 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
+          >
+            <div class="min-w-0">
+              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                User Guide &amp; Walkthrough
+              </p>
+              <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+                Scanning, profiles, rotations, Swap Day &amp; Play
+              </p>
+            </div>
+            <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
+          </a>
+
+          <a
+            href="${escapeHtml(APP_DOCS_LINKS.configuration)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-docs-link="configuration"
+            class="rounded-xl p-3 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
+          >
+            <div class="min-w-0">
+              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                Google Books &amp; Proxy Config
+              </p>
+              <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+                Local .env, Cloud Console &amp; GitHub Pages Worker
+              </p>
+            </div>
+            <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
+          </a>
+
+          <a
+            href="${escapeHtml(APP_DOCS_LINKS.taggingAndAi)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-docs-link="tagging-and-ai"
+            class="rounded-xl p-3 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
+          >
+            <div class="min-w-0">
+              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                Local Tag Rules &amp; AI Adapters
+              </p>
+              <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+                Editing rule-tagger.js &amp; custom LLM enrichment
+              </p>
+            </div>
+            <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
+          </a>
+
+          <a
+            href="${escapeHtml(APP_DOCS_LINKS.architectureAndProviders)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-docs-link="architecture-and-providers"
+            class="rounded-xl p-3 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
+          >
+            <div class="min-w-0">
+              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                Developer Architecture &amp; Providers
+              </p>
+              <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+                Codebase map &amp; adding a book MetadataProvider
+              </p>
+            </div>
+            <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
+          </a>
         </div>
       </section>
     </div>

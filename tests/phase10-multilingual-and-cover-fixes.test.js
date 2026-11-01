@@ -83,8 +83,8 @@ describe('Phase 10: 1:1 Default Covers, Flush Sticky App-Icon Header, ISBN Cover
 
     assert.match(
       shellHtml,
-      /<header[^>]*class="[^"]*\bsticky\s+top-0\b[^"]*\bborder-b\b/,
-      'Top header must stick flush at top-0 and span down to its bottom border'
+      /<header[^>]*class="[^"]*\b(?:fixed|sticky)\s+top-0\b[^"]*\bborder-b\b/,
+      'Top header must pin flush at top-0 and span down to its bottom border'
     );
     assert.doesNotMatch(
       shellHtml,

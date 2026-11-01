@@ -26,6 +26,10 @@ import { extractCoverColorFromUrl } from './features/catalog/cover-color-extract
 import { compressImageFileToDataUrl } from './features/catalog/cover-image-utils.js';
 import { createScannerController } from './features/scan/scanner-controller.js';
 import { renderAppShell } from './ui/components/app-shell.js';
+import {
+  setWelcomeBooksModalDismissed,
+  shouldAutoShowWelcomeBooksModal,
+} from './ui/components/welcome-setup-modal.js';
 import { patchRootHtml } from './ui/dom-patch.js';
 import { renderHomeView } from './features/home/home-view.js';
 import {
@@ -175,6 +179,7 @@ const uiState = {
     isProfileFormSheetOpen: false,
     editingProfileId: /** @type {string | null} */ (null),
     previewBirthDate: /** @type {string | undefined} */ (undefined),
+    isWelcomeModalOpen: false,
   },
   /** @type {import('./features/rotations/rotations-view.js').RotationEditorUiState} */
   rotationEditor: {
@@ -241,6 +246,25 @@ const PRESERVED_INPUT_IDS = new Set([
 ]);
 
 /**
+ * Evaluates whether the first-run Google Books welcome modal should auto-open once status resolves.
+ */
+function maybeAutoOpenWelcomeBooksModal() {
+  if (!store.isInitialized()) return;
+  const googleEnabled = store
+    .getState()
+    .settings.enabledMetadataProviders.includes('google-books');
+  if (
+    shouldAutoShowWelcomeBooksModal({
+      googleBooksKeyStatus: uiState.settingsUi.googleBooksKeyStatus,
+      deviceBooksProxyUrl: uiState.settingsUi.deviceBooksProxyUrl,
+      googleBooksEnabled: googleEnabled,
+    })
+  ) {
+    uiState.shellUi.isWelcomeModalOpen = true;
+  }
+}
+
+/**
  * Queries the leak-free server status endpoint (`/api/books/status`) to display whether
  * `GOOGLE_BOOKS_API_KEY` is configured on the server without ever exposing or storing the secret.
  */
@@ -256,6 +280,7 @@ async function refreshGoogleBooksKeyStatus() {
     const contentType = res.headers?.get?.('content-type') || '';
     if (!res.ok || !contentType.includes('application/json')) {
       uiState.settingsUi.googleBooksKeyStatus = 'static-host';
+      maybeAutoOpenWelcomeBooksModal();
       render();
       return;
     }
@@ -266,10 +291,12 @@ async function refreshGoogleBooksKeyStatus() {
     } else {
       uiState.settingsUi.googleBooksKeyStatus = 'static-host';
     }
+    maybeAutoOpenWelcomeBooksModal();
     render();
   } catch (_) {
     if (uiState.settingsUi.googleBooksKeyStatus === 'unknown') {
       uiState.settingsUi.googleBooksKeyStatus = 'static-host';
+      maybeAutoOpenWelcomeBooksModal();
       render();
     }
   } finally {
@@ -583,7 +610,10 @@ function render() {
     state,
     toast: store.getToast(),
     pwaStatus: pwa.getStatus(),
-    shellUiState: uiState.shellUi,
+    shellUiState: {
+      ...uiState.shellUi,
+      googleBooksKeyStatus: uiState.settingsUi.googleBooksKeyStatus,
+    },
     contentHtml,
   });
 
@@ -968,6 +998,14 @@ function bindEvents() {
         });
         return;
       }
+      if (uiState.shellUi.isWelcomeModalOpen) {
+        event.preventDefault();
+        setWelcomeBooksModalDismissed(true);
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isWelcomeModalOpen = false;
+        });
+        return;
+      }
       if (pwa.getStatus().showIosInstructions) {
         event.preventDefault();
         closeSheetWithMotion(() => {
@@ -1053,6 +1091,13 @@ function bindEvents() {
         });
         return;
       }
+      if (backdropAction === 'close-welcome-books-modal') {
+        setWelcomeBooksModalDismissed(true);
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isWelcomeModalOpen = false;
+        });
+        return;
+      }
       if (backdropAction === 'close-ios-guide') {
         closeSheetWithMotion(() => {
           pwa.closeIosGuide();
@@ -1078,6 +1123,28 @@ function bindEvents() {
       case 'dismiss-toast':
         store.dismissToast();
         break;
+      case 'dismiss-welcome-books-modal': {
+        setWelcomeBooksModalDismissed(true);
+        closeSheetWithMotion(() => {
+          uiState.shellUi.isWelcomeModalOpen = false;
+        });
+        break;
+      }
+      case 'open-settings-from-welcome': {
+        setWelcomeBooksModalDismissed(true);
+        uiState.shellUi.isWelcomeModalOpen = false;
+        uiState.settingsUi.isGoogleKeyGuideOpen = true;
+        router.navigate('settings');
+        render();
+        break;
+      }
+      case 'open-welcome-books-modal': {
+        rememberModalTrigger(target);
+        uiState.shellUi.isWelcomeModalOpen = true;
+        render();
+        focusActiveDialogControl();
+        break;
+      }
       case 'close-ios-guide':
         closeSheetWithMotion(() => {
           pwa.closeIosGuide();

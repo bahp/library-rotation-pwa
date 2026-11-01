@@ -398,7 +398,7 @@ describe('Phase 17 — Phone PWA Proxy, Pro Scan Redesign + Flashlight, Wide Fil
     assert.equal(indicators.length, 1, 'Exactly 1 bottom tab must show the top active indicator bar');
     assert.match(
       navHtml,
-      /href="#\/library"[\s\S]*?aria-current="page"[\s\S]*?data-nav-active-indicator="true"[\s\S]*?bg-forest-900 text-ivory[\s\S]*?font-bold/
+      /href="#\/library"[\s\S]*?aria-current="page"[\s\S]*?data-nav-active-indicator="true"[\s\S]*?text-forest-700 dark:text-\[#5ED3DA\][\s\S]*?stroke-width="2\.35"[\s\S]*?font-bold/
     );
 
     // Active center `scan` tab also shows top active indicator + active scan orb styling

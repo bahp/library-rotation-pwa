@@ -278,14 +278,38 @@ export function createScannerController(options = {}) {
 
   /**
    * Attaches the active `MediaStream` to the rendered `#scanner-live-video` element after DOM updates.
+   * Explicitly initializes `.muted`, `.defaultMuted`, `.playsInline`, and `.autoplay` IDL properties
+   * before assigning `srcObject` so iOS Safari / WebKit and Chromium never reject programmatic `.play()`.
+   *
    * @param {HTMLVideoElement | null} videoEl
    */
   function attachVideoElement(videoEl) {
     if (!videoEl || !activeStream) return;
-    if (boundVideoEl === videoEl && videoEl.srcObject === activeStream) return;
-    boundVideoEl = videoEl;
-    videoEl.srcObject = activeStream;
-    videoEl.play().catch(() => {});
+
+    videoEl.defaultMuted = true;
+    videoEl.muted = true;
+    videoEl.playsInline = true;
+    videoEl.autoplay = true;
+    if (typeof videoEl.setAttribute === 'function') {
+      videoEl.setAttribute('muted', '');
+      videoEl.setAttribute('playsinline', '');
+      videoEl.setAttribute('webkit-playsinline', '');
+      videoEl.setAttribute('autoplay', '');
+    }
+
+    if (boundVideoEl !== videoEl || videoEl.srcObject !== activeStream) {
+      boundVideoEl = videoEl;
+      videoEl.srcObject = activeStream;
+      videoEl.onloadedmetadata = () => {
+        if (typeof videoEl.play === 'function') {
+          videoEl.play().catch(() => {});
+        }
+      };
+    }
+
+    if (videoEl.paused !== false && typeof videoEl.play === 'function') {
+      videoEl.play().catch(() => {});
+    }
   }
 
   /**
@@ -440,12 +464,27 @@ export function createScannerController(options = {}) {
 
   /**
    * Requests rear camera (`environment`) with graceful fallback to any available camera.
+   * Invokes `getUserMedia` synchronously within the user tap gesture (without awaiting async capability probes first)
+   * so iOS Safari PWAs and mobile browsers always grant and display the live camera stream reliably.
    */
   async function startCamera() {
-    await initSupport();
-    stopCamera();
+    if (!state.support) {
+      initSupport().catch(() => {});
+    }
 
-    if (!state.support?.cameraApi) {
+    if (activeStream || boundVideoEl || pollTimer) {
+      stopCamera();
+    }
+
+    const secureOk = typeof window === 'undefined' || window.isSecureContext !== false;
+    const hasGetUserMedia = Boolean(
+      secureOk &&
+        typeof navigator !== 'undefined' &&
+        navigator.mediaDevices &&
+        typeof navigator.mediaDevices.getUserMedia === 'function'
+    );
+
+    if (!hasGetUserMedia) {
       state.phase = 'error';
       state.errorMessage = describeCameraError(new Error('Camera API unavailable in this browser.'));
       emit();
@@ -473,12 +512,19 @@ export function createScannerController(options = {}) {
       try {
         activeStream = await navigator.mediaDevices.getUserMedia(preferredConstraints);
       } catch (firstErr) {
-        // Fallback for desktop webcams that reject facingMode/resolution hints
-        const errName = firstErr && typeof firstErr === 'object' && 'name' in firstErr ? firstErr.name : '';
+        const errName =
+          firstErr && typeof firstErr === 'object' && 'name' in firstErr ? String(firstErr.name) : '';
         if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
           throw firstErr;
         }
-        activeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        try {
+          activeStream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: state.facingMode },
+          });
+        } catch (_) {
+          activeStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
       }
 
       const primaryVideoTrack =
@@ -499,6 +545,14 @@ export function createScannerController(options = {}) {
           : state.mode === 'isbn-ocr'
             ? 'Hold steady over the printed "ISBN 978-..." line…'
             : 'Center the book cover inside the 3:4 frame and tap Capture Cover…';
+
+      if (typeof document !== 'undefined') {
+        const liveVideo = document.getElementById('scanner-live-video');
+        if (liveVideo) {
+          attachVideoElement(/** @type {HTMLVideoElement} */ (liveVideo));
+        }
+      }
+
       restartPollingLoop();
       emit();
     } catch (err) {

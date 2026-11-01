@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>User Guide &amp; Overview · Book Rotation Docs</title>
+    <link rel="icon" type="image/svg+xml" href="../icon.svg" />
+    <link rel="stylesheet" href="./docs.css" />
+  </head>
+  <body>
+    <header class="docs-topbar">
+      <div class="docs-topbar-inner">
+        <a class="docs-brand" href="./index.html">Book Rotation · Documentation</a>
+        <nav class="docs-nav" aria-label="Documentation sections">
+          <a href="./index.html" aria-current="page">User Guide</a>
+          <a href="./configuration.html">Google Books &amp; Proxy</a>
+          <a href="./tagging-and-ai.html">Local Tag Rules &amp; AI</a>
+          <a href="./architecture-and-providers.html">Developer Architecture</a>
+        </nav>
+        <a class="docs-back-app" href="../#/settings">&larr; Back to App</a>
+      </div>
+    </header>
+
+    <div class="docs-shell">
+      <aside class="docs-toc" aria-label="On this page">
+        <p class="docs-toc-title">On This Page</p>
+        <ul>
+          <li><a href="#quickstart">1. Quickstart &amp; PWA Install</a></li>
+          <li><a href="#profiles">2. Reader Profiles &amp; DOB Ages</a></li>
+          <li><a href="#scanning">3. Scanning &amp; Adding Books</a></li>
+          <li><a href="#library">4. Family Library &amp; Filters</a></li>
+          <li><a href="#rotations">5. Rotations &amp; Swap Day</a></li>
+          <li><a href="#play">6. Play Tools &amp; Backups</a></li>
+        </ul>
+      </aside>
+
+      <main class="docs-article">
+        <p class="docs-kicker">User &amp; Maintainer Manual · v1.18.0</p>
+        <h1>Book Rotation User Guide &amp; Overview</h1>
+        <p>
+          <strong>Book Rotation</strong> is a privacy-first, offline-capable Progressive Web App (PWA) built for families to catalog children’s books, track shared or per-child ownership, plan fresh shelf rotations with automatic cooldowns, and turn reading into active play.
+        </p>
+
+        <div class="card-grid">
+          <a class="doc-card" href="./configuration.html">
+            <h3>Google Books &amp; Proxy Setup &rarr;</h3>
+            <p>Configure a free Google Cloud Console credential safely via <code>.env</code> or a personal GitHub Pages phone proxy.</p>
+          </a>
+          <a class="doc-card" href="./tagging-and-ai.html">
+            <h3>Local Tag Rules &amp; AI Adapters &rarr;</h3>
+            <p>Learn where offline topic rules live (<code>rule-tagger.js</code>), how to edit them, and how to plug in custom LLMs.</p>
+          </a>
+          <a class="doc-card" href="./architecture-and-providers.html">
+            <h3>Architecture &amp; Providers &rarr;</h3>
+            <p>Explore the codebase layout and add new book catalog <code>MetadataProvider</code> integrations.</p>
+          </a>
+        </div>
+
+        <h2 id="quickstart">1. Installing on iPhone, iPad, or Android</h2>
+        <ul>
+          <li><strong>iPhone / iPad (Safari):</strong> Open the app in Safari &rarr; tap <strong>Share</strong> &rarr; tap <strong>Add to Home Screen</strong>. If you updated from an older build and see a cached status bar style, remove the icon from your Home Screen once and re-add it so iOS refreshes <code>viewport-fit=cover</code> and <code>black-translucent</code> edge-to-edge mode.</li>
+          <li><strong>Android / Desktop Chrome:</strong> Open <strong>Settings</strong> (gear icon at top right) &rarr; tap <strong>Install App</strong> inside the <em>Installable Phone App (PWA)</em> card.</li>
+          <li><strong>100% Local Storage:</strong> Your books, custom cover photos, profiles, and rotation history are stored locally in IndexedDB on your device. Nothing leaves your phone unless you search an external book catalog or opt into an AI enrichment webhook.</li>
+        </ul>
+
+        <h2 id="profiles">2. Reader Profiles &amp; Automatic Age Progression</h2>
+        <p>
+          Tap the active reader chip in the top-right header bar to switch children or add a new profile. When you enter a child’s <strong>Date of Birth</strong>:
+        </p>
+        <ul>
+          <li>Ages update automatically (in months for babies under 24 months, and in years thereafter).</li>
+          <li>Default reading stages (<em>Board Book</em>, <em>Picture Book</em>, <em>Early Reader</em>, <em>Chapter Book</em>) adapt to the child’s age and guide smart shelf rotation scoring.</li>
+        </ul>
+
+        <h2 id="scanning">3. Scanning &amp; Adding Books</h2>
+        <p>Open the center <strong>Scan</strong> tab to add books using three studio modes:</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Intake Tab</th>
+              <th>What It Does</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Camera</strong></td>
+              <td>
+                Tap directly on the viewfinder frame (or <em>Start Camera</em>) to stream your rear camera. Switch between three optical frame shapes:
+                <strong>Barcode / QR</strong> (wide EAN-13 / ISBN-13 box), <strong>ISBN Text</strong> (narrow OCR strip for printed <code>ISBN 978-...</code> lines), and <strong>Cover</strong> (3:4 jacket frame with OCR title/ISBN extraction). Includes live <strong>Flashlight</strong> (rear torch) and <strong>Upload Photo</strong> fallback.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Search &amp; ISBN</strong></td>
+              <td>
+                Single smart search bar: type any book title, keyword, author, or paste a 10/13-digit ISBN. Checksum-verified ISBNs jump straight to exact edition lookup; text queries search enabled providers in parallel.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Manual</strong></td>
+              <td>
+                Full form for handmade, vintage, or unlisted editions—complete with one-tap offline <strong>Suggest Topics</strong> from the title.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          By default, scanned books save to <strong>Shared</strong> ownership as <strong>Owned</strong> so all siblings can enjoy them, or you can assign specific readers, mark a ♥ favorite, or save to your <strong>Wishlist</strong> right in the Found Book sheet.
+        </p>
+
+        <h2 id="library">4. Family Library, Filters &amp; Book Inspector</h2>
+        <ul>
+          <li><strong>Quick Status Icons &amp; Filter Drawer:</strong> Filter instantaneously by <em>All</em>, <em>Owned</em>, <em>Wishlist</em> (bookmark icon), or <em>Loved</em> (heart icon), or open the slide-in <strong>Filters</strong> drawer to combine Format (Board Book, Paperback, Hardcover), Themes, Condition, and Multi-Reader Ownership.</li>
+          <li><strong>Book Inspector Card:</strong> Tap any book to view its cover-tinted detail sheet, see whether metadata came from <strong>Google Books</strong>, <strong>Open Library</strong>, or both, replace cover art from camera/gallery/online search, log reads, or edit topics.</li>
+        </ul>
+
+        <h2 id="rotations">5. Shelf Rotations &amp; Library Swap Day</h2>
+        <p>
+          Montessori and early-literacy research shows children engage far more deeply with 5–8 curated books on a forward-facing shelf than 80 crowded spines. In <strong>Rotations</strong>:
+        </p>
+        <ul>
+          <li><strong>Smart Rotation Builder:</strong> Automatically scores owned books by age fit, reading stage, favorite topics, format variety, and rest cooldowns so recently shelved books rest before reappearing.</li>
+          <li><strong>Library Swap Day Cadence:</strong> Choose a rotation cycle (e.g., every 7, 10, 14, 21, or 30 days). Both <strong>Home</strong> and <strong>Rotations</strong> show when the shelf was set, the target Swap Day date, a visual progress bar, and a gentle reminder banner when it is time to refresh the shelf.</li>
+        </ul>
+
+        <h2 id="play">6. Play Mode &amp; Portable JSON Backups</h2>
+        <ul>
+          <li><strong>Storytime Picker:</strong> Ends bedtime negotiation by randomly dealing 1–4 books from the Active Shelf (or Owned Library), optionally filtered by a bedtime topic such as <em>bears</em>, <em>space</em>, or <em>winter</em>.</li>
+          <li><strong>Book Hunt ("Find It!"):</strong> Gives toddlers an energetic physical shelf treasure hunt clue (by cover color, topic, or title peek) to find and bring back from their real bookcase.</li>
+          <li><strong>Export / Import JSON:</strong> In <strong>Settings &rarr; Backup &amp; Portability</strong>, export your entire catalog and rotation history as a portable <code>.json</code> file anytime.</li>
+        </ul>
+
+        <footer class="docs-footer">
+          <span>Book Rotation v1.18.0 · Offline-First Family Library PWA</span>
+          <a href="./configuration.html">Next: Google Books &amp; Proxy Configuration &rarr;</a>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>

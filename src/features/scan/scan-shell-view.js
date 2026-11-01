@@ -823,8 +823,8 @@ function renderScannerPanel({ uiState, scannerState }) {
   const frameBorderClasses = isLocked
     ? 'border-emerald-400 bg-emerald-950/30 shadow-[0_0_0_4px_rgba(16,185,129,0.28)]'
     : isActiveSweep
-      ? 'border-[#5ED3DA]/90 shadow-[0_0_0_9999px_rgba(10,16,18,0.58)]'
-      : 'border-[#FAF6EE]/65 group-hover:border-[#5ED3DA] shadow-[0_0_0_9999px_rgba(10,16,18,0.46)]';
+      ? 'border-[#5ED3DA]/95 shadow-[0_0_0_9999px_rgba(10,16,18,0.32)]'
+      : 'border-[#FAF6EE]/65 group-hover:border-[#5ED3DA] shadow-[0_0_0_9999px_rgba(10,16,18,0.44)]';
 
   const cornerAccentColor = isLocked ? 'border-emerald-300' : 'border-[#5ED3DA]';
 
@@ -850,6 +850,9 @@ function renderScannerPanel({ uiState, scannerState }) {
     lockReadoutText = 'Starting camera…';
   }
 
+  // Keep the center of the guide completely unobstructed while live camera video is streaming
+  const showCenterBadge = !isStreaming || isLocked || Boolean(uiState.isbnLoading);
+
   const viewportInnerHtml = `
     ${
       isStreaming || isStarting
@@ -858,7 +861,8 @@ function renderScannerPanel({ uiState, scannerState }) {
             autoplay
             muted
             playsinline
-            class="absolute inset-0 w-full h-full object-cover"
+            webkit-playsinline
+            class="absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
           ></video>`
         : ''
     }
@@ -868,7 +872,7 @@ function renderScannerPanel({ uiState, scannerState }) {
         ? `<img
             src="${escapeHtml(scannerState.uploadedPreviewUrl)}"
             alt="Uploaded book scan preview"
-            class="absolute inset-0 w-full h-full object-contain bg-night-950"
+            class="absolute inset-0 z-0 w-full h-full object-contain bg-night-950"
           />`
         : ''
     }
@@ -876,24 +880,28 @@ function renderScannerPanel({ uiState, scannerState }) {
     <div
       data-scan-guide="${escapeHtml(uiState.scanMode)}"
       data-scan-locked="${isLocked ? 'true' : 'false'}"
-      class="relative z-10 flex items-center justify-center border ${frameBorderClasses} ${activeMode.frameClass} transition-all duration-150 overflow-hidden"
+      class="relative z-10 flex items-center justify-center border ${frameBorderClasses} ${activeMode.frameClass} transition-all duration-150"
     >
       <span aria-hidden="true" class="pointer-events-none absolute top-1.5 left-1.5 w-3.5 h-3.5 border-t-2 border-l-2 rounded-tl-xs ${cornerAccentColor}"></span>
       <span aria-hidden="true" class="pointer-events-none absolute top-1.5 right-1.5 w-3.5 h-3.5 border-t-2 border-r-2 rounded-tr-xs ${cornerAccentColor}"></span>
       <span aria-hidden="true" class="pointer-events-none absolute bottom-1.5 left-1.5 w-3.5 h-3.5 border-b-2 border-l-2 rounded-bl-xs ${cornerAccentColor}"></span>
       <span aria-hidden="true" class="pointer-events-none absolute bottom-1.5 right-1.5 w-3.5 h-3.5 border-b-2 border-r-2 rounded-br-xs ${cornerAccentColor}"></span>
 
-      <div class="absolute inset-x-2 ${sweepLineClasses}"></div>
+      <div class="pointer-events-none absolute inset-x-2 ${sweepLineClasses}"></div>
 
-      <span class="px-3 py-1 rounded-full bg-night-950/85 border border-[#FAF6EE]/15 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
-        isLocked ? 'text-emerald-300 font-semibold' : 'text-[#FAF6EE]'
-      }">
-        ${canTapViewportToStart && !isLocked ? renderIcon('camera', 'w-3.5 h-3.5 text-[#5ED3DA]') : ''}
-        <span>${escapeHtml(lockReadoutText)}</span>
-      </span>
+      ${
+        showCenterBadge
+          ? `<span class="px-3 py-1 rounded-full bg-night-950/85 border border-[#FAF6EE]/15 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
+              isLocked ? 'text-emerald-300 font-semibold' : 'text-[#FAF6EE]'
+            }">
+              ${canTapViewportToStart && !isLocked ? renderIcon('camera', 'w-3.5 h-3.5 text-[#5ED3DA]') : ''}
+              <span>${escapeHtml(lockReadoutText)}</span>
+            </span>`
+          : ''
+      }
     </div>
 
-    <span class="relative z-10 mt-3 px-3 py-1 rounded-full bg-night-950/75 text-[11px] text-[#FAF6EE]/85 text-center max-w-sm">
+    <span class="relative z-10 mt-3 px-3 py-1 rounded-full bg-night-950/75 text-[11px] text-[#FAF6EE]/90 text-center max-w-sm">
       ${escapeHtml(activeMode.hint)}
     </span>
   `;
@@ -904,13 +912,13 @@ function renderScannerPanel({ uiState, scannerState }) {
         type="button"
         data-action="start-camera-scan"
         aria-label="Start camera in ${escapeHtml(activeMode.label)} mode"
-        class="group w-full relative h-64 sm:h-76 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
+        class="group isolate w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
       >
         ${viewportInnerHtml}
       </button>
     `
     : `
-      <div class="w-full relative h-64 sm:h-76 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800">
+      <div class="isolate w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800">
         ${viewportInnerHtml}
       </div>
     `;

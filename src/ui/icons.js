@@ -53,9 +53,10 @@ const ICON_PATHS = {
  * Renders an inline SVG icon string.
  * @param {string} name
  * @param {string} [className]
+ * @param {number | string} [strokeWidth]
  * @returns {string}
  */
-export function renderIcon(name, className = 'w-5 h-5') {
+export function renderIcon(name, className = 'w-5 h-5', strokeWidth = 1.9) {
   const inner = ICON_PATHS[name] || ICON_PATHS.book;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">${inner}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" class="${className}" aria-hidden="true">${inner}</svg>`;
 }

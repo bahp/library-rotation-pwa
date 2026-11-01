@@ -259,11 +259,11 @@ describe('Phase 9 UX Polish: Rich Rotation Edit Rows, Square/Portrait Covers, Co
       contentHtml: '<div>Body</div>',
     });
 
-    // Header must be sticky at top-0 across mobile & desktop, span flush from bottom border to top edge, and include brand app icon
+    // Header must be pinned flush at top-0 across mobile & desktop down to its bottom border, and include brand app icon
     assert.match(
       shellHtml,
-      /<header[^>]*class="[^"]*\bsticky\s+top-0\b[^"]*\bborder-b\b/,
-      'Header should stick flush to top-0 down to its bottom border line'
+      /<header[^>]*class="[^"]*\b(?:fixed|sticky)\s+top-0\b[^"]*\bborder-b\b/,
+      'Header should pin flush to top-0 down to its bottom border line'
     );
     assert.ok(
       shellHtml.includes('data-brand-icon="true"'),

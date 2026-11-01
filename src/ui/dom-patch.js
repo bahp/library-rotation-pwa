@@ -148,6 +148,45 @@ function syncFormControlProperties(liveEl, nextEl) {
     if (liveSel.value !== nextSel.value) {
       liveSel.value = nextSel.value;
     }
+  } else if (tag === 'VIDEO') {
+    hydrateVideoElementProperties(liveEl);
+  }
+}
+
+/**
+ * Ensures `<video>` elements parsed inside an inert `<template>` have their runtime IDL
+ * properties (`muted`, `defaultMuted`, `playsInline`, `autoplay`) initialized in the live document
+ * so WebKit/iOS Safari and Chromium never block programmatic camera stream playback.
+ *
+ * @param {Node} rootNode
+ */
+function hydrateVideoElementProperties(rootNode) {
+  if (!rootNode || rootNode.nodeType !== ELEMENT_NODE) return;
+  const rootEl = /** @type {Element} */ (rootNode);
+
+  /** @param {Element} el */
+  const syncSingleVideo = (el) => {
+    const video = /** @type {HTMLVideoElement} */ (el);
+    if (el.hasAttribute('muted')) {
+      video.defaultMuted = true;
+      video.muted = true;
+    }
+    if (el.hasAttribute('playsinline')) {
+      video.playsInline = true;
+    }
+    if (el.hasAttribute('autoplay')) {
+      video.autoplay = true;
+    }
+  };
+
+  if (rootEl.tagName.toUpperCase() === 'VIDEO') {
+    syncSingleVideo(rootEl);
+  }
+  if (typeof rootEl.querySelectorAll === 'function') {
+    const nestedVideos = rootEl.querySelectorAll('video');
+    for (const v of Array.from(nestedVideos)) {
+      syncSingleVideo(v);
+    }
   }
 }
 
@@ -183,6 +222,7 @@ export function syncDomNode(liveNode, nextNode) {
  * @param {Node} nextParent
  */
 export function reconcileDomChildren(liveParent, nextParent) {
+  const ownerDoc = liveParent.ownerDocument;
   /** @type {Map<string, Element>} */
   const keyedLiveMap = new Map();
   for (const child of Array.from(liveParent.childNodes)) {
@@ -219,7 +259,12 @@ export function reconcileDomChildren(liveParent, nextParent) {
       continue;
     }
 
-    liveParent.insertBefore(nextChild, currentAtIndex);
+    const adoptedChild =
+      ownerDoc && typeof ownerDoc.adoptNode === 'function' && nextChild.ownerDocument !== ownerDoc
+        ? ownerDoc.adoptNode(nextChild)
+        : nextChild;
+    hydrateVideoElementProperties(adoptedChild);
+    liveParent.insertBefore(adoptedChild, currentAtIndex);
   }
 
   while (liveParent.childNodes.length > nextChildren.length) {

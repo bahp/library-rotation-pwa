@@ -13,6 +13,7 @@ import {
   renderProfileFormSheet,
   renderProfileSwitcherSheet,
 } from './profile-sheets.js';
+import { renderWelcomeBooksSetupModal } from './welcome-setup-modal.js';
 
 /** @type {Array<{ id: import('../../types/models.js').RouteId, label: string, mobileLabel: string, icon: string, emphasize?: boolean }>} */
 const NAV_ITEMS = [
@@ -34,7 +35,9 @@ const NAV_ITEMS = [
  *     isProfileSwitcherOpen: boolean,
  *     isProfileFormSheetOpen: boolean,
  *     editingProfileId: string | null,
- *     previewBirthDate?: string
+ *     previewBirthDate?: string,
+ *     isWelcomeModalOpen?: boolean,
+ *     googleBooksKeyStatus?: 'unknown' | 'configured' | 'shared-quota' | 'static-host'
  *   },
  *   contentHtml: string
  * }} props
@@ -49,6 +52,8 @@ export function renderAppShell({
     isProfileSwitcherOpen: false,
     isProfileFormSheetOpen: false,
     editingProfileId: null,
+    isWelcomeModalOpen: false,
+    googleBooksKeyStatus: 'unknown',
   },
   contentHtml,
 }) {
@@ -76,8 +81,9 @@ export function renderAppShell({
   const mobileTabsHtml = NAV_ITEMS.map((item) => {
     const isActive = item.id === activeRoute;
     const activeTopBarHtml = isActive
-      ? '<span data-nav-active-indicator="true" aria-hidden="true" class="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-b-full bg-forest-700 dark:bg-[#5ED3DA]"></span>'
+      ? '<span data-nav-active-indicator="true" aria-hidden="true" class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2.5px] rounded-b-full bg-forest-700 dark:bg-[#5ED3DA]"></span>'
       : '';
+    const iconStroke = isActive ? 2.35 : 1.8;
 
     if (item.emphasize) {
       return `
@@ -90,20 +96,20 @@ export function renderAppShell({
           ${activeTopBarHtml}
           <span
             data-nav-scan-orb="true"
-            class="-mt-6 mb-1 flex items-center justify-center w-12 h-12 rounded-full shadow-md transition-all active:scale-95 ${
+            class="-mt-6 mb-1 flex items-center justify-center w-12 h-12 rounded-full transition-all active:scale-95 ${
               isActive
-                ? 'bg-forest-700 text-white ring-4 ring-forest-700/25 dark:bg-[#5ED3DA] dark:text-night-950 dark:ring-[#5ED3DA]/30 scale-[1.04]'
-                : 'bg-forest-900 text-white ring-4 ring-ivory dark:bg-night-800 dark:text-linen-100 dark:ring-night-900'
+                ? 'bg-forest-700 text-white shadow-md ring-4 ring-forest-700/20 dark:bg-[#5ED3DA] dark:text-night-950 dark:ring-[#5ED3DA]/25 scale-[1.04]'
+                : 'bg-linen-100 text-stone-ink border border-linen-200 shadow-sm ring-4 ring-ivory group-hover:text-forest-900 dark:bg-night-800 dark:text-slate-300 dark:border-night-700 dark:ring-night-900 dark:group-hover:text-white'
             }"
           >
-            ${renderIcon(item.icon, 'w-[22px] h-[22px]')}
+            ${renderIcon(item.icon, 'w-[22px] h-[22px]', iconStroke)}
           </span>
           <span
             data-nav-label="true"
             class="text-[10px] leading-none tracking-tight whitespace-nowrap ${
               isActive
-                ? 'font-bold text-forest-900 dark:text-[#5ED3DA]'
-                : 'font-medium text-stone-ink/80 dark:text-slate-400'
+                ? 'font-bold text-forest-700 dark:text-[#5ED3DA]'
+                : 'font-medium text-stone-ink/70 dark:text-slate-400'
             }"
           >${escapeHtml(item.mobileLabel)}</span>
         </a>
@@ -113,29 +119,29 @@ export function renderAppShell({
     return `
       <a
         href="#/${item.id}"
-        ${item.id === activeRoute ? 'aria-current="page"' : ''}
-        class="relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] px-1 pb-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
+        ${isActive ? 'aria-current="page"' : ''}
+        class="group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] px-1 pb-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
           isActive
-            ? 'text-forest-900 dark:text-[#5ED3DA]'
-            : 'text-stone-ink/80 dark:text-slate-400 hover:text-forest-900 dark:hover:text-slate-100'
+            ? 'text-forest-700 dark:text-[#5ED3DA]'
+            : 'text-stone-ink/65 dark:text-slate-400 hover:text-forest-900 dark:hover:text-slate-100'
         }"
       >
         ${activeTopBarHtml}
         <span
           data-nav-icon-slot="true"
-          class="flex items-center justify-center h-6 mb-1 rounded-full transition-colors ${
+          class="flex items-center justify-center h-6 mb-1 transition-transform duration-150 ${
             isActive
-              ? 'px-3.5 bg-forest-900 text-ivory dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
-              : 'px-2'
+              ? 'text-forest-700 dark:text-[#5ED3DA] scale-[1.06]'
+              : 'text-stone-ink/65 dark:text-slate-400 group-hover:text-forest-900 dark:group-hover:text-slate-100'
           }"
         >
-          ${renderIcon(item.icon, 'w-[22px] h-[22px]')}
+          ${renderIcon(item.icon, 'w-[22px] h-[22px]', iconStroke)}
         </span>
         <span
           data-nav-label="true"
           class="text-[10px] leading-none tracking-tight whitespace-nowrap ${
             isActive
-              ? 'font-bold text-forest-900 dark:text-[#5ED3DA]'
+              ? 'font-bold text-forest-700 dark:text-[#5ED3DA]'
               : 'font-medium'
           }"
         >${escapeHtml(item.mobileLabel)}</span>
@@ -217,8 +223,13 @@ export function renderAppShell({
         })
       : '';
 
+  const welcomeBooksModalHtml = renderWelcomeBooksSetupModal({
+    isOpen: Boolean(shellUiState.isWelcomeModalOpen),
+    googleBooksKeyStatus: shellUiState.googleBooksKeyStatus || 'unknown',
+  });
+
   return `
-    <div data-app-shell="true" class="min-h-screen flex flex-col bg-linen-50 dark:bg-night-950 text-[#1A2423] dark:text-[#F4EFE6]">
+    <div data-app-shell="true" class="min-h-screen min-h-dvh flex flex-col bg-linen-50 dark:bg-night-950 text-[#1A2423] dark:text-[#F4EFE6]">
       <!-- Fixed iOS/PWA Top Safe-Area Curtain: keeps clock/battery notch seamlessly covered even during overscroll -->
       <div
         aria-hidden="true"
@@ -232,10 +243,12 @@ export function renderAppShell({
       >
         Skip to main content
       </a>
-      ${offlineBannerHtml}
 
-      <!-- Flush Sticky Top Bar: App Icon + Wordmark | Desktop Nav | Active Reader Avatar Trigger -->
-      <header class="sticky top-0 z-30 w-full bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-b border-linen-200 dark:border-night-800 shadow-xs pt-safe">
+      <!-- Edge-to-Edge Fixed Top Bar: stretches from top:0 behind iOS clock/notch via pt-safe while content sits below notch -->
+      <header
+        data-top-header="true"
+        class="fixed top-0 left-0 right-0 z-30 w-full bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-b border-linen-200 dark:border-night-800 shadow-xs pt-safe px-safe"
+      >
         <div class="max-w-6xl mx-auto flex items-center justify-between gap-4 px-3.5 sm:px-6 h-13 sm:h-14">
           <!-- Zone 1: App Icon + Brand Wordmark -->
           <a
@@ -305,15 +318,22 @@ export function renderAppShell({
         </div>
       </header>
 
+      <!-- Spacer matching the fixed top header + env(safe-area-inset-top) so page content starts cleanly below the notch -->
+      <div aria-hidden="true" data-header-spacer="true" class="w-full shrink-0 pt-safe">
+        <div class="h-13 sm:h-14"></div>
+      </div>
+
+      ${offlineBannerHtml}
+
       <!-- Main Workspace -->
       <main id="main-content" tabindex="-1" class="flex-1 w-full max-w-6xl mx-auto px-3.5 sm:px-6 py-4 sm:py-6 mb-safe-nav focus:outline-none">
         ${contentHtml}
       </main>
 
-      <!-- Mobile Fixed Bottom Tab Bar (<= 8% viewport height, unified label baseline + elevated Scan orb) -->
+      <!-- Mobile Fixed Bottom Tab Bar (<= 8% viewport height, colored active icons + elevated Scan orb) -->
       <nav
         aria-label="Mobile bottom navigation"
-        class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-t border-linen-200 dark:border-night-800 pb-safe"
+        class="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-t border-linen-200 dark:border-night-800 pb-safe px-safe"
       >
         <div class="grid grid-cols-5 items-end h-[58px] max-w-lg mx-auto px-1.5">
           ${mobileTabsHtml}
@@ -322,6 +342,7 @@ export function renderAppShell({
 
       ${profileSwitcherHtml}
       ${profileFormHtml}
+      ${welcomeBooksModalHtml}
       ${toastHtml}
       ${iosModalHtml}
     </div>
