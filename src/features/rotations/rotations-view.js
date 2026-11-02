@@ -37,26 +37,25 @@ import {
  * @property {string[]} selectedAddBookIds - Multi-select IDs when modalMode === 'add'
  * @property {number} randomAddCount - Count for random batch add inside modal
  * @property {boolean} [isGeneratorOpen] - Whether the Generate Shelf bottom sheet is open
- * @property {string | null} [editingRotationId] - Rotation ID currently in expanded Edit mode
- * @property {string | null} [renamingRotationId] - Rotation ID whose title & description are editing inline
+ * @property {string | null} [editingRotationId] - Rotation ID currently in unified Edit mode
  */
 
 /**
  * Computes initial `<textarea rows>` large enough to display the entire rotation description
- * without clipping or inner scrolling (~44 characters per mobile line).
+ * without clipping or inner scrolling while staying compact (`1` row) for short notes.
  *
  * @param {string | undefined | null} rawText
  * @returns {number}
  */
 export function computeDescriptionRows(rawText) {
   const text = String(rawText || '').trim();
-  if (!text) return 2;
+  if (!text) return 1;
   const paragraphs = text.split(/\r?\n/);
   let totalLines = 0;
   for (const line of paragraphs) {
-    totalLines += Math.max(1, Math.ceil(line.length / 44));
+    totalLines += Math.max(1, Math.ceil(line.length / 54));
   }
-  return Math.max(2, Math.min(14, totalLines));
+  return Math.max(1, Math.min(14, totalLines));
 }
 
 /**
@@ -529,7 +528,6 @@ function renderRotationPickerModal({ state, editorState }) {
  *   profiles: import('../../types/models.js').ChildProfile[],
  *   totalCatalogCount: number,
  *   isEditing: boolean,
- *   isRenaming: boolean,
  *   coverAspectRatio: import('../../types/models.js').CoverAspectRatio,
  *   activeProfile: import('../../types/models.js').ChildProfile,
  *   referenceDate: Date | string | number
@@ -542,7 +540,6 @@ function renderRotationSection({
   profiles,
   totalCatalogCount,
   isEditing,
-  isRenaming,
   coverAspectRatio,
   activeProfile,
   referenceDate,
@@ -555,6 +552,16 @@ function renderRotationSection({
   const hasOffShelfBooks = totalCatalogCount > books.length;
   const schedule = computeRotationSchedule(rot, activeProfile, referenceDate);
   const descRows = computeDescriptionRows(rot.rules.objective);
+  const currentSwapDays =
+    rot.rules.swapDays ?? rot.rules.cooldownDays ?? activeProfile.cooldownDays ?? 14;
+  const currentCooldownDays = rot.rules.cooldownDays ?? activeProfile.cooldownDays ?? 14;
+  const currentTargetCount = rot.rules.count ?? Math.max(1, books.length);
+  const currentFormat = rot.rules.requiredFormat || 'any';
+  const currentTags = Array.isArray(rot.rules.preferredTags)
+    ? rot.rules.preferredTags.join(', ')
+    : '';
+  const currentSeed = rot.rules.seed || '';
+  const currentVarietyMix = rot.rules.varietyMix !== false;
 
   const coversAreaHtml = isEditing
     ? `
@@ -784,36 +791,22 @@ function renderRotationSection({
             </div>
 
             ${
-              !isRenaming
+              !isEditing
                 ? `
-                  <div class="flex items-center gap-1.5 mt-0.5 min-w-0">
-                    <h2 class="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug truncate">
-                      ${escapeHtml(rot.title)}
-                    </h2>
-                    <button
-                      type="button"
-                      data-action="start-rename-rotation"
-                      data-rotation-id="${escapeHtml(rot.id)}"
-                      aria-label="Edit name and description for ${escapeHtml(rot.title)}"
-                      title="Edit name &amp; description"
-                      class="min-h-[34px] min-w-[34px] -my-1 rounded-lg text-stone-ink/75 hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-800 inline-flex items-center justify-center shrink-0 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700"
-                    >
-                      ${renderIcon('edit', 'w-3.5 h-3.5')}
-                    </button>
-                  </div>
+                  <h2 class="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug truncate mt-0.5">
+                    ${escapeHtml(rot.title)}
+                  </h2>
                   ${scheduleLineHtml}
                   ${
                     rot.rules.objective
                       ? `<p
                           data-rotation-description="${escapeHtml(rot.id)}"
-                          class="text-xs text-stone-ink dark:text-slate-300 mt-0.5 ${
-                            isEditing ? 'whitespace-pre-line leading-relaxed' : 'truncate dark:text-slate-400'
-                          }"
+                          class="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5"
                         >${escapeHtml(rot.rules.objective)}</p>`
                       : ''
                   }
                 `
-                : ''
+                : `${scheduleLineHtml}`
             }
           </div>
 
@@ -851,12 +844,13 @@ function renderRotationSection({
         </div>
 
         ${
-          isRenaming
+          isEditing
             ? `
               <form
                 data-form="edit-rotation-details"
                 data-rotation-id="${escapeHtml(rot.id)}"
-                class="space-y-2 w-full pt-0.5"
+                data-compact-edit="true"
+                class="space-y-2 w-full pt-1"
               >
                 <input
                   id="edit-rot-title-${escapeHtml(rot.id)}"
@@ -866,35 +860,122 @@ function renderRotationSection({
                   aria-label="Rotation name"
                   value="${escapeHtml(rot.title)}"
                   placeholder="Rotation name"
-                  class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-forest-700/65 dark:border-[#5ED3DA]/65 font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  class="w-full h-9 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 font-display text-lg font-bold text-forest-900 dark:text-white leading-snug focus:outline-2 focus:outline-forest-700"
                 />
-                ${scheduleLineHtml}
+
                 <textarea
                   id="edit-rot-desc-${escapeHtml(rot.id)}"
                   name="description"
                   rows="${descRows}"
                   data-auto-resize="true"
                   aria-label="Rotation description"
-                  placeholder="Add a description or theme note (optional)…"
-                  class="w-full px-3.5 py-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs leading-relaxed text-forest-900 dark:text-slate-200 resize-y focus:outline-2 focus:outline-forest-700"
+                  placeholder="Description or theme note (optional)…"
+                  class="w-full px-2.5 py-1.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 font-sans text-xs leading-relaxed text-stone-ink dark:text-slate-300 resize-y focus:outline-2 focus:outline-forest-700"
                 >${escapeHtml(rot.rules.objective || '')}</textarea>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="submit"
-                    class="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
-                  >
-                    ${renderIcon('check', 'w-3.5 h-3.5')}
-                    <span>Save</span>
-                  </button>
-                  <button
-                    type="button"
-                    data-action="cancel-rename-rotation"
-                    data-rotation-id="${escapeHtml(rot.id)}"
-                    class="min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-stone-ink dark:text-slate-300 transition-colors"
-                  >
-                    Cancel
-                  </button>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+                  <div>
+                    <label for="edit-rot-swap-${escapeHtml(rot.id)}" class="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                      Swap cycle (d)
+                    </label>
+                    <input
+                      id="edit-rot-swap-${escapeHtml(rot.id)}"
+                      name="swapDays"
+                      type="number"
+                      min="1"
+                      max="90"
+                      value="${escapeHtml(currentSwapDays)}"
+                      class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label for="edit-rot-cooldown-${escapeHtml(rot.id)}" class="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                      Cooldown (d)
+                    </label>
+                    <input
+                      id="edit-rot-cooldown-${escapeHtml(rot.id)}"
+                      name="cooldownDays"
+                      type="number"
+                      min="0"
+                      max="90"
+                      value="${escapeHtml(currentCooldownDays)}"
+                      class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label for="edit-rot-count-${escapeHtml(rot.id)}" class="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                      Target books
+                    </label>
+                    <input
+                      id="edit-rot-count-${escapeHtml(rot.id)}"
+                      name="count"
+                      type="number"
+                      min="1"
+                      max="15"
+                      value="${escapeHtml(currentTargetCount)}"
+                      class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label for="edit-rot-format-${escapeHtml(rot.id)}" class="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                      Binding
+                    </label>
+                    <select
+                      id="edit-rot-format-${escapeHtml(rot.id)}"
+                      name="requiredFormat"
+                      class="w-full h-8 pl-2.5 pr-7 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                    >
+                      <option value="any" ${currentFormat === 'any' ? 'selected' : ''}>Any binding</option>
+                      <option value="hardcover" ${currentFormat === 'hardcover' ? 'selected' : ''}>Hardcover</option>
+                      <option value="board-book" ${currentFormat === 'board-book' ? 'selected' : ''}>Board book</option>
+                      <option value="paperback" ${currentFormat === 'paperback' ? 'selected' : ''}>Paperback</option>
+                    </select>
+                  </div>
                 </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label for="edit-rot-tags-${escapeHtml(rot.id)}" class="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                      Topics (comma-separated)
+                    </label>
+                    <input
+                      id="edit-rot-tags-${escapeHtml(rot.id)}"
+                      name="preferredTags"
+                      type="text"
+                      value="${escapeHtml(currentTags)}"
+                      placeholder="bedtime, animals, winter"
+                      class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label for="edit-rot-seed-${escapeHtml(rot.id)}" class="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                      Seed (optional)
+                    </label>
+                    <input
+                      id="edit-rot-seed-${escapeHtml(rot.id)}"
+                      name="seed"
+                      type="text"
+                      value="${escapeHtml(currentSeed)}"
+                      placeholder="Auto"
+                      class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                    />
+                  </div>
+                </div>
+
+                <label class="inline-flex items-center gap-2 text-xs text-stone-ink dark:text-slate-300 cursor-pointer select-none pt-0.5">
+                  <input
+                    id="edit-rot-variety-${escapeHtml(rot.id)}"
+                    type="checkbox"
+                    name="varietyMix"
+                    ${currentVarietyMix ? 'checked' : ''}
+                    class="h-3.5 w-3.5 rounded accent-[#1F6E75]"
+                  />
+                  <span>Balance author &amp; topic variety</span>
+                </label>
               </form>
             `
             : ''
@@ -947,7 +1028,10 @@ export function renderRotationsView({
     presets: getAllRotationPresets(state),
     activeProfile,
     activeRotation,
+    profileRotations,
     dismissedAlertKeys: dismissedPresetAlertKeys,
+    daysBefore: state.settings.presetAlertDaysBefore ?? 2,
+    daysAfter: state.settings.presetAlertDaysAfter ?? 5,
     referenceDate,
     showBrowseLink: true,
   });
@@ -970,7 +1054,6 @@ export function renderRotationsView({
                 profiles: state.profiles,
                 totalCatalogCount: rotatableCatalogCount,
                 isEditing: editorState.editingRotationId === rot.id,
-                isRenaming: editorState.renamingRotationId === rot.id,
                 coverAspectRatio,
                 activeProfile,
                 referenceDate,

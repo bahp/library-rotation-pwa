@@ -39,6 +39,86 @@ export function isValidAppState(candidate) {
 export const DEFAULT_METADATA_PROVIDERS = ['google-books', 'open-library'];
 
 /**
+ * Formats a byte count into a concise human-readable memory string (`840 B`, `42.6 KB`, `1.4 MB`).
+ * @param {number} bytes
+ * @returns {string}
+ */
+export function formatStorageBytes(bytes) {
+  const safe = Math.max(0, Math.trunc(Number(bytes) || 0));
+  if (safe < 1024) return `${safe} B`;
+  const kb = safe / 1024;
+  if (kb < 1024) {
+    return `${kb >= 100 ? Math.round(kb) : kb.toFixed(1)} KB`;
+  }
+  const mb = kb / 1024;
+  return `${mb.toFixed(2)} MB`;
+}
+
+/**
+ * Deterministically computes the UTF-8 memory/storage footprint of the current app state
+ * (including any inline `data:image/` cover photos and device preference keys).
+ * @param {import('../types/models.js').AppState} state
+ * @returns {{
+ *   stateBytes: number,
+ *   auxBytes: number,
+ *   totalBytes: number,
+ *   coverDataUrlBytes: number,
+ *   formatted: string
+ * }}
+ */
+export function estimateAppStorageUsage(state) {
+  let stateBytes = 0;
+  try {
+    const serialized = JSON.stringify(state || {});
+    stateBytes =
+      typeof TextEncoder !== 'undefined'
+        ? new TextEncoder().encode(serialized).length
+        : serialized.length;
+  } catch (_) {
+    stateBytes = 0;
+  }
+
+  let coverDataUrlBytes = 0;
+  if (state && Array.isArray(state.books)) {
+    for (const book of state.books) {
+      if (typeof book.coverUrl === 'string' && book.coverUrl.startsWith('data:image/')) {
+        coverDataUrlBytes += book.coverUrl.length;
+      }
+    }
+  }
+
+  let auxBytes = 0;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (const key of [
+        'lr_theme_pref',
+        'lr_dismissed_swap_reminders_v1',
+        'lr_dismissed_preset_alerts_v1',
+        'lr_device_books_proxy_v1',
+        'lr_device_google_books_api_key_v1',
+        'lr_welcome_books_modal_dismissed_v1',
+      ]) {
+        const val = localStorage.getItem(key);
+        if (typeof val === 'string') {
+          auxBytes += key.length + val.length;
+        }
+      }
+    }
+  } catch (_) {
+    auxBytes = 0;
+  }
+
+  const totalBytes = stateBytes + auxBytes;
+  return {
+    stateBytes,
+    auxBytes,
+    totalBytes,
+    coverDataUrlBytes,
+    formatted: formatStorageBytes(totalBytes),
+  };
+}
+
+/**
  * Creates a fresh copy of safe privacy-first provider & appearance settings.
  * @param {Partial<import('../types/models.js').AppSettings>} [overrides]
  * @returns {import('../types/models.js').AppSettings}
@@ -53,6 +133,22 @@ export function createSafeDefaultSettings(overrides = {}) {
     Number.isFinite(rawTimeout) && rawTimeout >= 1500 && rawTimeout <= 20000
       ? Math.trunc(rawTimeout)
       : 6000;
+
+  const rawBefore =
+    overrides.presetAlertDaysBefore !== undefined && overrides.presetAlertDaysBefore !== null
+      ? Number(overrides.presetAlertDaysBefore)
+      : 2;
+  const clampedBefore = Number.isFinite(rawBefore)
+    ? Math.max(0, Math.min(30, Math.trunc(rawBefore)))
+    : 2;
+
+  const rawAfter =
+    overrides.presetAlertDaysAfter !== undefined && overrides.presetAlertDaysAfter !== null
+      ? Number(overrides.presetAlertDaysAfter)
+      : 5;
+  const clampedAfter = Number.isFinite(rawAfter)
+    ? Math.max(0, Math.min(30, Math.trunc(rawAfter)))
+    : 5;
 
   return {
     theme: overrides.theme || 'system',
@@ -71,6 +167,9 @@ export function createSafeDefaultSettings(overrides = {}) {
       typeof overrides.aiEndpointUrl === 'string' ? overrides.aiEndpointUrl.trim() : '',
     aiTimeoutMs: clampedTimeout,
     preferredScanMode: overrides.preferredScanMode || 'barcode',
+    presetAlertDaysBefore: clampedBefore,
+    presetAlertDaysAfter: clampedAfter,
+    showPresetDecorations: overrides.showPresetDecorations !== false,
   };
 }
 
@@ -108,6 +207,22 @@ export function migrateState(state, referenceDate = new Date()) {
     }
   }
 
+  /** @type {Record<string, import('../types/models.js').RotationPreset>} */
+  const normalizedPresetOverrides = {};
+  if (state.presetOverrides && typeof state.presetOverrides === 'object') {
+    for (const [presetId, rawOverride] of Object.entries(state.presetOverrides)) {
+      if (!presetId || !rawOverride || typeof rawOverride !== 'object') continue;
+      try {
+        normalizedPresetOverrides[presetId] = normalizeRotationPresetInput(
+          { ...rawOverride, id: presetId },
+          { isCustom: false, isBuiltInOverride: true }
+        );
+      } catch (_) {
+        // Ignore malformed built-in override entry cleanly
+      }
+    }
+  }
+
   const activeExists = normalizedProfiles.some((p) => p.id === state.activeProfileId);
   return {
     ...state,
@@ -115,6 +230,7 @@ export function migrateState(state, referenceDate = new Date()) {
     activeProfileId: activeExists ? state.activeProfileId : normalizedProfiles[0].id,
     profiles: normalizedProfiles,
     customPresets: normalizedCustomPresets,
+    presetOverrides: normalizedPresetOverrides,
     settings: createSafeDefaultSettings(state.settings || {}),
   };
 }

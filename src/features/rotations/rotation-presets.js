@@ -221,11 +221,13 @@ export function createDeterministicPresetSeed(title) {
  *   varietyMix?: boolean,
  *   seed?: string,
  *   suggestedStartMonthDay?: string,
+ *   motif?: string,
  *   createdAt?: string
  * }} input
+ * @param {{ isCustom?: boolean, isBuiltInOverride?: boolean }} [flags]
  * @returns {import('../../types/models.js').RotationPreset}
  */
-export function normalizeRotationPresetInput(input) {
+export function normalizeRotationPresetInput(input, flags = {}) {
   const title = String(input?.title || '').trim();
   if (!title) {
     throw new Error('Collection preset title is required.');
@@ -244,6 +246,7 @@ export function normalizeRotationPresetInput(input) {
   /** @type {import('../../types/models.js').PresetCategory} */
   const category =
     input?.category === 'seasonal-holidays' ||
+    input?.category === 'cultural-traditions' ||
     input?.category === 'calendar-events' ||
     input?.category === 'evergreen'
       ? input.category
@@ -276,6 +279,10 @@ export function normalizeRotationPresetInput(input) {
 
   const rawSeed = String(input?.seed || '').trim();
   const seed = rawSeed || createDeterministicPresetSeed(title);
+  const rawMotif = typeof input?.motif === 'string' ? input.motif.trim() : '';
+
+  const isCustom = flags.isCustom !== undefined ? Boolean(flags.isCustom) : true;
+  const isBuiltInOverride = Boolean(flags.isBuiltInOverride);
 
   return {
     id: String(input?.id || '').trim() || createId('preset'),
@@ -290,30 +297,61 @@ export function normalizeRotationPresetInput(input) {
     varietyMix: input?.varietyMix !== false,
     seed,
     ...(monthDayCheck.monthDay ? { suggestedStartMonthDay: monthDayCheck.monthDay } : {}),
-    isCustom: true,
+    ...(rawMotif ? { motif: rawMotif } : {}),
+    isCustom,
+    ...(isBuiltInOverride ? { isBuiltInOverride: true } : {}),
     createdAt: input?.createdAt || new Date().toISOString(),
   };
 }
 
 /**
- * Returns all available rotation collection presets (built-in configuration + user-defined custom presets).
- * @param {Pick<import('../../types/models.js').AppState, 'customPresets'> | null | undefined} [state]
+ * Returns all available rotation collection presets (built-in configuration merged with any
+ * in-place user overrides + user-defined custom presets).
+ * @param {Pick<import('../../types/models.js').AppState, 'customPresets' | 'presetOverrides'> | null | undefined} [state]
  * @returns {import('../../types/models.js').RotationPreset[]}
  */
 export function getAllRotationPresets(state) {
+  const overrides =
+    state?.presetOverrides && typeof state.presetOverrides === 'object'
+      ? state.presetOverrides
+      : {};
+
+  const builtIns = DEFAULT_ROTATION_PRESETS.map((basePreset) => {
+    const override = overrides[basePreset.id];
+    if (!override) {
+      return {
+        ...basePreset,
+        isCustom: false,
+        isBuiltInOverride: false,
+      };
+    }
+    return {
+      ...basePreset,
+      ...override,
+      id: basePreset.id,
+      isCustom: false,
+      isBuiltInOverride: true,
+      suggestedStartMonthDay: override.suggestedStartMonthDay,
+    };
+  });
+
   const custom = Array.isArray(state?.customPresets) ? state.customPresets : [];
-  return [...DEFAULT_ROTATION_PRESETS, ...custom];
+  return [...builtIns, ...custom];
 }
 
 /**
  * @typedef {Object} PresetStartSchedule
  * @property {boolean} hasSuggestedStart - True when `suggestedStartMonthDay` (`MM-DD`) is configured
  * @property {string} monthDay - Normalized `MM-DD` string or `''`
+ * @property {number | null} month - 1-indexed calendar month (`1..12`) when dated, else `null`
+ * @property {number | null} day - Day of month (`1..31`) when dated, else `null`
  * @property {string} formattedDateLabel - e.g. `'Dec 1'` or `'Anytime'`
  * @property {number | null} daysUntilStart - `0` when today matches `MM-DD`, `1..366` for upcoming date, `null` when anytime
  * @property {boolean} isStartToday - True when `referenceDate`'s month & day match `suggestedStartMonthDay`
  * @property {string} countdownLabel - Concise human-readable status (`Suggested today · Dec 1`, `In 30 days · Dec 1`, `Anytime`)
  * @property {string} alertKey - Year-scoped dismissal key (`preset-start::<id>::<YYYY>-<MM-DD>`)
+ * @property {'today' | 'upcoming' | 'past-due'} [windowStatus] - Notification window state when matched
+ * @property {number} [signedDaysFromStart] - `0` on start day, negative when upcoming, positive when start passed X days ago
  */
 
 /**
@@ -330,6 +368,8 @@ export function computePresetStartSchedule(preset, referenceDate = new Date()) {
     return {
       hasSuggestedStart: false,
       monthDay: '',
+      month: null,
+      day: null,
       formattedDateLabel: 'Anytime',
       daysUntilStart: null,
       isStartToday: false,
@@ -351,19 +391,25 @@ export function computePresetStartSchedule(preset, referenceDate = new Date()) {
     return {
       hasSuggestedStart: true,
       monthDay: parsed.monthDay,
+      month: parsed.month,
+      day: parsed.day,
       formattedDateLabel,
       daysUntilStart: 0,
       isStartToday: true,
       countdownLabel: `Suggested today · ${formattedDateLabel}`,
       alertKey: `preset-start::${preset.id}::${ref.year}-${parsed.monthDay}`,
+      windowStatus: 'today',
+      signedDaysFromStart: 0,
     };
   }
 
   const todayUtc = Date.UTC(ref.year, ref.month - 1, ref.day);
   const thisYearUtc = Date.UTC(ref.year, parsed.month - 1, targetDayThisYear);
 
+  let nextOccurrenceYear = ref.year;
   let nextOccurrenceUtc = thisYearUtc;
   if (thisYearUtc < todayUtc) {
+    nextOccurrenceYear = ref.year + 1;
     const targetDayNextYear = clampTargetDay(ref.year + 1);
     nextOccurrenceUtc = Date.UTC(ref.year + 1, parsed.month - 1, targetDayNextYear);
   }
@@ -374,37 +420,33 @@ export function computePresetStartSchedule(preset, referenceDate = new Date()) {
   return {
     hasSuggestedStart: true,
     monthDay: parsed.monthDay,
+    month: parsed.month,
+    day: parsed.day,
     formattedDateLabel,
     daysUntilStart,
     isStartToday: false,
     countdownLabel: `In ${dayWord} · ${formattedDateLabel}`,
-    alertKey: `preset-start::${preset.id}::${ref.year}-${parsed.monthDay}`,
+    alertKey: `preset-start::${preset.id}::${nextOccurrenceYear}-${parsed.monthDay}`,
   };
 }
 
 /**
- * Counts how many rotatable books in the user's library match at least one of the preset's
- * preferred topic tags or objective keywords (while falling back cleanly if the library is small).
+ * Counts how many owned rotatable books in the user's library match at least one of the preset's
+ * preferred topic tags or objective keywords, alongside both eligible and total library book counts.
  *
  * @param {import('../../types/models.js').Book[]} books
  * @param {import('../../types/models.js').RotationPreset} preset
- * @returns {{ thematicMatchCount: number, rotatableTotalCount: number }}
+ * @returns {{ thematicMatchCount: number, rotatableTotalCount: number, totalCatalogCount: number }}
  */
 export function countMatchingCatalogBooksForPreset(books, preset) {
-  const rotatable = books.filter((b) => isBookRotatable(b));
+  const safeBooks = Array.isArray(books) ? books : [];
+  const rotatable = safeBooks.filter((b) => isBookRotatable(b));
   const tagSet = new Set((preset.preferredTags || []).map((t) => t.toLowerCase().trim()));
   const parsedObj = parseRotationObjective(preset.description || '');
   const keywordSet = new Set(parsedObj.keywords);
 
   let thematicMatchCount = 0;
   for (const book of rotatable) {
-    if (
-      preset.requiredFormat &&
-      preset.requiredFormat !== 'any' &&
-      book.format !== preset.requiredFormat
-    ) {
-      // Still count thematic match if no format conflict, or check format + theme
-    }
     const bookTags = (book.tags || []).map((t) => t.toLowerCase());
     const hasTagHit = bookTags.some((t) => tagSet.has(t));
     const hay = `${book.title} ${bookTags.join(' ')}`.toLowerCase();
@@ -417,54 +459,125 @@ export function countMatchingCatalogBooksForPreset(books, preset) {
   return {
     thematicMatchCount,
     rotatableTotalCount: rotatable.length,
+    totalCatalogCount: safeBooks.length,
   };
 }
 
 /**
- * Finds all presets whose `suggestedStartMonthDay` (`MM-DD`) matches `referenceDate` (month & day,
- * ignoring year), excluding any already active on the child's shelf or dismissed for this year.
+ * Finds all presets whose annual `suggestedStartMonthDay` (`MM-DD`) falls within the configured
+ * advance & grace notification window (`[-daysBefore, +daysAfter]` relative to `referenceDate`),
+ * handling Dec/Jan year boundaries cleanly and excluding any occurrence already dismissed or
+ * already generated/active for this reader.
  *
  * @param {import('../../types/models.js').RotationPreset[]} presets
  * @param {Date | string | number} [referenceDate]
  * @param {{
  *   activeRotation?: import('../../types/models.js').RotationList | null,
- *   dismissedAlertKeys?: Iterable<string>
+ *   profileRotations?: import('../../types/models.js').RotationList[],
+ *   dismissedAlertKeys?: Iterable<string>,
+ *   daysBefore?: number,
+ *   daysAfter?: number
  * }} [options]
  * @returns {Array<{ preset: import('../../types/models.js').RotationPreset, schedule: PresetStartSchedule }>}
  */
 export function findMatchingStartDatePresets(presets, referenceDate = new Date(), options = {}) {
   const dismissedSet = new Set(options.dismissedAlertKeys || []);
   const activeRot = options.activeRotation || null;
+  const profileRotations = Array.isArray(options.profileRotations) ? options.profileRotations : [];
+
+  const daysBefore = Math.max(0, Math.min(30, Math.trunc(Number(options.daysBefore ?? 0) || 0)));
+  const daysAfter = Math.max(0, Math.min(30, Math.trunc(Number(options.daysAfter ?? 0) || 0)));
+
+  const ref = resolveCalendarMonthDayYear(referenceDate);
+  const todayUtc = Date.UTC(ref.year, ref.month - 1, ref.day);
 
   /** @type {Array<{ preset: import('../../types/models.js').RotationPreset, schedule: PresetStartSchedule }>} */
   const matches = [];
 
   for (const preset of presets) {
-    const schedule = computePresetStartSchedule(preset, referenceDate);
-    if (!schedule.isStartToday) continue;
-    if (schedule.alertKey && dismissedSet.has(schedule.alertKey)) continue;
-    if (
-      activeRot &&
-      (activeRot.rules?.seed === preset.seed ||
-        activeRot.title.trim().toLowerCase() === preset.title.trim().toLowerCase())
-    ) {
-      continue;
+    const parsed = normalizeMonthDay(preset?.suggestedStartMonthDay);
+    if (!parsed.valid || !parsed.monthDay || !parsed.month || !parsed.day) continue;
+
+    // Check previous, current, and next calendar year occurrences so Dec 30 -> Jan 1 and Jan 2 -> Dec 29 work seamlessly
+    /** @type {{ occYear: number, signedDays: number, occUtc: number } | null} */
+    let matchedOccurrence = null;
+    for (const occYear of [ref.year - 1, ref.year, ref.year + 1]) {
+      const occDay =
+        parsed.month === 2 && parsed.day === 29 && !isLeapYear(occYear) ? 28 : parsed.day;
+      const occUtc = Date.UTC(occYear, parsed.month - 1, occDay);
+      const signedDays = Math.round((todayUtc - occUtc) / MS_PER_DAY);
+      if (signedDays >= -daysBefore && signedDays <= daysAfter) {
+        matchedOccurrence = { occYear, signedDays, occUtc };
+        break;
+      }
     }
-    matches.push({ preset, schedule });
+
+    if (!matchedOccurrence) continue;
+
+    const occurrenceAlertKey = `preset-start::${preset.id}::${matchedOccurrence.occYear}-${parsed.monthDay}`;
+    if (dismissedSet.has(occurrenceAlertKey)) continue;
+
+    const matchesRotation = (/** @type {import('../../types/models.js').RotationList} */ rot) =>
+      rot.rules?.seed === preset.seed ||
+      rot.title.trim().toLowerCase() === preset.title.trim().toLowerCase();
+
+    if (activeRot && matchesRotation(activeRot)) continue;
+
+    // Also suppress if the user already generated this preset recently for this reader during this window
+    const recentlyGenerated = profileRotations.some((rot) => {
+      if (!matchesRotation(rot)) return false;
+      const createdMs = Date.parse(rot.createdAt || '');
+      if (Number.isNaN(createdMs)) return false;
+      const diffDays = Math.abs(createdMs - matchedOccurrence.occUtc) / MS_PER_DAY;
+      return diffDays <= Math.max(21, daysBefore + daysAfter + 7);
+    });
+    if (recentlyGenerated) continue;
+
+    const baseSchedule = computePresetStartSchedule(preset, referenceDate);
+    /** @type {'today' | 'upcoming' | 'past-due'} */
+    const windowStatus =
+      matchedOccurrence.signedDays === 0
+        ? 'today'
+        : matchedOccurrence.signedDays < 0
+          ? 'upcoming'
+          : 'past-due';
+
+    matches.push({
+      preset,
+      schedule: {
+        ...baseSchedule,
+        alertKey: occurrenceAlertKey,
+        windowStatus,
+        signedDaysFromStart: matchedOccurrence.signedDays,
+      },
+    });
   }
+
+  // Prioritize exact-day matches first, then upcoming soonest, then most recent past-due
+  matches.sort((a, b) => {
+    const rank = (/** @type {'today' | 'upcoming' | 'past-due' | undefined} */ s) =>
+      s === 'today' ? 0 : s === 'upcoming' ? 1 : 2;
+    const rankDiff = rank(a.schedule.windowStatus) - rank(b.schedule.windowStatus);
+    if (rankDiff !== 0) return rankDiff;
+    return Math.abs(a.schedule.signedDaysFromStart || 0) - Math.abs(b.schedule.signedDaysFromStart || 0);
+  });
 
   return matches;
 }
 
 /**
- * Renders an actionable seasonal/event Start-Date Match Alert Banner when today's month & day (`MM-DD`)
- * matches one or more pre-configured collection presets.
+ * Renders an actionable seasonal/event Start-Date Match Alert Banner when a collection preset's
+ * annual `MM-DD` start date is today, upcoming within `daysBefore`, or passed within `daysAfter`
+ * without the user having accepted or dismissed it.
  *
  * @param {{
  *   presets: import('../../types/models.js').RotationPreset[],
  *   activeProfile: import('../../types/models.js').ChildProfile,
  *   activeRotation?: import('../../types/models.js').RotationList | null,
+ *   profileRotations?: import('../../types/models.js').RotationList[],
  *   dismissedAlertKeys?: Iterable<string>,
+ *   daysBefore?: number,
+ *   daysAfter?: number,
  *   referenceDate?: Date | string | number,
  *   showBrowseLink?: boolean
  * }} params
@@ -474,24 +587,40 @@ export function renderPresetStartDateAlertBanner({
   presets,
   activeProfile,
   activeRotation = null,
+  profileRotations = [],
   dismissedAlertKeys = [],
+  daysBefore = 0,
+  daysAfter = 0,
   referenceDate = new Date(),
   showBrowseLink = true,
 }) {
   const matches = findMatchingStartDatePresets(presets, referenceDate, {
     activeRotation,
+    profileRotations,
     dismissedAlertKeys,
+    daysBefore,
+    daysAfter,
   });
 
   if (matches.length === 0) return '';
 
   return matches
     .map(({ preset, schedule }) => {
+      const signed = schedule.signedDaysFromStart || 0;
+      let timingHeadline = `Suggested Start Today (${schedule.formattedDateLabel}) · ${activeProfile.name}`;
+      if (schedule.windowStatus === 'upcoming' && signed < 0) {
+        const ahead = Math.abs(signed);
+        timingHeadline = `Starts in ${ahead} ${ahead === 1 ? 'day' : 'days'} (${schedule.formattedDateLabel}) · ${activeProfile.name}`;
+      } else if (schedule.windowStatus === 'past-due' && signed > 0) {
+        timingHeadline = `Notification appeared ${signed} ${signed === 1 ? 'day' : 'days'} ago (Suggested ${schedule.formattedDateLabel}) · ${activeProfile.name}`;
+      }
+
       return `
         <section
           role="region"
           aria-label="Suggested seasonal rotation start"
           data-preset-start-alert="${escapeHtml(preset.id)}"
+          data-preset-alert-status="${escapeHtml(schedule.windowStatus || 'today')}"
           class="rounded-2xl bg-linen-100/95 dark:bg-night-800/85 border border-linen-200 dark:border-night-700 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <div class="flex items-start gap-3 min-w-0">
@@ -503,10 +632,10 @@ export function renderPresetStartDateAlertBanner({
             </span>
             <div class="min-w-0">
               <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] font-mono-tabular">
-                Suggested Start Today (${escapeHtml(schedule.formattedDateLabel)}) · ${escapeHtml(activeProfile.name)}
+                ${escapeHtml(timingHeadline)}
               </p>
               <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white mt-0.5 leading-snug">
-                ${escapeHtml(preset.title)}
+                ${escapeHtml(preset.title)} · ${preset.count} ${preset.count === 1 ? 'book' : 'books'} (${preset.swapDays}d cycle)
               </p>
               <p class="text-xs text-stone-ink dark:text-slate-300 mt-0.5 leading-relaxed">
                 ${escapeHtml(preset.description)}
@@ -519,6 +648,7 @@ export function renderPresetStartDateAlertBanner({
               type="button"
               data-action="apply-rotation-preset"
               data-preset-id="${escapeHtml(preset.id)}"
+              data-alert-key="${escapeHtml(schedule.alertKey)}"
               class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
               ${renderIcon('rotations', 'w-3.5 h-3.5')}

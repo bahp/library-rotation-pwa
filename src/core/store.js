@@ -24,6 +24,7 @@ import {
   generateRotationSelection,
   pickRandomEligibleBooks,
 } from '../features/rotations/rotation-engine.js';
+import { DEFAULT_ROTATION_PRESETS } from '../data/rotation-presets-config.js';
 import {
   getAllRotationPresets,
   normalizeRotationPresetInput,
@@ -1286,13 +1287,27 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Updates an existing rotation shelf's name (`title`) and description (`rules.objective`)
-   * while preserving its books, read completion status, and schedule timestamps.
+   * Updates an existing rotation shelf's name (`title`), description (`rules.objective`),
+   * and any rotation rule parameters (`count`, `swapDays`, `cooldownDays`, `preferredTags`,
+   * `requiredFormat`, `varietyMix`, `seed`) while preserving books, read completion status,
+   * and schedule creation/activation timestamps.
    *
    * @param {string} rotationId
-   * @param {{ title?: string, description?: string, objective?: string }} patch
+   * @param {{
+   *   title?: string,
+   *   description?: string,
+   *   objective?: string,
+   *   count?: number,
+   *   swapDays?: number,
+   *   cooldownDays?: number,
+   *   preferredTags?: string[] | string,
+   *   requiredFormat?: import('../types/models.js').BookFormat | 'any' | '',
+   *   varietyMix?: boolean,
+   *   seed?: string
+   * }} patch
+   * @param {{ silent?: boolean, skipIfUnchanged?: boolean }} [options]
    */
-  async function updateRotationDetails(rotationId, patch) {
+  async function updateRotationDetails(rotationId, patch, options = {}) {
     const existing = state.rotations.find((r) => r.id === rotationId);
     if (!existing) {
       throw new Error('Rotation shelf not found.');
@@ -1312,15 +1327,83 @@ export function createAppStore(storage, deps = {}) {
           : existing.rules.objective;
     const nextObjective = String(rawDesc ?? '').trim();
 
+    const nextCount =
+      patch.count !== undefined && !Number.isNaN(Number(patch.count))
+        ? Math.max(1, Math.min(15, Math.trunc(Number(patch.count) || 1)))
+        : existing.rules.count;
+
+    const nextCooldownDays =
+      patch.cooldownDays !== undefined && !Number.isNaN(Number(patch.cooldownDays))
+        ? Math.max(0, Math.min(90, Math.trunc(Number(patch.cooldownDays))))
+        : existing.rules.cooldownDays;
+
+    const nextSwapDays =
+      patch.swapDays !== undefined && !Number.isNaN(Number(patch.swapDays))
+        ? Math.max(1, Math.min(90, Math.trunc(Number(patch.swapDays) || 1)))
+        : existing.rules.swapDays;
+
+    let nextPreferredTags = existing.rules.preferredTags || [];
+    if (patch.preferredTags !== undefined) {
+      const rawList = Array.isArray(patch.preferredTags)
+        ? patch.preferredTags
+        : String(patch.preferredTags || '').split(',');
+      nextPreferredTags = Array.from(
+        new Set(rawList.map((t) => String(t || '').toLowerCase().trim()).filter(Boolean))
+      );
+    }
+
+    const nextVarietyMix =
+      patch.varietyMix !== undefined
+        ? Boolean(patch.varietyMix)
+        : existing.rules.varietyMix !== false;
+
+    const rawFormat =
+      patch.requiredFormat !== undefined
+        ? patch.requiredFormat
+        : existing.rules.requiredFormat || 'any';
+    const nextRequiredFormat =
+      rawFormat === 'hardcover' || rawFormat === 'board-book' || rawFormat === 'paperback'
+        ? rawFormat
+        : undefined;
+
+    const rawSeed =
+      patch.seed !== undefined ? String(patch.seed || '').trim() : existing.rules.seed || '';
+    const nextSeed = rawSeed || undefined;
+
+    /** @type {import('../types/models.js').RotationRuleConfig} */
+    const nextRules = {
+      count: nextCount,
+      objective: nextObjective,
+      preferredTags: nextPreferredTags,
+      cooldownDays: nextCooldownDays,
+      ...(nextSwapDays !== undefined ? { swapDays: nextSwapDays } : {}),
+      varietyMix: nextVarietyMix,
+      ...(nextRequiredFormat ? { requiredFormat: nextRequiredFormat } : {}),
+      ...(nextSeed ? { seed: nextSeed } : {}),
+    };
+
+    const rulesUnchanged =
+      existing.title === nextTitle &&
+      existing.rules.count === nextRules.count &&
+      (existing.rules.objective || '') === nextRules.objective &&
+      JSON.stringify(existing.rules.preferredTags || []) ===
+        JSON.stringify(nextRules.preferredTags) &&
+      existing.rules.cooldownDays === nextRules.cooldownDays &&
+      existing.rules.swapDays === nextRules.swapDays &&
+      (existing.rules.varietyMix !== false) === Boolean(nextRules.varietyMix) &&
+      (existing.rules.requiredFormat || undefined) === nextRules.requiredFormat &&
+      (existing.rules.seed || undefined) === nextRules.seed;
+
+    if (rulesUnchanged && options.skipIfUnchanged) {
+      return existing;
+    }
+
     const now = new Date().toISOString();
     /** @type {import('../types/models.js').RotationList} */
     const updatedRotation = {
       ...existing,
       title: nextTitle,
-      rules: {
-        ...existing.rules,
-        objective: nextObjective,
-      },
+      rules: nextRules,
       updatedAt: now,
     };
 
@@ -1328,7 +1411,9 @@ export function createAppStore(storage, deps = {}) {
       ...state,
       rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
     });
-    notify(`Updated "${updatedRotation.title}".`, 'success');
+    if (!options.silent) {
+      notify(`Updated "${updatedRotation.title}".`, 'success');
+    }
     return updatedRotation;
   }
 
@@ -1351,30 +1436,87 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Updates an existing user-defined custom `RotationPreset`.
+   * Updates either an existing user-defined custom `RotationPreset` OR saves an in-place
+   * override for a built-in default preset in `state.presetOverrides`.
    * @param {string} presetId
    * @param {Parameters<typeof normalizeRotationPresetInput>[0]} patch
    */
   async function updateRotationPreset(presetId, patch) {
     const currentCustom = Array.isArray(state.customPresets) ? state.customPresets : [];
-    const existing = currentCustom.find((p) => p.id === presetId);
-    if (!existing) {
-      throw new Error('Custom collection preset not found.');
+    const existingCustom = currentCustom.find((p) => p.id === presetId);
+    if (existingCustom) {
+      const updated = normalizeRotationPresetInput(
+        {
+          ...existingCustom,
+          ...patch,
+          id: existingCustom.id,
+          createdAt: existingCustom.createdAt,
+        },
+        { isCustom: true }
+      );
+
+      await commit({
+        ...state,
+        customPresets: currentCustom.map((p) => (p.id === presetId ? updated : p)),
+      });
+      notify(`Updated collection preset "${updated.title}".`, 'success');
+      return updated;
     }
 
-    const updated = normalizeRotationPresetInput({
-      ...existing,
-      ...patch,
-      id: existing.id,
-      createdAt: existing.createdAt,
-    });
+    const builtInBase = DEFAULT_ROTATION_PRESETS.find((p) => p.id === presetId);
+    if (builtInBase) {
+      const currentOverrides =
+        state.presetOverrides && typeof state.presetOverrides === 'object'
+          ? state.presetOverrides
+          : {};
+      const existingEffective = currentOverrides[presetId]
+        ? { ...builtInBase, ...currentOverrides[presetId] }
+        : builtInBase;
+
+      const updatedBuiltIn = normalizeRotationPresetInput(
+        {
+          ...existingEffective,
+          ...patch,
+          id: builtInBase.id,
+        },
+        { isCustom: false, isBuiltInOverride: true }
+      );
+
+      await commit({
+        ...state,
+        presetOverrides: {
+          ...currentOverrides,
+          [presetId]: updatedBuiltIn,
+        },
+      });
+      notify(`Updated preset "${updatedBuiltIn.title}".`, 'success');
+      return updatedBuiltIn;
+    }
+
+    throw new Error('Collection preset not found.');
+  }
+
+  /**
+   * Restores an edited built-in `RotationPreset` back to its factory configuration.
+   * @param {string} presetId
+   */
+  async function resetBuiltInPreset(presetId) {
+    const builtInBase = DEFAULT_ROTATION_PRESETS.find((p) => p.id === presetId);
+    const currentOverrides =
+      state.presetOverrides && typeof state.presetOverrides === 'object'
+        ? state.presetOverrides
+        : {};
+    if (!builtInBase || !currentOverrides[presetId]) return false;
+
+    const nextOverrides = { ...currentOverrides };
+    delete nextOverrides[presetId];
 
     await commit({
       ...state,
-      customPresets: currentCustom.map((p) => (p.id === presetId ? updated : p)),
+      presetOverrides: nextOverrides,
     });
-    notify(`Updated collection preset "${updated.title}".`, 'success');
-    return updated;
+    notify(`Restored "${builtInBase.title}" to default settings.`, 'info');
+    return true;
   }
 
   /**
@@ -1550,6 +1692,7 @@ export function createAppStore(storage, deps = {}) {
     updateRotationDetails,
     addRotationPreset,
     updateRotationPreset,
+    resetBuiltInPreset,
     deleteRotationPreset,
     generateRotationFromPreset,
     updateSettings,

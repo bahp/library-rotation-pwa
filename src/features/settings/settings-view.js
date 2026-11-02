@@ -13,6 +13,7 @@ import {
   formatProfileAgeLabel,
   formatReadingStage,
 } from '../../types/models.js';
+import { estimateAppStorageUsage, formatStorageBytes } from '../../core/storage.js';
 import { APP_DOCS_LINKS, APP_VERSION } from '../../version.js';
 import { renderAvatarBadge } from '../../ui/components/profile-sheets.js';
 import { GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL } from '../../ui/components/welcome-setup-modal.js';
@@ -42,7 +43,8 @@ import { renderIcon } from '../../ui/icons.js';
  *     googleBooksKeyStatus?: 'unknown' | 'configured' | 'shared-quota' | 'static-host',
  *     isGoogleKeyGuideOpen?: boolean,
  *     deviceBooksProxyUrl?: string,
- *     deviceBooksProxyError?: string
+ *     deviceBooksProxyError?: string,
+ *     browserStorageSummary?: string
  *   }
  * }} params
  * @returns {string}
@@ -63,9 +65,14 @@ export function renderSettingsView({
     isGoogleKeyGuideOpen: false,
     deviceBooksProxyUrl: '',
     deviceBooksProxyError: '',
+    browserStorageSummary: '',
   },
 }) {
   const { settings } = state;
+  const storageUsage = estimateAppStorageUsage(state);
+  const presetDaysBefore = settings.presetAlertDaysBefore ?? 2;
+  const presetDaysAfter = settings.presetAlertDaysAfter ?? 5;
+  const showPresetDecorations = settings.showPresetDecorations !== false;
 
   const profilesSummaryHtml = state.profiles
     .map((profile) => {
@@ -458,6 +465,96 @@ export function renderSettingsView({
             ${settings.dynamicCoverTint !== false ? 'Enabled' : 'Disabled'}
           </button>
         </div>
+
+        <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-semibold text-forest-900 dark:text-white">
+              Preset Card Corner Decorations
+            </p>
+            <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+              Displays subtle seasonal &amp; cultural line-art motifs in the top-right corner of Collection Preset cards for quick visual recognition.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked="${showPresetDecorations ? 'true' : 'false'}"
+            data-action="toggle-preset-decorations"
+            class="min-h-[42px] px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+              showPresetDecorations
+                ? 'bg-forest-700 text-white'
+                : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
+            }"
+          >
+            ${showPresetDecorations ? 'Enabled' : 'Disabled'}
+          </button>
+        </div>
+      </section>
+
+      <!-- Collection Presets & Reminder Window -->
+      <section
+        aria-labelledby="preset-reminders-heading"
+        data-preset-notifications-section="true"
+        class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-3.5"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h2 id="preset-reminders-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
+              Preset Tradition Reminders
+            </h2>
+            <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
+              Choose how early seasonal &amp; cultural collection notifications appear before their suggested date, and how many days they stay visible afterward if you haven’t generated or dismissed them yet.
+            </p>
+          </div>
+          <a
+            href="#/presets"
+            class="min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center transition-colors shrink-0 whitespace-nowrap"
+          >
+            Open Presets
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3 flex items-center justify-between gap-3">
+            <div>
+              <label for="setting-preset-days-before" class="block text-xs font-semibold text-forest-900 dark:text-white">
+                Show in advance (days before)
+              </label>
+              <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                0 = exact day only · Default: 2d before
+              </span>
+            </div>
+            <input
+              id="setting-preset-days-before"
+              name="presetAlertDaysBefore"
+              type="number"
+              min="0"
+              max="30"
+              value="${escapeHtml(presetDaysBefore)}"
+              class="w-20 h-10 px-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+            />
+          </div>
+
+          <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3 flex items-center justify-between gap-3">
+            <div>
+              <label for="setting-preset-days-after" class="block text-xs font-semibold text-forest-900 dark:text-white">
+                Keep after start if unactioned (days)
+              </label>
+              <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                Shows “appeared X days ago” · Default: 5d
+              </span>
+            </div>
+            <input
+              id="setting-preset-days-after"
+              name="presetAlertDaysAfter"
+              type="number"
+              min="0"
+              max="30"
+              value="${escapeHtml(presetDaysAfter)}"
+              class="w-20 h-10 px-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+            />
+          </div>
+        </div>
       </section>
 
       <!-- In-App PWA Install & Offline Readiness Card -->
@@ -642,61 +739,78 @@ export function renderSettingsView({
               `;
             })()}
 
-            <form
-              id="device-books-proxy-form"
-              class="rounded-xl bg-linen-50/90 dark:bg-night-950/80 border border-linen-200 dark:border-night-700 p-3.5 space-y-2.5"
-              novalidate
-            >
-              <div class="flex flex-col sm:flex-row sm:items-end gap-2.5">
-                <div class="flex-1 min-w-0">
-                  <label
-                    for="device-books-proxy-url-input"
-                    class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                  >
-                    Personal Phone PWA Books Proxy URL (Optional · Saved on This Device Only)
-                  </label>
-                  <input
-                    id="device-books-proxy-url-input"
-                    name="deviceBooksProxyUrl"
-                    type="url"
-                    value="${escapeHtml(settingsUiState.deviceBooksProxyUrl || '')}"
-                    placeholder="https://my-books-proxy.workers.dev/volumes"
-                    class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  />
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <button
-                    type="submit"
-                    class="h-11 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap"
-                  >
-                    Save on Device
-                  </button>
-                  ${
-                    settingsUiState.deviceBooksProxyUrl
-                      ? `
-                        <button
-                          type="button"
-                          data-action="clear-device-books-proxy"
-                          class="h-11 px-3 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-stone-ink dark:text-slate-300 transition-colors whitespace-nowrap"
-                        >
-                          Clear
-                        </button>
-                      `
-                      : ''
-                  }
-                </div>
-              </div>
-              <p class="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
-                Lets every phone PWA user connect their own free Cloudflare Worker / Cloud Run Books proxy URL manually—stored only in this device’s local browser storage and excluded from JSON backups.
-              </p>
+            <details
+              data-advanced-proxy-disclosure="true"
               ${
-                settingsUiState.deviceBooksProxyError
-                  ? `<p role="alert" class="text-xs font-medium text-rose-700 dark:text-rose-300">${escapeHtml(
-                      settingsUiState.deviceBooksProxyError
-                    )}</p>`
+                settingsUiState.deviceBooksProxyUrl || settingsUiState.deviceBooksProxyError
+                  ? 'open'
                   : ''
               }
-            </form>
+              class="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5"
+            >
+              <summary class="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
+                <span>Advanced (Optional): Custom Books Proxy Server URL</span>
+                <span class="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
+                  ${renderIcon('chevronDown', 'w-4 h-4')}
+                </span>
+              </summary>
+
+              <form
+                id="device-books-proxy-form"
+                class="pt-3 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2.5"
+                novalidate
+              >
+                <div class="flex flex-col sm:flex-row sm:items-end gap-2.5">
+                  <div class="flex-1 min-w-0">
+                    <label
+                      for="device-books-proxy-url-input"
+                      class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                    >
+                      Personal Phone PWA Books Proxy URL (Optional · Saved on This Device Only)
+                    </label>
+                    <input
+                      id="device-books-proxy-url-input"
+                      name="deviceBooksProxyUrl"
+                      type="url"
+                      value="${escapeHtml(settingsUiState.deviceBooksProxyUrl || '')}"
+                      placeholder="https://my-books-proxy.workers.dev/volumes"
+                      class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                    />
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <button
+                      type="submit"
+                      class="h-11 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                    >
+                      Save on Device
+                    </button>
+                    ${
+                      settingsUiState.deviceBooksProxyUrl
+                        ? `
+                          <button
+                            type="button"
+                            data-action="clear-device-books-proxy"
+                            class="h-11 px-3 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-stone-ink dark:text-slate-300 transition-colors whitespace-nowrap"
+                          >
+                            Clear
+                          </button>
+                        `
+                        : ''
+                    }
+                  </div>
+                </div>
+                <p class="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
+                  Optional for static hosting power users: routes Google Books lookups through your own HTTPS proxy URL (stored only on this device and excluded from JSON backups).
+                </p>
+                ${
+                  settingsUiState.deviceBooksProxyError
+                    ? `<p role="alert" class="text-xs font-medium text-rose-700 dark:text-rose-300">${escapeHtml(
+                        settingsUiState.deviceBooksProxyError
+                      )}</p>`
+                    : ''
+                }
+              </form>
+            </details>
 
             ${
               settingsUiState.googleBooksHealthReport
@@ -938,13 +1052,34 @@ export function renderSettingsView({
               Offline-first family library catalog, shelf rotation planner, and reading games.
             </p>
           </div>
-          <span class="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 whitespace-nowrap">
-            Version <strong class="font-semibold text-forest-900 dark:text-white">${escapeHtml(APP_VERSION)}</strong>
-          </span>
+          <div class="sm:text-right shrink-0">
+            <span
+              data-settings-version-memory="true"
+              class="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 whitespace-nowrap"
+            >
+              Version <strong class="font-semibold text-forest-900 dark:text-white">${escapeHtml(APP_VERSION)}</strong>
+              <span aria-hidden="true" class="mx-1">·</span>
+              Memory <strong data-settings-memory-value="true" class="font-semibold text-forest-900 dark:text-white">${escapeHtml(storageUsage.formatted)}</strong>
+            </span>
+            ${
+              storageUsage.coverDataUrlBytes > 0 || settingsUiState.browserStorageSummary
+                ? `<p class="text-[11px] font-mono-tabular text-stone-ink/80 dark:text-slate-400 mt-0.5">${escapeHtml(
+                    [
+                      storageUsage.coverDataUrlBytes > 0
+                        ? `Photos: ${formatStorageBytes(storageUsage.coverDataUrlBytes)}`
+                        : '',
+                      settingsUiState.browserStorageSummary || '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  )}</p>`
+                : ''
+            }
+          </div>
         </div>
 
         <p class="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
-          All reader profiles, shelf rotations, and book records live privately in your device’s browser storage (${escapeHtml(
+          All reader profiles (${state.profiles.length}), shelf rotations (${state.rotations.length}), and book records (${state.books.length}) live privately in your device’s browser storage (${escapeHtml(
             storageBackend
           )}). Open the HTML guides below for setup steps, local tagging rule customization, and developer extension APIs.
         </p>

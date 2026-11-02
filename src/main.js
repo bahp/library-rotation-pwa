@@ -14,7 +14,7 @@ import {
   normalizeOwnersList,
 } from './types/models.js';
 import { createRouter } from './core/router.js';
-import { createStorageAdapter } from './core/storage.js';
+import { createStorageAdapter, formatStorageBytes } from './core/storage.js';
 import { createAppStore } from './core/store.js';
 import { createPwaManager } from './features/pwa/pwa-manager.js';
 import { createCatalogService } from './features/catalog/catalog-service.js';
@@ -230,7 +230,6 @@ const uiState = {
     randomAddCount: 1,
     isGeneratorOpen: false,
     editingRotationId: null,
-    renamingRotationId: null,
   },
   presetsUi: createDefaultPresetsUiState(),
   playUi: createDefaultPlayUiState(),
@@ -246,6 +245,7 @@ const uiState = {
     isGoogleKeyGuideOpen: false,
     deviceBooksProxyUrl: getDeviceBooksProxyUrl(),
     deviceBooksProxyError: '',
+    browserStorageSummary: '',
   },
 };
 
@@ -284,8 +284,32 @@ const PRESERVED_INPUT_IDS = new Set([
   'inspector-cover-search-input',
   'play-topic-input',
   'presets-search-input',
+  'presets-category-select',
+  'setting-preset-days-before',
+  'setting-preset-days-after',
   'device-books-proxy-url-input',
 ]);
+
+/**
+ * Queries `navigator.storage.estimate()` when supported by the browser to display origin quota context.
+ */
+async function refreshBrowserStorageEstimate() {
+  try {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.storage &&
+      typeof navigator.storage.estimate === 'function'
+    ) {
+      const est = await navigator.storage.estimate();
+      if (typeof est.usage === 'number' && est.usage > 0) {
+        uiState.settingsUi.browserStorageSummary = `Browser cache: ${formatStorageBytes(est.usage)}`;
+        if (router.getCurrent().route === 'settings') {
+          render();
+        }
+      }
+    }
+  } catch (_) {}
+}
 
 /**
  * Evaluates whether the first-run Google Books welcome modal should auto-open once status resolves.
@@ -586,12 +610,20 @@ function render() {
   const state = store.getState();
 
   const activeElement = document.activeElement;
-  const focusedId =
-    activeElement instanceof HTMLInputElement && PRESERVED_INPUT_IDS.has(activeElement.id)
-      ? activeElement.id
-      : null;
+  const isPreservedField =
+    (activeElement instanceof HTMLInputElement ||
+      activeElement instanceof HTMLTextAreaElement ||
+      activeElement instanceof HTMLSelectElement) &&
+    Boolean(
+      activeElement.id &&
+        (PRESERVED_INPUT_IDS.has(activeElement.id) || activeElement.id.startsWith('edit-rot-'))
+    );
+  const focusedId = isPreservedField && activeElement instanceof HTMLElement ? activeElement.id : null;
   const selectionStart =
-    focusedId && activeElement instanceof HTMLInputElement ? activeElement.selectionStart : null;
+    focusedId &&
+    (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement)
+      ? activeElement.selectionStart
+      : null;
 
   let contentHtml = '';
   switch (route) {
@@ -692,12 +724,19 @@ function render() {
   }
 
   if (focusedId) {
-    const nextInput = document.getElementById(focusedId);
-    if (nextInput instanceof HTMLInputElement) {
-      nextInput.focus();
-      if (selectionStart !== null) {
+    const nextField = document.getElementById(focusedId);
+    if (
+      nextField instanceof HTMLInputElement ||
+      nextField instanceof HTMLTextAreaElement ||
+      nextField instanceof HTMLSelectElement
+    ) {
+      nextField.focus();
+      if (
+        selectionStart !== null &&
+        (nextField instanceof HTMLInputElement || nextField instanceof HTMLTextAreaElement)
+      ) {
         try {
-          nextInput.setSelectionRange(selectionStart, selectionStart);
+          nextField.setSelectionRange(selectionStart, selectionStart);
         } catch (_) {}
       }
     }
@@ -708,7 +747,8 @@ function render() {
 }
 
 /**
- * Ensures any visible auto-resize `<textarea>` expands to show all of its content without clipping.
+ * Ensures any visible auto-resize `<textarea>` expands to show all of its content without clipping
+ * while staying compact (`32px` min) for short 1-line notes.
  */
 function syncAutoResizeTextareas() {
   if (!rootEl) return;
@@ -717,10 +757,56 @@ function syncAutoResizeTextareas() {
     if (el instanceof HTMLTextAreaElement) {
       el.style.height = 'auto';
       if (el.scrollHeight > 0) {
-        el.style.height = `${Math.max(el.scrollHeight + 2, 68)}px`;
+        el.style.height = `${Math.max(el.scrollHeight + 2, 32)}px`;
       }
     }
   }
+}
+
+/**
+ * Reads any open unified rotation edit form (`form[data-form="edit-rotation-details"]`)
+ * and persists updated title, description, and rule parameters without needing a separate Save button.
+ * @param {string | null | undefined} rotationId
+ * @param {{ silent?: boolean }} [options]
+ */
+async function flushOpenRotationEdits(rotationId, options = {}) {
+  if (!rotationId || !rootEl) return;
+  const escapedId =
+    typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(rotationId)
+      : rotationId;
+  const detailsForm = rootEl.querySelector(
+    `form[data-form="edit-rotation-details"][data-rotation-id="${escapedId}"]`
+  );
+  if (!(detailsForm instanceof HTMLFormElement)) return;
+
+  const currentRot = store.getState().rotations.find((r) => r.id === rotationId);
+  if (!currentRot) return;
+
+  const fd = new FormData(detailsForm);
+  const rawTitle = String(fd.get('title') || '').trim();
+  const safeTitle = rawTitle || currentRot.title;
+
+  await store.updateRotationDetails(
+    rotationId,
+    {
+      title: safeTitle,
+      description: String(fd.get('description') || ''),
+      swapDays: fd.get('swapDays') !== null ? Number(fd.get('swapDays')) : undefined,
+      cooldownDays: fd.get('cooldownDays') !== null ? Number(fd.get('cooldownDays')) : undefined,
+      count: fd.get('count') !== null ? Number(fd.get('count')) : undefined,
+      requiredFormat: /** @type {import('./types/models.js').BookFormat | 'any'} */ (
+        fd.get('requiredFormat') || 'any'
+      ),
+      preferredTags: String(fd.get('preferredTags') || ''),
+      seed: String(fd.get('seed') || ''),
+      varietyMix: fd.get('varietyMix') !== null,
+    },
+    {
+      silent: Boolean(options.silent),
+      skipIfUnchanged: true,
+    }
+  );
 }
 
 /**
@@ -1087,12 +1173,6 @@ function bindEvents() {
         closeSheetWithMotion(() => {
           pwa.closeIosGuide();
         });
-        return;
-      }
-      if (uiState.rotationEditor.renamingRotationId) {
-        event.preventDefault();
-        uiState.rotationEditor.renamingRotationId = null;
-        render();
         return;
       }
       if (store.getToast()) {
@@ -1597,6 +1677,7 @@ function bindEvents() {
         const rotationId = target.getAttribute('data-rotation-id');
         const bookId = target.getAttribute('data-book-id');
         if (rotationId && bookId) {
+          await flushOpenRotationEdits(rotationId, { silent: true });
           await store.toggleRotationBookRead(rotationId, bookId);
         }
         break;
@@ -1605,64 +1686,19 @@ function bindEvents() {
         uiState.rotationEditor.isGeneratorOpen = false;
         break;
       }
-      case 'start-rename-rotation': {
-        const rotationId = target.getAttribute('data-rotation-id');
-        if (rotationId) {
-          uiState.rotationEditor.renamingRotationId = rotationId;
-          render();
-          const titleInput = document.getElementById(`edit-rot-title-${rotationId}`);
-          if (titleInput instanceof HTMLInputElement) {
-            titleInput.focus();
-            const endPos = titleInput.value.length;
-            try {
-              titleInput.setSelectionRange(endPos, endPos);
-            } catch (_) {}
-          }
-          syncAutoResizeTextareas();
-        }
-        break;
-      }
-      case 'cancel-rename-rotation': {
-        uiState.rotationEditor.renamingRotationId = null;
-        render();
-        break;
-      }
       case 'toggle-edit-rotation': {
         const rotationId = target.getAttribute('data-rotation-id');
         if (rotationId) {
-          const isClosingEdit = uiState.rotationEditor.editingRotationId === rotationId;
-          if (isClosingEdit && rootEl) {
-            const detailsForm = rootEl.querySelector(
-              `form[data-form="edit-rotation-details"][data-rotation-id="${CSS.escape ? CSS.escape(rotationId) : rotationId}"]`
-            );
-            if (detailsForm instanceof HTMLFormElement) {
-              const fd = new FormData(detailsForm);
-              const draftTitle = String(fd.get('title') || '').trim();
-              const draftDesc = String(fd.get('description') || '').trim();
-              const currentRot = store
-                .getState()
-                .rotations.find((r) => r.id === rotationId);
-              if (
-                currentRot &&
-                draftTitle &&
-                (draftTitle !== currentRot.title ||
-                  draftDesc !== (currentRot.rules.objective || ''))
-              ) {
-                try {
-                  await store.updateRotationDetails(rotationId, {
-                    title: draftTitle,
-                    description: draftDesc,
-                  });
-                } catch (err) {
-                  store.notify(
-                    err instanceof Error ? err.message : 'Could not update rotation details.',
-                    'error'
-                  );
-                }
-              }
-            }
-            if (uiState.rotationEditor.renamingRotationId === rotationId) {
-              uiState.rotationEditor.renamingRotationId = null;
+          const prevEditingId = uiState.rotationEditor.editingRotationId;
+          const isClosingEdit = prevEditingId === rotationId;
+          if (prevEditingId) {
+            try {
+              await flushOpenRotationEdits(prevEditingId, { silent: false });
+            } catch (err) {
+              store.notify(
+                err instanceof Error ? err.message : 'Could not update rotation details.',
+                'error'
+              );
             }
           }
           uiState.rotationEditor.editingRotationId = isClosingEdit ? null : rotationId;
@@ -1712,9 +1748,17 @@ function bindEvents() {
       }
       case 'apply-rotation-preset': {
         const presetId = target.getAttribute('data-preset-id');
+        const alertKey = target.getAttribute('data-alert-key');
         if (presetId) {
           try {
             await store.generateRotationFromPreset(presetId);
+            if (alertKey && !uiState.dismissedPresetAlertKeys.includes(alertKey)) {
+              uiState.dismissedPresetAlertKeys = [
+                ...uiState.dismissedPresetAlertKeys,
+                alertKey,
+              ];
+              saveDismissedPresetAlerts(uiState.dismissedPresetAlertKeys);
+            }
             if (router.getCurrent().route === 'presets') {
               router.navigate('rotations');
             } else {
@@ -1734,6 +1778,29 @@ function bindEvents() {
           target.getAttribute('data-preset-filter') || 'all'
         );
         uiState.presetsUi.categoryFilter = nextFilter;
+        if (nextFilter === 'evergreen') {
+          uiState.presetsUi.selectedMonth = null;
+        }
+        render();
+        break;
+      }
+      case 'select-preset-calendar-month': {
+        const rawMonth = target.getAttribute('data-month');
+        if (!rawMonth || rawMonth === 'all') {
+          uiState.presetsUi.selectedMonth = null;
+        } else {
+          const parsedMonth = Number(rawMonth);
+          if (parsedMonth >= 1 && parsedMonth <= 12) {
+            uiState.presetsUi.selectedMonth =
+              uiState.presetsUi.selectedMonth === parsedMonth ? null : parsedMonth;
+            if (
+              uiState.presetsUi.selectedMonth !== null &&
+              uiState.presetsUi.categoryFilter === 'evergreen'
+            ) {
+              uiState.presetsUi.categoryFilter = 'all';
+            }
+          }
+        }
         render();
         break;
       }
@@ -1773,8 +1840,7 @@ function bindEvents() {
       }
       case 'edit-rotation-preset': {
         const presetId = target.getAttribute('data-preset-id');
-        const customPresets = store.getState().customPresets || [];
-        const preset = customPresets.find((p) => p.id === presetId);
+        const preset = getAllRotationPresets(store.getState()).find((p) => p.id === presetId);
         if (preset) {
           rememberModalTrigger(target);
           uiState.presetsUi = {
@@ -1786,6 +1852,13 @@ function bindEvents() {
           };
           render();
           focusActiveDialogControl();
+        }
+        break;
+      }
+      case 'reset-builtin-preset': {
+        const presetId = target.getAttribute('data-preset-id');
+        if (presetId) {
+          await store.resetBuiltInPreset(presetId);
         }
         break;
       }
@@ -1810,9 +1883,6 @@ function bindEvents() {
           if (uiState.rotationEditor.editingRotationId === rotationId) {
             uiState.rotationEditor.editingRotationId = null;
           }
-          if (uiState.rotationEditor.renamingRotationId === rotationId) {
-            uiState.rotationEditor.renamingRotationId = null;
-          }
           await store.deleteRotation(rotationId);
         }
         break;
@@ -1821,6 +1891,7 @@ function bindEvents() {
         const rotationId = target.getAttribute('data-rotation-id');
         const bookId = target.getAttribute('data-book-id');
         if (rotationId && bookId) {
+          await flushOpenRotationEdits(rotationId, { silent: true });
           await store.removeBookFromRotation(rotationId, bookId);
         }
         break;
@@ -1830,6 +1901,7 @@ function bindEvents() {
         const bookId = target.getAttribute('data-book-id');
         if (rotationId && bookId) {
           try {
+            await flushOpenRotationEdits(rotationId, { silent: true });
             const swapped = await store.replaceRotationBookRandom(rotationId, bookId);
             if (uiState.inspectedBookId === bookId && swapped) {
               uiState.inspectedBookId = swapped.id;
@@ -1845,6 +1917,7 @@ function bindEvents() {
         const rotationId = target.getAttribute('data-rotation-id');
         const bookId = target.getAttribute('data-book-id');
         if (rotationId && bookId) {
+          await flushOpenRotationEdits(rotationId, { silent: true });
           rememberModalTrigger(target);
           uiState.rotationEditor = {
             ...uiState.rotationEditor,
@@ -1878,6 +1951,7 @@ function bindEvents() {
       case 'open-add-books-modal': {
         const rotationId = target.getAttribute('data-rotation-id');
         if (rotationId) {
+          await flushOpenRotationEdits(rotationId, { silent: true });
           rememberModalTrigger(target);
           uiState.rotationEditor = {
             ...uiState.rotationEditor,
@@ -1927,6 +2001,7 @@ function bindEvents() {
         const count = Number(target.getAttribute('data-count') || 1);
         if (rotationId) {
           try {
+            await flushOpenRotationEdits(rotationId, { silent: true });
             await store.addBooksToRotationRandom(rotationId, count);
             if (uiState.rotationEditor.modalMode === 'add') {
               uiState.rotationEditor.modalMode = null;
@@ -2190,6 +2265,17 @@ function bindEvents() {
           !current
             ? 'Enabled Dynamic Cover Art Card Tint.'
             : 'Disabled Dynamic Cover Art Card Tint.',
+          'info'
+        );
+        break;
+      }
+      case 'toggle-preset-decorations': {
+        const current = store.getState().settings.showPresetDecorations !== false;
+        await store.updateSettings({ showPresetDecorations: !current });
+        store.notify(
+          !current
+            ? 'Enabled Preset Card Corner Decorations.'
+            : 'Disabled Preset Card Corner Decorations.',
           'info'
         );
         break;
@@ -2524,7 +2610,7 @@ function bindEvents() {
     ) {
       target.style.height = 'auto';
       if (target.scrollHeight > 0) {
-        target.style.height = `${Math.max(target.scrollHeight + 2, 68)}px`;
+        target.style.height = `${Math.max(target.scrollHeight + 2, 32)}px`;
       }
       return;
     }
@@ -2579,6 +2665,45 @@ function bindEvents() {
 
   rootEl.addEventListener('change', async (event) => {
     const target = event.target;
+    if (
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement
+    ) {
+      const rotForm = target.closest('form[data-form="edit-rotation-details"]');
+      if (rotForm instanceof HTMLFormElement) {
+        const rotId = rotForm.getAttribute('data-rotation-id');
+        if (rotId) {
+          try {
+            await flushOpenRotationEdits(rotId, { silent: true });
+          } catch (_) {}
+          return;
+        }
+      }
+    }
+    if (target instanceof HTMLSelectElement && target.id === 'presets-category-select') {
+      uiState.presetsUi.categoryFilter =
+        /** @type {import('./features/rotations/presets-view.js').PresetFilterId} */ (
+          target.value || 'all'
+        );
+      if (uiState.presetsUi.categoryFilter === 'evergreen') {
+        uiState.presetsUi.selectedMonth = null;
+      }
+      render();
+      return;
+    }
+    if (
+      target instanceof HTMLInputElement &&
+      (target.id === 'setting-preset-days-before' || target.id === 'setting-preset-days-after')
+    ) {
+      const clampedVal = Math.max(0, Math.min(30, Math.trunc(Number(target.value) || 0)));
+      if (target.id === 'setting-preset-days-before') {
+        await store.updateSettings({ presetAlertDaysBefore: clampedVal });
+      } else {
+        await store.updateSettings({ presetAlertDaysAfter: clampedVal });
+      }
+      return;
+    }
     if (!(target instanceof HTMLInputElement)) return;
 
     if (target.id === 'import-backup-input') {
@@ -2787,12 +2912,7 @@ function bindEvents() {
       const rotationId = form.getAttribute('data-rotation-id');
       if (!rotationId) return;
       try {
-        await store.updateRotationDetails(rotationId, {
-          title: String(data.get('title') || ''),
-          description: String(data.get('description') || ''),
-        });
-        uiState.rotationEditor.renamingRotationId = null;
-        render();
+        await flushOpenRotationEdits(rotationId, { silent: false });
       } catch (err) {
         store.notify(
           err instanceof Error ? err.message : 'Could not update rotation details.',
@@ -2824,6 +2944,7 @@ function bindEvents() {
         varietyMix: data.get('varietyMix') !== null,
         seed: String(data.get('seed') || ''),
         suggestedStartMonthDay: monthCheck.monthDay,
+        motif: String(data.get('motif') || '').trim(),
       };
 
       if (!monthCheck.valid) {
@@ -2994,13 +3115,15 @@ async function bootstrap() {
     } else {
       scanner.initSupport();
     }
+    if (uiState.rotationEditor.editingRotationId && next.route !== 'rotations') {
+      void flushOpenRotationEdits(uiState.rotationEditor.editingRotationId, { silent: true });
+    }
     if (next.route === 'rotations') {
       if (next.params.get('new') === '1') {
         uiState.rotationEditor.isGeneratorOpen = true;
       }
       const editRotId = next.params.get('edit');
       uiState.rotationEditor.editingRotationId = editRotId || null;
-      uiState.rotationEditor.renamingRotationId = null;
     }
     if (next.route === 'presets') {
       if (next.params.get('new') === '1') {
@@ -3053,6 +3176,7 @@ async function bootstrap() {
     }
     if (next.route === 'settings') {
       refreshGoogleBooksKeyStatus();
+      void refreshBrowserStorageEstimate();
     }
     render();
   });
@@ -3069,6 +3193,7 @@ async function bootstrap() {
   router.start();
   render();
   refreshGoogleBooksKeyStatus();
+  void refreshBrowserStorageEstimate();
 }
 
 bootstrap();

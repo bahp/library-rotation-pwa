@@ -62,7 +62,6 @@ describe('Phase 20 — Rotation Name & Description Editing', () => {
         randomAddCount: 1,
         isGeneratorOpen: false,
         editingRotationId: null,
-        renamingRotationId: null,
       },
       referenceDate: '2026-06-10',
     });
@@ -71,14 +70,9 @@ describe('Phase 20 — Rotation Name & Description Editing', () => {
       false,
       'Compact shelf view should stay clean without inline edit inputs'
     );
-    assert.equal(
-      compactHtml.includes('data-action="start-rename-rotation"'),
-      true,
-      'Header should include the inline pen button next to the rotation title'
-    );
 
-    // Clicking the pen icon (renamingRotationId === targetRot.id) turns title + description into inline inputs
-    const renamingHtml = renderRotationsView({
+    // Unified Edit mode (editingRotationId === targetRot.id) exposes name, description, and rule inputs together
+    const editingHtml = renderRotationsView({
       state: initialState,
       editorState: {
         modalMode: null,
@@ -88,15 +82,14 @@ describe('Phase 20 — Rotation Name & Description Editing', () => {
         selectedAddBookIds: [],
         randomAddCount: 1,
         isGeneratorOpen: false,
-        editingRotationId: null,
-        renamingRotationId: targetRot.id,
+        editingRotationId: targetRot.id,
       },
       referenceDate: '2026-06-10',
     });
-    assert.equal(renamingHtml.includes('data-form="edit-rotation-details"'), true);
-    assert.equal(renamingHtml.includes(`data-rotation-id="${targetRot.id}"`), true);
-    assert.equal(renamingHtml.includes('name="title"'), true);
-    assert.equal(renamingHtml.includes('name="description"'), true);
+    assert.equal(editingHtml.includes('data-form="edit-rotation-details"'), true);
+    assert.equal(editingHtml.includes(`data-rotation-id="${targetRot.id}"`), true);
+    assert.equal(editingHtml.includes('name="title"'), true);
+    assert.equal(editingHtml.includes('name="description"'), true);
 
     // Update name & description via store
     const updated = await store.updateRotationDetails(targetRot.id, {

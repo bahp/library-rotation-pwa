@@ -124,10 +124,13 @@
  * @property {string} aiEndpointUrl - Optional keyless HTTPS or localhost proxy endpoint URL for 'custom-endpoint'
  * @property {number} aiTimeoutMs - Bounded request timeout in ms for optional AI adapter calls
  * @property {ScanMode} preferredScanMode - Default camera scan guide mode
+ * @property {number} [presetAlertDaysBefore] - Days before an annual MM-DD preset start date to surface reminder (0-30, default: 2)
+ * @property {number} [presetAlertDaysAfter] - Days after an annual MM-DD preset start date to keep showing unactioned reminder (0-30, default: 5)
+ * @property {boolean} [showPresetDecorations] - Show subtle top-right motif corner decorations on preset cards (default: true)
  */
 
 /**
- * @typedef {'seasonal-holidays' | 'calendar-events' | 'evergreen'} PresetCategory
+ * @typedef {'seasonal-holidays' | 'cultural-traditions' | 'calendar-events' | 'evergreen'} PresetCategory
  */
 
 /**
@@ -144,7 +147,9 @@
  * @property {boolean} varietyMix - Whether to enforce author & topic variety
  * @property {string} seed - Pre-defined deterministic PRNG seed
  * @property {string} [suggestedStartMonthDay] - Optional annual start date in 'MM-DD' format (omitted when anytime)
+ * @property {string} [motif] - Optional top-right corner decorative motif key
  * @property {boolean} [isCustom] - True when created locally by the user
+ * @property {boolean} [isBuiltInOverride] - True when a built-in default preset has been customized in place
  * @property {string} [createdAt] - Optional ISO-8601 creation timestamp
  */
 
@@ -156,6 +161,7 @@
  * @property {Book[]} books - Family book catalog
  * @property {RotationList[]} rotations - Saved and active rotation lists
  * @property {RotationPreset[]} [customPresets] - User-defined rotation collection presets
+ * @property {Record<string, RotationPreset>} [presetOverrides] - In-place edits to built-in default presets keyed by preset ID
  * @property {AppSettings} settings - User preferences
  * @property {string} updatedAt - Last state persistence ISO timestamp
  */

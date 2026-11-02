@@ -66,7 +66,10 @@ export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
     presets: getAllRotationPresets(state),
     activeProfile,
     activeRotation,
+    profileRotations,
     dismissedAlertKeys: uiState.dismissedPresetAlertKeys || [],
+    daysBefore: state.settings.presetAlertDaysBefore ?? 2,
+    daysAfter: state.settings.presetAlertDaysAfter ?? 5,
     referenceDate,
     showBrowseLink: true,
   });
