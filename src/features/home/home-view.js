@@ -21,6 +21,7 @@ import {
   computeRotationSchedule,
   renderSwapDayAlertBanner,
 } from '../rotations/rotation-schedule.js';
+import { renderPwaInstallBanner } from '../pwa/pwa-install-banner.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
 import { renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
@@ -36,13 +37,25 @@ import { renderIcon } from '../../ui/icons.js';
  *     inspectedBookId: string | null,
  *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
  *     dismissedSwapReminderKeys?: string[],
- *     dismissedPresetAlertKeys?: string[]
+ *     dismissedPresetAlertKeys?: string[],
+ *     pwaBannerDismissed?: boolean
  *   },
+ *   pwaStatus?: {
+ *     isInstallable?: boolean,
+ *     isInstalled?: boolean,
+ *     isIOS?: boolean,
+ *     promptReady?: boolean
+ *   } | null,
  *   referenceDate?: Date | string | number
  * }} params
  * @returns {string}
  */
-export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
+export function renderHomeView({
+  state,
+  uiState,
+  pwaStatus = null,
+  referenceDate = new Date(),
+}) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   const coverAspectRatio = state.settings.coverAspectRatio;
@@ -73,6 +86,17 @@ export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
     referenceDate,
     showBrowseLink: true,
   });
+
+  const pwaInstallAlertHtml = renderPwaInstallBanner({
+    pwaStatus,
+    dismissed: Boolean(uiState.pwaBannerDismissed),
+  });
+
+  const alertBanners = [presetStartAlertHtml, swapDayAlertHtml, pwaInstallAlertHtml].filter(
+    Boolean
+  );
+  const alertsStackHtml =
+    alertBanners.length > 0 ? `<div class="space-y-2">${alertBanners.join('')}</div>` : '';
 
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
   const rotationBooks = activeRotation
@@ -400,8 +424,7 @@ export function renderHomeView({ state, uiState, referenceDate = new Date() }) {
 
   return `
     <div class="space-y-5">
-      ${presetStartAlertHtml}
-      ${swapDayAlertHtml}
+      ${alertsStackHtml}
       ${activeShelfHtml}
       ${savedRotationsHtml}
       ${recommendationsHtml}

@@ -37,6 +37,7 @@
           <a href="#local-env">Option A: Local / Node (.env)</a>
           <a href="#phone-proxy">Option B: Cloudflare Worker (5 Min)</a>
           <a href="#how-merging-works">How Merging &amp; Sync Work</a>
+          <a href="#play-apps">Play Logos &amp; Home Screen PWA</a>
         </div>
       </section>
 
@@ -230,6 +231,33 @@
           <li><strong>Field Priority &amp; Union:</strong> When both find an edition, Google Books serves as the primary record (title, high-resolution cover thumbnail, summary, page count) while Open Library fills any missing fields and contributes archival subject headings so topic tags combine the best of both catalogs.</li>
           <li><strong>Retroactive Library Sync:</strong> If you scanned books earlier using Open Library only and configure Google Books later, open <strong>Settings → Catalog Metadata Providers → Update Existing Library with Google Books</strong> to enrich existing books with Google Books covers, page counts, tags, and dual provenance without changing your owners, shelf status, or custom photos.</li>
         </ul>
+      </section>
+
+      <section id="play-apps" class="section-block">
+        <h2>6. Customizing Play App Logos, Preview Images &amp; Home Screen PWA</h2>
+        <p>
+          The <strong>Play</strong> tab (<code>#/play</code>) showcases preview cards for <em>Storytime &amp; Topic Picker</em> and <em>Book Hunt (“Find It!”)</em> that open smoothly as bottom sheets when tapped. You can swap their logos, preview illustrations, titles, or CTA labels in one file:
+        </p>
+        <ul>
+          <li><strong>Configuration file:</strong> <code>src/data/play-apps-config.js</code></li>
+          <li><strong>Static image folder:</strong> Drop any square logo (<code>1:1</code>) or landscape preview image (<code>16:10</code> / <code>4:3</code>) into <code>public/assets/play/</code> and reference it as <code>'assets/play/your-image.jpg'</code> (no leading slash so GitHub Pages subpaths work automatically).</li>
+          <li><strong>Vector-only mode:</strong> Set <code>logoUrl: ''</code> or <code>imageUrl: ''</code> if you prefer clean built-in SVG icons (<code>'dice'</code>, <code>'compass'</code>, <code>'sparkles'</code>, <code>'books'</code>).</li>
+        </ul>
+        <pre><code>// src/data/play-apps-config.js
+export const PLAY_APPS_CONFIG = Object.freeze([
+  Object.freeze({
+    id: 'storytime-picker',
+    title: 'Storytime &amp; Topic Picker',
+    imageUrl: 'assets/play/storytime-picker-preview.jpg',
+    logoUrl: 'assets/play/storytime-picker-logo.jpg',
+    logoIcon: 'dice',
+    ctaLabel: 'Open Storytime Picker',
+  }),
+  // ...
+]);</code></pre>
+        <p>
+          <strong>Saving as a Phone Home Screen App (PWA):</strong> Tap <strong>Settings → Installable Phone App (PWA) → Save to Home Screen</strong> (or use the compact Home Screen banner on the Shelf page). On Android Chrome/Edge this triggers the native one-tap install dialog; on iPhone/iPad Safari it opens step-by-step <em>Share → Add to Home Screen</em> instructions.
+        </p>
       </section>
 
       <footer class="docs-footer">

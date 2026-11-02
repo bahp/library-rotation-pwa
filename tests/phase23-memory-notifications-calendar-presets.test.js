@@ -125,7 +125,7 @@ describe('Phase 23 — Advance & Past-Due Grace Preset Notification Windows', ()
     assert.equal(html2dBefore.includes('data-preset-alert-status="upcoming"'), true);
     assert.equal(html2dBefore.includes('Starts in 2 days (Oct 15)'), true);
 
-    // 3) 3 days AFTER ('2028-10-18') when user has NOT clicked yes/no -> "Notification appeared 3 days ago (Suggested Oct 15)"
+    // 3) 3 days AFTER ('2028-10-18') when user has NOT clicked yes/no -> "Suggested 3 days ago (Oct 15)"
     const html3dAfter = renderHomeView({
       state: store.getState(),
       uiState: baseUiState,
@@ -133,7 +133,7 @@ describe('Phase 23 — Advance & Past-Due Grace Preset Notification Windows', ()
     });
     assert.equal(html3dAfter.includes('data-preset-start-alert="preset-halloween-spooky"'), true);
     assert.equal(html3dAfter.includes('data-preset-alert-status="past-due"'), true);
-    assert.equal(html3dAfter.includes('Notification appeared 3 days ago (Suggested Oct 15)'), true);
+    assert.equal(html3dAfter.includes('Suggested 3 days ago (Oct 15)'), true);
 
     // 4) 6 days AFTER ('2028-10-21') -> outside 5d grace window -> hidden
     const html6dAfter = renderHomeView({
@@ -187,7 +187,7 @@ describe('Phase 23 — Advance & Past-Due Grace Preset Notification Windows', ()
       daysAfter: 5,
       referenceDate: '2027-01-02',
     });
-    assert.equal(bannerJan2.includes('Notification appeared 3 days ago (Suggested Dec 30)'), true);
+    assert.equal(bannerJan2.includes('Suggested 3 days ago (Dec 30)'), true);
   });
 });
 

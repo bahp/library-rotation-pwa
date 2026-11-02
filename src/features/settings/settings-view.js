@@ -222,8 +222,9 @@ export function renderSettingsView({
   let pwaActionHtml = '';
   if (pwaStatus.isInstalled) {
     pwaActionHtml = `
-      <p class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA]">
-        Installed in standalone home-screen mode
+      <p class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] inline-flex items-center gap-1.5">
+        ${renderIcon('check', 'w-3.5 h-3.5', 2.4)}
+        <span>Installed in standalone home-screen mode</span>
       </p>
     `;
   } else if (pwaStatus.isInstallable) {
@@ -231,27 +232,22 @@ export function renderSettingsView({
       <button
         type="button"
         data-action="install-pwa"
-        class="min-h-[44px] px-5 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
+        class="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
       >
         ${renderIcon('download', 'w-4 h-4')}
-        Install App
-      </button>
-    `;
-  } else if (pwaStatus.isIOS) {
-    pwaActionHtml = `
-      <button
-        type="button"
-        data-action="install-pwa"
-        class="min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap shrink-0"
-      >
-        Install on iPhone / iPad
+        <span>Save to Home Screen</span>
       </button>
     `;
   } else {
     pwaActionHtml = `
-      <p class="text-xs text-stone-ink dark:text-slate-400">
-        Open in Chrome, Edge, or Safari on your phone to add Book Rotation to your home screen.
-      </p>
+      <button
+        type="button"
+        data-action="install-pwa"
+        class="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
+      >
+        ${renderIcon('download', 'w-4 h-4')}
+        <span>${pwaStatus.isIOS ? 'Add to Home Screen' : 'Save to Home Screen'}</span>
+      </button>
     `;
   }
 

@@ -425,7 +425,7 @@ describe('Phase 24 — Retroactive Library Sync (Update Existing Library with Go
 
 describe('Phase 24 — 5-Minute Step-by-Step Cloudflare Worker Documentation', () => {
   it('documents all 4 Cloudflare Worker deployment steps, ALLOWED_ORIGIN, GOOGLE_BOOKS_API_KEY, and library sync in docs/configuration.html', () => {
-    assert.equal(APP_VERSION, '1.19.0');
+    assert.equal(APP_VERSION, '1.20.0');
     assert.equal(APP_DOCS_LINKS.cloudflareWorkerGuide, 'docs/configuration.html#phone-proxy');
 
     const configDocPath = resolve(process.cwd(), 'public/docs/configuration.html');

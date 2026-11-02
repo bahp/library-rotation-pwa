@@ -181,52 +181,56 @@ export function renderSwapDayAlertBanner({
   const dismissedSet = new Set(dismissedReminderKeys);
   if (dismissedSet.has(schedule.reminderKey)) return '';
 
-  const overdueCopy =
+  const timingKicker =
     schedule.daysOverdue > 0
-      ? `is ${schedule.daysOverdue} ${schedule.daysOverdue === 1 ? 'day' : 'days'} past its ${schedule.cycleDays}-day swap cycle`
-      : `completed its ${schedule.cycleDays}-day shelf cycle today`;
+      ? `Swap due ${schedule.daysOverdue} ${schedule.daysOverdue === 1 ? 'day' : 'days'} ago (${schedule.dueDateLabel})`
+      : `Swap due today (${schedule.dueDateLabel})`;
 
   return `
     <section
       role="region"
       aria-label="Library Swap Day reminder"
       data-swap-day-alert="true"
-      class="rounded-2xl bg-amber-50/95 dark:bg-amber-950/45 border border-amber-300/80 dark:border-amber-800/80 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      class="rounded-xl bg-amber-50/95 dark:bg-amber-950/45 border border-amber-300/80 dark:border-amber-800/80 px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-2"
     >
-      <div class="flex items-start gap-3 min-w-0">
-        <span
-          aria-hidden="true"
-          class="w-9 h-9 rounded-xl bg-amber-200/80 dark:bg-amber-900/70 text-amber-950 dark:text-amber-200 flex items-center justify-center shrink-0 mt-0.5"
-        >
-          ${renderIcon('rotations', 'w-5 h-5')}
-        </span>
-        <div class="min-w-0">
-          <p class="text-xs font-bold uppercase tracking-wider text-amber-900 dark:text-amber-300">
-            Library Swap Day · ${escapeHtml(profile.name)}
-          </p>
-          <p class="text-xs sm:text-sm font-medium text-forest-900 dark:text-slate-100 mt-0.5 leading-snug">
-            “${escapeHtml(rotation.title)}” (set ${escapeHtml(schedule.startedDateLabel)}) ${escapeHtml(overdueCopy)}. Ready to rotate fresh books onto ${escapeHtml(profile.name)}’s shelf?
-          </p>
+      <div class="flex items-start justify-between gap-2">
+        <div class="flex items-start gap-2.5 min-w-0 flex-1">
+          <span
+            aria-hidden="true"
+            class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-200/80 dark:bg-amber-900/70 text-amber-950 dark:text-amber-200 flex items-center justify-center shrink-0 mt-0.5"
+          >
+            ${renderIcon('rotations', 'w-3.5 h-3.5 sm:w-4 sm:h-4')}
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-[11px] font-semibold text-amber-900 dark:text-amber-300 font-mono-tabular leading-tight truncate">
+              ${escapeHtml(timingKicker)} · ${escapeHtml(profile.name)}
+            </p>
+            <p class="text-xs sm:text-sm font-medium text-forest-900 dark:text-slate-100 mt-0.5 leading-snug line-clamp-1 sm:line-clamp-2">
+              “${escapeHtml(rotation.title)}” completed its ${schedule.cycleDays}d shelf cycle (set ${escapeHtml(schedule.startedDateLabel)}).
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div class="flex items-center gap-2 shrink-0 sm:self-center pl-12 sm:pl-0">
-        <button
-          type="button"
-          data-action="start-swap-day-rotation"
-          class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-800 hover:bg-forest-900 dark:bg-[#5ED3DA] dark:hover:bg-[#7CE0E6] text-white dark:text-night-950 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-        >
-          ${renderIcon('shuffle', 'w-3.5 h-3.5')}
-          Rotate Shelf
-        </button>
         <button
           type="button"
           data-action="dismiss-swap-reminder"
           data-reminder-key="${escapeHtml(schedule.reminderKey)}"
           aria-label="Dismiss Library Swap Day reminder for this cycle"
-          class="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory/80 hover:bg-ivory dark:bg-night-900/70 dark:hover:bg-night-800 border border-amber-300/70 dark:border-amber-800/70 text-xs font-semibold text-amber-950 dark:text-amber-200 transition-colors whitespace-nowrap"
+          title="Dismiss reminder"
+          class="min-h-[34px] min-w-[34px] sm:min-h-[36px] sm:min-w-[36px] -mr-1.5 -mt-1 rounded-lg text-amber-900/75 hover:text-amber-950 hover:bg-amber-200/50 dark:text-amber-300/80 dark:hover:text-amber-100 dark:hover:bg-amber-900/40 flex items-center justify-center shrink-0 transition-colors"
         >
-          Dismiss
+          ${renderIcon('close', 'w-3.5 h-3.5')}
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 pl-9.5 sm:pl-10.5">
+        <button
+          type="button"
+          data-action="start-swap-day-rotation"
+          class="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg bg-forest-800 hover:bg-forest-900 dark:bg-[#5ED3DA] dark:hover:bg-[#7CE0E6] text-white dark:text-night-950 text-[11px] sm:text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+        >
+          ${renderIcon('shuffle', 'w-3 h-3 sm:w-3.5 sm:h-3.5')}
+          <span>Rotate Shelf</span>
         </button>
       </div>
     </section>

@@ -191,15 +191,37 @@ export function renderAppShell({
         data-backdrop-action="close-ios-guide"
         class="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
       >
-        <div role="dialog" aria-modal="true" aria-labelledby="ios-install-title" class="animate-sheet-up w-full max-w-sm rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 p-6 shadow-xl">
+        <div role="dialog" aria-modal="true" aria-labelledby="ios-install-title" class="animate-sheet-up w-full max-w-sm rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 p-5 sm:p-6 shadow-xl">
+          <div class="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mb-3 sm:hidden" aria-hidden="true"></div>
           <h2 id="ios-install-title" class="font-display text-lg font-semibold text-forest-900 dark:text-white">
-            Install Library Rotation on iOS
+            ${pwaStatus.isIOS ? 'Add Book Rotation to Home Screen' : 'Save Bookmark to Home Screen'}
           </h2>
-          <ol class="mt-3 space-y-2 text-sm text-stone-ink dark:text-slate-300 list-decimal list-inside">
-            <li>Tap the <strong>Share</strong> icon in the Safari toolbar.</li>
-            <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-            <li>Tap <strong>Add</strong> to launch full-screen offline.</li>
-          </ol>
+          ${
+            pwaStatus.isIOS
+              ? `
+                <ol class="mt-3 space-y-2 text-sm text-stone-ink dark:text-slate-300 list-decimal list-inside">
+                  <li>Tap the <strong>Share</strong> icon in the Safari toolbar.</li>
+                  <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+                  <li>Tap <strong>Add</strong> to launch full-screen offline.</li>
+                </ol>
+              `
+              : `
+                <div class="mt-3 space-y-2.5 text-xs sm:text-sm text-stone-ink dark:text-slate-300 leading-relaxed">
+                  <p>
+                    <strong class="text-forest-900 dark:text-white">Android (Chrome / Edge):</strong>
+                    Tap the browser menu (<strong>⋮</strong>) and choose <strong>Add to Home screen</strong> or <strong>Install app</strong>.
+                  </p>
+                  <p>
+                    <strong class="text-forest-900 dark:text-white">iPhone / iPad (Safari):</strong>
+                    Tap <strong>Share</strong> and choose <strong>Add to Home Screen</strong>.
+                  </p>
+                  <p>
+                    <strong class="text-forest-900 dark:text-white">Desktop (Chrome / Edge / Safari):</strong>
+                    Click the install icon in the address bar (or <strong>File &rarr; Add to Dock</strong> in Safari).
+                  </p>
+                </div>
+              `
+          }
           <button
             type="button"
             data-action="close-ios-guide"

@@ -88,7 +88,7 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,webp,svg,woff,woff2}'],
           navigateFallbackDenylist: [/^\/api\//, /\/docs\/.*/],
           runtimeCaching: [
             {

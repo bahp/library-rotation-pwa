@@ -607,12 +607,12 @@ export function renderPresetStartDateAlertBanner({
   return matches
     .map(({ preset, schedule }) => {
       const signed = schedule.signedDaysFromStart || 0;
-      let timingHeadline = `Suggested Start Today (${schedule.formattedDateLabel}) · ${activeProfile.name}`;
+      let timingHeadline = `Suggested today (${schedule.formattedDateLabel})`;
       if (schedule.windowStatus === 'upcoming' && signed < 0) {
         const ahead = Math.abs(signed);
-        timingHeadline = `Starts in ${ahead} ${ahead === 1 ? 'day' : 'days'} (${schedule.formattedDateLabel}) · ${activeProfile.name}`;
+        timingHeadline = `Starts in ${ahead} ${ahead === 1 ? 'day' : 'days'} (${schedule.formattedDateLabel})`;
       } else if (schedule.windowStatus === 'past-due' && signed > 0) {
-        timingHeadline = `Notification appeared ${signed} ${signed === 1 ? 'day' : 'days'} ago (Suggested ${schedule.formattedDateLabel}) · ${activeProfile.name}`;
+        timingHeadline = `Suggested ${signed} ${signed === 1 ? 'day' : 'days'} ago (${schedule.formattedDateLabel})`;
       }
 
       return `
@@ -621,60 +621,65 @@ export function renderPresetStartDateAlertBanner({
           aria-label="Suggested seasonal rotation start"
           data-preset-start-alert="${escapeHtml(preset.id)}"
           data-preset-alert-status="${escapeHtml(schedule.windowStatus || 'today')}"
-          class="rounded-2xl bg-linen-100/95 dark:bg-night-800/85 border border-linen-200 dark:border-night-700 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          class="rounded-xl bg-linen-100/95 dark:bg-night-800/85 border border-linen-200 dark:border-night-700 px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col gap-2"
         >
-          <div class="flex items-start gap-3 min-w-0">
-            <span
-              aria-hidden="true"
-              class="w-9 h-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center shrink-0 mt-0.5"
-            >
-              ${renderIcon('sparkles', 'w-4 h-4')}
-            </span>
-            <div class="min-w-0">
-              <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] font-mono-tabular">
-                ${escapeHtml(timingHeadline)}
-              </p>
-              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white mt-0.5 leading-snug">
-                ${escapeHtml(preset.title)} · ${preset.count} ${preset.count === 1 ? 'book' : 'books'} (${preset.swapDays}d cycle)
-              </p>
-              <p class="text-xs text-stone-ink dark:text-slate-300 mt-0.5 leading-relaxed">
-                ${escapeHtml(preset.description)}
-              </p>
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-start gap-2.5 min-w-0 flex-1">
+              <span
+                aria-hidden="true"
+                class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center shrink-0 mt-0.5"
+              >
+                ${renderIcon('sparkles', 'w-3.5 h-3.5 sm:w-4 sm:h-4')}
+              </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] font-mono-tabular leading-tight truncate">
+                  ${escapeHtml(timingHeadline)} · ${escapeHtml(activeProfile.name)}
+                </p>
+                <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white mt-0.5 leading-snug truncate">
+                  ${escapeHtml(preset.title)} · ${preset.count} ${preset.count === 1 ? 'book' : 'books'} (${preset.swapDays}d)
+                </p>
+                <p class="text-[11px] sm:text-xs text-stone-ink dark:text-slate-300 mt-0.5 leading-snug line-clamp-1 sm:line-clamp-2">
+                  ${escapeHtml(preset.description)}
+                </p>
+              </div>
             </div>
+
+            <button
+              type="button"
+              data-action="dismiss-preset-start-alert"
+              data-alert-key="${escapeHtml(schedule.alertKey)}"
+              aria-label="Dismiss ${escapeHtml(preset.title)} start reminder for this year"
+              title="Dismiss reminder"
+              class="min-h-[34px] min-w-[34px] sm:min-h-[36px] sm:min-w-[36px] -mr-1.5 -mt-1 rounded-lg text-stone-ink/75 hover:text-forest-900 hover:bg-linen-200/60 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-700 flex items-center justify-center shrink-0 transition-colors"
+            >
+              ${renderIcon('close', 'w-3.5 h-3.5')}
+            </button>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2 shrink-0 sm:self-center pl-12 sm:pl-0">
+          <div class="flex items-center justify-between sm:justify-start gap-2.5 pl-9.5 sm:pl-10.5">
             <button
               type="button"
               data-action="apply-rotation-preset"
               data-preset-id="${escapeHtml(preset.id)}"
               data-alert-key="${escapeHtml(schedule.alertKey)}"
-              class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              class="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-lg bg-forest-700 hover:bg-forest-800 text-white text-[11px] sm:text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
-              ${renderIcon('rotations', 'w-3.5 h-3.5')}
-              Generate Shelf
+              ${renderIcon('rotations', 'w-3 h-3 sm:w-3.5 sm:h-3.5')}
+              <span>Generate Shelf</span>
             </button>
             ${
               showBrowseLink
                 ? `
                   <a
                     href="#/presets"
-                    class="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-50 dark:bg-night-900 dark:hover:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center transition-colors whitespace-nowrap"
+                    class="text-[11px] sm:text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline inline-flex items-center gap-0.5 py-1 whitespace-nowrap"
                   >
-                    All Presets
+                    <span>All Presets</span>
+                    ${renderIcon('chevronRight', 'w-3 h-3')}
                   </a>
                 `
                 : ''
             }
-            <button
-              type="button"
-              data-action="dismiss-preset-start-alert"
-              data-alert-key="${escapeHtml(schedule.alertKey)}"
-              aria-label="Dismiss ${escapeHtml(preset.title)} start reminder for this year"
-              class="min-h-[40px] px-2.5 py-1.5 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white transition-colors whitespace-nowrap"
-            >
-              Dismiss
-            </button>
           </div>
         </section>
       `;

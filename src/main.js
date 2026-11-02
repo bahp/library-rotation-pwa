@@ -16,7 +16,11 @@ import {
 import { createRouter } from './core/router.js';
 import { createStorageAdapter, formatStorageBytes } from './core/storage.js';
 import { createAppStore } from './core/store.js';
-import { createPwaManager } from './features/pwa/pwa-manager.js';
+import {
+  createPwaManager,
+  loadPwaBannerDismissed,
+  savePwaBannerDismissed,
+} from './features/pwa/pwa-manager.js';
 import { createCatalogService } from './features/catalog/catalog-service.js';
 import {
   getDeviceBooksProxyUrl,
@@ -53,6 +57,7 @@ import {
 import {
   createDefaultPlayUiState,
   renderPlayView,
+  resolveActivePlayAppId,
 } from './features/play/play-view.js';
 import {
   createBookHuntChallenge,
@@ -185,6 +190,7 @@ const uiState = {
   inspectorUi: createBlankInspectorUi(),
   dismissedSwapReminderKeys: loadDismissedSwapReminders(),
   dismissedPresetAlertKeys: loadDismissedPresetAlerts(),
+  pwaBannerDismissed: loadPwaBannerDismissed(),
   /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */
   intakeTab: 'scanner',
   /** @type {import('./types/models.js').CollectionStatus} */
@@ -581,6 +587,7 @@ function rememberModalTrigger(el) {
   const bookId = el.getAttribute('data-book-id');
   const rotId = el.getAttribute('data-rotation-id');
   const profId = el.getAttribute('data-profile-id');
+  const playAppId = el.getAttribute('data-play-app-id');
   if (action && bookId && rotId) {
     lastModalTriggerSelector = `[data-action="${action}"][data-rotation-id="${rotId}"][data-book-id="${bookId}"]`;
   } else if (action && bookId) {
@@ -589,6 +596,8 @@ function rememberModalTrigger(el) {
     lastModalTriggerSelector = `[data-action="${action}"][data-rotation-id="${rotId}"]`;
   } else if (action && profId) {
     lastModalTriggerSelector = `[data-action="${action}"][data-profile-id="${profId}"]`;
+  } else if (action && playAppId) {
+    lastModalTriggerSelector = `[data-action="${action}"][data-play-app-id="${playAppId}"]`;
   } else if (action) {
     lastModalTriggerSelector = `[data-action="${action}"]`;
   } else {
@@ -610,11 +619,12 @@ function restoreModalTriggerFocus() {
 }
 
 /**
- * Moves initial focus inside the open modal/sheet dialog on first open.
+ * Moves initial focus inside the topmost open modal/sheet dialog on first open.
  */
 function focusActiveDialogControl() {
   if (!rootEl) return;
-  const dialog = rootEl.querySelector('[role="dialog"]');
+  const dialogs = rootEl.querySelectorAll('[role="dialog"]');
+  const dialog = dialogs.length > 0 ? dialogs[dialogs.length - 1] : null;
   if (!(dialog instanceof HTMLElement)) return;
   const preferred =
     dialog.querySelector('input:not([disabled]), button:not([disabled])') || dialog;
@@ -624,7 +634,7 @@ function focusActiveDialogControl() {
 }
 
 /**
- * Smoothly animates the active Material Design bottom sheet downward before unmounting it.
+ * Smoothly animates the topmost active Material Design bottom sheet downward before unmounting it.
  * @param {() => void} applyCloseState
  */
 function closeSheetWithMotion(applyCloseState) {
@@ -635,7 +645,8 @@ function closeSheetWithMotion(applyCloseState) {
     return;
   }
 
-  const backdrop = rootEl.querySelector('.sheet-backdrop');
+  const backdrops = rootEl.querySelectorAll('.sheet-backdrop');
+  const backdrop = backdrops.length > 0 ? backdrops[backdrops.length - 1] : null;
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     typeof window.matchMedia === 'function' &&
@@ -677,7 +688,8 @@ function render() {
     return;
   }
 
-  const prevDialog = rootEl.querySelector('[role="dialog"]');
+  const prevDialogs = rootEl.querySelectorAll('[role="dialog"]');
+  const prevDialog = prevDialogs.length > 0 ? prevDialogs[prevDialogs.length - 1] : null;
   const prevDialogId =
     prevDialog instanceof HTMLElement ? prevDialog.getAttribute('aria-labelledby') : null;
 
@@ -758,7 +770,11 @@ function render() {
       break;
     case 'home':
     default:
-      contentHtml = renderHomeView({ state, uiState });
+      contentHtml = renderHomeView({
+        state,
+        uiState,
+        pwaStatus: pwa.getStatus(),
+      });
       break;
   }
 
@@ -778,8 +794,10 @@ function render() {
   patchRootHtml(rootEl, nextShellHtml);
 
   // Mark already-open sheet as settled so typing/toggling inside it does not replay entrance motion
-  const nextBackdrop = rootEl.querySelector('.sheet-backdrop');
-  const nextDialog = rootEl.querySelector('[role="dialog"]');
+  const nextBackdrops = rootEl.querySelectorAll('.sheet-backdrop');
+  const nextBackdrop = nextBackdrops.length > 0 ? nextBackdrops[nextBackdrops.length - 1] : null;
+  const nextDialogs = rootEl.querySelectorAll('[role="dialog"]');
+  const nextDialog = nextDialogs.length > 0 ? nextDialogs[nextDialogs.length - 1] : null;
   const nextDialogId =
     nextDialog instanceof HTMLElement ? nextDialog.getAttribute('aria-labelledby') : null;
   if (
@@ -1196,6 +1214,14 @@ function bindEvents() {
         });
         return;
       }
+      if (router.getCurrent().route === 'play' && resolveActivePlayAppId(uiState.playUi)) {
+        event.preventDefault();
+        closeSheetWithMotion(() => {
+          uiState.playUi.activeAppId = null;
+          uiState.playUi.sheetClosedExplicitly = true;
+        });
+        return;
+      }
       if (uiState.rotationEditor.isGeneratorOpen) {
         event.preventDefault();
         closeSheetWithMotion(() => {
@@ -1257,7 +1283,8 @@ function bindEvents() {
     }
 
     if (event.key === 'Tab' && rootEl) {
-      const dialog = rootEl.querySelector('[role="dialog"]');
+      const dialogs = rootEl.querySelectorAll('[role="dialog"]');
+      const dialog = dialogs.length > 0 ? dialogs[dialogs.length - 1] : null;
       if (!(dialog instanceof HTMLElement)) return;
       const focusable = Array.from(
         dialog.querySelectorAll(
@@ -1349,6 +1376,13 @@ function bindEvents() {
         });
         return;
       }
+      if (backdropAction === 'close-play-app-sheet') {
+        closeSheetWithMotion(() => {
+          uiState.playUi.activeAppId = null;
+          uiState.playUi.sheetClosedExplicitly = true;
+        });
+        return;
+      }
     }
 
     const navScanLink =
@@ -1412,10 +1446,24 @@ function bindEvents() {
           pwa.closeIosGuide();
         });
         break;
-      case 'install-pwa':
+      case 'install-pwa': {
         rememberModalTrigger(target);
-        await pwa.triggerInstall();
+        const installOutcome = await pwa.triggerInstall();
+        if (installOutcome === 'accepted') {
+          uiState.pwaBannerDismissed = true;
+          savePwaBannerDismissed(true);
+          render();
+        } else if (pwa.getStatus().showIosInstructions) {
+          focusActiveDialogControl();
+        }
         break;
+      }
+      case 'dismiss-pwa-install-banner': {
+        uiState.pwaBannerDismissed = true;
+        savePwaBannerDismissed(true);
+        render();
+        break;
+      }
       case 'open-profile-switcher': {
         rememberModalTrigger(target);
         uiState.shellUi.isProfileSwitcherOpen = true;
@@ -2426,6 +2474,24 @@ function bindEvents() {
         } catch (_) {
           store.notify('Could not clear browser cover cache.', 'error');
         }
+        break;
+      }
+      case 'open-play-app': {
+        const appId = target.getAttribute('data-play-app-id');
+        if (appId === 'storytime-picker' || appId === 'book-hunt') {
+          rememberModalTrigger(target);
+          uiState.playUi.activeAppId = appId;
+          uiState.playUi.sheetClosedExplicitly = false;
+          render();
+          focusActiveDialogControl();
+        }
+        break;
+      }
+      case 'close-play-app-sheet': {
+        closeSheetWithMotion(() => {
+          uiState.playUi.activeAppId = null;
+          uiState.playUi.sheetClosedExplicitly = true;
+        });
         break;
       }
       case 'set-randomizer-count': {

@@ -1,11 +1,11 @@
 /**
- * @fileoverview Play & Storytime view (`#/play`):
- * 1) Storytime & Topic Picker ("Bedtime & Topic Randomizer") — picks 1, 2, 3, or 4 books from the
- *    Active Shelf or Reader's Home Library, optionally filtered by any typed topic (e.g. bedtime,
- *    trucks, winter, animals, funny).
- * 2) "Book Hunt" / Treasure Search Game Mode ("Find It!") — displays a random shelf cover or
- *    mystery verbal prompt ("Find the book with the blue truck!") so toddlers & kids can run to
- *    the physical bookshelf, grab the book, and celebrate finding it.
+ * @fileoverview Play & Storytime hub (`#/play`):
+ * - Displays an editorial showcase gallery of configurable Play mini-app preview cards
+ *   (customizable logos + preview illustrations via `src/data/play-apps-config.js`).
+ * - Tapping any game card slides up a Material Design Bottom Sheet (`role="dialog"`) with the
+ *   full interactive game experience, matching the tactile bottom-sheet pattern used for books:
+ *   1) Storytime & Topic Picker ("Bedtime & Mood Randomizer")
+ *   2) Book Hunt ("Find It!" Bookshelf Treasure Search)
  */
 
 import {
@@ -13,6 +13,7 @@ import {
   formatBookBinding,
   formatProfileAgeLabel,
 } from '../../types/models.js';
+import { getPlayAppsConfig } from '../../data/play-apps-config.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
 import { renderIcon } from '../../ui/icons.js';
@@ -24,6 +25,8 @@ import {
 
 /**
  * @typedef {Object} PlayUiState
+ * @property {'storytime-picker' | 'book-hunt' | null} [activeAppId] - Currently open mini-app bottom sheet (`null` shows preview gallery only)
+ * @property {boolean} [sheetClosedExplicitly] - True after user closes the Play sheet so background session state stays preserved without re-opening automatically
  * @property {number} randomizerCount - Number of books to pick (1..4, default 3)
  * @property {'active-shelf' | 'owned-library'} randomizerScope - Source pool for Storytime Picker
  * @property {string} randomizerTopic - Optional topic/mood query (e.g. 'bedtime', 'trucks', 'winter')
@@ -49,6 +52,8 @@ import {
  */
 export function createDefaultPlayUiState() {
   return {
+    activeAppId: null,
+    sheetClosedExplicitly: false,
     randomizerCount: 3,
     randomizerScope: 'active-shelf',
     randomizerTopic: '',
@@ -70,6 +75,38 @@ export function createDefaultPlayUiState() {
 }
 
 /**
+ * Resolves which Play mini-app bottom sheet (if any) should be open.
+ * - Defaults to `null` on fresh entry so `#/play` presents clean visual preview cards first.
+ * - Opens `'storytime-picker'` or `'book-hunt'` when explicitly selected via `activeAppId`, or
+ *   when active game state is passed directly without `sheetClosedExplicitly`.
+ *
+ * @param {Partial<PlayUiState> | null | undefined} playUiState
+ * @returns {'storytime-picker' | 'book-hunt' | null}
+ */
+export function resolveActivePlayAppId(playUiState) {
+  if (!playUiState) return null;
+  if (
+    playUiState.activeAppId === 'storytime-picker' ||
+    playUiState.activeAppId === 'book-hunt'
+  ) {
+    return playUiState.activeAppId;
+  }
+  if (playUiState.sheetClosedExplicitly) {
+    return null;
+  }
+  if (playUiState.huntBookId) {
+    return 'book-hunt';
+  }
+  if (
+    playUiState.randomizerHasRun ||
+    (Array.isArray(playUiState.pickedBookIds) && playUiState.pickedBookIds.length > 0)
+  ) {
+    return 'storytime-picker';
+  }
+  return null;
+}
+
+/**
  * Formats a lowercase tag/topic key into natural title case (e.g. `'bedtime'` -> `'Bedtime'`).
  * @param {string} raw
  * @returns {string}
@@ -81,12 +118,49 @@ function formatTopicLabel(raw) {
 }
 
 /**
+ * Renders a configurable square app logo badge with graceful built-in SVG icon fallback.
+ * @param {import('../../data/play-apps-config.js').PlayAppConfig} app
+ * @param {'card' | 'sheet'} [size]
+ * @returns {string}
+ */
+function renderPlayAppLogo(app, size = 'card') {
+  const boxClasses =
+    size === 'sheet'
+      ? 'w-10 h-10 rounded-xl'
+      : 'w-11 h-11 sm:w-12 sm:h-12 rounded-xl';
+  const iconClasses = size === 'sheet' ? 'w-4 h-4' : 'w-5 h-5';
+  const trimmedLogoUrl = String(app.logoUrl || '').trim();
+
+  return `
+    <span
+      data-play-app-logo="${escapeHtml(app.id)}"
+      class="${boxClasses} relative overflow-hidden shrink-0 border border-linen-200 dark:border-night-700 bg-linen-100 dark:bg-night-800 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center shadow-2xs"
+    >
+      ${renderIcon(app.logoIcon || 'play', iconClasses)}
+      ${
+        trimmedLogoUrl
+          ? `<img
+              src="${escapeHtml(trimmedLogoUrl)}"
+              alt="${escapeHtml(app.title)} logo"
+              data-play-logo-img="${escapeHtml(app.id)}"
+              referrerpolicy="no-referrer"
+              loading="lazy"
+              class="absolute inset-0 w-full h-full object-cover"
+            />`
+          : ''
+      }
+    </span>
+  `;
+}
+
+/**
  * Renders the Play & Storytime screen (`#/play`).
  * @param {{
  *   state: import('../../types/models.js').AppState,
  *   playUiState?: PlayUiState,
  *   inspectedBookId?: string | null,
- *   inspectorUiState?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState
+ *   inspectorUiState?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
+ *   playAppsOverrides?: Partial<Record<import('../../data/play-apps-config.js').PlayAppId, Partial<import('../../data/play-apps-config.js').PlayAppConfig>>> | null
  * }} params
  * @returns {string}
  */
@@ -95,6 +169,7 @@ export function renderPlayView({
   playUiState = createDefaultPlayUiState(),
   inspectedBookId = null,
   inspectorUiState,
+  playAppsOverrides = null,
 }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
@@ -132,7 +207,7 @@ export function renderPlayView({
 
   const countOptions = [1, 2, 3, 4];
   const selectedCount = Math.max(1, Math.min(6, playUiState.randomizerCount || 3));
-  const pickedBooks = playUiState.pickedBookIds
+  const pickedBooks = (playUiState.pickedBookIds || [])
     .map((id) => bookMap.get(id))
     .filter(/** @returns {b is import('../../types/models.js').Book} */ (b) => Boolean(b));
 
@@ -146,9 +221,105 @@ export function renderPlayView({
   const effectiveHuntClueLine =
     playUiState.huntClueLine || (derivedClue ? derivedClue.clueLine : '');
 
-  const inspectedBook = inspectedBookId ? bookMap.get(inspectedBookId) || null : null;
+  const playApps = getPlayAppsConfig(playAppsOverrides);
+  const activeAppId = resolveActivePlayAppId(playUiState);
+  const activeAppConfig = activeAppId
+    ? playApps.find((app) => app.id === activeAppId) || playApps[0]
+    : null;
 
-  // --- Storytime Picker Markup ---
+  // --- Preview Cards Gallery Markup ---
+  const previewCardsHtml = playApps
+    .map((app) => {
+      const trimmedImageUrl = String(app.imageUrl || '').trim();
+      const isPicker = app.id === 'storytime-picker';
+      const liveStatusText = isPicker
+        ? pickedBooks.length > 0
+          ? `${pickedBooks.length} ${pickedBooks.length === 1 ? 'book' : 'books'} picked tonight`
+          : `${randomizerPool.pool.length} ${
+              randomizerPool.pool.length === 1 ? 'book' : 'books'
+            } ready in ${randomizerPool.poolLabel.toLowerCase()}`
+        : huntBook && !playUiState.huntCelebrated
+          ? `Hunt in progress · ${huntPool.pool.length} ${
+              huntPool.pool.length === 1 ? 'book' : 'books'
+            }`
+          : playUiState.huntFoundCount > 0
+            ? `${playUiState.huntFoundCount} found today · ${huntPool.pool.length} ready`
+            : `${huntPool.pool.length} ${
+                huntPool.pool.length === 1 ? 'book' : 'books'
+              } ready for clues`;
+
+      const fallbackToneClasses = isPicker
+        ? 'from-linen-100 via-ivory to-linen-200 dark:from-night-800 dark:via-night-900 dark:to-night-800'
+        : 'from-forest-50 via-ivory to-linen-100 dark:from-night-800 dark:via-night-900 dark:to-night-950';
+
+      return `
+        <article
+          data-play-preview-card="${escapeHtml(app.id)}"
+          class="group rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 overflow-hidden flex flex-col justify-between transition-shadow hover:shadow-md"
+        >
+          <button
+            type="button"
+            data-action="open-play-app"
+            data-play-app-id="${escapeHtml(app.id)}"
+            aria-label="Open ${escapeHtml(app.title)}"
+            class="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br ${fallbackToneClasses} text-left block focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-forest-700"
+          >
+            <div class="absolute inset-0 flex items-center justify-center text-forest-800/20 dark:text-[#5ED3DA]/20">
+              ${renderIcon(app.logoIcon || 'play', 'w-14 h-14')}
+            </div>
+            ${
+              trimmedImageUrl
+                ? `<img
+                    src="${escapeHtml(trimmedImageUrl)}"
+                    alt="${escapeHtml(app.title)} preview illustration"
+                    data-play-preview-image="${escapeHtml(app.id)}"
+                    referrerpolicy="no-referrer"
+                    loading="lazy"
+                    class="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                  />`
+                : ''
+            }
+            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/45 via-black/10 to-transparent"></div>
+          </button>
+
+          <div class="p-4 flex-1 flex flex-col justify-between gap-3.5">
+            <div class="space-y-2.5">
+              <div class="flex items-start gap-3">
+                ${renderPlayAppLogo(app, 'card')}
+                <div class="min-w-0 flex-1">
+                  <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] truncate">
+                    ${escapeHtml(app.subtitle)}
+                  </p>
+                  <h2 class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white leading-snug truncate">
+                    ${escapeHtml(app.title)}
+                  </h2>
+                  <p class="text-[11px] font-mono-tabular text-stone-ink dark:text-slate-400 truncate mt-0.5">
+                    ${escapeHtml(liveStatusText)}
+                  </p>
+                </div>
+              </div>
+
+              <p class="text-xs text-stone-ink dark:text-slate-400 leading-relaxed line-clamp-2">
+                ${escapeHtml(app.description)}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              data-action="open-play-app"
+              data-play-app-id="${escapeHtml(app.id)}"
+              class="min-h-[42px] w-full px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:hover:bg-[#4bc2c9] text-ivory dark:text-night-950 text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors shadow-2xs"
+            >
+              ${renderIcon(app.logoIcon || 'play', 'w-4 h-4')}
+              <span>${escapeHtml(app.ctaLabel)}</span>
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join('');
+
+  // --- Storytime Picker Interactive Body (rendered inside slide-up sheet when active) ---
   const countSelectorHtml = countOptions
     .map((n) => {
       const isSelected = selectedCount === n;
@@ -218,7 +389,7 @@ export function renderPlayView({
     const lineupCardsHtml = pickedBooks
       .map((book, idx) => {
         const isRead = completedIds.has(book.id);
-        const reasons = playUiState.pickedReasonsByBookId[book.id] || [];
+        const reasons = (playUiState.pickedReasonsByBookId || {})[book.id] || [];
         const metaParts = [
           book.authors[0] || 'Unknown author',
           formatBookBinding(book.format),
@@ -292,7 +463,114 @@ export function renderPlayView({
     `;
   }
 
-  // --- Book Hunt ("Find It!") Markup ---
+  const storytimePickerInteractiveHtml = `
+    <div data-storytime-picker-card="true" class="space-y-4">
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5">
+            How many books?
+          </label>
+          <div class="flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+            ${countSelectorHtml}
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+            <button
+              type="button"
+              data-action="set-randomizer-scope"
+              data-scope="active-shelf"
+              aria-pressed="${playUiState.randomizerScope === 'active-shelf' ? 'true' : 'false'}"
+              class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                playUiState.randomizerScope === 'active-shelf'
+                  ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+              }"
+            >
+              Active Shelf
+            </button>
+            <button
+              type="button"
+              data-action="set-randomizer-scope"
+              data-scope="owned-library"
+              aria-pressed="${playUiState.randomizerScope === 'owned-library' ? 'true' : 'false'}"
+              class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                playUiState.randomizerScope === 'owned-library'
+                  ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+              }"
+            >
+              Home Library
+            </button>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked="${playUiState.randomizerUnreadFirst ? 'true' : 'false'}"
+            data-action="toggle-randomizer-unread"
+            class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors text-left sm:text-right ${
+              playUiState.randomizerUnreadFirst
+                ? 'text-forest-800 dark:text-[#5ED3DA]'
+                : 'text-stone-ink dark:text-slate-400'
+            }"
+          >
+            Unread first: ${playUiState.randomizerUnreadFirst ? 'On' : 'Off'}
+          </button>
+        </div>
+
+        <div>
+          <label for="play-topic-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5">
+            Topic or mood (optional)
+          </label>
+          <div class="relative">
+            <input
+              id="play-topic-input"
+              type="search"
+              value="${escapeHtml(playUiState.randomizerTopic)}"
+              placeholder="Any topic — or type bedtime, trucks, winter, animals…"
+              class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-forest-700"
+            />
+            ${
+              activeTopicTrimmed
+                ? `
+                  <button
+                    type="button"
+                    data-action="set-randomizer-topic"
+                    data-topic=""
+                    aria-label="Clear topic filter"
+                    class="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white"
+                  >
+                    ${renderIcon('close', 'w-4 h-4')}
+                  </button>
+                `
+                : ''
+            }
+          </div>
+          <div class="mt-2 flex flex-wrap items-center gap-1.5">
+            ${quickTopicButtonsHtml}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          data-action="spin-storytime-randomizer"
+          ${randomizerPool.pool.length === 0 ? 'disabled' : ''}
+          class="w-full min-h-[48px] px-5 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 disabled:opacity-50 dark:bg-[#5ED3DA] dark:hover:bg-[#4bc2c9] text-ivory dark:text-night-950 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors shadow-xs"
+        >
+          ${renderIcon('dice', 'w-4 h-4')}
+          <span>Pick ${selectedCount} ${selectedCount === 1 ? 'Book' : 'Books'}${
+            activeTopicTrimmed ? ` about “${escapeHtml(activeTopicTrimmed)}”` : ''
+          }</span>
+        </button>
+      </div>
+
+      ${randomizerResultsHtml}
+    </div>
+  `;
+
+  // --- Book Hunt ("Find It!") Interactive Body (rendered inside slide-up sheet when active) ---
   const showHuntCover =
     playUiState.huntClueMode === 'cover-and-clue' ||
     playUiState.huntPeekRevealed ||
@@ -427,6 +705,130 @@ export function renderPlayView({
     `;
   }
 
+  const bookHuntInteractiveHtml = `
+    <div data-book-hunt-card="true" class="space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+          <button
+            type="button"
+            data-action="set-book-hunt-mode"
+            data-clue-mode="cover-and-clue"
+            aria-pressed="${playUiState.huntClueMode === 'cover-and-clue' ? 'true' : 'false'}"
+            class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              playUiState.huntClueMode === 'cover-and-clue'
+                ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+            }"
+          >
+            Cover + Prompt
+          </button>
+          <button
+            type="button"
+            data-action="set-book-hunt-mode"
+            data-clue-mode="clue-first"
+            aria-pressed="${playUiState.huntClueMode === 'clue-first' ? 'true' : 'false'}"
+            class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              playUiState.huntClueMode === 'clue-first'
+                ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+            }"
+          >
+            Mystery Clue First
+          </button>
+        </div>
+
+        <div class="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+          <button
+            type="button"
+            data-action="set-book-hunt-scope"
+            data-scope="active-shelf"
+            aria-pressed="${playUiState.huntScope === 'active-shelf' ? 'true' : 'false'}"
+            class="min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              playUiState.huntScope === 'active-shelf'
+                ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+            }"
+          >
+            Active Shelf
+          </button>
+          <button
+            type="button"
+            data-action="set-book-hunt-scope"
+            data-scope="owned-library"
+            aria-pressed="${playUiState.huntScope === 'owned-library' ? 'true' : 'false'}"
+            class="min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              playUiState.huntScope === 'owned-library'
+                ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+            }"
+          >
+            Home Library
+          </button>
+        </div>
+      </div>
+
+      ${bookHuntStageHtml}
+    </div>
+  `;
+
+  // --- Slide-Up Play Bottom Sheet ---
+  const playSheetModalHtml =
+    activeAppId && activeAppConfig
+      ? `
+        <div
+          data-backdrop-action="close-play-app-sheet"
+          data-play-app-sheet="${escapeHtml(activeAppId)}"
+          class="sheet-backdrop fixed inset-0 z-40 bg-night-950/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center sm:p-4"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="play-sheet-heading-${escapeHtml(activeAppId)}"
+            class="sheet-panel w-full sm:max-w-lg max-h-[88vh] rounded-t-3xl sm:rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col"
+          >
+            <div class="pt-2.5 pb-1 flex justify-center sm:hidden" aria-hidden="true">
+              <span class="w-10 h-1 rounded-full bg-linen-300 dark:bg-night-700"></span>
+            </div>
+
+            <div class="px-4 sm:px-5 py-3 border-b border-linen-200/90 dark:border-night-800 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                ${renderPlayAppLogo(activeAppConfig, 'sheet')}
+                <div class="min-w-0">
+                  <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] truncate">
+                    ${escapeHtml(activeAppConfig.subtitle)}
+                  </p>
+                  <h2
+                    id="play-sheet-heading-${escapeHtml(activeAppId)}"
+                    class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white truncate"
+                  >
+                    ${escapeHtml(activeAppConfig.title)}
+                  </h2>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                data-action="close-play-app-sheet"
+                aria-label="Close ${escapeHtml(activeAppConfig.title)}"
+                class="min-h-[40px] min-w-[40px] rounded-xl text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-800 flex items-center justify-center shrink-0 transition-colors"
+              >
+                ${renderIcon('close', 'w-5 h-5')}
+              </button>
+            </div>
+
+            <div class="p-4 sm:p-5 overflow-y-auto space-y-4">
+              ${
+                activeAppId === 'storytime-picker'
+                  ? storytimePickerInteractiveHtml
+                  : bookHuntInteractiveHtml
+              }
+            </div>
+          </div>
+        </div>
+      `
+      : '';
+
+  const inspectedBook = inspectedBookId ? bookMap.get(inspectedBookId) || null : null;
   const inspectorModalHtml = renderBookInspectorModal({
     book: inspectedBook,
     profiles: state.profiles,
@@ -453,6 +855,9 @@ export function renderPlayView({
           <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
             Play &amp; Storytime Tools
           </h1>
+          <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+            Tap an activity card below to slide up the interactive game.
+          </p>
         </div>
         ${
           playUiState.huntFoundCount > 0
@@ -465,209 +870,11 @@ export function renderPlayView({
         }
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-        <!-- 01. Storytime & Topic Picker -->
-        <section
-          aria-labelledby="storytime-picker-heading"
-          data-storytime-picker-card="true"
-          class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-4"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 id="storytime-picker-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-                01. Storytime &amp; Topic Picker
-              </h2>
-              <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
-                Pick 1 to 4 books at random for bedtime or any topic your child asks for right now.
-              </p>
-            </div>
-          </div>
-
-          <div class="space-y-3">
-            <div>
-              <label class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5">
-                How many books?
-              </label>
-              <div class="flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
-                ${countSelectorHtml}
-              </div>
-            </div>
-
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div class="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
-                <button
-                  type="button"
-                  data-action="set-randomizer-scope"
-                  data-scope="active-shelf"
-                  aria-pressed="${playUiState.randomizerScope === 'active-shelf' ? 'true' : 'false'}"
-                  class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    playUiState.randomizerScope === 'active-shelf'
-                      ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                      : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
-                  }"
-                >
-                  Active Shelf
-                </button>
-                <button
-                  type="button"
-                  data-action="set-randomizer-scope"
-                  data-scope="owned-library"
-                  aria-pressed="${playUiState.randomizerScope === 'owned-library' ? 'true' : 'false'}"
-                  class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                    playUiState.randomizerScope === 'owned-library'
-                      ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                      : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
-                  }"
-                >
-                  Home Library
-                </button>
-              </div>
-
-              <button
-                type="button"
-                role="switch"
-                aria-checked="${playUiState.randomizerUnreadFirst ? 'true' : 'false'}"
-                data-action="toggle-randomizer-unread"
-                class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors text-left sm:text-right ${
-                  playUiState.randomizerUnreadFirst
-                    ? 'text-forest-800 dark:text-[#5ED3DA]'
-                    : 'text-stone-ink dark:text-slate-400'
-                }"
-              >
-                Unread first: ${playUiState.randomizerUnreadFirst ? 'On' : 'Off'}
-              </button>
-            </div>
-
-            <div>
-              <label for="play-topic-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5">
-                Topic or mood (optional)
-              </label>
-              <div class="relative">
-                <input
-                  id="play-topic-input"
-                  type="search"
-                  value="${escapeHtml(playUiState.randomizerTopic)}"
-                  placeholder="Any topic — or type bedtime, trucks, winter, animals…"
-                  class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-forest-700"
-                />
-                ${
-                  activeTopicTrimmed
-                    ? `
-                      <button
-                        type="button"
-                        data-action="set-randomizer-topic"
-                        data-topic=""
-                        aria-label="Clear topic filter"
-                        class="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white"
-                      >
-                        ${renderIcon('close', 'w-4 h-4')}
-                      </button>
-                    `
-                    : ''
-                }
-              </div>
-              <div class="mt-2 flex flex-wrap items-center gap-1.5">
-                ${quickTopicButtonsHtml}
-              </div>
-            </div>
-
-            <button
-              type="button"
-              data-action="spin-storytime-randomizer"
-              ${randomizerPool.pool.length === 0 ? 'disabled' : ''}
-              class="w-full min-h-[48px] px-5 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 disabled:opacity-50 dark:bg-[#5ED3DA] dark:hover:bg-[#4bc2c9] text-ivory dark:text-night-950 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors shadow-xs"
-            >
-              ${renderIcon('dice', 'w-4 h-4')}
-              <span>Pick ${selectedCount} ${selectedCount === 1 ? 'Book' : 'Books'}${
-                activeTopicTrimmed ? ` about “${escapeHtml(activeTopicTrimmed)}”` : ''
-              }</span>
-            </button>
-          </div>
-
-          ${randomizerResultsHtml}
-        </section>
-
-        <!-- 02. Book Hunt ("Find It!") Treasure Search -->
-        <section
-          aria-labelledby="book-hunt-heading"
-          data-book-hunt-card="true"
-          class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-4"
-        >
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 id="book-hunt-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-                02. Book Hunt (“Find It!”)
-              </h2>
-              <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
-                Turn choosing a book into an active shelf treasure hunt before reading or clean-up time.
-              </p>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
-              <button
-                type="button"
-                data-action="set-book-hunt-mode"
-                data-clue-mode="cover-and-clue"
-                aria-pressed="${playUiState.huntClueMode === 'cover-and-clue' ? 'true' : 'false'}"
-                class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  playUiState.huntClueMode === 'cover-and-clue'
-                    ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
-                }"
-              >
-                Cover + Prompt
-              </button>
-              <button
-                type="button"
-                data-action="set-book-hunt-mode"
-                data-clue-mode="clue-first"
-                aria-pressed="${playUiState.huntClueMode === 'clue-first' ? 'true' : 'false'}"
-                class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  playUiState.huntClueMode === 'clue-first'
-                    ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
-                }"
-              >
-                Mystery Clue First
-              </button>
-            </div>
-
-            <div class="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
-              <button
-                type="button"
-                data-action="set-book-hunt-scope"
-                data-scope="active-shelf"
-                aria-pressed="${playUiState.huntScope === 'active-shelf' ? 'true' : 'false'}"
-                class="min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  playUiState.huntScope === 'active-shelf'
-                    ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
-                }"
-              >
-                Active Shelf
-              </button>
-              <button
-                type="button"
-                data-action="set-book-hunt-scope"
-                data-scope="owned-library"
-                aria-pressed="${playUiState.huntScope === 'owned-library' ? 'true' : 'false'}"
-                class="min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  playUiState.huntScope === 'owned-library'
-                    ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
-                }"
-              >
-                Home Library
-              </button>
-            </div>
-          </div>
-
-          ${bookHuntStageHtml}
-        </section>
+      <div data-play-app-gallery="true" class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+        ${previewCardsHtml}
       </div>
 
+      ${playSheetModalHtml}
       ${inspectorModalHtml}
     </div>
   `;
