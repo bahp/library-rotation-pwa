@@ -4,6 +4,7 @@
  */
 
 import { escapeHtml } from '../../types/models.js';
+import { cleanProviderExternalId } from '../../features/catalog/normalizer.js';
 
 /**
  * Formats a single provider identifier into a human-readable label.
@@ -63,15 +64,16 @@ export function describeProviderProvenance(sources) {
     const rawId = String(item?.provider || '').trim();
     if (!rawId) continue;
     const lower = rawId.toLowerCase();
+    const cleanedExternalId = cleanProviderExternalId(item?.externalId);
     const existing = uniqueMap.get(lower);
     if (!existing) {
       uniqueMap.set(lower, {
         id: lower,
         label: formatSingleProviderName(rawId),
-        ...(item.externalId ? { externalId: item.externalId } : {}),
+        ...(cleanedExternalId ? { externalId: cleanedExternalId } : {}),
       });
-    } else if (!existing.externalId && item.externalId) {
-      existing.externalId = item.externalId;
+    } else if (!existing.externalId && cleanedExternalId) {
+      existing.externalId = cleanedExternalId;
     }
   }
 

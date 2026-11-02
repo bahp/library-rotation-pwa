@@ -20,6 +20,24 @@ import { GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL } from '../../ui/components/welcom
 import { renderIcon } from '../../ui/icons.js';
 
 /**
+ * Determines whether a Google Books diagnostic check report represents `'success'`, `'error'`, or `'idle'`.
+ * @param {'idle' | 'success' | 'error' | undefined} explicitTone
+ * @param {string | undefined} reportText
+ * @returns {'idle' | 'success' | 'error'}
+ */
+export function resolveGoogleBooksHealthTone(explicitTone, reportText) {
+  if (explicitTone === 'success' || explicitTone === 'error') {
+    return explicitTone;
+  }
+  const text = String(reportText || '').trim();
+  if (!text) return 'idle';
+  if (/\b(fail|failed|error|unreachable|invalid|cors|429|403|500|502|503|404)\b/i.test(text)) {
+    return 'error';
+  }
+  return 'success';
+}
+
+/**
  * Renders the Settings view markup.
  * @param {{
  *   state: import('../../types/models.js').AppState,
@@ -40,10 +58,15 @@ import { renderIcon } from '../../ui/icons.js';
  *     endpointError: string,
  *     checkingGoogleBooks?: boolean,
  *     googleBooksHealthReport?: string,
+ *     googleBooksHealthTone?: 'idle' | 'success' | 'error',
  *     googleBooksKeyStatus?: 'unknown' | 'configured' | 'shared-quota' | 'static-host',
  *     isGoogleKeyGuideOpen?: boolean,
  *     deviceBooksProxyUrl?: string,
  *     deviceBooksProxyError?: string,
+ *     syncingCatalogMetadata?: boolean,
+ *     catalogSyncProgressText?: string,
+ *     catalogSyncReport?: string,
+ *     catalogSyncTone?: 'idle' | 'success' | 'error',
  *     browserStorageSummary?: string
  *   }
  * }} params
@@ -61,10 +84,15 @@ export function renderSettingsView({
     endpointError: '',
     checkingGoogleBooks: false,
     googleBooksHealthReport: '',
+    googleBooksHealthTone: 'idle',
     googleBooksKeyStatus: 'unknown',
     isGoogleKeyGuideOpen: false,
     deviceBooksProxyUrl: '',
     deviceBooksProxyError: '',
+    syncingCatalogMetadata: false,
+    catalogSyncProgressText: '',
+    catalogSyncReport: '',
+    catalogSyncTone: 'idle',
     browserStorageSummary: '',
   },
 }) {
@@ -73,6 +101,16 @@ export function renderSettingsView({
   const presetDaysBefore = settings.presetAlertDaysBefore ?? 2;
   const presetDaysAfter = settings.presetAlertDaysAfter ?? 5;
   const showPresetDecorations = settings.showPresetDecorations !== false;
+  const googleHealthTone = resolveGoogleBooksHealthTone(
+    settingsUiState.googleBooksHealthTone,
+    settingsUiState.googleBooksHealthReport
+  );
+  const booksNeedingGoogleSyncCount = state.books.filter((b) => {
+    const hasGoogle = b.sources.some(
+      (s) => String(s?.provider || '').toLowerCase() === 'google-books'
+    );
+    return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear;
+  }).length;
 
   const profilesSummaryHtml = state.profiles
     .map((profile) => {
@@ -608,26 +646,71 @@ export function renderSettingsView({
             </button>
           </div>
 
-          <div class="pt-3.5 flex flex-col gap-3">
+          <div class="pt-3.5 pb-3.5 flex flex-col gap-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div>
                 <p class="text-sm font-semibold text-forest-900 dark:text-white">
                   Google Books Quota &amp; Zero-Storage Key Protection
                 </p>
                 <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                  Probes Google Books via the leak-free server proxy (<code>/api/books/volumes</code>). Raw API keys are never typed into browser forms, saved in local storage, or exported in JSON backups.
+                  Probes Google Books via the leak-free server proxy (<code>/api/books/volumes</code>) or your personal phone proxy URL. Raw API keys are never typed into browser forms, saved in local storage, or exported in JSON backups.
                 </p>
               </div>
               <button
                 type="button"
                 data-action="check-google-books-api"
+                data-google-check-state="${escapeHtml(googleHealthTone)}"
                 ${settingsUiState.checkingGoogleBooks ? 'disabled' : ''}
-                class="min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-60 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                class="min-h-[42px] px-3.5 py-2 rounded-xl disabled:opacity-60 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+                  googleHealthTone === 'success'
+                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-500/45 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-500/40'
+                    : googleHealthTone === 'error'
+                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/45 dark:hover:bg-rose-950/65 dark:text-rose-200 dark:border-rose-800'
+                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white'
+                }"
               >
-                ${renderIcon('activity', 'w-3.5 h-3.5')}
+                ${
+                  settingsUiState.checkingGoogleBooks
+                    ? renderIcon('activity', 'w-3.5 h-3.5 animate-pulse')
+                    : googleHealthTone === 'success'
+                      ? `<span data-google-check-icon="ok" class="inline-flex text-emerald-700 dark:text-emerald-300">${renderIcon('check', 'w-3.5 h-3.5', 2.4)}</span>`
+                      : googleHealthTone === 'error'
+                        ? `<span data-google-check-icon="error" class="inline-flex text-rose-700 dark:text-rose-300">${renderIcon('close', 'w-3.5 h-3.5', 2.4)}</span>`
+                        : renderIcon('activity', 'w-3.5 h-3.5')
+                }
                 <span>${settingsUiState.checkingGoogleBooks ? 'Checking API…' : 'Check Google Books API'}</span>
               </button>
             </div>
+
+            ${
+              settingsUiState.googleBooksHealthReport
+                ? googleHealthTone === 'error'
+                  ? `
+                    <div
+                      role="alert"
+                      data-google-health-box="error"
+                      class="rounded-xl bg-rose-50/95 dark:bg-rose-950/45 border border-rose-300 dark:border-rose-800 px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium text-rose-900 dark:text-rose-100 leading-relaxed"
+                    >
+                      <span class="mt-0.5 w-4 h-4 rounded-full bg-rose-600 text-white inline-flex items-center justify-center shrink-0" aria-hidden="true">
+                        ${renderIcon('close', 'w-3 h-3', 2.5)}
+                      </span>
+                      <span class="min-w-0 break-words">${escapeHtml(settingsUiState.googleBooksHealthReport)}</span>
+                    </div>
+                  `
+                  : `
+                    <div
+                      role="status"
+                      data-google-health-box="success"
+                      class="rounded-xl bg-emerald-50/95 dark:bg-emerald-950/35 border border-emerald-500/40 dark:border-emerald-500/40 px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium text-emerald-950 dark:text-emerald-100 leading-relaxed"
+                    >
+                      <span class="mt-0.5 w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0" aria-hidden="true">
+                        ${renderIcon('check', 'w-3 h-3', 2.6)}
+                      </span>
+                      <span class="min-w-0 break-words">${escapeHtml(settingsUiState.googleBooksHealthReport)}</span>
+                    </div>
+                  `
+                : ''
+            }
 
             ${(() => {
               const deviceProxyUrl = String(settingsUiState.deviceBooksProxyUrl || '').trim();
@@ -773,16 +856,17 @@ export function renderSettingsView({
                       name="deviceBooksProxyUrl"
                       type="url"
                       value="${escapeHtml(settingsUiState.deviceBooksProxyUrl || '')}"
-                      placeholder="https://my-books-proxy.workers.dev/volumes"
+                      placeholder="https://books-proxy.yourname.workers.dev"
                       class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
                     />
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
                     <button
                       type="submit"
-                      class="h-11 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap"
+                      ${settingsUiState.checkingGoogleBooks ? 'disabled' : ''}
+                      class="h-11 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold transition-colors whitespace-nowrap"
                     >
-                      Save on Device
+                      ${settingsUiState.checkingGoogleBooks ? 'Verifying…' : 'Save & Verify'}
                     </button>
                     ${
                       settingsUiState.deviceBooksProxyUrl
@@ -800,27 +884,26 @@ export function renderSettingsView({
                   </div>
                 </div>
                 <p class="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
-                  Optional for static hosting power users: routes Google Books lookups through your own HTTPS proxy URL (stored only on this device and excluded from JSON backups).
+                  Saving automatically runs a live Google Books probe to verify your proxy works. Stored only on this device (never exported in JSON backups).
+                  <a
+                    href="${escapeHtml(APP_DOCS_LINKS.cloudflareWorkerGuide)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-cloudflare-guide-link="true"
+                    class="font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white ml-1 whitespace-nowrap"
+                  >
+                    5-Minute Cloudflare Worker Setup Guide &nearr;
+                  </a>
                 </p>
                 ${
                   settingsUiState.deviceBooksProxyError
-                    ? `<p role="alert" class="text-xs font-medium text-rose-700 dark:text-rose-300">${escapeHtml(
+                    ? `<div role="alert" data-proxy-url-error="true" class="rounded-xl bg-rose-50/95 dark:bg-rose-950/45 border border-rose-300 dark:border-rose-800 px-3 py-2 text-xs font-medium text-rose-800 dark:text-rose-200">${escapeHtml(
                         settingsUiState.deviceBooksProxyError
-                      )}</p>`
+                      )}</div>`
                     : ''
                 }
               </form>
             </details>
-
-            ${
-              settingsUiState.googleBooksHealthReport
-                ? `
-                  <div role="status" class="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 text-xs font-medium text-forest-900 dark:text-slate-200 leading-relaxed">
-                    ${escapeHtml(settingsUiState.googleBooksHealthReport)}
-                  </div>
-                `
-                : ''
-            }
 
             <details
               data-google-key-guide="true"
@@ -843,21 +926,31 @@ export function renderSettingsView({
                   Set <code>GOOGLE_BOOKS_API_KEY=your_secret_here</code> in server environment variables or local untracked <code>.env</code>. The built-in <code>/api/books/volumes</code> proxy injects it automatically.
                 </p>
                 <p>
-                  <strong class="text-forest-900 dark:text-white">3. Per-user Phone PWA on GitHub Pages (Free Cloudflare Worker):</strong>
-                  Deploy a tiny Worker storing <code>GOOGLE_BOOKS_API_KEY</code> in Worker Secrets, lock CORS to your GitHub Pages origin (<code>https://&lt;username&gt;.github.io</code>), and paste your Worker HTTPS URL in the box above on your phone:
+                  <strong class="text-forest-900 dark:text-white">3. Per-user Phone PWA on GitHub Pages (Free Cloudflare Worker in 5 min):</strong>
+                  Create a free Worker, paste the CORS-ready proxy script below, add variable <code>ALLOWED_ORIGIN</code> (e.g. <code>https://yourname.github.io</code>) + encrypted secret <code>GOOGLE_BOOKS_API_KEY</code>, and paste your Worker URL above:
                 </p>
                 <pre class="p-2.5 rounded-lg bg-night-950 text-ivory font-mono-tabular text-[11px] overflow-x-auto">export default {
-  async fetch(req, env) {
-    const u = new URL(req.url);
-    const out = new URL('https://www.googleapis.com/books/v1/volumes');
-    out.search = u.search;
-    out.searchParams.set('key', env.GOOGLE_BOOKS_API_KEY);
-    const res = await fetch(out);
-    return new Response(res.body, {
+  async fetch(request, env) {
+    const origin = request.headers.get('Origin') || '';
+    const cors = {
+      'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || origin || '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    };
+    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+    const incoming = new URL(request.url);
+    const upstream = new URL('https://www.googleapis.com/books/v1/volumes');
+    for (const key of ['q', 'maxResults', 'printType']) {
+      if (incoming.searchParams.get(key)) upstream.searchParams.set(key, incoming.searchParams.get(key));
+    }
+    if (env.GOOGLE_BOOKS_API_KEY) upstream.searchParams.set('key', env.GOOGLE_BOOKS_API_KEY);
+
+    const res = await fetch(upstream.toString(), { headers: { Accept: 'application/json' } });
+    return new Response(await res.text(), {
       status: res.status,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' },
     });
-  }
+  },
 };</pre>
                 <div class="pt-1 flex flex-wrap items-center gap-3">
                   <button
@@ -868,16 +961,75 @@ export function renderSettingsView({
                     Open Startup Setup Prompt
                   </button>
                   <a
-                    href="${escapeHtml(APP_DOCS_LINKS.configuration)}"
+                    href="${escapeHtml(APP_DOCS_LINKS.cloudflareWorkerGuide)}"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white"
                   >
-                    Read Full Google Books &amp; GitHub Pages Guide &nearr;
+                    Open Step-by-Step Cloudflare Worker &amp; Google Books Guide &nearr;
                   </a>
                 </div>
               </div>
             </details>
+          </div>
+
+          <div
+            data-library-metadata-sync-row="true"
+            class="pt-3.5 flex flex-col gap-2.5"
+          >
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p class="text-sm font-semibold text-forest-900 dark:text-white">
+                  Update Existing Library with Google Books
+                </p>
+                <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
+                  Scanned books earlier with Open Library only? Re-checks saved books (${booksNeedingGoogleSyncCount} of ${state.books.length} missing Google Books or cover metadata) to pull covers, page counts, topic tags, and dual-catalog provenance without altering owners, shelf status, or custom photos.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-action="sync-library-metadata"
+                ${settingsUiState.syncingCatalogMetadata || state.books.length === 0 ? 'disabled' : ''}
+                class="min-h-[42px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+              >
+                ${renderIcon('rotations', settingsUiState.syncingCatalogMetadata ? 'w-3.5 h-3.5 animate-spin' : 'w-3.5 h-3.5')}
+                <span>${
+                  settingsUiState.syncingCatalogMetadata
+                    ? escapeHtml(settingsUiState.catalogSyncProgressText || 'Updating Library…')
+                    : `Update Existing Library (${booksNeedingGoogleSyncCount})`
+                }</span>
+              </button>
+            </div>
+
+            ${
+              settingsUiState.catalogSyncReport
+                ? settingsUiState.catalogSyncTone === 'error'
+                  ? `
+                    <div
+                      role="alert"
+                      data-catalog-sync-box="error"
+                      class="rounded-xl bg-rose-50/95 dark:bg-rose-950/45 border border-rose-300 dark:border-rose-800 px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium text-rose-900 dark:text-rose-100 leading-relaxed"
+                    >
+                      <span class="mt-0.5 w-4 h-4 rounded-full bg-rose-600 text-white inline-flex items-center justify-center shrink-0" aria-hidden="true">
+                        ${renderIcon('close', 'w-3 h-3', 2.5)}
+                      </span>
+                      <span>${escapeHtml(settingsUiState.catalogSyncReport)}</span>
+                    </div>
+                  `
+                  : `
+                    <div
+                      role="status"
+                      data-catalog-sync-box="success"
+                      class="rounded-xl bg-emerald-50/95 dark:bg-emerald-950/35 border border-emerald-500/40 px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium text-emerald-950 dark:text-emerald-100 leading-relaxed"
+                    >
+                      <span class="mt-0.5 w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center shrink-0" aria-hidden="true">
+                        ${renderIcon('check', 'w-3 h-3', 2.6)}
+                      </span>
+                      <span>${escapeHtml(settingsUiState.catalogSyncReport)}</span>
+                    </div>
+                  `
+                : ''
+            }
           </div>
         </div>
       </section>
@@ -1063,16 +1215,23 @@ export function renderSettingsView({
             </span>
             ${
               storageUsage.coverDataUrlBytes > 0 || settingsUiState.browserStorageSummary
-                ? `<p class="text-[11px] font-mono-tabular text-stone-ink/80 dark:text-slate-400 mt-0.5">${escapeHtml(
-                    [
-                      storageUsage.coverDataUrlBytes > 0
-                        ? `Photos: ${formatStorageBytes(storageUsage.coverDataUrlBytes)}`
-                        : '',
-                      settingsUiState.browserStorageSummary || '',
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-                  )}</p>`
+                ? `<div class="mt-0.5 flex flex-wrap sm:justify-end items-center gap-x-2 gap-y-0.5 text-[11px] font-mono-tabular text-stone-ink/80 dark:text-slate-400">
+                    <span>${escapeHtml(
+                      [
+                        storageUsage.coverDataUrlBytes > 0
+                          ? `Photos: ${formatStorageBytes(storageUsage.coverDataUrlBytes)}`
+                          : '',
+                        settingsUiState.browserStorageSummary || '',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')
+                    )}</span>
+                    ${
+                      settingsUiState.browserStorageSummary
+                        ? `<button type="button" data-action="clear-cover-cache" class="font-sans text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white">Clear Cover Cache</button>`
+                        : ''
+                    }
+                  </div>`
                 : ''
             }
           </div>

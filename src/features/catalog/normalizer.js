@@ -97,6 +97,22 @@ export function sanitizeCoverUrl(rawUrl) {
 }
 
 /**
+ * Strips leading URL path segments (such as Open Library's `/books/OL7353617M` or `/works/OL45804W`)
+ * so provider record identifiers are stored and displayed as clean compact codes (`OL7353617M`).
+ * @param {string | undefined | null} rawId
+ * @returns {string | undefined}
+ */
+export function cleanProviderExternalId(rawId) {
+  if (!rawId || typeof rawId !== 'string') return undefined;
+  const trimmed = rawId.trim();
+  if (!trimmed) return undefined;
+  const stripped = trimmed
+    .replace(/^\/?(?:books|works|authors|editions)\//i, '')
+    .replace(/^\/+/, '');
+  return stripped || undefined;
+}
+
+/**
  * Extracts a 4-digit publication year from free-form provider date strings.
  * @param {string | number | undefined | null} rawDate
  * @returns {number | undefined}
@@ -283,10 +299,11 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     textCorpus: `${title} ${categories.join(' ')} ${description}`,
   });
 
+  const cleanGoogleId = cleanProviderExternalId(typeof item.id === 'string' ? item.id : undefined);
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
     provider: 'google-books',
-    externalId: typeof item.id === 'string' ? item.id : undefined,
+    ...(cleanGoogleId ? { externalId: cleanGoogleId } : {}),
     fetchedAt: new Date().toISOString(),
     ...(options.retainRaw ? { rawPayload: item } : {}),
   };
@@ -386,10 +403,13 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     textCorpus: `${title} ${subjects.join(' ')}`,
   });
 
+  const cleanOlDataId = cleanProviderExternalId(
+    typeof record.key === 'string' ? record.key : undefined
+  );
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
     provider: 'open-library',
-    externalId: typeof record.key === 'string' ? record.key : undefined,
+    ...(cleanOlDataId ? { externalId: cleanOlDataId } : {}),
     fetchedAt: new Date().toISOString(),
     ...(options.retainRaw ? { rawPayload: record } : {}),
   };
@@ -488,10 +508,13 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     textCorpus: `${title} ${subjects.join(' ')}`,
   });
 
+  const cleanOlSearchId = cleanProviderExternalId(
+    typeof doc.key === 'string' ? doc.key : undefined
+  );
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
     provider: 'open-library',
-    externalId: typeof doc.key === 'string' ? doc.key : undefined,
+    ...(cleanOlSearchId ? { externalId: cleanOlSearchId } : {}),
     fetchedAt: new Date().toISOString(),
     ...(options.retainRaw ? { rawPayload: doc } : {}),
   };

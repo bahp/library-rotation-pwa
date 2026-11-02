@@ -240,11 +240,18 @@ const uiState = {
     endpointError: '',
     checkingGoogleBooks: false,
     googleBooksHealthReport: '',
+    /** @type {'idle' | 'success' | 'error'} */
+    googleBooksHealthTone: 'idle',
     /** @type {'unknown' | 'configured' | 'shared-quota' | 'static-host'} */
     googleBooksKeyStatus: 'unknown',
     isGoogleKeyGuideOpen: false,
     deviceBooksProxyUrl: getDeviceBooksProxyUrl(),
     deviceBooksProxyError: '',
+    syncingCatalogMetadata: false,
+    catalogSyncProgressText: '',
+    catalogSyncReport: '',
+    /** @type {'idle' | 'success' | 'error'} */
+    catalogSyncTone: 'idle',
     browserStorageSummary: '',
   },
 };
@@ -292,6 +299,7 @@ const PRESERVED_INPUT_IDS = new Set([
 
 /**
  * Queries `navigator.storage.estimate()` when supported by the browser to display origin quota context.
+ * Note: Chromium/Safari pad cross-origin opaque image responses (~7 MB virtual quota per cached cover thumbnail).
  */
 async function refreshBrowserStorageEstimate() {
   try {
@@ -302,13 +310,80 @@ async function refreshBrowserStorageEstimate() {
     ) {
       const est = await navigator.storage.estimate();
       if (typeof est.usage === 'number' && est.usage > 0) {
-        uiState.settingsUi.browserStorageSummary = `Browser cache: ${formatStorageBytes(est.usage)}`;
+        uiState.settingsUi.browserStorageSummary = `Origin cache quota: ${formatStorageBytes(est.usage)} (padded by browser)`;
         if (router.getCurrent().route === 'settings') {
           render();
         }
+      } else {
+        uiState.settingsUi.browserStorageSummary = '';
       }
     }
   } catch (_) {}
+}
+
+/**
+ * Runs a live Google Books connectivity & payload probe (used both by the "Check Google Books API"
+ * button and automatically right after saving a Personal Phone PWA Books Proxy URL).
+ * @param {{ context?: 'manual' | 'proxy-save' }} [options]
+ */
+async function verifyGoogleBooksConnection(options = {}) {
+  const isProxySave = options.context === 'proxy-save';
+  uiState.settingsUi.checkingGoogleBooks = true;
+  uiState.settingsUi.googleBooksHealthReport = '';
+  uiState.settingsUi.googleBooksHealthTone = 'idle';
+  render();
+  try {
+    const diag = await catalogService.checkProviderHealth('google-books');
+    if (diag.keyConfigured === true && !uiState.settingsUi.deviceBooksProxyUrl) {
+      uiState.settingsUi.googleBooksKeyStatus = 'configured';
+    } else if (diag.keyConfigured === false && !uiState.settingsUi.deviceBooksProxyUrl) {
+      uiState.settingsUi.googleBooksKeyStatus = 'shared-quota';
+    }
+    const keyModeSuffix = uiState.settingsUi.deviceBooksProxyUrl
+      ? ' · Auth: Personal device Books proxy'
+      : diag.keyConfigured === true
+        ? ' · Auth: Dedicated server key (GOOGLE_BOOKS_API_KEY)'
+        : diag.keyConfigured === false
+          ? ' · Auth: Shared anonymous quota (set GOOGLE_BOOKS_API_KEY on server or connect a personal proxy URL)'
+          : '';
+    if (diag.ok) {
+      uiState.settingsUi.googleBooksHealthTone = 'success';
+      const prefixLabel = isProxySave
+        ? `Personal proxy saved & verified (${diag.latencyMs} ms)`
+        : `Google Books API working (${diag.latencyMs} ms)`;
+      uiState.settingsUi.googleBooksHealthReport = `${prefixLabel} · Retrieved "${diag.matchedTitle}"${
+        diag.externalId ? ` [id: ${diag.externalId}]` : ''
+      } · Cover image: ${diag.hasCover ? 'Yes' : 'None on this edition'}${keyModeSuffix}.`;
+      store.notify(
+        isProxySave
+          ? `Personal Books proxy verified (${diag.latencyMs} ms).`
+          : `Google Books API connected (${diag.latencyMs} ms).`,
+        'success'
+      );
+    } else {
+      uiState.settingsUi.googleBooksHealthTone = 'error';
+      const proxyHint = uiState.settingsUi.deviceBooksProxyUrl
+        ? ' Double-check your Worker URL, ALLOWED_ORIGIN CORS header, and GOOGLE_BOOKS_API_KEY Worker secret.'
+        : '';
+      uiState.settingsUi.googleBooksHealthReport = `${
+        isProxySave ? 'Saved proxy URL, but verification failed' : 'Google Books API check failed'
+      } (${diag.latencyMs} ms): ${diag.error || 'Unreachable'}${proxyHint}`;
+      store.notify(
+        isProxySave
+          ? 'Proxy URL saved, but verification reported an error.'
+          : 'Google Books API check reported an issue.',
+        'error'
+      );
+    }
+  } catch (err) {
+    uiState.settingsUi.googleBooksHealthTone = 'error';
+    uiState.settingsUi.googleBooksHealthReport =
+      err instanceof Error ? err.message : 'Google Books API check failed.';
+    store.notify('Google Books API check failed.', 'error');
+  } finally {
+    uiState.settingsUi.checkingGoogleBooks = false;
+    render();
+  }
 }
 
 /**
@@ -2285,46 +2360,71 @@ function bindEvents() {
         uiState.settingsUi.deviceBooksProxyUrl = '';
         uiState.settingsUi.deviceBooksProxyError = '';
         uiState.settingsUi.googleBooksHealthReport = '';
+        uiState.settingsUi.googleBooksHealthTone = 'idle';
         store.notify('Cleared personal phone Books proxy URL.', 'info');
         await refreshGoogleBooksKeyStatus();
         render();
         break;
       }
       case 'check-google-books-api': {
-        uiState.settingsUi.checkingGoogleBooks = true;
-        uiState.settingsUi.googleBooksHealthReport = '';
+        await verifyGoogleBooksConnection({ context: 'manual' });
+        break;
+      }
+      case 'sync-library-metadata': {
+        uiState.settingsUi.syncingCatalogMetadata = true;
+        uiState.settingsUi.catalogSyncProgressText = 'Updating Library…';
+        uiState.settingsUi.catalogSyncReport = '';
+        uiState.settingsUi.catalogSyncTone = 'idle';
         render();
         try {
-          const diag = await catalogService.checkProviderHealth('google-books');
-          if (diag.keyConfigured === true && !uiState.settingsUi.deviceBooksProxyUrl) {
-            uiState.settingsUi.googleBooksKeyStatus = 'configured';
-          } else if (diag.keyConfigured === false && !uiState.settingsUi.deviceBooksProxyUrl) {
-            uiState.settingsUi.googleBooksKeyStatus = 'shared-quota';
-          }
-          const keyModeSuffix = uiState.settingsUi.deviceBooksProxyUrl
-            ? ' · Auth: Personal device Books proxy'
-            : diag.keyConfigured === true
-              ? ' · Auth: Dedicated server key (GOOGLE_BOOKS_API_KEY)'
-              : diag.keyConfigured === false
-                ? ' · Auth: Shared anonymous quota (set GOOGLE_BOOKS_API_KEY on server or connect a personal proxy URL)'
-                : '';
-          if (diag.ok) {
-            uiState.settingsUi.googleBooksHealthReport = `Google Books API OK (${diag.latencyMs} ms) · Retrieved "${diag.matchedTitle}"${
-              diag.externalId ? ` [id: ${diag.externalId}]` : ''
-            } · Cover image: ${diag.hasCover ? 'Yes' : 'None on this edition'}${keyModeSuffix}.`;
-            store.notify(`Google Books API connected (${diag.latencyMs} ms).`, 'success');
+          const summary = await store.syncExistingCatalogMetadata(catalogService, {
+            onProgress: ({ current, total }) => {
+              uiState.settingsUi.catalogSyncProgressText = `Updating ${current}/${total}…`;
+              render();
+            },
+          });
+          if (summary.updatedCount === 0 && summary.errorsCount > 0) {
+            uiState.settingsUi.catalogSyncTone = 'error';
+            uiState.settingsUi.catalogSyncReport = `Could not reach catalog providers for ${summary.errorsCount} book(s). Verify your Google Books connection above and try again.`;
           } else {
-            uiState.settingsUi.googleBooksHealthReport = `Google Books API check failed (${diag.latencyMs} ms): ${
-              diag.error || 'Unreachable'
-            }`;
-            store.notify('Google Books API check reported an issue.', 'error');
+            uiState.settingsUi.catalogSyncTone = 'success';
+            const parts = [
+              `Checked ${summary.checkedCount} book(s)`,
+              `${summary.updatedCount} updated`,
+              summary.addedGoogleSourceCount > 0
+                ? `${summary.addedGoogleSourceCount} linked to Google Books`
+                : '',
+              summary.addedCoversCount > 0
+                ? `${summary.addedCoversCount} new cover(s) added`
+                : '',
+              summary.skippedCount > 0 ? `${summary.skippedCount} already complete` : '',
+            ].filter(Boolean);
+            uiState.settingsUi.catalogSyncReport = `${parts.join(' · ')}.`;
           }
         } catch (err) {
-          uiState.settingsUi.googleBooksHealthReport =
-            err instanceof Error ? err.message : 'Google Books API check failed.';
+          uiState.settingsUi.catalogSyncTone = 'error';
+          uiState.settingsUi.catalogSyncReport =
+            err instanceof Error ? err.message : 'Library metadata update failed.';
         } finally {
-          uiState.settingsUi.checkingGoogleBooks = false;
+          uiState.settingsUi.syncingCatalogMetadata = false;
+          uiState.settingsUi.catalogSyncProgressText = '';
           render();
+        }
+        break;
+      }
+      case 'clear-cover-cache': {
+        try {
+          if (typeof window !== 'undefined' && 'caches' in window) {
+            await window.caches.delete('book-cover-thumbnails');
+          }
+          store.notify(
+            'Cleared cached offline cover thumbnails. Your library & profiles are untouched.',
+            'info'
+          );
+          await refreshBrowserStorageEstimate();
+          render();
+        } catch (_) {
+          store.notify('Could not clear browser cover cache.', 'error');
         }
         break;
       }
@@ -3088,16 +3188,16 @@ function bindEvents() {
         setDeviceBooksProxyUrl(check.normalizedUrl);
         uiState.settingsUi.deviceBooksProxyUrl = check.normalizedUrl;
         uiState.settingsUi.deviceBooksProxyError = '';
-        uiState.settingsUi.googleBooksHealthReport = '';
-        store.notify('Saved personal Books proxy URL on this device.', 'success');
+        await verifyGoogleBooksConnection({ context: 'proxy-save' });
       } else {
         setDeviceBooksProxyUrl('');
         uiState.settingsUi.deviceBooksProxyUrl = '';
         uiState.settingsUi.deviceBooksProxyError = '';
         uiState.settingsUi.googleBooksHealthReport = '';
+        uiState.settingsUi.googleBooksHealthTone = 'idle';
         store.notify('Cleared personal Books proxy URL on this device.', 'info');
+        render();
       }
-      render();
     }
   });
 }

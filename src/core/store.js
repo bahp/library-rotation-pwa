@@ -16,7 +16,11 @@ import {
 } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 import { createSafeDefaultSettings, isValidAppState, migrateState } from './storage.js';
-import { candidateToBook, sanitizeCoverUrl } from '../features/catalog/normalizer.js';
+import {
+  candidateToBook,
+  cleanProviderExternalId,
+  sanitizeCoverUrl,
+} from '../features/catalog/normalizer.js';
 import { normalizeHexColor } from '../features/catalog/cover-color-extractor.js';
 import {
   applyBookAdditions,
@@ -33,6 +37,7 @@ import {
   inferReadingLevelHint,
   sanitizeTag,
   sanitizeTagList,
+  stripDiacritics,
 } from '../features/tagging/rule-tagger.js';
 import { createTaggingService } from '../features/tagging/tagging-service.js';
 
@@ -879,6 +884,306 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
+   * Re-queries saved catalog books against currently enabled metadata providers (e.g. after a user
+   * configures Google Books or a personal phone proxy) and safely merges missing covers, page counts,
+   * publication years, topic tags, and provider provenance (`Google Books + Open Library`) without
+   * overwriting user-curated personalizations (`loved`, `collectionStatus`, `condition`, `owners`,
+   * custom `data:image/` cover photos, or existing tags).
+   *
+   * @param {{
+   *   lookupByIsbn: (rawIsbn: string, opts?: any) => Promise<{ candidate: import('../features/catalog/normalizer.js').BookCandidate | null }>,
+   *   searchBooks: (input: { query: string, author?: string }, opts?: any) => Promise<{ candidates: import('../features/catalog/normalizer.js').BookCandidate[] }>
+   * }} catalogService
+   * @param {{
+   *   forceAll?: boolean,
+   *   onProgress?: (progress: { current: number, total: number, title: string }) => void
+   * }} [options]
+   */
+  async function syncExistingCatalogMetadata(catalogService, options = {}) {
+    if (state.books.length === 0) {
+      notify('Add books to your catalog first.', 'info');
+      return {
+        checkedCount: 0,
+        updatedCount: 0,
+        addedCoversCount: 0,
+        addedGoogleSourceCount: 0,
+        skippedCount: 0,
+        errorsCount: 0,
+      };
+    }
+
+    /**
+     * @param {string} rawTitle
+     */
+    const toTitleStem = (rawTitle) =>
+      stripDiacritics(String(rawTitle || '').split(/[:—–(]/)[0])
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+
+    /**
+     * @param {import('../types/models.js').Book} b
+     */
+    const needsCatalogSync = (b) => {
+      if (options.forceAll) return true;
+      const hasGoogle = b.sources.some(
+        (s) => String(s?.provider || '').toLowerCase() === 'google-books'
+      );
+      return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear;
+    };
+
+    const candidatesToSync = state.books.filter(needsCatalogSync);
+    const totalToCheck = candidatesToSync.length;
+
+    let checkedCount = 0;
+    let updatedCount = 0;
+    let addedCoversCount = 0;
+    let addedGoogleSourceCount = 0;
+    let skippedCount = 0;
+    let errorsCount = 0;
+
+    /** @type {import('../types/models.js').Book[]} */
+    const nextBooks = [];
+
+    for (const book of state.books) {
+      const cleanedExistingSources = book.sources.map((src) => {
+        const cleanExt = cleanProviderExternalId(src.externalId);
+        const { externalId: _oldExt, ...restSrc } = src;
+        return cleanExt ? { ...restSrc, externalId: cleanExt } : restSrc;
+      });
+      const sourceIdCleanedOnly =
+        JSON.stringify(cleanedExistingSources) !== JSON.stringify(book.sources);
+
+      if (!needsCatalogSync(book)) {
+        skippedCount += 1;
+        if (sourceIdCleanedOnly) updatedCount += 1;
+        nextBooks.push(
+          sourceIdCleanedOnly ? { ...book, sources: cleanedExistingSources } : book
+        );
+        continue;
+      }
+
+      checkedCount += 1;
+      if (typeof options.onProgress === 'function') {
+        options.onProgress({
+          current: checkedCount,
+          total: totalToCheck,
+          title: book.title,
+        });
+      }
+
+      /** @type {import('../features/catalog/normalizer.js').BookCandidate | null} */
+      let matchedCandidate = null;
+      try {
+        const lookupIsbn = book.isbn13 || book.isbn10 || '';
+        if (lookupIsbn) {
+          const res = await catalogService.lookupByIsbn(lookupIsbn, {
+            enabledProviderIds: state.settings.enabledMetadataProviders,
+            retainRaw: state.settings.retainRawProviderPayloads,
+          });
+          matchedCandidate = res.candidate || null;
+        } else {
+          const primaryAuthor =
+            book.authors[0] && book.authors[0] !== 'Unknown Author'
+              ? book.authors[0]
+              : undefined;
+          const searchRes = await catalogService.searchBooks(
+            { query: book.title, author: primaryAuthor },
+            {
+              limit: 4,
+              enabledProviderIds: state.settings.enabledMetadataProviders,
+              retainRaw: state.settings.retainRawProviderPayloads,
+            }
+          );
+          const targetStem = toTitleStem(book.title);
+          matchedCandidate =
+            searchRes.candidates.find((c) => {
+              const candStem = toTitleStem(c.title);
+              return (
+                targetStem &&
+                candStem &&
+                (targetStem === candStem ||
+                  (targetStem.length >= 5 &&
+                    candStem.length >= 5 &&
+                    (targetStem.startsWith(candStem) || candStem.startsWith(targetStem))))
+              );
+            }) || null;
+        }
+      } catch (_) {
+        errorsCount += 1;
+        nextBooks.push(
+          sourceIdCleanedOnly ? { ...book, sources: cleanedExistingSources } : book
+        );
+        continue;
+      }
+
+      if (!matchedCandidate) {
+        nextBooks.push(
+          sourceIdCleanedOnly ? { ...book, sources: cleanedExistingSources } : book
+        );
+        if (sourceIdCleanedOnly) updatedCount += 1;
+        continue;
+      }
+
+      const hadGoogleBefore = cleanedExistingSources.some(
+        (s) => String(s?.provider || '').toLowerCase() === 'google-books'
+      );
+
+      // Avoid assigning a newly discovered ISBN-13 if another library book already owns it
+      const canAdoptCandidateIsbn =
+        !book.isbn13 &&
+        matchedCandidate.isbn13 &&
+        !state.books.some((other) => other.id !== book.id && other.isbn13 === matchedCandidate.isbn13);
+      const nextIsbn13 = book.isbn13 || (canAdoptCandidateIsbn ? matchedCandidate.isbn13 : '');
+      const nextIsbn10 =
+        book.isbn10 ||
+        (book.isbn13 || canAdoptCandidateIsbn ? matchedCandidate.isbn10 : undefined);
+
+      const mergedAuthorsList =
+        book.authors[0] === 'Unknown Author' && matchedCandidate.authors[0] !== 'Unknown Author'
+          ? matchedCandidate.authors
+          : Array.from(new Set([...book.authors, ...matchedCandidate.authors])).filter(
+              (a) => a && a !== 'Unknown Author'
+            );
+      const nextAuthors = mergedAuthorsList.length > 0 ? mergedAuthorsList : book.authors;
+
+      const nextPublishedYear = book.publishedYear || matchedCandidate.publishedYear;
+      const nextPageCount = book.pageCount || matchedCandidate.pageCount;
+
+      const nextCoverUrl = book.coverUrl || sanitizeCoverUrl(matchedCandidate.coverUrl);
+      const coverWasAdded = !book.coverUrl && Boolean(nextCoverUrl);
+      if (coverWasAdded) {
+        addedCoversCount += 1;
+      }
+
+      const combinedSeedTags = sanitizeTagList([...book.tags, ...matchedCandidate.tags], 10);
+      const enriched = await tagging.enrichBook(
+        {
+          title: book.title,
+          authors: nextAuthors,
+          isbn13: nextIsbn13,
+          format: book.format,
+          pageCount: nextPageCount,
+          publishedYear: nextPublishedYear,
+          ageMin: book.ageMin,
+          ageMax: book.ageMax,
+          readingStage: book.readingStage,
+          tags: combinedSeedTags,
+          summary: matchedCandidate.summary,
+          subjects: matchedCandidate.subjects,
+        },
+        state.settings,
+        { preserveExplicitAgeAndStage: true }
+      );
+      const nextTags = sanitizeTagList([...book.tags, ...enriched.tags], 10);
+      const nextReadingLevelHint =
+        book.readingLevelHint ||
+        enriched.readingLevelHint ||
+        matchedCandidate.readingLevelHint;
+
+      // Merge & deduplicate provider sources cleanly
+      /** @type {Map<string, import('../types/models.js').ProviderSource>} */
+      const sourceMap = new Map();
+      /** @type {import('../types/models.js').ProviderSource[]} */
+      const rawCombinedSources = [
+        ...matchedCandidate.sources.map((src) => {
+          if (state.settings.retainRawProviderPayloads) return src;
+          const { rawPayload: _omitted, ...cleanSrc } = src;
+          return cleanSrc;
+        }),
+        ...cleanedExistingSources,
+        ...(enriched.aiProvenance ? [enriched.aiProvenance] : []),
+      ];
+
+      for (const src of rawCombinedSources) {
+        const key = String(src?.provider || '').trim().toLowerCase();
+        if (!key) continue;
+        const cleanExt = cleanProviderExternalId(src.externalId);
+        const { externalId: _prevExt, ...restSrc } = src;
+        /** @type {import('../types/models.js').ProviderSource} */
+        const normalizedSrc = {
+          ...restSrc,
+          provider: key,
+          ...(cleanExt ? { externalId: cleanExt } : {}),
+        };
+        const prev = sourceMap.get(key);
+        if (!prev) {
+          sourceMap.set(key, normalizedSrc);
+        } else if (!prev.externalId && normalizedSrc.externalId) {
+          sourceMap.set(key, { ...prev, externalId: normalizedSrc.externalId });
+        }
+      }
+
+      if (sourceMap.has('google-books') || sourceMap.has('open-library')) {
+        sourceMap.delete('seed');
+      }
+
+      const nextSources = Array.from(sourceMap.values());
+      const hasGoogleAfter = sourceMap.has('google-books');
+      if (!hadGoogleBefore && hasGoogleAfter) {
+        addedGoogleSourceCount += 1;
+      }
+
+      /** @type {import('../types/models.js').Book} */
+      const updatedBook = {
+        ...book,
+        isbn13: nextIsbn13,
+        ...(nextIsbn10 ? { isbn10: nextIsbn10 } : {}),
+        authors: nextAuthors,
+        ...(nextPublishedYear ? { publishedYear: nextPublishedYear } : {}),
+        ...(nextPageCount ? { pageCount: nextPageCount } : {}),
+        ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
+        ...(coverWasAdded ? {} : book.dominantColor ? { dominantColor: book.dominantColor } : {}),
+        ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
+        tags: nextTags,
+        sources: nextSources,
+      };
+      if (coverWasAdded) {
+        delete updatedBook.dominantColor;
+      }
+
+      const didChange = JSON.stringify(updatedBook) !== JSON.stringify(book);
+      if (didChange) {
+        updatedCount += 1;
+      }
+      nextBooks.push(didChange ? updatedBook : book);
+    }
+
+    if (updatedCount > 0) {
+      await commit({
+        ...state,
+        books: nextBooks,
+      });
+    }
+
+    const details = [
+      addedGoogleSourceCount > 0 ? `${addedGoogleSourceCount} linked to Google Books` : '',
+      addedCoversCount > 0 ? `${addedCoversCount} new cover(s)` : '',
+    ]
+      .filter(Boolean)
+      .join(', ');
+
+    notify(
+      updatedCount > 0
+        ? `Updated ${updatedCount} library ${updatedCount === 1 ? 'book' : 'books'}${
+            details ? ` (${details})` : ''
+          }.`
+        : checkedCount > 0
+          ? `Checked ${checkedCount} ${checkedCount === 1 ? 'book' : 'books'} — library metadata is already up to date.`
+          : 'All library books already include Google Books metadata and covers.',
+      updatedCount > 0 ? 'success' : 'info'
+    );
+
+    return {
+      checkedCount,
+      updatedCount,
+      addedCoversCount,
+      addedGoogleSourceCount,
+      skippedCount,
+      errorsCount,
+    };
+  }
+
+  /**
    * Removes a book from catalog and cleans references in rotations.
    * @param {string} bookId
    */
@@ -1678,6 +1983,7 @@ export function createAppStore(storage, deps = {}) {
     removeBookTag,
     enrichSingleBook,
     enrichAllCatalogBooks,
+    syncExistingCatalogMetadata,
     deleteBook,
     toggleRotationBookRead,
     generateRotation,

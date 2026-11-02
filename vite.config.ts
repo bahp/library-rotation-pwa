@@ -121,7 +121,7 @@ export default defineConfig(() => {
               options: {
                 cacheName: 'book-cover-thumbnails',
                 expiration: {
-                  maxEntries: 120,
+                  maxEntries: 80,
                   maxAgeSeconds: 60 * 60 * 24 * 30,
                 },
                 cacheableResponse: { statuses: [0, 200] },
