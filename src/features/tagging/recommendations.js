@@ -6,6 +6,7 @@
 
 import { isBookRotatable } from '../../types/models.js';
 import { isBookInCooldown } from '../rotations/rotation-engine.js';
+import { countRotationsSinceLastSeen } from '../rotations/usage-insights.js';
 
 /**
  * @typedef {Object} RecommendedBookItem
@@ -84,9 +85,28 @@ export function getProfileRecommendations(input) {
       reasons.push('Unread together');
     }
 
-    // 5. Cooldown freshness
+    // 5. Cooldown freshness & multi-rotation box diversity
     if (!inCooldown) {
       score += 22;
+      if (!book.lastRotatedAt) {
+        score += 12;
+        reasons.push('Never on shelf yet');
+      } else {
+        const rotationsSince = countRotationsSinceLastSeen(book, rotations, profile.id);
+        const lastMs = Date.parse(book.lastRotatedAt);
+        const nowMs = Date.parse(nowIso);
+        const elapsedDays =
+          !Number.isNaN(lastMs) && !Number.isNaN(nowMs)
+            ? Math.max(0, Math.floor((nowMs - lastMs) / (24 * 60 * 60 * 1000)))
+            : 0;
+        if (rotationsSince !== null && rotationsSince >= 2) {
+          score += Math.min(14, rotationsSince * 4);
+          reasons.push(`Unseen for ${rotationsSince} rotations`);
+        } else if (elapsedDays >= 28) {
+          score += Math.min(10, Math.floor(elapsedDays / 14) * 3);
+          reasons.push(`Off shelf ${elapsedDays}d`);
+        }
+      }
     } else {
       score -= 25;
       reasons.push('Recently rotated');
@@ -106,7 +126,7 @@ export function getProfileRecommendations(input) {
       book,
       score,
       matchedTopics,
-      matchReasons: reasons.slice(0, 3),
+      matchReasons: reasons.slice(0, 4),
       isUnread,
       inCooldown,
     });

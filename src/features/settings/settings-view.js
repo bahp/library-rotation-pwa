@@ -15,6 +15,10 @@ import {
 } from '../../types/models.js';
 import { estimateAppStorageUsage, formatStorageBytes } from '../../core/storage.js';
 import { APP_DOCS_LINKS, APP_VERSION } from '../../version.js';
+import {
+  renderFieldInfoButton,
+  renderFieldInfoPanel,
+} from '../../ui/components/field-help.js';
 import { renderAvatarBadge } from '../../ui/components/profile-sheets.js';
 import { GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL } from '../../ui/components/welcome-setup-modal.js';
 import { renderIcon } from '../../ui/icons.js';
@@ -101,6 +105,9 @@ export function renderSettingsView({
   const presetDaysBefore = settings.presetAlertDaysBefore ?? 2;
   const presetDaysAfter = settings.presetAlertDaysAfter ?? 5;
   const showPresetDecorations = settings.showPresetDecorations !== false;
+  const enableRotationHistoryInsights = settings.enableRotationHistoryInsights !== false;
+  const enableStaleBookSpotlight = settings.enableStaleBookSpotlight !== false;
+  const staleBookDays = settings.staleBookDays ?? 10;
   const googleHealthTone = resolveGoogleBooksHealthTone(
     settingsUiState.googleBooksHealthTone,
     settingsUiState.googleBooksHealthReport
@@ -549,44 +556,149 @@ export function renderSettingsView({
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3 flex items-center justify-between gap-3">
-            <div>
-              <label for="setting-preset-days-before" class="block text-xs font-semibold text-forest-900 dark:text-white">
-                Show in advance (days before)
-              </label>
-              <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
-                0 = exact day only · Default: 2d before
-              </span>
+          <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3 space-y-1.5">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <label for="setting-preset-days-before" class="text-xs font-semibold text-forest-900 dark:text-white">
+                    Show in advance (days before)
+                  </label>
+                  ${renderFieldInfoButton({ helpKey: 'presetDaysBefore', scope: 'settings' })}
+                </div>
+                <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                  0 = exact day only · Default: 2d before
+                </span>
+              </div>
+              <input
+                id="setting-preset-days-before"
+                name="presetAlertDaysBefore"
+                type="number"
+                min="0"
+                max="30"
+                value="${escapeHtml(presetDaysBefore)}"
+                class="w-20 h-10 px-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+              />
             </div>
-            <input
-              id="setting-preset-days-before"
-              name="presetAlertDaysBefore"
-              type="number"
-              min="0"
-              max="30"
-              value="${escapeHtml(presetDaysBefore)}"
-              class="w-20 h-10 px-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
-            />
+            ${renderFieldInfoPanel({ helpKey: 'presetDaysBefore', scope: 'settings' })}
           </div>
 
-          <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3 flex items-center justify-between gap-3">
-            <div>
-              <label for="setting-preset-days-after" class="block text-xs font-semibold text-forest-900 dark:text-white">
-                Keep after start if unactioned (days)
-              </label>
-              <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
-                Shows “appeared X days ago” · Default: 5d
-              </span>
+          <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3 space-y-1.5">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <label for="setting-preset-days-after" class="text-xs font-semibold text-forest-900 dark:text-white">
+                    Keep after start if unactioned (days)
+                  </label>
+                  ${renderFieldInfoButton({ helpKey: 'presetDaysAfter', scope: 'settings' })}
+                </div>
+                <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                  Shows “Suggested Xd ago” · Default: 5d
+                </span>
+              </div>
+              <input
+                id="setting-preset-days-after"
+                name="presetAlertDaysAfter"
+                type="number"
+                min="0"
+                max="30"
+                value="${escapeHtml(presetDaysAfter)}"
+                class="w-20 h-10 px-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+              />
             </div>
-            <input
-              id="setting-preset-days-after"
-              name="presetAlertDaysAfter"
-              type="number"
-              min="0"
-              max="30"
-              value="${escapeHtml(presetDaysAfter)}"
-              class="w-20 h-10 px-2.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
-            />
+            ${renderFieldInfoPanel({ helpKey: 'presetDaysAfter', scope: 'settings' })}
+          </div>
+        </div>
+      </section>
+
+      <!-- Shelf Freshness, Cooldown Log & Stale Book Spotlight -->
+      <section
+        aria-labelledby="freshness-spotlight-heading"
+        data-freshness-spotlight-section="true"
+        class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-3.5"
+      >
+        <div>
+          <h2 id="freshness-spotlight-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
+            Shelf Freshness &amp; Stale Book Spotlight
+          </h2>
+          <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
+            Track when each book was last active on a shelf so long-unseen books surface first, and get a gentle nudge when an active-shelf book sits unopened.
+          </p>
+        </div>
+
+        <div class="divide-y divide-linen-200/70 dark:divide-night-800">
+          <div class="py-3 first:pt-1 flex items-center justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-forest-900 dark:text-white">
+                Rotation History &amp; Cooldown Log
+              </p>
+              <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                Displays last-on-shelf dates, times rotated, and freshness filters across Library, Book Details, and Swap modals.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked="${enableRotationHistoryInsights ? 'true' : 'false'}"
+              data-action="toggle-rotation-history-insights"
+              class="min-h-[42px] px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                enableRotationHistoryInsights
+                  ? 'bg-forest-700 text-white'
+                  : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
+              }"
+            >
+              ${enableRotationHistoryInsights ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+
+          <div class="py-3 flex items-center justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-forest-900 dark:text-white">
+                Stale Book Spotlight Nudge
+              </p>
+              <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                Highlights books sitting on the active shelf without being marked read so you can read them together or swap in a fresh pick.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked="${enableStaleBookSpotlight ? 'true' : 'false'}"
+              data-action="toggle-stale-book-spotlight"
+              class="min-h-[42px] px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                enableStaleBookSpotlight
+                  ? 'bg-forest-700 text-white'
+                  : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
+              }"
+            >
+              ${enableStaleBookSpotlight ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+
+          <div class="pt-3 space-y-1.5">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <label for="setting-stale-book-days" class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                    Unread days before spotlight
+                  </label>
+                  ${renderFieldInfoButton({ helpKey: 'staleBookDays', scope: 'settings' })}
+                </div>
+                <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                  3–60 days on active shelf without being marked read · Default: 10d
+                </span>
+              </div>
+              <input
+                id="setting-stale-book-days"
+                name="staleBookDays"
+                type="number"
+                min="3"
+                max="60"
+                ${!enableStaleBookSpotlight ? 'disabled' : ''}
+                value="${escapeHtml(staleBookDays)}"
+                class="w-20 h-10 px-2.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 disabled:opacity-50 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+              />
+            </div>
+            ${renderFieldInfoPanel({ helpKey: 'staleBookDays', scope: 'settings' })}
           </div>
         </div>
       </section>

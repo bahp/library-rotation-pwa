@@ -29,6 +29,21 @@ import { sanitizeTagList, VALID_READING_STAGES } from './rule-tagger.js';
  * @property {string[]} [tags]
  * @property {string} [summary]
  * @property {string[]} [subjects]
+ * @property {{
+ *   loved?: boolean,
+ *   collectionStatus?: string,
+ *   freshnessTier?: string,
+ *   rotationCount?: number,
+ *   lastRotatedAt?: string | null,
+ *   daysSinceLastRotated?: number | null,
+ *   rotationsSinceLastOut?: number | null,
+ *   inCooldown?: boolean,
+ *   isCurrentlyOnActiveShelf?: boolean,
+ *   daysOnActiveShelf?: number | null,
+ *   isStaleUnreadOnShelf?: boolean,
+ *   isReadByActiveProfile?: boolean,
+ *   lastReadAt?: string | null
+ * }} [usageContext]
  */
 
 /**
@@ -261,6 +276,7 @@ export function createBrowserPromptApiAdapter(options = {}) {
           subjects: (input.subjects || []).slice(0, 10),
           existingTags: input.tags || [],
           summary: (input.summary || '').slice(0, 280),
+          ...(input.usageContext ? { usage: input.usageContext } : {}),
         });
         const rawReply = await session.prompt(
           `Suggest up to 6 normalized children's theme tags (e.g. christmas, winter, nature, animals, space, bedtime, feelings, rhyme) and reading level metadata for: ${prompt}`,
@@ -341,6 +357,7 @@ export function createCustomEndpointAiAdapter(options = {}) {
             existingTags: input.tags || [],
             subjects: (input.subjects || []).slice(0, 10),
             summary: (input.summary || '').slice(0, 320),
+            ...(input.usageContext ? { usage: input.usageContext } : {}),
           },
         }),
         signal: context.signal,

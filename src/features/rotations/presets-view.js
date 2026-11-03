@@ -13,6 +13,10 @@ import {
   formatBookBinding,
   formatProfileAgeLabel,
 } from '../../types/models.js';
+import {
+  renderFieldInfoButton,
+  renderFieldInfoPanel,
+} from '../../ui/components/field-help.js';
 import { renderIcon } from '../../ui/icons.js';
 import {
   PRESET_MOTIF_OPTIONS,
@@ -280,82 +284,102 @@ function renderPresetFormSheet({ presetsUiState }) {
             />
           </div>
 
-          <div class="grid grid-cols-3 gap-2.5">
-            <div class="col-span-2">
-              <label for="preset-start-month" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Suggested Start Month (optional)
-              </label>
-              <select
-                id="preset-start-month"
-                name="suggestedMonth"
-                class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              >
-                ${monthOptionsHtml}
-              </select>
-            </div>
+          <div>
+            <div class="grid grid-cols-3 gap-2.5">
+              <div class="col-span-2">
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <label for="preset-start-month" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                    Suggested Start Month (optional)
+                  </label>
+                  ${renderFieldInfoButton({ helpKey: 'suggestedStart', scope: 'preset' })}
+                </div>
+                <select
+                  id="preset-start-month"
+                  name="suggestedMonth"
+                  class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                >
+                  ${monthOptionsHtml}
+                </select>
+              </div>
 
-            <div>
-              <label for="preset-start-day" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Day (1–31)
-              </label>
-              <input
-                id="preset-start-day"
-                name="suggestedDay"
-                type="number"
-                min="1"
-                max="31"
-                value="${escapeHtml(selectedDay)}"
-                placeholder="—"
-                class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div>
+                <label for="preset-start-day" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
+                  Day (1–31)
+                </label>
+                <input
+                  id="preset-start-day"
+                  name="suggestedDay"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value="${escapeHtml(selectedDay)}"
+                  placeholder="—"
+                  class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+              </div>
             </div>
+            ${renderFieldInfoPanel({ helpKey: 'suggestedStart', scope: 'preset' })}
           </div>
 
-          <div class="grid grid-cols-3 gap-2.5">
-            <div>
-              <label for="preset-count" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Book Count
-              </label>
-              <input
-                id="preset-count"
-                name="count"
-                type="number"
-                min="1"
-                max="15"
-                value="${escapeHtml(countValue)}"
-                class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
-            </div>
+          <div class="space-y-1">
+            <div class="grid grid-cols-3 gap-2.5">
+              <div>
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <label for="preset-count" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                    Book Count
+                  </label>
+                  ${renderFieldInfoButton({ helpKey: 'bookCount', scope: 'preset' })}
+                </div>
+                <input
+                  id="preset-count"
+                  name="count"
+                  type="number"
+                  min="1"
+                  max="15"
+                  value="${escapeHtml(countValue)}"
+                  class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+              </div>
 
-            <div>
-              <label for="preset-swap-days" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Swap Cycle (d)
-              </label>
-              <input
-                id="preset-swap-days"
-                name="swapDays"
-                type="number"
-                min="1"
-                max="90"
-                value="${escapeHtml(swapValue)}"
-                class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
-            </div>
+              <div>
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <label for="preset-swap-days" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                    Swap Cycle (d)
+                  </label>
+                  ${renderFieldInfoButton({ helpKey: 'swapDays', scope: 'preset' })}
+                </div>
+                <input
+                  id="preset-swap-days"
+                  name="swapDays"
+                  type="number"
+                  min="1"
+                  max="90"
+                  value="${escapeHtml(swapValue)}"
+                  class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+              </div>
 
-            <div>
-              <label for="preset-cooldown" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Cooldown (d)
-              </label>
-              <input
-                id="preset-cooldown"
-                name="cooldownDays"
-                type="number"
-                min="0"
-                max="90"
-                value="${escapeHtml(cooldownValue)}"
-                class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div>
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <label for="preset-cooldown" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                    Cooldown (d)
+                  </label>
+                  ${renderFieldInfoButton({ helpKey: 'cooldownDays', scope: 'preset' })}
+                </div>
+                <input
+                  id="preset-cooldown"
+                  name="cooldownDays"
+                  type="number"
+                  min="0"
+                  max="90"
+                  value="${escapeHtml(cooldownValue)}"
+                  class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+              </div>
             </div>
+            ${renderFieldInfoPanel({ helpKey: 'bookCount', scope: 'preset' })}
+            ${renderFieldInfoPanel({ helpKey: 'swapDays', scope: 'preset' })}
+            ${renderFieldInfoPanel({ helpKey: 'cooldownDays', scope: 'preset' })}
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -376,9 +400,12 @@ function renderPresetFormSheet({ presetsUiState }) {
             </div>
 
             <div>
-              <label for="preset-seed" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Deterministic Seed
-              </label>
+              <div class="flex items-center justify-between gap-1.5 mb-1">
+                <label for="preset-seed" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                  Deterministic Seed
+                </label>
+                ${renderFieldInfoButton({ helpKey: 'seed', scope: 'preset' })}
+              </div>
               <input
                 id="preset-seed"
                 name="seed"
@@ -387,21 +414,28 @@ function renderPresetFormSheet({ presetsUiState }) {
                 placeholder="Auto-generated if left blank"
                 class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
+              ${renderFieldInfoPanel({ helpKey: 'seed', scope: 'preset' })}
             </div>
           </div>
 
-          <label class="flex items-start gap-2.5 text-xs text-forest-900 dark:text-slate-300 cursor-pointer select-none pt-1">
-            <input
-              type="checkbox"
-              name="varietyMix"
-              ${varietyChecked ? 'checked' : ''}
-              class="mt-0.5 h-4 w-4 rounded accent-[#1F6E75]"
-            />
-            <span>
-              <strong class="font-semibold">Enforce author &amp; topic variety</strong>
-              <span class="block text-stone-ink dark:text-slate-400">Balances authors and bindings across the generated shelf.</span>
-            </span>
-          </label>
+          <div class="pt-1">
+            <div class="flex items-start justify-between gap-2">
+              <label class="flex items-start gap-2.5 text-xs text-forest-900 dark:text-slate-300 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  name="varietyMix"
+                  ${varietyChecked ? 'checked' : ''}
+                  class="mt-0.5 h-4 w-4 rounded accent-[#1F6E75]"
+                />
+                <span>
+                  <strong class="font-semibold">Enforce author &amp; topic variety</strong>
+                  <span class="block text-stone-ink dark:text-slate-400">Balances authors and bindings across the generated shelf.</span>
+                </span>
+              </label>
+              ${renderFieldInfoButton({ helpKey: 'varietyMix', scope: 'preset' })}
+            </div>
+            ${renderFieldInfoPanel({ helpKey: 'varietyMix', scope: 'preset' })}
+          </div>
 
           <div class="pt-2 flex items-center justify-end gap-2.5">
             <button

@@ -47,6 +47,10 @@ const ICON_PATHS = {
   flashlightFilled: '<path fill="currentColor" d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>',
   filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
   barcode: '<path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  refresh: '<path d="M3 12a9 9 0 0 1 15.3-6.4L21 8M21 3v5h-5M21 12a9 9 0 0 1-15.3 6.4L3 16M3 21v-5h5"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
 };
 
 /**

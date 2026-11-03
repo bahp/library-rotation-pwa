@@ -11,6 +11,7 @@ import {
   inferReadingStageFromAge,
   resolveBookOwnerBadges,
 } from '../../types/models.js';
+import { renderFieldInfoButton, renderFieldInfoPanel } from './field-help.js';
 import { renderIcon } from '../icons.js';
 
 /** @type {Record<string, string>} */
@@ -366,9 +367,12 @@ export function renderProfileFormSheet({
             </div>
 
             <div>
-              <label for="profile-size" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Books per Rotation
-              </label>
+              <div class="flex items-center justify-between gap-1.5 mb-1">
+                <label for="profile-size" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                  Books per Rotation
+                </label>
+                ${renderFieldInfoButton({ helpKey: 'defaultRotationSize', scope: 'profile' })}
+              </div>
               <input
                 id="profile-size"
                 name="defaultRotationSize"
@@ -378,12 +382,16 @@ export function renderProfileFormSheet({
                 value="${defaultSize}"
                 class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
+              ${renderFieldInfoPanel({ helpKey: 'defaultRotationSize', scope: 'profile' })}
             </div>
 
             <div>
-              <label for="profile-cooldown" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                Cooldown (days)
-              </label>
+              <div class="flex items-center justify-between gap-1.5 mb-1">
+                <label for="profile-cooldown" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                  Cooldown (days)
+                </label>
+                ${renderFieldInfoButton({ helpKey: 'cooldownDays', scope: 'profile' })}
+              </div>
               <input
                 id="profile-cooldown"
                 name="cooldownDays"
@@ -393,6 +401,7 @@ export function renderProfileFormSheet({
                 value="${defaultCooldown}"
                 class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
+              ${renderFieldInfoPanel({ helpKey: 'cooldownDays', scope: 'profile' })}
             </div>
 
             <div class="sm:col-span-2">

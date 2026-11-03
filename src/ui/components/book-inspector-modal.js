@@ -24,6 +24,10 @@ import {
   normalizeCollectionStatus,
   normalizeOwnersList,
 } from '../../types/models.js';
+import {
+  computeBookUsageSummary,
+  formatShortShelfDate,
+} from '../../features/rotations/usage-insights.js';
 import { resolveBookCardTintHex } from '../../features/catalog/cover-color-extractor.js';
 import { renderBookCover } from './book-cover.js';
 import {
@@ -49,10 +53,15 @@ import { renderIcon } from '../icons.js';
  * @param {{
  *   book: import('../../types/models.js').Book | null | undefined,
  *   profiles?: import('../../types/models.js').ChildProfile[],
+ *   rotations?: import('../../types/models.js').RotationList[],
+ *   activeProfile?: import('../../types/models.js').ChildProfile | null,
  *   activeRotation?: import('../../types/models.js').RotationList | null,
  *   canSwapInActiveRotation?: boolean,
  *   coverAspectRatio?: import('../../types/models.js').CoverAspectRatio,
  *   dynamicCoverTint?: boolean,
+ *   showRotationHistory?: boolean,
+ *   staleBookDays?: number,
+ *   referenceDate?: Date | string | number,
  *   inspectorUiState?: BookInspectorUiState
  * }} params
  * @returns {string}
@@ -60,10 +69,15 @@ import { renderIcon } from '../icons.js';
 export function renderBookInspectorModal({
   book,
   profiles = [],
+  rotations = [],
+  activeProfile = null,
   activeRotation = null,
   canSwapInActiveRotation = false,
   coverAspectRatio = 'square',
   dynamicCoverTint = true,
+  showRotationHistory = true,
+  staleBookDays = 10,
+  referenceDate = new Date(),
   inspectorUiState = {
     isCoverPickerOpen: false,
     isEditingBook: false,
@@ -462,74 +476,150 @@ export function renderBookInspectorModal({
     })),
   ];
 
+  const effectiveReader =
+    activeProfile ||
+    (activeRotation
+      ? profiles.find((p) => p.id === activeRotation.profileId) || profiles[0] || null
+      : profiles[0] || null);
+  const effectiveRotations =
+    rotations.length > 0 ? rotations : activeRotation ? [activeRotation] : [];
+  const usageSummary = computeBookUsageSummary(book, {
+    profiles,
+    rotations: effectiveRotations,
+    activeProfile: effectiveReader,
+    activeRotation,
+    staleBookDays,
+    referenceDate,
+  });
+
+  const usageSegments = [];
+  if (usageSummary.isCurrentlyOnActiveShelf) {
+    usageSegments.push(
+      usageSummary.daysOnActiveShelf && usageSummary.daysOnActiveShelf > 0
+        ? `On active shelf ${usageSummary.daysOnActiveShelf}d`
+        : 'On active shelf today'
+    );
+    if (usageSummary.isStaleUnreadOnShelf) {
+      usageSegments.push('Unread this cycle');
+    } else if (usageSummary.isReadInActiveShelf) {
+      usageSegments.push('Read this cycle');
+    }
+  } else if (usageSummary.neverRotated) {
+    usageSegments.push('Never rotated yet');
+  } else if (usageSummary.lastRotatedAt) {
+    const shortDate = formatShortShelfDate(usageSummary.lastRotatedAt, referenceDate);
+    const agoPart =
+      usageSummary.daysSinceLastRotated === 0
+        ? 'today'
+        : `${usageSummary.daysSinceLastRotated}d ago`;
+    usageSegments.push(`Last on shelf ${shortDate} (${agoPart})`);
+    if (usageSummary.inCooldown) {
+      usageSegments.push(`Cooldown: ${usageSummary.cooldownDaysRemaining}d left`);
+    } else if (
+      usageSummary.rotationsSinceLastOut !== null &&
+      usageSummary.rotationsSinceLastOut >= 2
+    ) {
+      usageSegments.push(`Unseen ${usageSummary.rotationsSinceLastOut} rotations`);
+    }
+  }
+  if (usageSummary.rotationCount > 0) {
+    usageSegments.push(`Rotated ${usageSummary.rotationCount}×`);
+  }
+  if (usageSummary.readByProfileNames.length > 0) {
+    const readDateSuffix = usageSummary.lastReadAt
+      ? ` (${formatShortShelfDate(usageSummary.lastReadAt, referenceDate)})`
+      : '';
+    usageSegments.push(`Read with ${usageSummary.readByProfileNames.join(', ')}${readDateSuffix}`);
+  } else {
+    usageSegments.push('Unread together');
+  }
+
+  const rotationHistoryStripHtml =
+    showRotationHistory !== false && rotatable
+      ? `<p data-book-usage-summary="true" class="text-[11px] font-mono-tabular ${
+          usageSummary.isStaleUnreadOnShelf
+            ? 'font-semibold text-amber-800 dark:text-amber-300'
+            : 'text-stone-ink dark:text-slate-400'
+        }">${escapeHtml(usageSegments.join(' · '))}</p>`
+      : '';
+
   // Active Shelf Bar (when an active rotation shelf exists)
   const quickShelfBarHtml = activeRotation
     ? `
-      <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
-        <span class="text-xs font-medium text-stone-ink dark:text-slate-300">
-          ${
-            inActiveShelf
-              ? 'On current rotation shelf'
-              : rotatable
-                ? 'Available for active shelf'
-                : `${escapeHtml(formatCollectionStatus(currentStatus))} (${escapeHtml(formatBookCondition(currentCondition))}) — off auto-rotations`
-          }
-        </span>
-        <div class="flex flex-wrap items-center gap-2">
-          ${
-            inActiveShelf
-              ? `
-                <button
-                  type="button"
-                  data-action="toggle-rotation-read"
-                  data-rotation-id="${escapeHtml(activeRotation.id)}"
-                  data-book-id="${escapeHtml(book.id)}"
-                  aria-pressed="${isReadInActive ? 'true' : 'false'}"
-                  class="min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
-                    isReadInActive
-                      ? 'bg-forest-700 text-white dark:bg-forest-600'
-                      : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
-                  }"
-                >
-                  ${renderIcon('check', 'w-3.5 h-3.5')}
-                  ${isReadInActive ? 'Read' : 'Mark Read'}
-                </button>
-                ${
-                  canSwapInActiveRotation
-                    ? `
-                      <button
-                        type="button"
-                        data-action="replace-book-random"
-                        data-rotation-id="${escapeHtml(activeRotation.id)}"
-                        data-book-id="${escapeHtml(book.id)}"
-                        class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                      >
-                        ${renderIcon('shuffle', 'w-3.5 h-3.5')}
-                        Swap Book
-                      </button>
-                    `
-                    : ''
-                }
-              `
-              : rotatable
+      <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 space-y-1.5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-xs font-medium text-stone-ink dark:text-slate-300">
+            ${
+              inActiveShelf
+                ? 'On current rotation shelf'
+                : rotatable
+                  ? 'Available for active shelf'
+                  : `${escapeHtml(formatCollectionStatus(currentStatus))} (${escapeHtml(formatBookCondition(currentCondition))}) — off auto-rotations`
+            }
+          </span>
+          <div class="flex flex-wrap items-center gap-2">
+            ${
+              inActiveShelf
                 ? `
                   <button
                     type="button"
-                    data-action="add-recommended-to-shelf"
+                    data-action="toggle-rotation-read"
                     data-rotation-id="${escapeHtml(activeRotation.id)}"
                     data-book-id="${escapeHtml(book.id)}"
-                    class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    aria-pressed="${isReadInActive ? 'true' : 'false'}"
+                    class="min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+                      isReadInActive
+                        ? 'bg-forest-700 text-white dark:bg-forest-600'
+                        : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
+                    }"
                   >
-                    ${renderIcon('plus', 'w-3.5 h-3.5')}
-                    Add to Active Shelf
+                    ${renderIcon('check', 'w-3.5 h-3.5')}
+                    ${isReadInActive ? 'Read' : 'Mark Read'}
                   </button>
+                  ${
+                    canSwapInActiveRotation
+                      ? `
+                        <button
+                          type="button"
+                          data-action="replace-book-random"
+                          data-rotation-id="${escapeHtml(activeRotation.id)}"
+                          data-book-id="${escapeHtml(book.id)}"
+                          class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                        >
+                          ${renderIcon('shuffle', 'w-3.5 h-3.5')}
+                          Swap Book
+                        </button>
+                      `
+                      : ''
+                  }
                 `
-                : ''
-          }
+                : rotatable
+                  ? `
+                    <button
+                      type="button"
+                      data-action="add-recommended-to-shelf"
+                      data-rotation-id="${escapeHtml(activeRotation.id)}"
+                      data-book-id="${escapeHtml(book.id)}"
+                      class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    >
+                      ${renderIcon('plus', 'w-3.5 h-3.5')}
+                      Add to Active Shelf
+                    </button>
+                  `
+                  : ''
+            }
+          </div>
         </div>
+        ${rotationHistoryStripHtml}
       </div>
     `
-    : '';
+    : rotationHistoryStripHtml
+      ? `
+        <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5">
+          ${rotationHistoryStripHtml}
+        </div>
+      `
+      : '';
 
   // Unified Customize Table (matching Scan/ISBN Found card: left labels, right option buttons)
   const customizeSectionHtml = `

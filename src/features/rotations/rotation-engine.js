@@ -11,6 +11,10 @@
  */
 
 import { isBookRotatable } from '../../types/models.js';
+import {
+  countRotationsSinceLastSeen,
+  syncRotationSlotAddedAt,
+} from './usage-insights.js';
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -187,6 +191,7 @@ export function isBookInCooldown(book, cooldownDays, nowIso) {
  *   books: import('../../types/models.js').Book[],
  *   profile: import('../../types/models.js').ChildProfile,
  *   rules: import('../../types/models.js').RotationRuleConfig,
+ *   rotations?: import('../../types/models.js').RotationList[],
  *   excludeBookIds?: Iterable<string>,
  *   nowIso?: string
  * }} params
@@ -196,6 +201,7 @@ export function scoreEligibleBooks({
   books,
   profile,
   rules,
+  rotations = [],
   excludeBookIds = [],
   nowIso = new Date().toISOString(),
 }) {
@@ -281,13 +287,33 @@ export function scoreEligibleBooks({
       }
     }
 
-    // 4. Freshness & Cooldown penalty
+    // 4. Freshness, Cooldown & Multi-Rotation Box Diversity
     const inCooldown = isBookInCooldown(book, rules.cooldownDays, nowIso);
     if (inCooldown) {
       score -= 45;
     } else {
       score += 14;
-      reasons.push('Fresh off cooldown');
+      if (!book.lastRotatedAt) {
+        score += 10;
+        reasons.push('Never rotated yet');
+      } else {
+        const rotationsSince = countRotationsSinceLastSeen(book, rotations, profile.id);
+        const lastMs = Date.parse(book.lastRotatedAt);
+        const nowMs = Date.parse(nowIso);
+        const elapsedDays =
+          !Number.isNaN(lastMs) && !Number.isNaN(nowMs)
+            ? Math.max(0, Math.floor((nowMs - lastMs) / DAY_MS))
+            : 0;
+        if (rotationsSince !== null && rotationsSince >= 2) {
+          score += Math.min(14, rotationsSince * 4);
+          reasons.push(`Unseen for ${rotationsSince} rotations`);
+        } else if (elapsedDays >= 30) {
+          score += Math.min(12, Math.floor(elapsedDays / 10) * 3);
+          reasons.push(`Off shelf ${elapsedDays}d`);
+        } else {
+          reasons.push('Fresh off cooldown');
+        }
+      }
     }
 
     // Slight novelty bonus for unread books
@@ -321,6 +347,7 @@ export function scoreEligibleBooks({
  *   books: import('../../types/models.js').Book[],
  *   profile: import('../../types/models.js').ChildProfile,
  *   rules: import('../../types/models.js').RotationRuleConfig,
+ *   rotations?: import('../../types/models.js').RotationList[],
  *   excludeBookIds?: Iterable<string>,
  *   nowIso?: string
  * }} params
@@ -335,6 +362,7 @@ export function generateRotationSelection({
   books,
   profile,
   rules,
+  rotations = [],
   excludeBookIds = [],
   nowIso = new Date().toISOString(),
 }) {
@@ -347,6 +375,7 @@ export function generateRotationSelection({
     books,
     profile,
     rules,
+    rotations,
     excludeBookIds,
     nowIso,
   });
@@ -439,6 +468,7 @@ export function generateRotationSelection({
  *   books: import('../../types/models.js').Book[],
  *   profile: import('../../types/models.js').ChildProfile,
  *   rotation: import('../../types/models.js').RotationList,
+ *   rotations?: import('../../types/models.js').RotationList[],
  *   count?: number,
  *   seedOverride?: string,
  *   nowIso?: string
@@ -449,6 +479,7 @@ export function pickRandomEligibleBooks({
   books,
   profile,
   rotation,
+  rotations = [],
   count = 1,
   seedOverride,
   nowIso = new Date().toISOString(),
@@ -468,6 +499,7 @@ export function pickRandomEligibleBooks({
     books,
     profile,
     rules: effectiveRules,
+    rotations,
     excludeBookIds: rotation.bookIds,
     nowIso,
   });
@@ -503,11 +535,18 @@ export function applyBookReplacement(
   nextBookIds[idx] = replacementBookId;
 
   const nextCompleted = rotation.completedBookIds.filter((id) => id !== targetBookId);
+  const fallbackAnchor = rotation.activatedAt || rotation.createdAt || nowIso;
+  const baseSlots = syncRotationSlotAddedAt(rotation.slotAddedAt, rotation.bookIds, nowIso, {
+    fallbackStartIso: fallbackAnchor,
+  });
+  delete baseSlots[targetBookId];
+  baseSlots[replacementBookId] = nowIso;
 
   return {
     ...rotation,
     bookIds: nextBookIds,
     completedBookIds: nextCompleted,
+    slotAddedAt: baseSlots,
     updatedAt: nowIso,
   };
 }
@@ -536,10 +575,20 @@ export function applyBookAdditions(rotation, bookIdsToAdd, nowIso = new Date().t
     return { rotation, addedIds: [] };
   }
 
+  const nextBookIds = [...rotation.bookIds, ...addedIds];
+  const fallbackAnchor = rotation.activatedAt || rotation.createdAt || nowIso;
+  const nextSlots = syncRotationSlotAddedAt(rotation.slotAddedAt, rotation.bookIds, nowIso, {
+    fallbackStartIso: fallbackAnchor,
+  });
+  for (const addedId of addedIds) {
+    nextSlots[addedId] = nowIso;
+  }
+
   return {
     rotation: {
       ...rotation,
-      bookIds: [...rotation.bookIds, ...addedIds],
+      bookIds: nextBookIds,
+      slotAddedAt: nextSlots,
       updatedAt: nowIso,
     },
     addedIds,

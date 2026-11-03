@@ -21,6 +21,7 @@ import {
   computeRotationSchedule,
   renderSwapDayAlertBanner,
 } from '../rotations/rotation-schedule.js';
+import { renderStaleBooksSpotlightBanner } from '../rotations/usage-insights.js';
 import { renderPwaInstallBanner } from '../pwa/pwa-install-banner.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
@@ -38,6 +39,7 @@ import { renderIcon } from '../../ui/icons.js';
  *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
  *     dismissedSwapReminderKeys?: string[],
  *     dismissedPresetAlertKeys?: string[],
+ *     dismissedStaleSpotlightKeys?: string[],
  *     pwaBannerDismissed?: boolean
  *   },
  *   pwaStatus?: {
@@ -87,14 +89,27 @@ export function renderHomeView({
     showBrowseLink: true,
   });
 
+  const staleSpotlightAlertHtml = renderStaleBooksSpotlightBanner({
+    rotation: activeRotation,
+    profile: activeProfile,
+    books: state.books,
+    staleBookDays: state.settings.staleBookDays ?? 10,
+    enabled: state.settings.enableStaleBookSpotlight !== false,
+    dismissedStaleKeys: uiState.dismissedStaleSpotlightKeys || [],
+    referenceDate,
+  });
+
   const pwaInstallAlertHtml = renderPwaInstallBanner({
     pwaStatus,
     dismissed: Boolean(uiState.pwaBannerDismissed),
   });
 
-  const alertBanners = [presetStartAlertHtml, swapDayAlertHtml, pwaInstallAlertHtml].filter(
-    Boolean
-  );
+  const alertBanners = [
+    presetStartAlertHtml,
+    swapDayAlertHtml,
+    staleSpotlightAlertHtml,
+    pwaInstallAlertHtml,
+  ].filter(Boolean);
   const alertsStackHtml =
     alertBanners.length > 0 ? `<div class="space-y-2">${alertBanners.join('')}</div>` : '';
 
@@ -432,10 +447,15 @@ export function renderHomeView({
       ${renderBookInspectorModal({
         book: inspectedBook,
         profiles: state.profiles,
+        rotations: state.rotations,
+        activeProfile,
         activeRotation,
         canSwapInActiveRotation,
         coverAspectRatio,
         dynamicCoverTint: dynamicTint,
+        showRotationHistory: state.settings.enableRotationHistoryInsights !== false,
+        staleBookDays: state.settings.staleBookDays ?? 10,
+        referenceDate,
         inspectorUiState: uiState.inspectorUi,
       })}
     </div>

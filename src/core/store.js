@@ -28,6 +28,12 @@ import {
   generateRotationSelection,
   pickRandomEligibleBooks,
 } from '../features/rotations/rotation-engine.js';
+import {
+  buildAiLibraryUsageContext,
+  computeBookUsageSummary,
+  recordBooksRotated,
+  syncRotationSlotAddedAt,
+} from '../features/rotations/usage-insights.js';
 import { DEFAULT_ROTATION_PRESETS } from '../data/rotation-presets-config.js';
 import {
   getAllRotationPresets,
@@ -68,16 +74,36 @@ export function applyThemeToDom(theme) {
 }
 
 /**
- * Stamps `lastRotatedAt` onto any catalog books included in `rotatedBookIds`.
- * @param {import('../types/models.js').Book[]} books
- * @param {Iterable<string>} rotatedBookIds
- * @param {string} nowIso
- * @returns {import('../types/models.js').Book[]}
+ * Builds the optional per-book usage context passed to opted-in AI enrichment adapters.
+ * @param {import('../types/models.js').Book} book
+ * @param {import('../types/models.js').AppState} currentState
  */
-function stampBooksRotated(books, rotatedBookIds, nowIso) {
-  const targetSet = new Set(rotatedBookIds);
-  if (targetSet.size === 0) return books;
-  return books.map((b) => (targetSet.has(b.id) ? { ...b, lastRotatedAt: nowIso } : b));
+function buildBookUsagePayload(book, currentState) {
+  const activeProfile =
+    currentState.profiles.find((p) => p.id === currentState.activeProfileId) ||
+    currentState.profiles[0] ||
+    null;
+  const usage = computeBookUsageSummary(book, {
+    profiles: currentState.profiles,
+    rotations: currentState.rotations,
+    activeProfile,
+    staleBookDays: currentState.settings?.staleBookDays ?? 10,
+  });
+  return {
+    loved: usage.loved,
+    collectionStatus: book.collectionStatus || 'owned',
+    freshnessTier: usage.freshnessTier,
+    rotationCount: usage.rotationCount,
+    lastRotatedAt: usage.lastRotatedAt,
+    daysSinceLastRotated: usage.daysSinceLastRotated,
+    rotationsSinceLastOut: usage.rotationsSinceLastOut,
+    inCooldown: usage.inCooldown,
+    isCurrentlyOnActiveShelf: usage.isCurrentlyOnActiveShelf,
+    daysOnActiveShelf: usage.daysOnActiveShelf,
+    isStaleUnreadOnShelf: usage.isStaleUnreadOnShelf,
+    isReadByActiveProfile: usage.isReadByActiveProfile,
+    lastReadAt: usage.lastReadAt,
+  };
 }
 
 /**
@@ -783,6 +809,7 @@ export function createAppStore(storage, deps = {}) {
         ageMax: target.ageMax,
         readingStage: target.readingStage,
         tags: target.tags,
+        usageContext: buildBookUsagePayload(target, state),
       },
       state.settings,
       { forceLocalRules: true, preserveExplicitAgeAndStage: true }
@@ -844,6 +871,7 @@ export function createAppStore(storage, deps = {}) {
           ageMax: book.ageMax,
           readingStage: book.readingStage,
           tags: book.tags,
+          usageContext: buildBookUsagePayload(book, state),
         },
         state.settings,
         { forceLocalRules: true, preserveExplicitAgeAndStage: true }
@@ -1215,9 +1243,10 @@ export function createAppStore(storage, deps = {}) {
       ? rotation.completedBookIds.filter((id) => id !== bookId)
       : [...rotation.completedBookIds, bookId];
 
+    const now = new Date().toISOString();
     const nextRotations = state.rotations.map((r) =>
       r.id === rotationId
-        ? { ...r, completedBookIds: nextCompleted, updatedAt: new Date().toISOString() }
+        ? { ...r, completedBookIds: nextCompleted, updatedAt: now }
         : r
     );
 
@@ -1228,8 +1257,13 @@ export function createAppStore(storage, deps = {}) {
       return { ...p, readHistoryBookIds: Array.from(historySet) };
     });
 
+    const nextBooks = !isDone
+      ? state.books.map((b) => (b.id === bookId ? { ...b, lastReadAt: now } : b))
+      : state.books;
+
     await commit({
       ...state,
+      books: nextBooks,
       profiles: nextProfiles,
       rotations: nextRotations,
     });
@@ -1307,6 +1341,7 @@ export function createAppStore(storage, deps = {}) {
       books: state.books,
       profile,
       rules,
+      rotations: state.rotations,
       nowIso: now,
     });
 
@@ -1314,9 +1349,10 @@ export function createAppStore(storage, deps = {}) {
       throw new Error('No eligible books matched those rotation rules.');
     }
 
+    const newRotId = createId('rot');
     /** @type {import('../types/models.js').RotationList} */
     const newRotation = {
-      id: createId('rot'),
+      id: newRotId,
       profileId: profile.id,
       title: String(input.title || '').trim() || `${profile.name}'s Curated Shelf`,
       rules,
@@ -1326,6 +1362,9 @@ export function createAppStore(storage, deps = {}) {
       createdAt: now,
       updatedAt: now,
       activatedAt: now,
+      slotAddedAt: syncRotationSlotAddedAt(undefined, engineOut.selectedBookIds, now, {
+        resetAll: true,
+      }),
     };
 
     const updatedExisting = state.rotations.map((r) =>
@@ -1334,7 +1373,11 @@ export function createAppStore(storage, deps = {}) {
         : r
     );
 
-    const updatedBooks = stampBooksRotated(state.books, engineOut.selectedBookIds, now);
+    const updatedBooks = recordBooksRotated(state.books, engineOut.selectedBookIds, {
+      rotatedAt: now,
+      rotationId: newRotId,
+      profileId: profile.id,
+    });
 
     await commit({
       ...state,
@@ -1377,6 +1420,7 @@ export function createAppStore(storage, deps = {}) {
       books: state.books,
       profile,
       rotation,
+      rotations: state.rotations,
       count: 1,
       seedOverride: opts.seedOverride,
       nowIso: now,
@@ -1390,7 +1434,11 @@ export function createAppStore(storage, deps = {}) {
 
     const replacement = candidates[0];
     const updatedRotation = applyBookReplacement(rotation, targetBookId, replacement.id, now);
-    const updatedBooks = stampBooksRotated(state.books, [replacement.id], now);
+    const updatedBooks = recordBooksRotated(state.books, [replacement.id], {
+      rotatedAt: now,
+      rotationId: rotation.id,
+      profileId: rotation.profileId,
+    });
 
     await commit({
       ...state,
@@ -1418,7 +1466,11 @@ export function createAppStore(storage, deps = {}) {
 
     const now = new Date().toISOString();
     const updatedRotation = applyBookReplacement(rotation, targetBookId, replacement.id, now);
-    const updatedBooks = stampBooksRotated(state.books, [replacement.id], now);
+    const updatedBooks = recordBooksRotated(state.books, [replacement.id], {
+      rotatedAt: now,
+      rotationId: rotation.id,
+      profileId: rotation.profileId,
+    });
 
     await commit({
       ...state,
@@ -1449,7 +1501,11 @@ export function createAppStore(storage, deps = {}) {
       throw new Error('Select at least one book that is not already on this shelf.');
     }
 
-    const updatedBooks = stampBooksRotated(state.books, addedIds, now);
+    const updatedBooks = recordBooksRotated(state.books, addedIds, {
+      rotatedAt: now,
+      rotationId: rotation.id,
+      profileId: rotation.profileId,
+    });
     await commit({
       ...state,
       books: updatedBooks,
@@ -1483,6 +1539,7 @@ export function createAppStore(storage, deps = {}) {
       books: state.books,
       profile,
       rotation,
+      rotations: state.rotations,
       count: safeCount,
       seedOverride: opts.seedOverride,
       nowIso: now,
@@ -1497,7 +1554,11 @@ export function createAppStore(storage, deps = {}) {
       picked.map((b) => b.id),
       now
     );
-    const updatedBooks = stampBooksRotated(state.books, addedIds, now);
+    const updatedBooks = recordBooksRotated(state.books, addedIds, {
+      rotatedAt: now,
+      rotationId: rotation.id,
+      profileId: rotation.profileId,
+    });
 
     await commit({
       ...state,
@@ -1525,16 +1586,19 @@ export function createAppStore(storage, deps = {}) {
       return;
     }
     const now = new Date().toISOString();
-    const nextRotations = state.rotations.map((r) =>
-      r.id === rotationId
-        ? {
-            ...r,
-            bookIds: r.bookIds.filter((id) => id !== bookId),
-            completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
-            updatedAt: now,
-          }
-        : r
-    );
+    const nextRotations = state.rotations.map((r) => {
+      if (r.id !== rotationId) return r;
+      const nextBookIds = r.bookIds.filter((id) => id !== bookId);
+      return {
+        ...r,
+        bookIds: nextBookIds,
+        completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
+        slotAddedAt: syncRotationSlotAddedAt(r.slotAddedAt, nextBookIds, now, {
+          fallbackStartIso: r.activatedAt || r.createdAt || now,
+        }),
+        updatedAt: now,
+      };
+    });
     await commit({ ...state, rotations: nextRotations });
     notify('Removed book from rotation shelf.', 'info');
   }
@@ -1581,13 +1645,21 @@ export function createAppStore(storage, deps = {}) {
           ...r,
           status: /** @type {const} */ ('active'),
           activatedAt: now,
+          slotAddedAt: syncRotationSlotAddedAt(r.slotAddedAt, r.bookIds, now, {
+            resetAll: true,
+          }),
           updatedAt: now,
         };
       }
       if (r.status === 'active') return { ...r, status: /** @type {const} */ ('saved') };
       return r;
     });
-    await commit({ ...state, rotations: nextRotations });
+    const updatedBooks = recordBooksRotated(state.books, target.bookIds, {
+      rotatedAt: now,
+      rotationId: target.id,
+      profileId: target.profileId,
+    });
+    await commit({ ...state, books: updatedBooks, rotations: nextRotations });
     notify(`Switched active shelf to "${target.title}".`, 'success');
   }
 
@@ -1964,6 +2036,15 @@ export function createAppStore(storage, deps = {}) {
     getToast: () => toast,
     getStorageBackend: () => storage.getBackendName(),
     getTaggingService: () => tagging,
+    getLibraryUsageContext: (/** @type {Date | string | number | undefined} */ refDate) =>
+      buildAiLibraryUsageContext({
+        books: state.books,
+        profiles: state.profiles,
+        rotations: state.rotations,
+        activeProfileId: state.activeProfileId,
+        staleBookDays: state.settings.staleBookDays ?? 10,
+        referenceDate: refDate,
+      }),
     subscribe: (/** @type {() => void} */ cb) => {
       listeners.add(cb);
       return () => listeners.delete(cb);

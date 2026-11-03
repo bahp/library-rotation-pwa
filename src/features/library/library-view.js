@@ -30,6 +30,7 @@ import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
 import { AVATAR_TONES, renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
+import { computeBookUsageSummary } from '../rotations/usage-insights.js';
 
 /**
  * Resolves the effective normalized list of selected owner keys from `uiState`.
@@ -141,6 +142,9 @@ export function toggleUnifiedOwnerSelection({
  *   selectedThemes: string[],
  *   effectiveOwners: string[],
  *   conditionFilter: string,
+ *   freshnessFilter: string,
+ *   sortBy: string,
+ *   showRotationHistory: boolean,
  *   availableThemes: Array<{ tag: string, count: number }>,
  *   ownerChoices: Array<{ key: string, label: string, initial: string, tone: string }>,
  *   filteredCount: number,
@@ -155,6 +159,9 @@ function renderLibraryFilterDrawer({
   selectedThemes,
   effectiveOwners,
   conditionFilter,
+  freshnessFilter,
+  sortBy,
+  showRotationHistory,
   availableThemes,
   ownerChoices,
   filteredCount,
@@ -173,6 +180,22 @@ function renderLibraryFilterDrawer({
     { id: 'board-book', label: 'Board Book' },
     { id: 'paperback', label: 'Paperback' },
     { id: 'hardcover', label: 'Hardcover' },
+  ];
+
+  const freshnessOptions = [
+    { id: 'all', label: 'Any Shelf History' },
+    { id: 'long-unseen', label: 'Long Unseen (2+ cycles / Never)' },
+    { id: 'never-rotated', label: 'Never Rotated' },
+    { id: 'ready', label: 'Ready (Out of Cooldown)' },
+    { id: 'in-cooldown', label: 'In Cooldown' },
+    { id: 'unread', label: 'Unread' },
+  ];
+
+  const sortOptions = [
+    { id: 'default', label: 'Library Default' },
+    { id: 'longest-off-shelf', label: 'Longest Off-Shelf First' },
+    { id: 'recently-rotated', label: 'Recently Rotated First' },
+    { id: 'title', label: 'Title (A–Z)' },
   ];
 
   const conditionOptions = [
@@ -367,7 +390,71 @@ function renderLibraryFilterDrawer({
               : ''
           }
 
-          <!-- Group 5: Book Care / Condition -->
+          ${
+            showRotationHistory
+              ? `
+                <!-- Group 5: Rotation Freshness -->
+                <section aria-labelledby="filter-group-freshness" class="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2">
+                  <h3 id="filter-group-freshness" class="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400">
+                    Shelf Freshness
+                  </h3>
+                  <div class="flex flex-wrap gap-1.5">
+                    ${freshnessOptions
+                      .map((opt) => {
+                        const active = freshnessFilter === opt.id;
+                        return `
+                          <button
+                            type="button"
+                            data-action="set-library-freshness"
+                            data-freshness="${opt.id}"
+                            aria-pressed="${active ? 'true' : 'false'}"
+                            class="min-h-[36px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                              active
+                                ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                                : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                            }"
+                          >
+                            ${escapeHtml(opt.label)}
+                          </button>
+                        `;
+                      })
+                      .join('')}
+                  </div>
+                </section>
+
+                <!-- Group 6: Sort Order -->
+                <section aria-labelledby="filter-group-sort" class="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2">
+                  <h3 id="filter-group-sort" class="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400">
+                    Sort Order
+                  </h3>
+                  <div class="flex flex-wrap gap-1.5">
+                    ${sortOptions
+                      .map((opt) => {
+                        const active = sortBy === opt.id;
+                        return `
+                          <button
+                            type="button"
+                            data-action="set-library-sort"
+                            data-sort="${opt.id}"
+                            aria-pressed="${active ? 'true' : 'false'}"
+                            class="min-h-[36px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                              active
+                                ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                                : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                            }"
+                          >
+                            ${escapeHtml(opt.label)}
+                          </button>
+                        `;
+                      })
+                      .join('')}
+                  </div>
+                </section>
+              `
+              : ''
+          }
+
+          <!-- Group 7: Book Care / Condition -->
           <section aria-labelledby="filter-group-condition" class="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2">
             <h3 id="filter-group-condition" class="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400">
               Book Care
@@ -434,25 +521,46 @@ function renderLibraryFilterDrawer({
  *     selectedFormats?: string[],
  *     selectedThemes?: string[],
  *     conditionFilter?: string,
+ *     freshnessFilter?: string,
+ *     sortBy?: string,
  *     isFilterDrawerOpen?: boolean,
  *     searchQuery: string,
  *     inspectedBookId: string | null,
  *     inspectorUi?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState
- *   }
+ *   },
+ *   referenceDate?: Date | string | number
  * }} params
  * @returns {string}
  */
-export function renderLibraryView({ state, uiState }) {
+export function renderLibraryView({ state, uiState, referenceDate = new Date() }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   const coverAspectRatio = state.settings.coverAspectRatio;
   const dynamicTint = state.settings.dynamicCoverTint !== false;
+  const showRotationHistory = state.settings.enableRotationHistoryInsights !== false;
+  const staleBookDays = state.settings.staleBookDays ?? 10;
   const ownerFilter = uiState.ownerFilter || 'all';
+  const freshnessFilter = uiState.freshnessFilter || 'all';
+  const sortBy = uiState.sortBy || 'default';
   const activeRotation =
     state.rotations.find((r) => r.profileId === activeProfile.id && r.status === 'active') || null;
 
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
   const inActiveSet = new Set(activeRotation ? activeRotation.bookIds : []);
+  const usageByBookId = new Map();
+  for (const book of state.books) {
+    usageByBookId.set(
+      book.id,
+      computeBookUsageSummary(book, {
+        profiles: state.profiles,
+        rotations: state.rotations,
+        activeProfile,
+        activeRotation,
+        staleBookDays,
+        referenceDate,
+      })
+    );
+  }
 
   const wishlistCount = state.books.filter(
     (b) => normalizeCollectionStatus(b.collectionStatus) === 'wishlist'
@@ -565,6 +673,32 @@ export function renderLibraryView({ state, uiState }) {
       }
     }
 
+    if (freshnessFilter !== 'all') {
+      const usage = usageByBookId.get(book.id);
+      const rotatable = isBookRotatable(book);
+      switch (freshnessFilter) {
+        case 'never-rotated':
+          if (!rotatable || !usage || !usage.neverRotated) return false;
+          break;
+        case 'long-unseen':
+          if (!rotatable || !usage || (!usage.neverRotated && !usage.isLongUnseen)) return false;
+          break;
+        case 'ready':
+          if (!rotatable || !usage || usage.isCurrentlyOnActiveShelf || usage.inCooldown) {
+            return false;
+          }
+          break;
+        case 'in-cooldown':
+          if (!usage || !usage.inCooldown) return false;
+          break;
+        case 'unread':
+          if (!rotatable || !usage || usage.isReadByActiveProfile) return false;
+          break;
+        default:
+          break;
+      }
+    }
+
     if (!query) return true;
     const haystack = [
       book.title,
@@ -581,6 +715,33 @@ export function renderLibraryView({ state, uiState }) {
     return haystack.includes(query);
   });
 
+  if (sortBy === 'longest-off-shelf') {
+    filteredBooks.sort((a, b) => {
+      const ua = usageByBookId.get(a.id);
+      const ub = usageByBookId.get(b.id);
+      // Put active-shelf books and non-rotatable wishlist items below ready off-shelf books
+      const aRank = !isBookRotatable(a) ? 3 : ua?.isCurrentlyOnActiveShelf ? 2 : ua?.neverRotated ? 0 : 1;
+      const bRank = !isBookRotatable(b) ? 3 : ub?.isCurrentlyOnActiveShelf ? 2 : ub?.neverRotated ? 0 : 1;
+      if (aRank !== bRank) return aRank - bRank;
+      const aDays = ua?.daysSinceLastRotated ?? -1;
+      const bDays = ub?.daysSinceLastRotated ?? -1;
+      if (bDays !== aDays) return bDays - aDays;
+      const aCycles = ua?.rotationsSinceLastOut ?? 0;
+      const bCycles = ub?.rotationsSinceLastOut ?? 0;
+      if (bCycles !== aCycles) return bCycles - aCycles;
+      return a.title.localeCompare(b.title);
+    });
+  } else if (sortBy === 'recently-rotated') {
+    filteredBooks.sort((a, b) => {
+      const aMs = a.lastRotatedAt ? Date.parse(a.lastRotatedAt) || 0 : 0;
+      const bMs = b.lastRotatedAt ? Date.parse(b.lastRotatedAt) || 0 : 0;
+      if (bMs !== aMs) return bMs - aMs;
+      return a.title.localeCompare(b.title);
+    });
+  } else if (sortBy === 'title') {
+    filteredBooks.sort((a, b) => a.title.localeCompare(b.title));
+  }
+
   const isForActiveReader =
     ownerFilter === 'active-reader' &&
     (!Array.isArray(uiState.selectedOwners) || uiState.selectedOwners.length === 0);
@@ -592,6 +753,8 @@ export function renderLibraryView({ state, uiState }) {
     (selectedFormats.length > 0 ? 1 : 0) +
     (selectedThemes.length > 0 ? 1 : 0) +
     (conditionFilter !== 'all' ? 1 : 0) +
+    (freshnessFilter !== 'all' ? 1 : 0) +
+    (sortBy !== 'default' ? 1 : 0) +
     (isCustomOwnerScope ? 1 : 0) +
     (uiState.catalogFilter !== 'all' &&
     uiState.catalogFilter !== 'wishlist' &&
@@ -706,6 +869,32 @@ export function renderLibraryView({ state, uiState }) {
       label: conditionFilter === 'good' ? 'Good Condition' : 'Needs Care',
     });
   }
+  if (freshnessFilter !== 'all') {
+    const freshnessLabels = {
+      'long-unseen': 'Long Unseen',
+      'never-rotated': 'Never Rotated',
+      ready: 'Ready (Out of Cooldown)',
+      'in-cooldown': 'In Cooldown',
+      unread: 'Unread',
+    };
+    activeSummaryPills.push({
+      action: 'set-library-freshness',
+      attr: 'data-freshness="all"',
+      label: freshnessLabels[/** @type {keyof typeof freshnessLabels} */ (freshnessFilter)] || freshnessFilter,
+    });
+  }
+  if (sortBy !== 'default') {
+    const sortLabels = {
+      'longest-off-shelf': 'Sort: Longest Off-Shelf',
+      'recently-rotated': 'Sort: Recently Rotated',
+      title: 'Sort: Title A–Z',
+    };
+    activeSummaryPills.push({
+      action: 'set-library-sort',
+      attr: 'data-sort="default"',
+      label: sortLabels[/** @type {keyof typeof sortLabels} */ (sortBy)] || sortBy,
+    });
+  }
 
   const activeSummaryBarHtml =
     activeSummaryPills.length > 0
@@ -805,6 +994,21 @@ export function renderLibraryView({ state, uiState }) {
                     <p class="text-[10px] text-stone-ink/80 dark:text-slate-500 truncate mt-0.5">
                       Ages ${book.ageMin}–${book.ageMax} · ${escapeHtml(formatBookBinding(book.format))}
                     </p>
+                    ${
+                      showRotationHistory && isBookRotatable(book)
+                        ? (() => {
+                            const usage = usageByBookId.get(book.id);
+                            if (!usage) return '';
+                            return `<p data-library-usage-line="true" class="text-[10px] truncate mt-0.5 ${
+                              usage.inCooldown
+                                ? 'text-amber-700 dark:text-amber-400'
+                                : usage.isCurrentlyOnActiveShelf
+                                  ? 'text-forest-700 dark:text-[#5ED3DA] font-medium'
+                                  : 'text-stone-ink/90 dark:text-slate-400'
+                            }">${escapeHtml(usage.shortRecencyLabel)}</p>`;
+                          })()
+                        : ''
+                    }
                   </button>
                 </article>
               `;
@@ -965,6 +1169,9 @@ export function renderLibraryView({ state, uiState }) {
         selectedThemes,
         effectiveOwners,
         conditionFilter,
+        freshnessFilter,
+        sortBy,
+        showRotationHistory,
         availableThemes,
         ownerChoices,
         filteredCount: filteredBooks.length,
@@ -974,10 +1181,15 @@ export function renderLibraryView({ state, uiState }) {
       ${renderBookInspectorModal({
         book: inspectedBook,
         profiles: state.profiles,
+        rotations: state.rotations,
+        activeProfile,
         activeRotation,
         canSwapInActiveRotation,
         coverAspectRatio,
         dynamicCoverTint: dynamicTint,
+        showRotationHistory,
+        staleBookDays,
+        referenceDate,
         inspectorUiState: uiState.inspectorUi,
       })}
     </div>

@@ -833,12 +833,16 @@ export function renderPlayView({
   const inspectorModalHtml = renderBookInspectorModal({
     book: inspectedBook,
     profiles: state.profiles,
+    rotations: state.rotations,
+    activeProfile,
     activeRotation,
     canSwapInActiveRotation: Boolean(
       inspectedBook && activeRotation && activeRotation.bookIds.includes(inspectedBook.id)
     ),
     coverAspectRatio: coverAspect,
     dynamicCoverTint,
+    showRotationHistory: state.settings.enableRotationHistoryInsights !== false,
+    staleBookDays: state.settings.staleBookDays ?? 10,
     inspectorUiState,
   });
 

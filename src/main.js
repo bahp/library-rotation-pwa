@@ -120,6 +120,7 @@ function createBlankInspectorUi(book) {
 
 const SWAP_REMINDER_STORAGE_KEY = 'lr_dismissed_swap_reminders_v1';
 const PRESET_ALERT_STORAGE_KEY = 'lr_dismissed_preset_alerts_v1';
+const STALE_SPOTLIGHT_STORAGE_KEY = 'lr_dismissed_stale_spotlights_v1';
 
 /**
  * Loads previously dismissed Swap Day reminder cycle keys from localStorage.
@@ -177,6 +178,34 @@ function saveDismissedPresetAlerts(keys) {
   } catch (_) {}
 }
 
+/**
+ * Loads previously dismissed Stale Book Spotlight cycle keys from localStorage.
+ * @returns {string[]}
+ */
+function loadDismissedStaleSpotlights() {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return [];
+    const raw = window.localStorage.getItem(STALE_SPOTLIGHT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+/**
+ * Persists dismissed Stale Book Spotlight cycle keys to localStorage.
+ * @param {string[]} keys
+ */
+function saveDismissedStaleSpotlights(keys) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(STALE_SPOTLIGHT_STORAGE_KEY, JSON.stringify(keys.slice(-40)));
+    }
+  } catch (_) {}
+}
+
 const uiState = {
   catalogFilter: 'all',
   ownerFilter: 'active-reader',
@@ -184,12 +213,16 @@ const uiState = {
   selectedFormats: /** @type {string[]} */ ([]),
   selectedThemes: /** @type {string[]} */ ([]),
   conditionFilter: 'all',
+  freshnessFilter: 'all',
+  sortBy: 'default',
   isFilterDrawerOpen: false,
   searchQuery: '',
   inspectedBookId: /** @type {string | null} */ (null),
   inspectorUi: createBlankInspectorUi(),
   dismissedSwapReminderKeys: loadDismissedSwapReminders(),
   dismissedPresetAlertKeys: loadDismissedPresetAlerts(),
+  dismissedStaleSpotlightKeys: loadDismissedStaleSpotlights(),
+  openFieldHelpIds: /** @type {Set<string>} */ (new Set()),
   pwaBannerDismissed: loadPwaBannerDismissed(),
   /** @type {import('./features/scan/scan-shell-view.js').IntakeTab} */
   intakeTab: 'scanner',
@@ -234,6 +267,7 @@ const uiState = {
     searchQuery: '',
     selectedAddBookIds: [],
     randomAddCount: 1,
+    freshnessFilter: 'all',
     isGeneratorOpen: false,
     editingRotationId: null,
   },
@@ -300,6 +334,7 @@ const PRESERVED_INPUT_IDS = new Set([
   'presets-category-select',
   'setting-preset-days-before',
   'setting-preset-days-after',
+  'setting-stale-book-days',
   'device-books-proxy-url-input',
 ]);
 
@@ -733,6 +768,7 @@ function render() {
         inspectorUiState: uiState.inspectorUi,
         dismissedSwapReminderKeys: uiState.dismissedSwapReminderKeys,
         dismissedPresetAlertKeys: uiState.dismissedPresetAlertKeys,
+        dismissedStaleSpotlightKeys: uiState.dismissedStaleSpotlightKeys,
       });
       break;
     case 'presets':
@@ -831,6 +867,29 @@ function render() {
 
   syncDynamicCoverTints();
   syncAutoResizeTextareas();
+  syncOpenFieldHelpPanels();
+}
+
+/**
+ * Re-applies open `(i)` field help panel states across DOM patches so toggled explanations stay open
+ * until dismissed, while allowing clicks on `(i)` to mutate the DOM directly without re-rendering forms.
+ */
+function syncOpenFieldHelpPanels() {
+  if (!rootEl || uiState.openFieldHelpIds.size === 0) return;
+  for (const panelId of uiState.openFieldHelpIds) {
+    const panelEl = document.getElementById(panelId);
+    if (panelEl instanceof HTMLElement) {
+      panelEl.hidden = false;
+    }
+    const triggerBtns = rootEl.querySelectorAll(
+      `[data-action="toggle-field-help"][data-help-target="${panelId}"]`
+    );
+    for (const btn of triggerBtns) {
+      if (btn instanceof HTMLElement) {
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    }
+  }
 }
 
 /**
@@ -1401,6 +1460,23 @@ function bindEvents() {
 
     const action = target.getAttribute('data-action');
     switch (action) {
+      case 'toggle-field-help': {
+        event.preventDefault();
+        const panelId = target.getAttribute('data-help-target') || '';
+        if (!panelId) break;
+        const panelEl = document.getElementById(panelId);
+        if (panelEl instanceof HTMLElement) {
+          const willOpen = panelEl.hidden;
+          panelEl.hidden = !willOpen;
+          target.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          if (willOpen) {
+            uiState.openFieldHelpIds.add(panelId);
+          } else {
+            uiState.openFieldHelpIds.delete(panelId);
+          }
+        }
+        break;
+      }
       case 'skip-to-main': {
         event.preventDefault();
         const mainEl = document.getElementById('main-content');
@@ -1413,6 +1489,18 @@ function bindEvents() {
       case 'dismiss-toast':
         store.dismissToast();
         break;
+      case 'dismiss-stale-spotlight': {
+        const dismissKey = target.getAttribute('data-stale-dismiss-key');
+        if (dismissKey && !uiState.dismissedStaleSpotlightKeys.includes(dismissKey)) {
+          uiState.dismissedStaleSpotlightKeys = [
+            ...uiState.dismissedStaleSpotlightKeys,
+            dismissKey,
+          ];
+          saveDismissedStaleSpotlights(uiState.dismissedStaleSpotlightKeys);
+          render();
+        }
+        break;
+      }
       case 'dismiss-welcome-books-modal': {
         setWelcomeBooksModalDismissed(true);
         closeSheetWithMotion(() => {
@@ -1547,6 +1635,8 @@ function bindEvents() {
         uiState.selectedFormats = [];
         uiState.selectedThemes = [];
         uiState.conditionFilter = 'all';
+        uiState.freshnessFilter = 'all';
+        uiState.sortBy = 'default';
         render();
         break;
       }
@@ -1609,6 +1699,16 @@ function bindEvents() {
         if (uiState.catalogFilter === 'needs-care') {
           uiState.catalogFilter = 'all';
         }
+        render();
+        break;
+      }
+      case 'set-library-freshness': {
+        uiState.freshnessFilter = target.getAttribute('data-freshness') || 'all';
+        render();
+        break;
+      }
+      case 'set-library-sort': {
+        uiState.sortBy = target.getAttribute('data-sort') || 'default';
         render();
         break;
       }
@@ -2044,10 +2144,17 @@ function bindEvents() {
             searchQuery: '',
             selectedAddBookIds: [],
             randomAddCount: 1,
+            freshnessFilter: 'all',
           };
           render();
           focusActiveDialogControl();
         }
+        break;
+      }
+      case 'set-picker-freshness-filter': {
+        const mode = target.getAttribute('data-freshness-filter') === 'unseen' ? 'unseen' : 'all';
+        uiState.rotationEditor.freshnessFilter = mode;
+        render();
         break;
       }
       case 'confirm-manual-replace': {
@@ -2078,6 +2185,7 @@ function bindEvents() {
             searchQuery: '',
             selectedAddBookIds: [],
             randomAddCount: 1,
+            freshnessFilter: 'all',
           };
           render();
           focusActiveDialogControl();
@@ -2135,6 +2243,7 @@ function bindEvents() {
         closeSheetWithMotion(() => {
           uiState.rotationEditor.modalMode = null;
           uiState.rotationEditor.selectedAddBookIds = [];
+          uiState.rotationEditor.freshnessFilter = 'all';
         });
         break;
       }
@@ -2393,6 +2502,28 @@ function bindEvents() {
           !current
             ? 'Enabled Preset Card Corner Decorations.'
             : 'Disabled Preset Card Corner Decorations.',
+          'info'
+        );
+        break;
+      }
+      case 'toggle-rotation-history-insights': {
+        const current = store.getState().settings.enableRotationHistoryInsights !== false;
+        await store.updateSettings({ enableRotationHistoryInsights: !current });
+        store.notify(
+          !current
+            ? 'Enabled Rotation History & Cooldown Log insights.'
+            : 'Hidden Rotation History & Cooldown Log labels.',
+          'info'
+        );
+        break;
+      }
+      case 'toggle-stale-book-spotlight': {
+        const current = store.getState().settings.enableStaleBookSpotlight !== false;
+        await store.updateSettings({ enableStaleBookSpotlight: !current });
+        store.notify(
+          !current
+            ? 'Enabled Stale Book Spotlight nudge.'
+            : 'Disabled Stale Book Spotlight nudge.',
           'info'
         );
         break;
@@ -2877,6 +3008,11 @@ function bindEvents() {
       } else {
         await store.updateSettings({ presetAlertDaysAfter: clampedVal });
       }
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.id === 'setting-stale-book-days') {
+      const clampedDays = Math.max(3, Math.min(60, Math.trunc(Number(target.value) || 10)));
+      await store.updateSettings({ staleBookDays: clampedDays });
       return;
     }
     if (!(target instanceof HTMLInputElement)) return;

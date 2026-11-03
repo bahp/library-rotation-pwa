@@ -63,6 +63,9 @@
  * @property {string} spineColor - Deterministic archival cloth palette key
  * @property {string} addedAt - ISO-8601 timestamp
  * @property {string} [lastRotatedAt] - ISO-8601 timestamp of most recent rotation inclusion
+ * @property {number} [rotationCount] - Total number of times placed on a rotation shelf
+ * @property {Array<{ rotatedAt: string, rotationId?: string, profileId?: string }>} [rotationHistory] - Bounded log of most recent shelf activations
+ * @property {string} [lastReadAt] - ISO-8601 timestamp when most recently marked read
  * @property {ProviderSource[]} sources - Metadata provenance list
  */
 
@@ -105,6 +108,7 @@
  * @property {string} createdAt - ISO-8601 timestamp
  * @property {string} updatedAt - ISO-8601 timestamp
  * @property {string} [activatedAt] - ISO-8601 timestamp when placed on active shelf
+ * @property {Record<string, string>} [slotAddedAt] - Per-book ISO-8601 timestamp when placed on this shelf cycle
  */
 
 /**
@@ -127,6 +131,9 @@
  * @property {number} [presetAlertDaysBefore] - Days before an annual MM-DD preset start date to surface reminder (0-30, default: 2)
  * @property {number} [presetAlertDaysAfter] - Days after an annual MM-DD preset start date to keep showing unactioned reminder (0-30, default: 5)
  * @property {boolean} [showPresetDecorations] - Show subtle top-right motif corner decorations on preset cards (default: true)
+ * @property {boolean} [enableRotationHistoryInsights] - Show per-book cooldown/rotation history badges & filters (default: true)
+ * @property {boolean} [enableStaleBookSpotlight] - Show gentle Stale Book Spotlight banner for long-unopened active shelf books (default: true)
+ * @property {number} [staleBookDays] - Days on active shelf without being marked read before spotlight triggers (3-60, default: 10)
  */
 
 /**

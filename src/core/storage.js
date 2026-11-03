@@ -94,6 +94,7 @@ export function estimateAppStorageUsage(state) {
         'lr_theme_pref',
         'lr_dismissed_swap_reminders_v1',
         'lr_dismissed_preset_alerts_v1',
+        'lr_dismissed_stale_spotlights_v1',
         'lr_device_books_proxy_v1',
         'lr_device_google_books_api_key_v1',
         'lr_welcome_books_modal_dismissed_v1',
@@ -150,28 +151,39 @@ export function createSafeDefaultSettings(overrides = {}) {
     ? Math.max(0, Math.min(30, Math.trunc(rawAfter)))
     : 5;
 
-  return {
-    theme: overrides.theme || 'system',
-    coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
-    dynamicCoverTint: overrides.dynamicCoverTint !== false,
-    retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
-    enabledMetadataProviders:
-      rawProviders.length > 0 ? Array.from(new Set(rawProviders)) : [...DEFAULT_METADATA_PROVIDERS],
-    autoLocalTagging: overrides.autoLocalTagging !== false,
-    aiEnrichmentOptIn: Boolean(overrides.aiEnrichmentOptIn),
-    aiAdapterId:
-      typeof overrides.aiAdapterId === 'string' && overrides.aiAdapterId.trim()
-        ? overrides.aiAdapterId.trim()
-        : 'browser-prompt-api',
-    aiEndpointUrl:
-      typeof overrides.aiEndpointUrl === 'string' ? overrides.aiEndpointUrl.trim() : '',
-    aiTimeoutMs: clampedTimeout,
-    preferredScanMode: overrides.preferredScanMode || 'barcode',
-    presetAlertDaysBefore: clampedBefore,
-    presetAlertDaysAfter: clampedAfter,
-    showPresetDecorations: overrides.showPresetDecorations !== false,
-  };
-}
+    const rawStaleDays =
+      overrides.staleBookDays !== undefined && overrides.staleBookDays !== null
+        ? Number(overrides.staleBookDays)
+        : 10;
+    const clampedStaleDays = Number.isFinite(rawStaleDays)
+      ? Math.max(3, Math.min(60, Math.trunc(rawStaleDays)))
+      : 10;
+
+    return {
+      theme: overrides.theme || 'system',
+      coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
+      dynamicCoverTint: overrides.dynamicCoverTint !== false,
+      retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
+      enabledMetadataProviders:
+        rawProviders.length > 0 ? Array.from(new Set(rawProviders)) : [...DEFAULT_METADATA_PROVIDERS],
+      autoLocalTagging: overrides.autoLocalTagging !== false,
+      aiEnrichmentOptIn: Boolean(overrides.aiEnrichmentOptIn),
+      aiAdapterId:
+        typeof overrides.aiAdapterId === 'string' && overrides.aiAdapterId.trim()
+          ? overrides.aiAdapterId.trim()
+          : 'browser-prompt-api',
+      aiEndpointUrl:
+        typeof overrides.aiEndpointUrl === 'string' ? overrides.aiEndpointUrl.trim() : '',
+      aiTimeoutMs: clampedTimeout,
+      preferredScanMode: overrides.preferredScanMode || 'barcode',
+      presetAlertDaysBefore: clampedBefore,
+      presetAlertDaysAfter: clampedAfter,
+      showPresetDecorations: overrides.showPresetDecorations !== false,
+      enableRotationHistoryInsights: overrides.enableRotationHistoryInsights !== false,
+      enableStaleBookSpotlight: overrides.enableStaleBookSpotlight !== false,
+      staleBookDays: clampedStaleDays,
+    };
+  }
 
 /**
  * Migrates older or partial state snapshots forward to CURRENT_SCHEMA_VERSION,
