@@ -666,7 +666,7 @@ export function renderBookInspectorModal({
   return `
     <div
       data-backdrop-action="close-inspect-book"
-      class="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
+      class="sheet-backdrop fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs p-0 sm:p-4"
     >
       <div
         role="dialog"

@@ -771,26 +771,24 @@ export function renderPlayView({
     </div>
   `;
 
-  // --- Slide-Up Play Bottom Sheet ---
+  // --- Slide-Up Play Bottom Sheet (z-50 above mobile bottom nav + Material slide-up/down + full-height scroll) ---
   const playSheetModalHtml =
     activeAppId && activeAppConfig
       ? `
         <div
           data-backdrop-action="close-play-app-sheet"
           data-play-app-sheet="${escapeHtml(activeAppId)}"
-          class="sheet-backdrop fixed inset-0 z-40 bg-night-950/60 backdrop-blur-[2px] flex items-end sm:items-center justify-center sm:p-4"
+          class="sheet-backdrop fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="play-sheet-heading-${escapeHtml(activeAppId)}"
-            class="sheet-panel w-full sm:max-w-lg max-h-[88vh] rounded-t-3xl sm:rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col"
+            class="animate-sheet-up w-full sm:max-w-xl max-h-[92dvh] sm:max-h-[88vh] rounded-t-3xl sm:rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col"
           >
-            <div class="pt-2.5 pb-1 flex justify-center sm:hidden" aria-hidden="true">
-              <span class="w-10 h-1 rounded-full bg-linen-300 dark:bg-night-700"></span>
-            </div>
+            <div class="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 sm:hidden shrink-0" aria-hidden="true"></div>
 
-            <div class="px-4 sm:px-5 py-3 border-b border-linen-200/90 dark:border-night-800 flex items-center justify-between gap-3">
+            <div class="shrink-0 px-4 sm:px-5 py-3 border-b border-linen-200/90 dark:border-night-800 flex items-center justify-between gap-3">
               <div class="flex items-center gap-3 min-w-0">
                 ${renderPlayAppLogo(activeAppConfig, 'sheet')}
                 <div class="min-w-0">
@@ -816,7 +814,10 @@ export function renderPlayView({
               </button>
             </div>
 
-            <div class="p-4 sm:p-5 overflow-y-auto space-y-4">
+            <div
+              data-play-sheet-body="true"
+              class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-5 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:pb-6 space-y-4"
+            >
               ${
                 activeAppId === 'storytime-picker'
                   ? storytimePickerInteractiveHtml

@@ -407,13 +407,13 @@ export function renderSettingsView({
       : '';
 
   return `
-    <div class="max-w-3xl space-y-5">
+    <div class="w-full space-y-5">
       <div>
         <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-          Account & Preferences
+          Account &amp; Preferences
         </p>
-        <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
-          Settings & Profiles
+        <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
+          Settings &amp; Profiles
         </h1>
       </div>
 

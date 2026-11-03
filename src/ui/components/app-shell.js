@@ -67,7 +67,7 @@ export function renderAppShell({
       item.id === activeRoute || (item.id === 'rotations' && activeRoute === 'presets');
     const activeClasses = isActive
       ? 'text-forest-900 dark:text-[#5ED3DA] font-semibold underline underline-offset-8 decoration-2 decoration-forest-700 dark:decoration-[#5ED3DA]'
-      : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white hover:underline hover:underline-offset-8';
+      : 'font-medium text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white hover:underline hover:underline-offset-8';
     return `
       <a
         href="#/${item.id}"
@@ -275,11 +275,11 @@ export function renderAppShell({
         data-top-header="true"
         class="fixed top-0 left-0 right-0 z-30 w-full bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-b border-linen-200 dark:border-night-800 shadow-xs pt-safe px-safe"
       >
-        <div class="max-w-6xl mx-auto flex items-center justify-between gap-4 px-3.5 sm:px-6 h-13 sm:h-14">
+        <div class="max-w-6xl mx-auto flex items-center justify-between lg:grid lg:grid-cols-[1fr_auto_1fr] gap-4 px-3.5 sm:px-6 h-13 sm:h-14">
           <!-- Zone 1: App Icon + Brand Wordmark -->
           <a
             href="#/home"
-            class="inline-flex items-center gap-2.5 font-display text-base sm:text-lg font-bold tracking-tight text-forest-900 dark:text-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700"
+            class="lg:justify-self-start inline-flex items-center gap-2.5 font-display text-base sm:text-lg font-bold tracking-tight text-forest-900 dark:text-white whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700"
           >
             <span
               data-brand-icon="true"
@@ -301,12 +301,12 @@ export function renderAppShell({
           </a>
 
           <!-- Zone 2: Desktop Navigation -->
-          <nav aria-label="Primary" class="hidden lg:flex items-center gap-7">
+          <nav aria-label="Primary" class="hidden lg:flex lg:justify-self-center items-center gap-7">
             ${desktopNavHtml}
           </nav>
 
           <!-- Zone 3: Active Reader Avatar Switcher + Top-Right Settings -->
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="lg:justify-self-end flex items-center gap-2 shrink-0">
             <button
               type="button"
               data-action="open-profile-switcher"

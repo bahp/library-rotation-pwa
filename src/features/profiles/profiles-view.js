@@ -145,13 +145,13 @@ export function renderProfilesView({
     .join('');
 
   return `
-    <div class="max-w-3xl space-y-4">
+    <div class="w-full space-y-5">
       <div class="flex items-center justify-between gap-3">
         <div>
           <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
             Family Readers
           </p>
-          <h1 id="profiles-heading" class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
+          <h1 id="profiles-heading" class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
             Reader Profiles
           </h1>
         </div>

@@ -688,10 +688,11 @@ function render() {
     return;
   }
 
-  const prevDialogs = rootEl.querySelectorAll('[role="dialog"]');
-  const prevDialog = prevDialogs.length > 0 ? prevDialogs[prevDialogs.length - 1] : null;
-  const prevDialogId =
-    prevDialog instanceof HTMLElement ? prevDialog.getAttribute('aria-labelledby') : null;
+  const prevDialogIds = new Set();
+  for (const dlg of rootEl.querySelectorAll('[role="dialog"]')) {
+    const id = dlg.getAttribute('aria-labelledby');
+    if (id) prevDialogIds.add(id);
+  }
 
   const { route } = router.getCurrent();
   const state = store.getState();
@@ -793,20 +794,13 @@ function render() {
   // Patch live DOM in place so unchanged book cover <img> nodes never unmount, re-decode, or flash
   patchRootHtml(rootEl, nextShellHtml);
 
-  // Mark already-open sheet as settled so typing/toggling inside it does not replay entrance motion
-  const nextBackdrops = rootEl.querySelectorAll('.sheet-backdrop');
-  const nextBackdrop = nextBackdrops.length > 0 ? nextBackdrops[nextBackdrops.length - 1] : null;
-  const nextDialogs = rootEl.querySelectorAll('[role="dialog"]');
-  const nextDialog = nextDialogs.length > 0 ? nextDialogs[nextDialogs.length - 1] : null;
-  const nextDialogId =
-    nextDialog instanceof HTMLElement ? nextDialog.getAttribute('aria-labelledby') : null;
-  if (
-    prevDialogId &&
-    nextDialogId &&
-    prevDialogId === nextDialogId &&
-    nextBackdrop instanceof HTMLElement
-  ) {
-    nextBackdrop.setAttribute('data-sheet-settled', 'true');
+  // Mark every already-open sheet as settled so typing/toggling or stacking a child modal does not replay entrance motion
+  for (const backdrop of rootEl.querySelectorAll('.sheet-backdrop')) {
+    const dlg = backdrop.querySelector('[role="dialog"]');
+    const id = dlg instanceof HTMLElement ? dlg.getAttribute('aria-labelledby') : null;
+    if (id && prevDialogIds.has(id) && backdrop instanceof HTMLElement) {
+      backdrop.setAttribute('data-sheet-settled', 'true');
+    }
   }
 
   if (route === 'scan' && uiState.intakeTab === 'scanner') {
@@ -2536,6 +2530,12 @@ function bindEvents() {
       case 'spin-storytime-randomizer': {
         runStorytimeRandomizer();
         render();
+        if (rootEl) {
+          const resultsEl = rootEl.querySelector('[data-storytime-results="true"]');
+          if (resultsEl instanceof HTMLElement && typeof resultsEl.scrollIntoView === 'function') {
+            resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
         break;
       }
       case 'set-book-hunt-mode': {
@@ -2563,6 +2563,15 @@ function bindEvents() {
       case 'start-book-hunt': {
         startNextBookHunt();
         render();
+        if (rootEl) {
+          const activeHuntEl = rootEl.querySelector('[data-book-hunt-active="true"]');
+          if (
+            activeHuntEl instanceof HTMLElement &&
+            typeof activeHuntEl.scrollIntoView === 'function'
+          ) {
+            activeHuntEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
         break;
       }
       case 'toggle-book-hunt-peek': {

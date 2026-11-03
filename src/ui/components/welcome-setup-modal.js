@@ -115,8 +115,10 @@ export function renderWelcomeBooksSetupModal({ isOpen, googleBooksKeyStatus = 'u
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-books-modal-title"
-        class="animate-sheet-up w-full max-w-lg rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 p-5 sm:p-6 shadow-xl pb-safe"
+        class="animate-sheet-up w-full max-w-xl sm:max-w-2xl max-h-[90dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 p-5 sm:p-7 shadow-2xl pb-safe"
       >
+        <div class="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mb-3 sm:hidden" aria-hidden="true"></div>
+
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-2.5">
             <span class="w-9 h-9 rounded-xl bg-forest-900 text-[#5ED3DA] flex items-center justify-center shrink-0">
@@ -135,13 +137,13 @@ export function renderWelcomeBooksSetupModal({ isOpen, googleBooksKeyStatus = 'u
             type="button"
             data-action="dismiss-welcome-books-modal"
             aria-label="Close welcome message"
-            class="min-h-[38px] min-w-[38px] rounded-full text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-800 flex items-center justify-center transition-colors"
+            class="min-h-[38px] min-w-[38px] rounded-full text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-800 flex items-center justify-center transition-colors shrink-0"
           >
             ${renderIcon('close', 'w-4 h-4')}
           </button>
         </div>
 
-        <div class="mt-3.5 space-y-3 text-xs sm:text-sm text-stone-ink dark:text-slate-300 leading-relaxed">
+        <div class="mt-4 space-y-3 text-xs sm:text-sm text-stone-ink dark:text-slate-300 leading-relaxed">
           <p class="text-forest-900 dark:text-slate-100 font-medium">
             To use dedicated Google Books API searches (especially helpful for Spanish, Italian, and international editions), configure your own free Google Books credential — you can get one in a few seconds from the
             <a
@@ -152,7 +154,7 @@ export function renderWelcomeBooksSetupModal({ isOpen, googleBooksKeyStatus = 'u
             >Google Cloud Console</a>.
           </p>
 
-          <div class="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-3.5 space-y-2 text-xs">
+          <div class="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 space-y-2 text-xs sm:text-[13px] leading-relaxed">
             <p class="text-forest-900 dark:text-slate-200 font-semibold">
               ${escapeHtml(modeNote)}
             </p>
@@ -165,29 +167,34 @@ export function renderWelcomeBooksSetupModal({ isOpen, googleBooksKeyStatus = 'u
           </div>
         </div>
 
-        <div class="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2.5">
+        <div
+          data-welcome-actions="true"
+          class="mt-6 pt-4 border-t border-linen-200/80 dark:border-night-800 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3"
+        >
           <button
             type="button"
             data-action="dismiss-welcome-books-modal"
-            class="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs sm:text-sm font-semibold text-forest-900 dark:text-slate-200 transition-colors"
+            class="min-h-[44px] px-4 py-2.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs sm:text-sm font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center justify-center transition-colors whitespace-nowrap shrink-0"
           >
             Continue with Open Library
           </button>
-          <a
-            href="${escapeHtml(GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL)}"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="min-h-[44px] px-4 py-2 rounded-xl border border-forest-700/35 dark:border-[#5ED3DA]/40 hover:bg-linen-100 dark:hover:bg-night-800 text-xs sm:text-sm font-semibold text-forest-800 dark:text-[#5ED3DA] inline-flex items-center justify-center transition-colors whitespace-nowrap"
-          >
-            Google Cloud Console &nearr;
-          </a>
-          <button
-            type="button"
-            data-action="open-settings-from-welcome"
-            class="min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap"
-          >
-            Configure in Settings
-          </button>
+          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+            <a
+              href="${escapeHtml(GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL)}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="min-h-[44px] px-4 py-2.5 rounded-xl border border-forest-700/35 dark:border-[#5ED3DA]/40 hover:bg-linen-100 dark:hover:bg-night-800 text-xs sm:text-sm font-semibold text-forest-800 dark:text-[#5ED3DA] inline-flex items-center justify-center transition-colors whitespace-nowrap shrink-0"
+            >
+              Google Cloud Console &nearr;
+            </a>
+            <button
+              type="button"
+              data-action="open-settings-from-welcome"
+              class="min-h-[44px] px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold inline-flex items-center justify-center transition-colors whitespace-nowrap shrink-0"
+            >
+              Configure in Settings
+            </button>
+          </div>
         </div>
       </div>
     </div>
