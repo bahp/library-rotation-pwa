@@ -734,6 +734,7 @@ function renderRotationSection({
                     <button
                       type="button"
                       data-action="inspect-book"
+                      data-rotation-id="${escapeHtml(rot.id)}"
                       data-book-id="${escapeHtml(book.id)}"
                       aria-label="Inspect ${escapeHtml(book.title)}"
                       class="block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
@@ -751,6 +752,7 @@ function renderRotationSection({
                     <button
                       type="button"
                       data-action="inspect-book"
+                      data-rotation-id="${escapeHtml(rot.id)}"
                       data-book-id="${escapeHtml(book.id)}"
                       class="text-left block w-full focus-visible:outline-2 focus-visible:outline-forest-700 rounded"
                     >
@@ -888,6 +890,7 @@ function renderRotationSection({
                 <button
                   type="button"
                   data-action="inspect-book"
+                  data-rotation-id="${escapeHtml(rot.id)}"
                   data-book-id="${escapeHtml(book.id)}"
                   aria-label="Inspect ${escapeHtml(book.title)}"
                   class="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
@@ -1177,6 +1180,7 @@ function renderRotationSection({
  *   state: import('../../types/models.js').AppState,
  *   editorState: RotationEditorUiState,
  *   inspectedBookId?: string | null,
+ *   inspectedRotationId?: string | null,
  *   inspectorUiState?: import('../../ui/components/book-inspector-modal.js').BookInspectorUiState,
  *   dismissedSwapReminderKeys?: string[],
  *   dismissedPresetAlertKeys?: string[],
@@ -1189,6 +1193,7 @@ export function renderRotationsView({
   state,
   editorState,
   inspectedBookId = null,
+  inspectedRotationId = null,
   inspectorUiState,
   dismissedSwapReminderKeys = [],
   dismissedPresetAlertKeys = [],
@@ -1285,8 +1290,12 @@ export function renderRotationsView({
       `;
 
   const inspectedBook = inspectedBookId ? bookMap.get(inspectedBookId) : null;
-  const canSwapInActiveRotation = activeRotation
-    ? rotatableCatalogCount > activeRotation.bookIds.length
+  const inspectedRotation = inspectedRotationId
+    ? profileRotations.find((r) => r.id === inspectedRotationId) || null
+    : null;
+  const swapTargetRot = inspectedRotation || activeRotation;
+  const canSwapInActiveRotation = swapTargetRot
+    ? rotatableCatalogCount > swapTargetRot.bookIds.length
     : false;
 
   return `
@@ -1340,6 +1349,7 @@ export function renderRotationsView({
         rotations: state.rotations,
         activeProfile,
         activeRotation,
+        inspectedRotation,
         canSwapInActiveRotation,
         coverAspectRatio,
         dynamicCoverTint: dynamicTint,

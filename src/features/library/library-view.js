@@ -30,7 +30,10 @@ import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
 import { AVATAR_TONES, renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
-import { computeBookUsageSummary } from '../rotations/usage-insights.js';
+import {
+  computeBookUsageSummary,
+  renderBookCoverUsageAdorno,
+} from '../rotations/usage-insights.js';
 
 /**
  * Resolves the effective normalized list of selected owner keys from `uiState`.
@@ -538,6 +541,8 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
   const coverAspectRatio = state.settings.coverAspectRatio;
   const dynamicTint = state.settings.dynamicCoverTint !== false;
   const showRotationHistory = state.settings.enableRotationHistoryInsights !== false;
+  const showCoverUsageAdornos = state.settings.showCoverUsageAdornos !== false;
+  const showStaleSpotlight = state.settings.enableStaleBookSpotlight !== false;
   const staleBookDays = state.settings.staleBookDays ?? 10;
   const ownerFilter = uiState.ownerFilter || 'all';
   const freshnessFilter = uiState.freshnessFilter || 'all';
@@ -546,7 +551,6 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
     state.rotations.find((r) => r.profileId === activeProfile.id && r.status === 'active') || null;
 
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
-  const inActiveSet = new Set(activeRotation ? activeRotation.bookIds : []);
   const usageByBookId = new Map();
   for (const book of state.books) {
     usageByBookId.set(
@@ -933,10 +937,10 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
           ${filteredBooks
             .map((book) => {
               const primaryAuthor = book.authors[0] || 'Unknown Author';
-              const isOnActiveShelf = inActiveSet.has(book.id);
               const status = normalizeCollectionStatus(book.collectionStatus);
               const condition = normalizeBookCondition(book.condition);
               const ownerBadgesHtml = renderOwnerBadgesStrip(book, state.profiles);
+              const usage = usageByBookId.get(book.id);
 
               let statusBadgeHtml = '';
               if (status === 'wishlist') {
@@ -946,6 +950,13 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
                   formatBookCondition(condition)
                 )}</span>`;
               }
+
+              const coverAdornoHtml = renderBookCoverUsageAdorno(book, usage, {
+                enabled: showCoverUsageAdornos,
+                showRotationHistory,
+                showStaleSpotlight,
+                readerName: activeProfile.name,
+              });
 
               return `
                 <article data-book-card="${escapeHtml(book.id)}" class="flex flex-col min-w-0">
@@ -966,12 +977,9 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
                             'heartFilled',
                             'w-3 h-3'
                           )}</span>`
-                        : isOnActiveShelf
-                          ? `<span class="pointer-events-none absolute top-1.5 right-1.5 z-20 w-2.5 h-2.5 rounded-full bg-forest-700 dark:bg-[#5ED3DA] ring-2 ring-ivory dark:ring-night-900" title="Currently in ${escapeHtml(
-                              activeProfile.name
-                            )}’s active rotation"></span>`
-                          : ''
+                        : ''
                     }
+                    ${coverAdornoHtml}
                     ${
                       ownerBadgesHtml
                         ? `<div class="pointer-events-none absolute bottom-1.5 right-1.5 z-20">${ownerBadgesHtml}</div>`
@@ -995,18 +1003,16 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
                       Ages ${book.ageMin}–${book.ageMax} · ${escapeHtml(formatBookBinding(book.format))}
                     </p>
                     ${
-                      showRotationHistory && isBookRotatable(book)
-                        ? (() => {
-                            const usage = usageByBookId.get(book.id);
-                            if (!usage) return '';
-                            return `<p data-library-usage-line="true" class="text-[10px] truncate mt-0.5 ${
-                              usage.inCooldown
-                                ? 'text-amber-700 dark:text-amber-400'
-                                : usage.isCurrentlyOnActiveShelf
-                                  ? 'text-forest-700 dark:text-[#5ED3DA] font-medium'
-                                  : 'text-stone-ink/90 dark:text-slate-400'
-                            }">${escapeHtml(usage.shortRecencyLabel)}</p>`;
-                          })()
+                      showRotationHistory && isBookRotatable(book) && usage
+                        ? `<p data-library-usage-line="true" title="${escapeHtml(
+                            usage.shortRecencyLabel
+                          )}" class="text-[10px] truncate mt-0.5 ${
+                            usage.inCooldown
+                              ? 'text-amber-700 dark:text-amber-400'
+                              : usage.isCurrentlyOnActiveShelf
+                                ? 'text-forest-700 dark:text-[#5ED3DA] font-medium'
+                                : 'text-stone-ink/90 dark:text-slate-400'
+                          }">${escapeHtml(usage.compactRecencyLabel)}</p>`
                         : ''
                     }
                   </button>

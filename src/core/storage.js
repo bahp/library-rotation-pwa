@@ -180,6 +180,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       presetAlertDaysAfter: clampedAfter,
       showPresetDecorations: overrides.showPresetDecorations !== false,
       enableRotationHistoryInsights: overrides.enableRotationHistoryInsights !== false,
+      showCoverUsageAdornos: overrides.showCoverUsageAdornos !== false,
       enableStaleBookSpotlight: overrides.enableStaleBookSpotlight !== false,
       staleBookDays: clampedStaleDays,
     };
@@ -187,7 +188,8 @@ export function createSafeDefaultSettings(overrides = {}) {
 
 /**
  * Migrates older or partial state snapshots forward to CURRENT_SCHEMA_VERSION,
- * automatically refreshing each profile's `age` from `birthDate` when present.
+ * automatically refreshing each profile's `age` from `birthDate` when present
+ * and enforcing single-active-rotation + clean read-history invariants.
  * @param {import('../types/models.js').AppState} state
  * @param {string | Date} [referenceDate]
  * @returns {import('../types/models.js').AppState}
@@ -200,12 +202,50 @@ export function migrateState(state, referenceDate = new Date()) {
       { age: profile.age, birthDate: cleanDob },
       referenceDate
     );
+    const cleanReadHistory = Array.isArray(profile.readHistoryBookIds)
+      ? Array.from(
+          new Set(profile.readHistoryBookIds.filter((id) => typeof id === 'string' && id))
+        )
+      : [];
     return {
       ...profile,
       ...(cleanDob ? { birthDate: cleanDob } : {}),
       age: effectiveAge,
+      readHistoryBookIds: cleanReadHistory,
     };
   });
+
+  /** @type {Set<string>} */
+  const seenActiveProfileIds = new Set();
+  const normalizedRotations = Array.isArray(state.rotations)
+    ? state.rotations.map((rot) => {
+        const cleanBookIds = Array.isArray(rot.bookIds)
+          ? Array.from(new Set(rot.bookIds.filter((id) => typeof id === 'string' && id)))
+          : [];
+        const validSet = new Set(cleanBookIds);
+        const cleanCompletedIds = Array.isArray(rot.completedBookIds)
+          ? Array.from(
+              new Set(
+                rot.completedBookIds.filter((id) => typeof id === 'string' && validSet.has(id))
+              )
+            )
+          : [];
+        let cleanStatus = rot.status;
+        if (cleanStatus === 'active') {
+          if (seenActiveProfileIds.has(rot.profileId)) {
+            cleanStatus = 'saved';
+          } else {
+            seenActiveProfileIds.add(rot.profileId);
+          }
+        }
+        return {
+          ...rot,
+          bookIds: cleanBookIds,
+          completedBookIds: cleanCompletedIds,
+          status: cleanStatus,
+        };
+      })
+    : [];
 
   /** @type {import('../types/models.js').RotationPreset[]} */
   const normalizedCustomPresets = [];
@@ -241,6 +281,7 @@ export function migrateState(state, referenceDate = new Date()) {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     activeProfileId: activeExists ? state.activeProfileId : normalizedProfiles[0].id,
     profiles: normalizedProfiles,
+    rotations: normalizedRotations,
     customPresets: normalizedCustomPresets,
     presetOverrides: normalizedPresetOverrides,
     settings: createSafeDefaultSettings(state.settings || {}),

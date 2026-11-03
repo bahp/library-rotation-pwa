@@ -58,6 +58,10 @@ export const FIELD_HELP_COPY = {
     title: 'Stale Book Spotlight Days',
     body: 'Highlights books sitting on the active shelf for at least this many days without being marked as read, nudging you to read them together or swap in something fresh from the box.',
   },
+  coverUsageAdornos: {
+    title: 'Cover Status Adornos',
+    body: 'Places compact frosted icon badges on the bottom-left of Library book covers for active shelf books, read status, cooldown days remaining, or unrotated titles so status stays clear on small phone screens without relying on long text.',
+  },
 };
 
 /**

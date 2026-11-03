@@ -106,6 +106,7 @@ export function renderSettingsView({
   const presetDaysAfter = settings.presetAlertDaysAfter ?? 5;
   const showPresetDecorations = settings.showPresetDecorations !== false;
   const enableRotationHistoryInsights = settings.enableRotationHistoryInsights !== false;
+  const showCoverUsageAdornos = settings.showCoverUsageAdornos !== false;
   const enableStaleBookSpotlight = settings.enableStaleBookSpotlight !== false;
   const staleBookDays = settings.staleBookDays ?? 10;
   const googleHealthTone = resolveGoogleBooksHealthTone(
@@ -648,6 +649,36 @@ export function renderSettingsView({
             >
               ${enableRotationHistoryInsights ? 'Enabled' : 'Disabled'}
             </button>
+          </div>
+
+          <div class="py-3 space-y-1.5">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <p class="text-sm font-semibold text-forest-900 dark:text-white">
+                    Cover Status Adornos
+                  </p>
+                  ${renderFieldInfoButton({ helpKey: 'coverUsageAdornos', scope: 'settings' })}
+                </div>
+                <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                  Shows compact icon badges over Library book covers for active shelf, read status, cooldown days left, and unrotated books on small screens.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked="${showCoverUsageAdornos ? 'true' : 'false'}"
+                data-action="toggle-cover-usage-adornos"
+                class="min-h-[42px] px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                  showCoverUsageAdornos
+                    ? 'bg-forest-700 text-white'
+                    : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
+                }"
+              >
+                ${showCoverUsageAdornos ? 'Enabled' : 'Disabled'}
+              </button>
+            </div>
+            ${renderFieldInfoPanel({ helpKey: 'coverUsageAdornos', scope: 'settings' })}
           </div>
 
           <div class="py-3 flex items-center justify-between gap-4">

@@ -338,27 +338,33 @@ export function computeBookUsageSummary(book, context = {}) {
   }
 
   let shortRecencyLabel = 'Ready from box';
+  let compactRecencyLabel = 'Ready from box';
   if (isCurrentlyOnActiveShelf) {
     if (isReadInActiveShelf) {
       shortRecencyLabel =
         daysOnActiveShelf && daysOnActiveShelf > 0
           ? `On shelf ${daysOnActiveShelf}d · Read`
           : 'On shelf · Read';
+      compactRecencyLabel = shortRecencyLabel;
     } else if (isStaleUnreadOnShelf) {
       shortRecencyLabel = `On shelf ${daysOnActiveShelf}d · Unread`;
+      compactRecencyLabel = `Shelf ${daysOnActiveShelf}d · Unread`;
     } else {
       shortRecencyLabel =
         daysOnActiveShelf && daysOnActiveShelf > 0
           ? `On shelf ${daysOnActiveShelf}d`
           : 'On shelf today';
+      compactRecencyLabel = shortRecencyLabel;
     }
   } else if (neverRotated) {
     shortRecencyLabel = 'Never rotated';
+    compactRecencyLabel = 'Never rotated';
   } else if (inCooldown) {
     shortRecencyLabel =
       daysSinceLastRotated === 0
         ? `Cooldown · ${cooldownDaysRemaining}d left`
         : `Last out ${daysSinceLastRotated}d ago · ${cooldownDaysRemaining}d cooldown`;
+    compactRecencyLabel = `Cooldown · ${cooldownDaysRemaining}d left`;
   } else if (daysSinceLastRotated !== null) {
     const shortDate = formatShortShelfDate(book.lastRotatedAt, nowMs);
     shortRecencyLabel =
@@ -367,6 +373,8 @@ export function computeBookUsageSummary(book, context = {}) {
         : daysSinceLastRotated >= 30 && shortDate
           ? `Last out ${shortDate} (${daysSinceLastRotated}d ago)`
           : `Last out ${daysSinceLastRotated}d ago`;
+    compactRecencyLabel =
+      daysSinceLastRotated === 0 ? 'Rotated today' : `Off shelf ${daysSinceLastRotated}d`;
   }
 
   return {
@@ -384,12 +392,119 @@ export function computeBookUsageSummary(book, context = {}) {
     isLongUnseen,
     freshnessTier,
     shortRecencyLabel,
+    compactRecencyLabel,
     loved: Boolean(book.loved),
     isReadByActiveProfile,
     readByProfileIds,
     readByProfileNames,
     lastReadAt: book.lastReadAt || null,
   };
+}
+
+/**
+ * Renders a compact, accessible frosted cover adorno (`data-cover-adorno="..."`) at the bottom-left
+ * of a rotatable book cover so active shelf, read status, cooldown days remaining, and fresh unrotated
+ * books are legible at a glance on small phone screens without relying on bare colored dots or long text.
+ *
+ * @param {import('../../types/models.js').Book} book
+ * @param {ReturnType<typeof computeBookUsageSummary> | null | undefined} usage
+ * @param {{
+ *   enabled?: boolean,
+ *   showRotationHistory?: boolean,
+ *   showStaleSpotlight?: boolean,
+ *   readerName?: string
+ * }} [options]
+ * @returns {string}
+ */
+export function renderBookCoverUsageAdorno(book, usage, options = {}) {
+  if (!book || !usage || !isBookRotatable(book)) return '';
+  if (options.enabled === false) return '';
+
+  const showHistory = options.showRotationHistory !== false;
+  const showStale = options.showStaleSpotlight !== false;
+  const readerLabel = options.readerName ? ` with ${options.readerName}` : '';
+
+  /** @type {{ kind: string, icon: string, text: string, title: string, toneClasses: string } | null} */
+  let spec = null;
+
+  if (usage.isCurrentlyOnActiveShelf && usage.isReadInActiveShelf) {
+    spec = {
+      kind: 'shelf-read',
+      icon: 'check',
+      text: 'Read',
+      title: `${usage.shortRecencyLabel}${readerLabel}`,
+      toneClasses:
+        'bg-forest-800/92 text-ivory border-ivory/75 dark:bg-[#5ED3DA]/95 dark:text-night-950 dark:border-night-950/75',
+    };
+  } else if (usage.isCurrentlyOnActiveShelf && usage.isStaleUnreadOnShelf && showStale) {
+    spec = {
+      kind: 'stale-unread',
+      icon: 'clock',
+      text: `${usage.daysOnActiveShelf}d`,
+      title: `Sitting unread ${usage.daysOnActiveShelf}d on active shelf`,
+      toneClasses:
+        'bg-amber-800/92 text-amber-50 border-ivory/75 dark:bg-amber-400/95 dark:text-night-950 dark:border-night-950/75',
+    };
+  } else if (usage.isCurrentlyOnActiveShelf) {
+    spec = {
+      kind: 'on-shelf',
+      icon: 'library',
+      text: 'Shelf',
+      title: usage.shortRecencyLabel,
+      toneClasses:
+        'bg-ivory/92 text-forest-900 border-forest-700/35 dark:bg-night-900/92 dark:text-[#5ED3DA] dark:border-[#5ED3DA]/45',
+    };
+  } else if (showHistory && usage.inCooldown) {
+    spec = {
+      kind: 'cooldown',
+      icon: 'clock',
+      text: `${usage.cooldownDaysRemaining}d`,
+      title: usage.shortRecencyLabel,
+      toneClasses:
+        'bg-ivory/92 text-amber-900 border-amber-700/35 dark:bg-night-900/92 dark:text-amber-300 dark:border-amber-400/40',
+    };
+  } else if (showHistory && usage.neverRotated) {
+    spec = {
+      kind: 'never-rotated',
+      icon: 'sparkles',
+      text: 'New',
+      title: 'Never rotated onto a shelf yet',
+      toneClasses:
+        'bg-ivory/92 text-espresso-900 border-linen-300 dark:bg-night-900/92 dark:text-amber-200 dark:border-night-700',
+    };
+  } else if (showHistory && usage.isLongUnseen) {
+    const unseenCode =
+      usage.rotationsSinceLastOut !== null && usage.rotationsSinceLastOut >= 2
+        ? `${usage.rotationsSinceLastOut}×`
+        : usage.daysSinceLastRotated !== null
+          ? `${usage.daysSinceLastRotated}d`
+          : 'Box';
+    spec = {
+      kind: 'long-unseen',
+      icon: 'refresh',
+      text: unseenCode,
+      title: usage.shortRecencyLabel,
+      toneClasses:
+        'bg-ivory/90 text-stone-ink border-linen-300 dark:bg-night-900/90 dark:text-slate-200 dark:border-night-700',
+    };
+  } else if (usage.isReadByActiveProfile) {
+    spec = {
+      kind: 'read-history',
+      icon: 'check',
+      text: 'Read',
+      title: `Read${readerLabel}`,
+      toneClasses:
+        'bg-ivory/90 text-forest-800 border-linen-300 dark:bg-night-900/90 dark:text-slate-200 dark:border-night-700',
+    };
+  }
+
+  if (!spec) return '';
+
+  return `<span
+    data-cover-adorno="${escapeHtml(spec.kind)}"
+    title="${escapeHtml(spec.title)}"
+    class="pointer-events-none absolute bottom-1.5 left-1.5 z-20 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[9px] font-bold font-mono-tabular leading-none tracking-tight shadow-2xs ${spec.toneClasses}"
+  >${renderIcon(spec.icon, 'w-2.5 h-2.5 shrink-0', 2.3)}<span>${escapeHtml(spec.text)}</span></span>`;
 }
 
 /**

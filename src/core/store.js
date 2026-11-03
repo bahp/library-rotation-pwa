@@ -1231,7 +1231,8 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Toggles read/completed state for a book inside a rotation and records profile history.
+   * Toggles read/completed state for a book inside a rotation and keeps profile `readHistoryBookIds`
+   * and book `lastReadAt` cleanly synchronized in both directions (marking AND unmarking).
    * @param {string} rotationId
    * @param {string} bookId
    */
@@ -1244,22 +1245,141 @@ export function createAppStore(storage, deps = {}) {
       : [...rotation.completedBookIds, bookId];
 
     const now = new Date().toISOString();
-    const nextRotations = state.rotations.map((r) =>
-      r.id === rotationId
-        ? { ...r, completedBookIds: nextCompleted, updatedAt: now }
-        : r
+    const nextRotations = state.rotations.map((r) => {
+      if (r.id === rotationId) {
+        return { ...r, completedBookIds: nextCompleted, updatedAt: now };
+      }
+      // If unmarking read on the profile's active shelf (or if the same book was checked off on
+      // another active shelf for the same child), keep the child's active shelf state consistent.
+      if (
+        isDone &&
+        r.profileId === rotation.profileId &&
+        r.status === 'active' &&
+        r.completedBookIds.includes(bookId)
+      ) {
+        return {
+          ...r,
+          completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
+          updatedAt: now,
+        };
+      }
+      return r;
+    });
+
+    const stillReadOnProfileShelf = nextRotations.some(
+      (r) =>
+        r.profileId === rotation.profileId &&
+        r.status === 'active' &&
+        r.completedBookIds.includes(bookId)
     );
 
     const nextProfiles = state.profiles.map((p) => {
       if (p.id !== rotation.profileId) return p;
       const historySet = new Set(p.readHistoryBookIds);
-      if (!isDone) historySet.add(bookId);
+      if (!isDone) {
+        historySet.add(bookId);
+      } else if (!stillReadOnProfileShelf) {
+        historySet.delete(bookId);
+      }
       return { ...p, readHistoryBookIds: Array.from(historySet) };
     });
 
-    const nextBooks = !isDone
-      ? state.books.map((b) => (b.id === bookId ? { ...b, lastReadAt: now } : b))
-      : state.books;
+    const anyProfileStillRead = nextProfiles.some(
+      (p) => Array.isArray(p.readHistoryBookIds) && p.readHistoryBookIds.includes(bookId)
+    );
+
+    const nextBooks = state.books.map((b) => {
+      if (b.id !== bookId) return b;
+      if (!isDone) {
+        return { ...b, lastReadAt: now };
+      }
+      if (!anyProfileStillRead) {
+        const { lastReadAt: _cleared, ...rest } = b;
+        return rest;
+      }
+      return b;
+    });
+
+    await commit({
+      ...state,
+      books: nextBooks,
+      profiles: nextProfiles,
+      rotations: nextRotations,
+    });
+  }
+
+  /**
+   * Toggles read status for any catalog book (including off-shelf books in the storage box)
+   * for a specific child profile, keeping any active rotation shelf in sync.
+   * @param {string | undefined} profileId
+   * @param {string} bookId
+   */
+  async function toggleProfileBookRead(profileId, bookId) {
+    const profile =
+      state.profiles.find((p) => p.id === (profileId || state.activeProfileId)) ||
+      state.profiles[0];
+    if (!profile) return;
+    const bookExists = state.books.some((b) => b.id === bookId);
+    if (!bookExists) return;
+
+    const activeRot = state.rotations.find(
+      (r) => r.profileId === profile.id && r.status === 'active'
+    );
+    const isCurrentlyRead =
+      profile.readHistoryBookIds.includes(bookId) ||
+      Boolean(activeRot && activeRot.completedBookIds.includes(bookId));
+
+    const now = new Date().toISOString();
+    const nextProfiles = state.profiles.map((p) => {
+      if (p.id !== profile.id) return p;
+      const historySet = new Set(p.readHistoryBookIds);
+      if (isCurrentlyRead) {
+        historySet.delete(bookId);
+      } else {
+        historySet.add(bookId);
+      }
+      return { ...p, readHistoryBookIds: Array.from(historySet) };
+    });
+
+    const nextRotations = state.rotations.map((r) => {
+      if (r.profileId !== profile.id) return r;
+      if (isCurrentlyRead && r.completedBookIds.includes(bookId)) {
+        return {
+          ...r,
+          completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
+          updatedAt: now,
+        };
+      }
+      if (
+        !isCurrentlyRead &&
+        r.status === 'active' &&
+        r.bookIds.includes(bookId) &&
+        !r.completedBookIds.includes(bookId)
+      ) {
+        return {
+          ...r,
+          completedBookIds: [...r.completedBookIds, bookId],
+          updatedAt: now,
+        };
+      }
+      return r;
+    });
+
+    const anyProfileStillRead = nextProfiles.some(
+      (p) => Array.isArray(p.readHistoryBookIds) && p.readHistoryBookIds.includes(bookId)
+    );
+
+    const nextBooks = state.books.map((b) => {
+      if (b.id !== bookId) return b;
+      if (!isCurrentlyRead) {
+        return { ...b, lastReadAt: now };
+      }
+      if (!anyProfileStillRead) {
+        const { lastReadAt: _cleared, ...rest } = b;
+        return rest;
+      }
+      return b;
+    });
 
     await commit({
       ...state,
@@ -2067,6 +2187,7 @@ export function createAppStore(storage, deps = {}) {
     syncExistingCatalogMetadata,
     deleteBook,
     toggleRotationBookRead,
+    toggleProfileBookRead,
     generateRotation,
     createStarterRotation,
     replaceRotationBookRandom,

@@ -218,6 +218,7 @@ const uiState = {
   isFilterDrawerOpen: false,
   searchQuery: '',
   inspectedBookId: /** @type {string | null} */ (null),
+  inspectedRotationId: /** @type {string | null} */ (null),
   inspectorUi: createBlankInspectorUi(),
   dismissedSwapReminderKeys: loadDismissedSwapReminders(),
   dismissedPresetAlertKeys: loadDismissedPresetAlerts(),
@@ -765,6 +766,7 @@ function render() {
         state,
         editorState: uiState.rotationEditor,
         inspectedBookId: uiState.inspectedBookId,
+        inspectedRotationId: uiState.inspectedRotationId,
         inspectorUiState: uiState.inspectorUi,
         dismissedSwapReminderKeys: uiState.dismissedSwapReminderKeys,
         dismissedPresetAlertKeys: uiState.dismissedPresetAlertKeys,
@@ -1263,6 +1265,7 @@ function bindEvents() {
         event.preventDefault();
         closeSheetWithMotion(() => {
           uiState.inspectedBookId = null;
+          uiState.inspectedRotationId = null;
           uiState.inspectorUi = createBlankInspectorUi();
         });
         return;
@@ -1378,6 +1381,7 @@ function bindEvents() {
       if (backdropAction === 'close-inspect-book') {
         closeSheetWithMotion(() => {
           uiState.inspectedBookId = null;
+          uiState.inspectedRotationId = null;
           uiState.inspectorUi = createBlankInspectorUi();
         });
         return;
@@ -1747,10 +1751,12 @@ function bindEvents() {
       case 'inspect-book': {
         rememberModalTrigger(target);
         const bookId = target.getAttribute('data-book-id');
+        const rotationId = target.getAttribute('data-rotation-id') || null;
         const book = store.getState().books.find((b) => b.id === bookId);
         uiState.activeCandidate = null;
         uiState.isFoundSheetOpen = false;
         uiState.inspectedBookId = bookId;
+        uiState.inspectedRotationId = rotationId;
         uiState.inspectorUi = createBlankInspectorUi(book);
         render();
         focusActiveDialogControl();
@@ -1759,6 +1765,7 @@ function bindEvents() {
       case 'close-inspect-book': {
         closeSheetWithMotion(() => {
           uiState.inspectedBookId = null;
+          uiState.inspectedRotationId = null;
           uiState.inspectorUi = createBlankInspectorUi();
         });
         break;
@@ -1871,6 +1878,7 @@ function bindEvents() {
         if (bookId) {
           if (uiState.inspectedBookId === bookId) {
             uiState.inspectedBookId = null;
+            uiState.inspectedRotationId = null;
             uiState.inspectorUi = createBlankInspectorUi();
           }
           await store.deleteBook(bookId);
@@ -1896,6 +1904,14 @@ function bindEvents() {
         if (rotationId && bookId) {
           await flushOpenRotationEdits(rotationId, { silent: true });
           await store.toggleRotationBookRead(rotationId, bookId);
+        }
+        break;
+      }
+      case 'toggle-profile-book-read': {
+        const profileId = target.getAttribute('data-profile-id') || undefined;
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        if (bookId) {
+          await store.toggleProfileBookRead(profileId, bookId);
         }
         break;
       }
@@ -2099,6 +2115,9 @@ function bindEvents() {
         if (rotationId) {
           if (uiState.rotationEditor.editingRotationId === rotationId) {
             uiState.rotationEditor.editingRotationId = null;
+          }
+          if (uiState.inspectedRotationId === rotationId) {
+            uiState.inspectedRotationId = null;
           }
           await store.deleteRotation(rotationId);
         }
@@ -2513,6 +2532,17 @@ function bindEvents() {
           !current
             ? 'Enabled Rotation History & Cooldown Log insights.'
             : 'Hidden Rotation History & Cooldown Log labels.',
+          'info'
+        );
+        break;
+      }
+      case 'toggle-cover-usage-adornos': {
+        const current = store.getState().settings.showCoverUsageAdornos !== false;
+        await store.updateSettings({ showCoverUsageAdornos: !current });
+        store.notify(
+          !current
+            ? 'Enabled Cover Status Adornos in Library.'
+            : 'Hidden Cover Status Adornos in Library.',
           'info'
         );
         break;

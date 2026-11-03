@@ -132,6 +132,7 @@
  * @property {number} [presetAlertDaysAfter] - Days after an annual MM-DD preset start date to keep showing unactioned reminder (0-30, default: 5)
  * @property {boolean} [showPresetDecorations] - Show subtle top-right motif corner decorations on preset cards (default: true)
  * @property {boolean} [enableRotationHistoryInsights] - Show per-book cooldown/rotation history badges & filters (default: true)
+ * @property {boolean} [showCoverUsageAdornos] - Show compact icon+code usage/cooldown/read adornos over Library book covers (default: true)
  * @property {boolean} [enableStaleBookSpotlight] - Show gentle Stale Book Spotlight banner for long-unopened active shelf books (default: true)
  * @property {number} [staleBookDays] - Days on active shelf without being marked read before spotlight triggers (3-60, default: 10)
  */

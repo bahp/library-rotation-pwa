@@ -56,6 +56,7 @@ import { renderIcon } from '../icons.js';
  *   rotations?: import('../../types/models.js').RotationList[],
  *   activeProfile?: import('../../types/models.js').ChildProfile | null,
  *   activeRotation?: import('../../types/models.js').RotationList | null,
+ *   inspectedRotation?: import('../../types/models.js').RotationList | null,
  *   canSwapInActiveRotation?: boolean,
  *   coverAspectRatio?: import('../../types/models.js').CoverAspectRatio,
  *   dynamicCoverTint?: boolean,
@@ -72,6 +73,7 @@ export function renderBookInspectorModal({
   rotations = [],
   activeProfile = null,
   activeRotation = null,
+  inspectedRotation = null,
   canSwapInActiveRotation = false,
   coverAspectRatio = 'square',
   dynamicCoverTint = true,
@@ -90,10 +92,13 @@ export function renderBookInspectorModal({
 }) {
   if (!book) return '';
 
-  const inActiveShelf = Boolean(activeRotation && activeRotation.bookIds.includes(book.id));
-  const isReadInActive = Boolean(
-    activeRotation && activeRotation.completedBookIds.includes(book.id)
+  const targetRotation = inspectedRotation || activeRotation;
+  const isSavedInspectedShelf = Boolean(targetRotation && targetRotation.status !== 'active');
+  const inTargetShelf = Boolean(targetRotation && targetRotation.bookIds.includes(book.id));
+  const isReadInTarget = Boolean(
+    targetRotation && targetRotation.completedBookIds.includes(book.id)
   );
+  const inActiveShelf = Boolean(activeRotation && activeRotation.bookIds.includes(book.id));
   const currentStatus = normalizeCollectionStatus(book.collectionStatus);
   const currentCondition = normalizeBookCondition(book.condition);
   const isLoved = Boolean(book.loved);
@@ -529,7 +534,11 @@ export function renderBookInspectorModal({
     const readDateSuffix = usageSummary.lastReadAt
       ? ` (${formatShortShelfDate(usageSummary.lastReadAt, referenceDate)})`
       : '';
-    usageSegments.push(`Read with ${usageSummary.readByProfileNames.join(', ')}${readDateSuffix}`);
+    const readPrefix =
+      usageSummary.isCurrentlyOnActiveShelf && !usageSummary.isReadInActiveShelf
+        ? 'Read earlier with'
+        : 'Read with';
+    usageSegments.push(`${readPrefix} ${usageSummary.readByProfileNames.join(', ')}${readDateSuffix}`);
   } else {
     usageSegments.push('Unread together');
   }
@@ -543,83 +552,130 @@ export function renderBookInspectorModal({
         }">${escapeHtml(usageSegments.join(' · '))}</p>`
       : '';
 
-  // Active Shelf Bar (when an active rotation shelf exists)
-  const quickShelfBarHtml = activeRotation
-    ? `
-      <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 space-y-1.5">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <span class="text-xs font-medium text-stone-ink dark:text-slate-300">
-            ${
-              inActiveShelf
-                ? 'On current rotation shelf'
-                : rotatable
-                  ? 'Available for active shelf'
-                  : `${escapeHtml(formatCollectionStatus(currentStatus))} (${escapeHtml(formatBookCondition(currentCondition))}) — off auto-rotations`
-            }
-          </span>
-          <div class="flex flex-wrap items-center gap-2">
-            ${
-              inActiveShelf
-                ? `
-                  <button
-                    type="button"
-                    data-action="toggle-rotation-read"
-                    data-rotation-id="${escapeHtml(activeRotation.id)}"
-                    data-book-id="${escapeHtml(book.id)}"
-                    aria-pressed="${isReadInActive ? 'true' : 'false'}"
-                    class="min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
-                      isReadInActive
-                        ? 'bg-forest-700 text-white dark:bg-forest-600'
-                        : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
-                    }"
-                  >
-                    ${renderIcon('check', 'w-3.5 h-3.5')}
-                    ${isReadInActive ? 'Read' : 'Mark Read'}
-                  </button>
-                  ${
-                    canSwapInActiveRotation
-                      ? `
-                        <button
-                          type="button"
-                          data-action="replace-book-random"
-                          data-rotation-id="${escapeHtml(activeRotation.id)}"
-                          data-book-id="${escapeHtml(book.id)}"
-                          class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                        >
-                          ${renderIcon('shuffle', 'w-3.5 h-3.5')}
-                          Swap Book
-                        </button>
-                      `
-                      : ''
-                  }
-                `
-                : rotatable
+  const canSwapInTargetRotation = isSavedInspectedShelf
+    ? canSwapInActiveRotation
+    : canSwapInActiveRotation;
+
+  const offShelfReadButtonHtml =
+    rotatable && effectiveReader
+      ? `
+          <button
+            type="button"
+            data-action="toggle-profile-book-read"
+            data-profile-id="${escapeHtml(effectiveReader.id)}"
+            data-book-id="${escapeHtml(book.id)}"
+            aria-pressed="${usageSummary.isReadByActiveProfile ? 'true' : 'false'}"
+            title="${
+              usageSummary.isReadByActiveProfile
+                ? 'Marked read — tap to mark unread'
+                : `Mark read with ${escapeHtml(effectiveReader.name)}`
+            }"
+            class="min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+              usageSummary.isReadByActiveProfile
+                ? 'bg-forest-700 text-white dark:bg-forest-600'
+                : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
+            }"
+          >
+            ${renderIcon('check', 'w-3.5 h-3.5')}
+            ${usageSummary.isReadByActiveProfile ? 'Read · Undo' : 'Mark Read'}
+          </button>
+        `
+      : '';
+
+  // Quick Shelf & Read Bar (works for active shelf, saved shelf, and off-shelf catalog books)
+  const quickShelfBarHtml =
+    targetRotation || (rotatable && effectiveReader)
+      ? `
+        <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 space-y-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs font-medium text-stone-ink dark:text-slate-300">
+              ${
+                inTargetShelf
+                  ? isSavedInspectedShelf && targetRotation
+                    ? `In saved shelf “${escapeHtml(targetRotation.title)}”`
+                    : 'On current rotation shelf'
+                  : rotatable
+                    ? activeRotation
+                      ? 'Available for active shelf'
+                      : 'Ready in family library'
+                    : `${escapeHtml(formatCollectionStatus(currentStatus))} (${escapeHtml(formatBookCondition(currentCondition))}) — off auto-rotations`
+              }
+            </span>
+            <div class="flex flex-wrap items-center gap-2">
+              ${
+                inTargetShelf && targetRotation
                   ? `
                     <button
                       type="button"
-                      data-action="add-recommended-to-shelf"
-                      data-rotation-id="${escapeHtml(activeRotation.id)}"
+                      data-action="toggle-rotation-read"
+                      data-rotation-id="${escapeHtml(targetRotation.id)}"
                       data-book-id="${escapeHtml(book.id)}"
-                      class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      aria-pressed="${isReadInTarget ? 'true' : 'false'}"
+                      title="${
+                        isReadInTarget
+                          ? 'Marked read — tap to mark unread'
+                          : 'Mark as read for this shelf'
+                      }"
+                      class="min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+                        isReadInTarget
+                          ? 'bg-forest-700 text-white dark:bg-forest-600'
+                          : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
+                      }"
                     >
-                      ${renderIcon('plus', 'w-3.5 h-3.5')}
-                      Add to Active Shelf
+                      ${renderIcon('check', 'w-3.5 h-3.5')}
+                      ${isReadInTarget ? 'Read · Undo' : 'Mark Read'}
                     </button>
+                    ${
+                      canSwapInTargetRotation
+                        ? `
+                          <button
+                            type="button"
+                            data-action="replace-book-random"
+                            data-rotation-id="${escapeHtml(targetRotation.id)}"
+                            data-book-id="${escapeHtml(book.id)}"
+                            class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                          >
+                            ${renderIcon('shuffle', 'w-3.5 h-3.5')}
+                            Swap Book
+                          </button>
+                        `
+                        : ''
+                    }
                   `
-                  : ''
-            }
+                  : rotatable
+                    ? `
+                      ${offShelfReadButtonHtml}
+                      ${
+                        activeRotation && !inActiveShelf
+                          ? `
+                            <button
+                              type="button"
+                              data-action="add-recommended-to-shelf"
+                              data-rotation-id="${escapeHtml(activeRotation.id)}"
+                              data-book-id="${escapeHtml(book.id)}"
+                              class="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                            >
+                              ${renderIcon('plus', 'w-3.5 h-3.5')}
+                              Add to Active Shelf
+                            </button>
+                          `
+                          : ''
+                      }
+                    `
+                    : ''
+              }
+            </div>
           </div>
-        </div>
-        ${rotationHistoryStripHtml}
-      </div>
-    `
-    : rotationHistoryStripHtml
-      ? `
-        <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5">
           ${rotationHistoryStripHtml}
         </div>
       `
-      : '';
+      : rotationHistoryStripHtml
+        ? `
+          <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5">
+            ${rotationHistoryStripHtml}
+          </div>
+        `
+        : '';
 
   // Unified Customize Table (matching Scan/ISBN Found card: left labels, right option buttons)
   const customizeSectionHtml = `

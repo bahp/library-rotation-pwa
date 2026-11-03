@@ -318,7 +318,16 @@ export function reconcileDomChildren(liveParent, nextParent) {
         ? ownerDoc.adoptNode(nextChild)
         : nextChild;
     const liveReadyChild = materializeLiveMediaElements(adoptedChild, ownerDoc);
-    liveParent.insertBefore(liveReadyChild, currentAtIndex);
+    if (
+      currentAtIndex &&
+      !getDomNodeKey(currentAtIndex) &&
+      liveParent.childNodes.length === nextChildren.length &&
+      typeof liveParent.replaceChild === 'function'
+    ) {
+      liveParent.replaceChild(liveReadyChild, currentAtIndex);
+    } else {
+      liveParent.insertBefore(liveReadyChild, currentAtIndex);
+    }
   }
 
   while (liveParent.childNodes.length > nextChildren.length) {
