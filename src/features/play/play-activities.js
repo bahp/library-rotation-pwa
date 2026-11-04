@@ -349,7 +349,7 @@ export function pickStorytimeBooks({
   unreadFirst = true,
   rng = Math.random,
 }) {
-  const safeCount = Math.max(1, Math.min(6, Math.round(Number(count) || 3)));
+  const safeCount = Math.max(1, Math.min(50, Math.round(Number(count) || 3)));
   const trimmedTopic = String(topicQuery || '').trim();
 
   const poolInfo = resolvePlayBookPool({

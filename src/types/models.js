@@ -117,6 +117,7 @@
 
 /**
  * @typedef {Object} AppSettings
+ * @property {'en' | 'es' | 'it'} [language] - Active interface language ('en' default, 'es' Español, 'it' Italiano)
  * @property {ThemeMode} theme - UI color mode preference
  * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
  * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)

@@ -8,11 +8,13 @@
  * - Supports in-place `Edit` (with `Reset` for edited built-in presets), `Clone & Tweak`, and `Delete`
  */
 
+import { normalizeLanguage, t } from '../../config/index.js';
 import {
   escapeHtml,
   formatBookBinding,
   formatProfileAgeLabel,
 } from '../../types/models.js';
+import { renderInputClearButton } from '../../ui/components/clearable-input.js';
 import {
   renderFieldInfoButton,
   renderFieldInfoPanel,
@@ -213,30 +215,44 @@ function renderPresetFormSheet({ presetsUiState }) {
             <label for="preset-title" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Collection Name
             </label>
-            <input
-              id="preset-title"
-              name="title"
-              type="text"
-              required
-              value="${escapeHtml(draft.title || '')}"
-              placeholder="e.g., Lunar New Year & Lanterns"
-              class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="preset-title"
+                name="title"
+                type="text"
+                required
+                value="${escapeHtml(draft.title || '')}"
+                placeholder="e.g., Lunar New Year & Lanterns"
+                class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'preset-title',
+                value: draft.title || '',
+                label: 'Clear collection name',
+              })}
+            </div>
           </div>
 
           <div>
             <label for="preset-description" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Description &amp; Selection Objective
             </label>
-            <input
-              id="preset-description"
-              name="description"
-              type="text"
-              required
-              value="${escapeHtml(draft.description || '')}"
-              placeholder="Books celebrating lanterns, family feasts, dragons, and new beginnings."
-              class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="preset-description"
+                name="description"
+                type="text"
+                required
+                value="${escapeHtml(draft.description || '')}"
+                placeholder="Books celebrating lanterns, family feasts, dragons, and new beginnings."
+                class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'preset-description',
+                value: draft.description || '',
+                label: 'Clear description',
+              })}
+            </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -274,14 +290,21 @@ function renderPresetFormSheet({ presetsUiState }) {
             <label for="preset-tags" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Topic Preferences (comma-separated)
             </label>
-            <input
-              id="preset-tags"
-              name="preferredTags"
-              type="text"
-              value="${escapeHtml(tagsValue)}"
-              placeholder="holidays, family, food"
-              class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="preset-tags"
+                name="preferredTags"
+                type="text"
+                value="${escapeHtml(tagsValue)}"
+                placeholder="holidays, family, food"
+                class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'preset-tags',
+                value: tagsValue,
+                label: 'Clear topic preferences',
+              })}
+            </div>
           </div>
 
           <div>
@@ -335,7 +358,7 @@ function renderPresetFormSheet({ presetsUiState }) {
                   name="count"
                   type="number"
                   min="1"
-                  max="15"
+                  step="1"
                   value="${escapeHtml(countValue)}"
                   class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
                 />
@@ -406,14 +429,21 @@ function renderPresetFormSheet({ presetsUiState }) {
                 </label>
                 ${renderFieldInfoButton({ helpKey: 'seed', scope: 'preset' })}
               </div>
-              <input
-                id="preset-seed"
-                name="seed"
-                type="text"
-                value="${escapeHtml(draft.seed || '')}"
-                placeholder="Auto-generated if left blank"
-                class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="preset-seed"
+                  name="seed"
+                  type="text"
+                  value="${escapeHtml(draft.seed || '')}"
+                  placeholder="Auto-generated if left blank"
+                  class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'preset-seed',
+                  value: draft.seed || '',
+                  label: 'Clear seed',
+                })}
+              </div>
               ${renderFieldInfoPanel({ helpKey: 'seed', scope: 'preset' })}
             </div>
           </div>
@@ -883,17 +913,18 @@ export function renderPresetsView({
         </div>
       `;
 
+  const lang = normalizeLanguage(state.settings?.language);
   return `
     <div class="space-y-4">
       <div class="flex items-start justify-between gap-3 pb-2.5 border-b border-linen-200/90 dark:border-night-800">
         <div class="min-w-0">
           <div class="flex items-center gap-1.5 text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-            <a href="#/rotations" class="hover:underline">← Book Rotations</a>
+            <a href="#/rotations" class="hover:underline">← ${escapeHtml(lang === 'en' ? 'Book Rotations' : t(lang, 'nav.rotations'))}</a>
             <span aria-hidden="true">·</span>
             <span>${escapeHtml(activeProfile.name)} (${escapeHtml(ageLabel)})</span>
           </div>
           <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
-            Collection Presets
+            ${escapeHtml(t(lang, 'presets.heading'))}
           </h1>
           <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 max-w-2xl">
             Seasonal cycles, world cultural traditions, and anytime helper shelves generated deterministically from your library.
@@ -907,7 +938,7 @@ export function renderPresetsView({
           class="min-h-[44px] px-3.5 py-2 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0 whitespace-nowrap"
         >
           ${renderIcon('plus', 'w-4 h-4')}
-          <span>New Preset</span>
+          <span>${escapeHtml(t(lang, 'presets.newPreset'))}</span>
         </button>
       </div>
 
@@ -932,7 +963,7 @@ export function renderPresetsView({
           </select>
         </div>
 
-        <div class="relative">
+        <div class="relative min-w-0">
           <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-ink dark:text-slate-400 pointer-events-none">
             ${renderIcon('search', 'w-4 h-4')}
           </span>
@@ -942,8 +973,14 @@ export function renderPresetsView({
             aria-label="Search collection presets"
             value="${escapeHtml(presetsUiState.searchQuery)}"
             placeholder="Search traditions, tags, seeds…"
-            class="w-full h-11 pl-10 pr-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+            class="w-full h-11 pl-10 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
           />
+          ${renderInputClearButton({
+            targetId: 'presets-search-input',
+            value: presetsUiState.searchQuery,
+            label: 'Clear preset search',
+            lang,
+          })}
         </div>
       </div>
 

@@ -16,6 +16,12 @@
  */
 
 import {
+  COVER_BADGE_SLOTS,
+  COVER_CATALOG_BADGE_STYLES,
+  normalizeLanguage,
+  t,
+} from '../../config/index.js';
+import {
   computeOwnerInitials,
   escapeHtml,
   formatBookBinding,
@@ -28,6 +34,7 @@ import {
 } from '../../types/models.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
+import { renderInputClearButton } from '../../ui/components/clearable-input.js';
 import { AVATAR_TONES, renderOwnerBadgesStrip } from '../../ui/components/profile-sheets.js';
 import { renderIcon } from '../../ui/icons.js';
 import {
@@ -766,6 +773,7 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
       ? 1
       : 0);
 
+  const lang = normalizeLanguage(state.settings?.language);
   // Compact Quick Filter Pills: `All`, `[bookmark icon] 2` (no parentheses), `[heart icon] 1` (no parentheses)
   const isAllCatalogFilter = uiState.catalogFilter === 'all';
   const isWishlistFilter = uiState.catalogFilter === 'wishlist';
@@ -783,7 +791,7 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
           : 'bg-ivory dark:bg-night-900 text-stone-ink dark:text-slate-300 border border-linen-200 dark:border-night-700 hover:text-forest-900 dark:hover:text-white'
       }"
     >
-      All
+      ${escapeHtml(t(lang, 'library.filterAll'))}
     </button>
 
     <button
@@ -942,20 +950,43 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
               const ownerBadgesHtml = renderOwnerBadgesStrip(book, state.profiles);
               const usage = usageByBookId.get(book.id);
 
+              // Slot 1 (top-left): Mutually exclusive catalog availability / physical care badge
               let statusBadgeHtml = '';
               if (status === 'wishlist') {
-                statusBadgeHtml = `<span class="pointer-events-none absolute top-1.5 left-1.5 z-20 px-1.5 py-0.5 rounded-md bg-amber-900/90 text-amber-50 text-[9px] font-bold tracking-wide shadow-2xs">Wishlist</span>`;
+                statusBadgeHtml = `<span data-cover-slot="${COVER_BADGE_SLOTS.catalogState.slot}" data-cover-catalog-badge="wishlist" class="${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${COVER_CATALOG_BADGE_STYLES.wishlist} text-[9px] font-bold tracking-wide shadow-2xs">${escapeHtml(
+                  t(lang, 'badges.wishlist')
+                )}</span>`;
+              } else if (status === 'library') {
+                statusBadgeHtml = `<span data-cover-slot="${COVER_BADGE_SLOTS.catalogState.slot}" data-cover-catalog-badge="loan" class="${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${COVER_CATALOG_BADGE_STYLES.libraryLoan} text-[9px] font-bold tracking-wide shadow-2xs">${escapeHtml(
+                  t(lang, 'badges.loan')
+                )}</span>`;
+              } else if (status === 'interested') {
+                statusBadgeHtml = `<span data-cover-slot="${COVER_BADGE_SLOTS.catalogState.slot}" data-cover-catalog-badge="saved" class="${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${COVER_CATALOG_BADGE_STYLES.saved} text-[9px] font-bold tracking-wide shadow-2xs">${escapeHtml(
+                  t(lang, 'badges.saved')
+                )}</span>`;
               } else if (condition !== 'good') {
-                statusBadgeHtml = `<span class="pointer-events-none absolute top-1.5 left-1.5 z-20 px-1.5 py-0.5 rounded-md bg-rose-900/90 text-rose-50 text-[9px] font-bold tracking-wide shadow-2xs">${escapeHtml(
-                  formatBookCondition(condition)
+                const conditionLabel =
+                  lang === 'en'
+                    ? formatBookCondition(condition)
+                    : t(lang, `badges.${condition}`);
+                const conditionStyle =
+                  condition === 'torn'
+                    ? COVER_CATALOG_BADGE_STYLES.torn
+                    : COVER_CATALOG_BADGE_STYLES.damaged;
+                statusBadgeHtml = `<span data-cover-slot="${COVER_BADGE_SLOTS.catalogState.slot}" data-cover-catalog-badge="${escapeHtml(
+                  condition
+                )}" class="${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${conditionStyle} text-[9px] font-bold tracking-wide shadow-2xs">${escapeHtml(
+                  conditionLabel
                 )}</span>`;
               }
 
+              // Slot 3 (bottom-left): Mutually exclusive active-rotation / freshness adorno
               const coverAdornoHtml = renderBookCoverUsageAdorno(book, usage, {
                 enabled: showCoverUsageAdornos,
                 showRotationHistory,
                 showStaleSpotlight,
                 readerName: activeProfile.name,
+                lang,
               });
 
               return `
@@ -973,16 +1004,15 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
                     ${statusBadgeHtml}
                     ${
                       book.loved
-                        ? `<span class="pointer-events-none absolute top-1.5 right-1.5 z-20 w-5 h-5 rounded-full bg-ivory/92 dark:bg-night-900/92 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-2xs" title="Loved favorite">${renderIcon(
-                            'heartFilled',
-                            'w-3 h-3'
-                          )}</span>`
+                        ? `<span data-cover-slot="${COVER_BADGE_SLOTS.affection.slot}" class="${COVER_BADGE_SLOTS.affection.positionClass} w-5 h-5 rounded-full bg-ivory/92 dark:bg-night-900/92 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-2xs" title="${escapeHtml(
+                            t(lang, 'badges.loved')
+                          )}">${renderIcon('heartFilled', 'w-3 h-3')}</span>`
                         : ''
                     }
                     ${coverAdornoHtml}
                     ${
                       ownerBadgesHtml
-                        ? `<div class="pointer-events-none absolute bottom-1.5 right-1.5 z-20">${ownerBadgesHtml}</div>`
+                        ? `<div data-cover-slot="${COVER_BADGE_SLOTS.owners.slot}" class="${COVER_BADGE_SLOTS.owners.positionClass}">${ownerBadgesHtml}</div>`
                         : ''
                     }
                   </div>
@@ -1073,7 +1103,7 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
             }
           </p>
           <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
-            Family Library
+            ${escapeHtml(lang === 'en' ? 'Family Library' : t(lang, 'library.title'))}
             <span class="text-sm font-sans font-medium text-stone-ink dark:text-slate-400 font-mono-tabular ml-1">
               ${filteredBooks.length}/${state.books.length}
             </span>
@@ -1087,13 +1117,13 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
           class="min-h-[44px] min-w-[44px] px-3 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0"
         >
           ${renderIcon('plus', 'w-5 h-5')}
-          <span class="hidden sm:inline">Add Book</span>
+          <span class="hidden sm:inline">${escapeHtml(lang === 'en' ? 'Add Book' : t(lang, 'nav.addBook'))}</span>
         </a>
       </div>
 
       <!-- Compact Search + Filter Sidebar Trigger, Unified Reader Scope & Icon Quick Filters -->
       <div class="space-y-2">
-        <div class="relative">
+        <div class="relative min-w-0">
           <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-ink dark:text-slate-400">
             ${renderIcon('search', 'w-4 h-4')}
           </span>
@@ -1103,8 +1133,14 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
             value="${escapeHtml(uiState.searchQuery)}"
             placeholder="Search title, author, ISBN, owner, or topic…"
             aria-label="Filter family catalog"
-            class="w-full h-12 pl-9 pr-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 focus:outline-2 focus:outline-forest-700"
+            class="w-full h-12 pl-9 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 focus:outline-2 focus:outline-forest-700"
           />
+          ${renderInputClearButton({
+            targetId: 'catalog-search-input',
+            value: uiState.searchQuery,
+            label: 'Clear library search',
+            lang,
+          })}
         </div>
 
         <!-- Single-Row Filter Sidebar Trigger + Reader Scope + Icon Quick Filters -->
@@ -1120,7 +1156,7 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
             }"
           >
             ${renderIcon('filter', 'w-3.5 h-3.5')}
-            <span>Filters</span>
+            <span>${escapeHtml(t(lang, 'library.filtersBtn'))}</span>
             ${
               activeFilterCount > 0
                 ? `<span class="px-1.5 py-0.2 rounded-md bg-white/20 dark:bg-night-900/20 font-mono-tabular text-[11px]">${activeFilterCount}</span>`

@@ -9,12 +9,18 @@
  */
 
 import {
+  SUPPORTED_LANGUAGES,
+  normalizeLanguage,
+  t,
+} from '../../config/index.js';
+import {
   escapeHtml,
   formatProfileAgeLabel,
   formatReadingStage,
 } from '../../types/models.js';
 import { estimateAppStorageUsage, formatStorageBytes } from '../../core/storage.js';
 import { APP_DOCS_LINKS, APP_VERSION } from '../../version.js';
+import { renderInputClearButton } from '../../ui/components/clearable-input.js';
 import {
   renderFieldInfoButton,
   renderFieldInfoPanel,
@@ -364,14 +370,21 @@ export function renderSettingsView({
               <label for="ai-endpoint-url-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
                 Keyless HTTPS Proxy or Localhost Bridge URL
               </label>
-              <input
-                id="ai-endpoint-url-input"
-                name="aiEndpointUrl"
-                type="url"
-                value="${escapeHtml(settings.aiEndpointUrl)}"
-                placeholder="https://your-proxy.example.com/api/enrich or http://localhost:11434/enrich"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="ai-endpoint-url-input"
+                  name="aiEndpointUrl"
+                  type="url"
+                  value="${escapeHtml(settings.aiEndpointUrl)}"
+                  placeholder="https://your-proxy.example.com/api/enrich or http://localhost:11434/enrich"
+                  class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'ai-endpoint-url-input',
+                  value: settings.aiEndpointUrl,
+                  label: 'Clear AI proxy URL',
+                })}
+              </div>
             </div>
             <div class="sm:col-span-4">
               <label for="ai-timeout-select" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
@@ -414,14 +427,34 @@ export function renderSettingsView({
       `
       : '';
 
+  const lang = normalizeLanguage(settings.language);
+  const languageButtonsHtml = SUPPORTED_LANGUAGES.map((opt) => {
+    const isSelected = opt.code === lang;
+    return `
+      <button
+        type="button"
+        data-action="set-language"
+        data-language="${escapeHtml(opt.code)}"
+        aria-pressed="${isSelected ? 'true' : 'false'}"
+        class="flex-1 min-h-[40px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap ${
+          isSelected
+            ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+            : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+        }"
+      >
+        ${escapeHtml(opt.nativeLabel)}
+      </button>
+    `;
+  }).join('');
+
   return `
     <div class="w-full space-y-5">
       <div>
         <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-          Account &amp; Preferences
+          ${escapeHtml(lang === 'en' ? 'Account & Preferences' : t(lang, 'settings.eyebrow'))}
         </p>
         <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
-          Settings &amp; Profiles
+          ${escapeHtml(lang === 'en' ? 'Settings & Profiles' : t(lang, 'settings.heading'))}
         </h1>
       </div>
 
@@ -430,7 +463,7 @@ export function renderSettingsView({
         <div class="flex items-center justify-between gap-3 pb-2.5 border-b border-linen-200/80 dark:border-night-800">
           <div>
             <h2 id="settings-profiles-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-              Reader Profiles
+              ${escapeHtml(t(lang, 'profiles.heading'))}
             </h2>
             <p class="text-xs text-stone-ink dark:text-slate-400">
               Ages update automatically from each child’s birth date
@@ -463,13 +496,30 @@ export function renderSettingsView({
       <!-- Appearance -->
       <section aria-labelledby="appearance-heading" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5">
         <h2 id="appearance-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-          Appearance
+          ${escapeHtml(t(lang, 'settings.appearanceHeading'))}
         </h2>
         <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
           Warm linen light mode, deep night mode, or automatic system preference.
         </p>
         <div class="mt-3 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
           ${themeButtonsHtml}
+        </div>
+
+        <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800">
+          <p class="text-sm font-semibold text-forest-900 dark:text-white">
+            ${escapeHtml(t(lang, 'settings.languageLabel'))}
+          </p>
+          <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+            ${escapeHtml(t(lang, 'settings.languageHint'))}
+          </p>
+          <div
+            role="group"
+            aria-label="${escapeHtml(t(lang, 'settings.languageLabel'))}"
+            data-settings-language-picker="true"
+            class="mt-2.5 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm"
+          >
+            ${languageButtonsHtml}
+          </div>
         </div>
 
         <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800">
@@ -990,14 +1040,22 @@ export function renderSettingsView({
                     >
                       Personal Phone PWA Books Proxy URL (Optional · Saved on This Device Only)
                     </label>
-                    <input
-                      id="device-books-proxy-url-input"
-                      name="deviceBooksProxyUrl"
-                      type="url"
-                      value="${escapeHtml(settingsUiState.deviceBooksProxyUrl || '')}"
-                      placeholder="https://books-proxy.yourname.workers.dev"
-                      class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                    />
+                    <div class="relative min-w-0">
+                      <input
+                        id="device-books-proxy-url-input"
+                        name="deviceBooksProxyUrl"
+                        type="url"
+                        value="${escapeHtml(settingsUiState.deviceBooksProxyUrl || '')}"
+                        placeholder="https://books-proxy.yourname.workers.dev"
+                        class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                      />
+                      ${renderInputClearButton({
+                        targetId: 'device-books-proxy-url-input',
+                        value: settingsUiState.deviceBooksProxyUrl || '',
+                        label: 'Clear device proxy URL',
+                        lang,
+                      })}
+                    </div>
                   </div>
                   <div class="flex items-center gap-2 shrink-0">
                     <button

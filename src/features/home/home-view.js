@@ -8,6 +8,11 @@
  */
 
 import {
+  COVER_BADGE_SLOTS,
+  normalizeLanguage,
+  t,
+} from '../../config/index.js';
+import {
   escapeHtml,
   isBookRotatable,
   normalizeCollectionStatus,
@@ -60,6 +65,7 @@ export function renderHomeView({
 }) {
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+  const lang = normalizeLanguage(state.settings?.language);
   const coverAspectRatio = state.settings.coverAspectRatio;
   const dynamicTint = state.settings.dynamicCoverTint !== false;
 
@@ -137,7 +143,7 @@ export function renderHomeView({
         <div class="flex items-end justify-between gap-3 border-b border-linen-200/90 dark:border-night-800 pb-2.5">
           <div class="min-w-0">
             <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-              Books in Rotation
+              ${escapeHtml(t(lang, 'home.booksInRotation'))}
             </p>
             <h1 id="active-shelf-heading" class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight truncate mt-0.5">
               ${escapeHtml(activeRotation.title)}
@@ -157,11 +163,11 @@ export function renderHomeView({
 
           <div class="text-right shrink-0">
             <p class="text-xs font-semibold text-forest-900 dark:text-slate-200 font-mono-tabular whitespace-nowrap">
-              ${completedCount} of ${rotationBooks.length} read
+              ${escapeHtml(t(lang, 'home.readSummary', { completed: completedCount, total: rotationBooks.length }))}
             </p>
             <p class="text-[11px] text-stone-ink dark:text-slate-400 font-mono-tabular whitespace-nowrap">
               ${rotationBooks.length} ${rotationBooks.length === 1 ? 'Book' : 'Books'} ·
-              <a href="#/rotations?edit=${encodeURIComponent(activeRotation.id)}" class="font-sans font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline">Edit</a>
+              <a href="#/rotations?edit=${encodeURIComponent(activeRotation.id)}" class="font-sans font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline">${escapeHtml(t(lang, 'common.edit'))}</a>
             </p>
           </div>
         </div>
@@ -189,19 +195,22 @@ export function renderHomeView({
 
                     ${
                       book.loved
-                        ? `<span class="pointer-events-none absolute top-1.5 right-1.5 z-20 w-5 h-5 rounded-full bg-ivory/92 dark:bg-night-900/92 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-2xs" title="Loved favorite">${renderIcon('heartFilled', 'w-3 h-3')}</span>`
+                        ? `<span data-cover-slot="${COVER_BADGE_SLOTS.affection.slot}" class="pointer-events-none ${COVER_BADGE_SLOTS.affection.positionClass} w-5 h-5 rounded-full bg-ivory/92 dark:bg-night-900/92 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-2xs" title="${escapeHtml(
+                            t(lang, 'badges.loved')
+                          )}">${renderIcon('heartFilled', 'w-3 h-3')}</span>`
                         : ''
                     }
 
                     ${
                       ownerBadgesHtml
-                        ? `<div class="pointer-events-none absolute bottom-1.5 right-1.5 z-20">${ownerBadgesHtml}</div>`
+                        ? `<div data-cover-slot="${COVER_BADGE_SLOTS.owners.slot}" class="pointer-events-none ${COVER_BADGE_SLOTS.owners.positionClass}">${ownerBadgesHtml}</div>`
                         : ''
                     }
 
                     <!-- 44x44px Thumb Hitbox around Bottom-Left Read Check Badge -->
                     <button
                       type="button"
+                      data-cover-slot="${COVER_BADGE_SLOTS.rotationState.slot}"
                       data-action="toggle-rotation-read"
                       data-rotation-id="${escapeHtml(activeRotation.id)}"
                       data-book-id="${escapeHtml(book.id)}"
@@ -248,13 +257,13 @@ export function renderHomeView({
     : `
       <section class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-5 text-center">
         <p class="text-xs font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-          Books in Rotation
+          ${escapeHtml(t(lang, 'home.booksInRotation'))}
         </p>
         <h1 class="font-display text-xl font-bold text-forest-900 dark:text-white mt-1">
-          No Active Shelf for ${escapeHtml(activeProfile.name)}
+          ${escapeHtml(t(lang, 'home.noActiveShelfTitle', { name: activeProfile.name }))}
         </h1>
         <p class="mt-1.5 text-xs sm:text-sm text-stone-ink dark:text-slate-400 max-w-sm mx-auto">
-          Generate a fresh book rotation matched to ${escapeHtml(activeProfile.name)}’s age and favorite themes.
+          ${escapeHtml(t(lang, 'home.noActiveShelfSubtitle', { name: activeProfile.name }))}
         </p>
         <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
           <a
@@ -262,14 +271,14 @@ export function renderHomeView({
             class="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors"
           >
             ${renderIcon('plus', 'w-4 h-4')}
-            Create Shelf
+            ${escapeHtml(t(lang, 'home.createShelf'))}
           </a>
           <a
             href="#/presets"
             class="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-colors"
           >
             ${renderIcon('sparkles', 'w-4 h-4 text-forest-700 dark:text-[#5ED3DA]')}
-            Presets
+            ${escapeHtml(t(lang, 'nav.presets'))}
           </a>
         </div>
       </section>
@@ -281,14 +290,14 @@ export function renderHomeView({
         <section aria-labelledby="saved-rotations-heading" class="pt-3 border-t border-linen-200/90 dark:border-night-800 space-y-2">
           <div class="flex items-center justify-between gap-2">
             <h2 id="saved-rotations-heading" class="font-sans text-xs font-bold tracking-wide text-espresso-800 dark:text-slate-300">
-              Saved Rotations
+              ${escapeHtml(t(lang, 'home.savedRotations'))}
             </h2>
             <div class="flex items-center gap-3">
               <a href="#/presets" class="text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white hover:underline">
-                Presets
+                ${escapeHtml(t(lang, 'nav.presets'))}
               </a>
               <a href="#/rotations" class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline">
-                All shelves
+                ${escapeHtml(t(lang, 'home.allShelves'))}
               </a>
             </div>
           </div>

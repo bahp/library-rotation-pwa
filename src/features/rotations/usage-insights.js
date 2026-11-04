@@ -6,6 +6,11 @@
  */
 
 import { escapeHtml, isBookRotatable } from '../../types/models.js';
+import {
+  COVER_BADGE_SLOTS,
+  COVER_ROTATION_ADORNO_STYLES,
+  t,
+} from '../../config/index.js';
 import { renderIcon } from '../../ui/icons.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -402,9 +407,13 @@ export function computeBookUsageSummary(book, context = {}) {
 }
 
 /**
- * Renders a compact, accessible frosted cover adorno (`data-cover-adorno="..."`) at the bottom-left
- * of a rotatable book cover so active shelf, read status, cooldown days remaining, and fresh unrotated
- * books are legible at a glance on small phone screens without relying on bare colored dots or long text.
+ * Renders a compact, accessible frosted cover adorno (`data-cover-adorno="..."`) in the dedicated
+ * `bottom-left` rotation-state slot (`data-cover-slot="rotation-state"`) of a rotatable book cover.
+ *
+ * Enforces strict mutual exclusivity (max 1 badge) and explicit prefixes on day counts (`Shelf 16d`
+ * vs `Rest 19d`) so active-shelf days and box cooldown days are never confused on mobile screens.
+ * Off-shelf box age (`Off shelf 26d`) is kept in the caption underneath the cover rather than
+ * cluttering cover artwork.
  *
  * @param {import('../../types/models.js').Book} book
  * @param {ReturnType<typeof computeBookUsageSummary> | null | undefined} usage
@@ -412,7 +421,8 @@ export function computeBookUsageSummary(book, context = {}) {
  *   enabled?: boolean,
  *   showRotationHistory?: boolean,
  *   showStaleSpotlight?: boolean,
- *   readerName?: string
+ *   readerName?: string,
+ *   lang?: string
  * }} [options]
  * @returns {string}
  */
@@ -420,91 +430,67 @@ export function renderBookCoverUsageAdorno(book, usage, options = {}) {
   if (!book || !usage || !isBookRotatable(book)) return '';
   if (options.enabled === false) return '';
 
+  const lang = options.lang || 'en';
   const showHistory = options.showRotationHistory !== false;
   const showStale = options.showStaleSpotlight !== false;
   const readerLabel = options.readerName ? ` with ${options.readerName}` : '';
 
-  /** @type {{ kind: string, icon: string, text: string, title: string, toneClasses: string } | null} */
+  /** @type {{ kind: keyof typeof COVER_ROTATION_ADORNO_STYLES, prefix?: string, text: string, title: string } | null} */
   let spec = null;
 
   if (usage.isCurrentlyOnActiveShelf && usage.isReadInActiveShelf) {
     spec = {
       kind: 'shelf-read',
-      icon: 'check',
-      text: 'Read',
+      text: t(lang, 'badges.read'),
       title: `${usage.shortRecencyLabel}${readerLabel}`,
-      toneClasses:
-        'bg-forest-800/92 text-ivory border-ivory/75 dark:bg-[#5ED3DA]/95 dark:text-night-950 dark:border-night-950/75',
     };
   } else if (usage.isCurrentlyOnActiveShelf && usage.isStaleUnreadOnShelf && showStale) {
     spec = {
       kind: 'stale-unread',
-      icon: 'clock',
+      prefix: t(lang, 'badges.shelfPrefix'),
       text: `${usage.daysOnActiveShelf}d`,
       title: `Sitting unread ${usage.daysOnActiveShelf}d on active shelf`,
-      toneClasses:
-        'bg-amber-800/92 text-amber-50 border-ivory/75 dark:bg-amber-400/95 dark:text-night-950 dark:border-night-950/75',
     };
   } else if (usage.isCurrentlyOnActiveShelf) {
     spec = {
       kind: 'on-shelf',
-      icon: 'library',
-      text: 'Shelf',
+      text: t(lang, 'badges.shelf'),
       title: usage.shortRecencyLabel,
-      toneClasses:
-        'bg-ivory/92 text-forest-900 border-forest-700/35 dark:bg-night-900/92 dark:text-[#5ED3DA] dark:border-[#5ED3DA]/45',
     };
   } else if (showHistory && usage.inCooldown) {
     spec = {
       kind: 'cooldown',
-      icon: 'clock',
+      prefix: t(lang, 'badges.restPrefix'),
       text: `${usage.cooldownDaysRemaining}d`,
       title: usage.shortRecencyLabel,
-      toneClasses:
-        'bg-ivory/92 text-amber-900 border-amber-700/35 dark:bg-night-900/92 dark:text-amber-300 dark:border-amber-400/40',
     };
   } else if (showHistory && usage.neverRotated) {
     spec = {
       kind: 'never-rotated',
-      icon: 'sparkles',
-      text: 'New',
+      text: t(lang, 'badges.newBadge'),
       title: 'Never rotated onto a shelf yet',
-      toneClasses:
-        'bg-ivory/92 text-espresso-900 border-linen-300 dark:bg-night-900/92 dark:text-amber-200 dark:border-night-700',
-    };
-  } else if (showHistory && usage.isLongUnseen) {
-    const unseenCode =
-      usage.rotationsSinceLastOut !== null && usage.rotationsSinceLastOut >= 2
-        ? `${usage.rotationsSinceLastOut}×`
-        : usage.daysSinceLastRotated !== null
-          ? `${usage.daysSinceLastRotated}d`
-          : 'Box';
-    spec = {
-      kind: 'long-unseen',
-      icon: 'refresh',
-      text: unseenCode,
-      title: usage.shortRecencyLabel,
-      toneClasses:
-        'bg-ivory/90 text-stone-ink border-linen-300 dark:bg-night-900/90 dark:text-slate-200 dark:border-night-700',
     };
   } else if (usage.isReadByActiveProfile) {
     spec = {
       kind: 'read-history',
-      icon: 'check',
-      text: 'Read',
+      text: t(lang, 'badges.read'),
       title: `Read${readerLabel}`,
-      toneClasses:
-        'bg-ivory/90 text-forest-800 border-linen-300 dark:bg-night-900/90 dark:text-slate-200 dark:border-night-700',
     };
   }
 
   if (!spec) return '';
 
+  const styleMeta = COVER_ROTATION_ADORNO_STYLES[spec.kind];
+  const labelHtml = spec.prefix
+    ? `<span class="opacity-85 font-sans font-semibold">${escapeHtml(spec.prefix)}</span><span>${escapeHtml(spec.text)}</span>`
+    : `<span>${escapeHtml(spec.text)}</span>`;
+
   return `<span
+    data-cover-slot="${COVER_BADGE_SLOTS.rotationState.slot}"
     data-cover-adorno="${escapeHtml(spec.kind)}"
     title="${escapeHtml(spec.title)}"
-    class="pointer-events-none absolute bottom-1.5 left-1.5 z-20 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[9px] font-bold font-mono-tabular leading-none tracking-tight shadow-2xs ${spec.toneClasses}"
-  >${renderIcon(spec.icon, 'w-2.5 h-2.5 shrink-0', 2.3)}<span>${escapeHtml(spec.text)}</span></span>`;
+    class="${COVER_BADGE_SLOTS.rotationState.positionClass} inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md border text-[9px] font-bold font-mono-tabular leading-none tracking-tight shadow-2xs ${styleMeta.pillClass}"
+  >${renderIcon(styleMeta.icon, 'w-2.5 h-2.5 shrink-0', 2.3)}${labelHtml}</span>`;
 }
 
 /**

@@ -7,6 +7,7 @@
  * - Compact `+` button (`open-generate-rotation-sheet`) opens the Rotation Engine form as a slide-up bottom sheet
  */
 
+import { normalizeLanguage, t } from '../../config/index.js';
 import {
   escapeHtml,
   formatBookBinding,
@@ -16,6 +17,7 @@ import {
 } from '../../types/models.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
+import { renderInputClearButton } from '../../ui/components/clearable-input.js';
 import {
   renderFieldInfoButton,
   renderFieldInfoPanel,
@@ -71,11 +73,12 @@ export function computeDescriptionRows(rawText) {
  * Renders the slide-up Generate Shelf bottom sheet (`max-h-[85vh]`) when `+` is clicked.
  * @param {{
  *   activeProfile: import('../../types/models.js').ChildProfile,
- *   isOpen: boolean
+ *   isOpen: boolean,
+ *   lang?: string
  * }} params
  * @returns {string}
  */
-function renderGenerateRotationSheet({ activeProfile, isOpen }) {
+function renderGenerateRotationSheet({ activeProfile, isOpen, lang = 'en' }) {
   if (!isOpen) return '';
   const ageLabel = formatProfileAgeLabel(activeProfile);
 
@@ -112,30 +115,43 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
         </div>
 
         <form id="generate-rotation-form" class="flex-1 overflow-y-auto p-5 space-y-3.5">
-          <div class="rounded-xl bg-linen-100/80 dark:bg-night-800/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
-            <span class="text-stone-ink dark:text-slate-300">
-              Seasonal holiday, milestone, or anytime seed?
-            </span>
-            <a
-              href="#/presets"
-              data-action="browse-presets-from-sheet"
-              class="font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline whitespace-nowrap shrink-0"
-            >
-              Browse Presets →
-            </a>
+          <div
+            data-preset-sheet-callout="true"
+            class="rounded-xl bg-linen-100/80 dark:bg-night-800/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 flex flex-col gap-1 text-xs"
+          >
+            <p class="w-full text-stone-ink dark:text-slate-300 leading-snug">
+              ${escapeHtml(t(lang, 'rotations.presetPromptQuestion'))}
+            </p>
+            <div class="flex justify-end">
+              <a
+                href="#/presets"
+                data-action="browse-presets-from-sheet"
+                class="inline-flex items-center gap-1 font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline whitespace-nowrap"
+              >
+                <span>${escapeHtml(t(lang, 'rotations.browsePresetsCta'))} →</span>
+              </a>
+            </div>
           </div>
 
           <div>
             <label for="rot-title" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Shelf Title
             </label>
-            <input
-              id="rot-title"
-              name="title"
-              type="text"
-              placeholder="${escapeHtml(activeProfile.name)}’s Winter Reads"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="rot-title"
+                name="title"
+                type="text"
+                placeholder="${escapeHtml(activeProfile.name)}’s Winter Reads"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'rot-title',
+                value: '',
+                label: 'Clear shelf title',
+                lang,
+              })}
+            </div>
           </div>
 
           <div>
@@ -145,13 +161,21 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
               </label>
               ${renderFieldInfoButton({ helpKey: 'objective', scope: 'gen-rot' })}
             </div>
-            <input
-              id="rot-objective"
-              name="objective"
-              type="text"
-              placeholder="e.g., hardcover + winter & nature themes"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="rot-objective"
+                name="objective"
+                type="text"
+                placeholder="e.g., hardcover + winter & nature themes"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'rot-objective',
+                value: '',
+                label: 'Clear rotation objective',
+                lang,
+              })}
+            </div>
             ${renderFieldInfoPanel({ helpKey: 'objective', scope: 'gen-rot' })}
           </div>
 
@@ -159,14 +183,22 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
             <label for="rot-tags" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Topic Preferences (comma-separated)
             </label>
-            <input
-              id="rot-tags"
-              name="preferredTags"
-              type="text"
-              value="${escapeHtml(activeProfile.favoriteTopics.join(', '))}"
-              placeholder="animals, nature, bedtime"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="rot-tags"
+                name="preferredTags"
+                type="text"
+                value="${escapeHtml(activeProfile.favoriteTopics.join(', '))}"
+                placeholder="animals, nature, bedtime"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'rot-tags',
+                value: activeProfile.favoriteTopics.join(', '),
+                label: 'Clear topic preferences',
+                lang,
+              })}
+            </div>
           </div>
 
           <div class="space-y-1">
@@ -183,7 +215,7 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                   name="count"
                   type="number"
                   min="1"
-                  max="15"
+                  step="1"
                   value="${activeProfile.defaultRotationSize}"
                   class="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
                 />
@@ -255,13 +287,21 @@ function renderGenerateRotationSheet({ activeProfile, isOpen }) {
                   </label>
                   ${renderFieldInfoButton({ helpKey: 'seed', scope: 'gen-rot' })}
                 </div>
-                <input
-                  id="rot-seed"
-                  name="seed"
-                  type="text"
-                  placeholder="e.g., dec-holiday-01"
-                  class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                />
+                <div class="relative min-w-0">
+                  <input
+                    id="rot-seed"
+                    name="seed"
+                    type="text"
+                    placeholder="e.g., dec-holiday-01"
+                    class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  />
+                  ${renderInputClearButton({
+                    targetId: 'rot-seed',
+                    value: '',
+                    label: 'Clear seed',
+                    lang,
+                  })}
+                </div>
               </div>
             </div>
             ${renderFieldInfoPanel({ helpKey: 'seed', scope: 'gen-rot' })}
@@ -513,7 +553,7 @@ function renderRotationPickerModal({ state, editorState, referenceDate = new Dat
         </div>
 
         <div class="px-5 pt-3 pb-3 border-b border-linen-200 dark:border-night-700 space-y-2.5">
-          <div class="relative">
+          <div class="relative min-w-0">
             <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-ink dark:text-slate-400 pointer-events-none">
               ${renderIcon('search', 'w-4 h-4')}
             </span>
@@ -523,8 +563,13 @@ function renderRotationPickerModal({ state, editorState, referenceDate = new Dat
               aria-label="Filter available off-shelf books"
               value="${escapeHtml(editorState.searchQuery)}"
               placeholder="Filter available books by title, author, or topic…"
-              class="w-full h-12 pl-10 pr-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              class="w-full h-12 pl-10 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
             />
+            ${renderInputClearButton({
+              targetId: 'rotation-modal-search-input',
+              value: editorState.searchQuery,
+              label: 'Clear book filter',
+            })}
           </div>
 
           ${
@@ -901,6 +946,7 @@ function renderRotationSection({
                   isRead
                     ? `
                       <span
+                        data-cover-slot="rotation-state"
                         class="pointer-events-none absolute bottom-1.5 left-1.5 z-20 w-5 h-5 rounded-full bg-forest-900 border border-ivory text-white dark:bg-[#5ED3DA] dark:border-night-950 dark:text-night-950 flex items-center justify-center shadow-xs"
                         aria-hidden="true"
                       >
@@ -1008,16 +1054,24 @@ function renderRotationSection({
                 data-compact-edit="true"
                 class="space-y-2 w-full pt-1"
               >
-                <input
-                  id="edit-rot-title-${escapeHtml(rot.id)}"
-                  name="title"
-                  type="text"
-                  required
-                  aria-label="Rotation name"
-                  value="${escapeHtml(rot.title)}"
-                  placeholder="Rotation name"
-                  class="w-full h-9 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 font-display text-lg font-bold text-forest-900 dark:text-white leading-snug focus:outline-2 focus:outline-forest-700"
-                />
+                <div class="relative min-w-0">
+                  <input
+                    id="edit-rot-title-${escapeHtml(rot.id)}"
+                    name="title"
+                    type="text"
+                    required
+                    aria-label="Rotation name"
+                    value="${escapeHtml(rot.title)}"
+                    placeholder="Rotation name"
+                    class="w-full h-9 pl-2.5 pr-8 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 font-display text-lg font-bold text-forest-900 dark:text-white leading-snug focus:outline-2 focus:outline-forest-700"
+                  />
+                  ${renderInputClearButton({
+                    targetId: `edit-rot-title-${rot.id}`,
+                    value: rot.title,
+                    label: 'Clear rotation name',
+                    compact: true,
+                  })}
+                </div>
 
                 <textarea
                   id="edit-rot-desc-${escapeHtml(rot.id)}"
@@ -1079,7 +1133,7 @@ function renderRotationSection({
                         name="count"
                         type="number"
                         min="1"
-                        max="15"
+                        step="1"
                         value="${escapeHtml(currentTargetCount)}"
                         class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
                       />
@@ -1116,14 +1170,22 @@ function renderRotationSection({
                           Topics (comma-separated)
                         </label>
                       </div>
-                      <input
-                        id="edit-rot-tags-${escapeHtml(rot.id)}"
-                        name="preferredTags"
-                        type="text"
-                        value="${escapeHtml(currentTags)}"
-                        placeholder="bedtime, animals, winter"
-                        class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
-                      />
+                      <div class="relative min-w-0">
+                        <input
+                          id="edit-rot-tags-${escapeHtml(rot.id)}"
+                          name="preferredTags"
+                          type="text"
+                          value="${escapeHtml(currentTags)}"
+                          placeholder="bedtime, animals, winter"
+                          class="w-full h-8 pl-2.5 pr-8 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                        />
+                        ${renderInputClearButton({
+                          targetId: `edit-rot-tags-${rot.id}`,
+                          value: currentTags,
+                          label: 'Clear topics',
+                          compact: true,
+                        })}
+                      </div>
                     </div>
 
                     <div>
@@ -1133,14 +1195,22 @@ function renderRotationSection({
                         </label>
                         ${renderFieldInfoButton({ helpKey: 'seed', scope: editHelpScope })}
                       </div>
-                      <input
-                        id="edit-rot-seed-${escapeHtml(rot.id)}"
-                        name="seed"
-                        type="text"
-                        value="${escapeHtml(currentSeed)}"
-                        placeholder="Auto"
-                        class="w-full h-8 px-2.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
-                      />
+                      <div class="relative min-w-0">
+                        <input
+                          id="edit-rot-seed-${escapeHtml(rot.id)}"
+                          name="seed"
+                          type="text"
+                          value="${escapeHtml(currentSeed)}"
+                          placeholder="Auto"
+                          class="w-full h-8 pl-2.5 pr-8 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 focus:outline-2 focus:outline-forest-700"
+                        />
+                        ${renderInputClearButton({
+                          targetId: `edit-rot-seed-${rot.id}`,
+                          value: currentSeed,
+                          label: 'Clear seed',
+                          compact: true,
+                        })}
+                      </div>
                     </div>
                   </div>
                   ${renderFieldInfoPanel({ helpKey: 'seed', scope: editHelpScope })}
@@ -1298,6 +1368,7 @@ export function renderRotationsView({
     ? rotatableCatalogCount > swapTargetRot.bookIds.length
     : false;
 
+  const lang = normalizeLanguage(state.settings?.language);
   return `
     <div class="space-y-3">
       <div class="flex items-center justify-between gap-3 pb-2 border-b border-linen-200/90 dark:border-night-800">
@@ -1306,7 +1377,7 @@ export function renderRotationsView({
             ${escapeHtml(activeProfile.name)} · ${escapeHtml(ageLabel)}
           </p>
           <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
-            Book Rotations
+            ${escapeHtml(lang === 'en' ? 'Book Rotations' : t(lang, 'nav.rotations'))}
           </h1>
         </div>
 
@@ -1317,7 +1388,7 @@ export function renderRotationsView({
             class="min-h-[44px] px-3 py-2 rounded-2xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
           >
             ${renderIcon('sparkles', 'w-4 h-4 text-forest-700 dark:text-[#5ED3DA]')}
-            <span>Presets</span>
+            <span>${escapeHtml(t(lang, 'nav.presets'))}</span>
           </a>
 
           <button
@@ -1328,7 +1399,7 @@ export function renderRotationsView({
             class="min-h-[44px] min-w-[44px] px-3 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0"
           >
             ${renderIcon('plus', 'w-5 h-5')}
-            <span class="hidden sm:inline">New Shelf</span>
+            <span class="hidden sm:inline">${escapeHtml(t(lang, 'rotations.newShelf'))}</span>
           </button>
         </div>
       </div>
@@ -1341,6 +1412,7 @@ export function renderRotationsView({
       ${renderGenerateRotationSheet({
         activeProfile,
         isOpen: Boolean(editorState.isGeneratorOpen),
+        lang,
       })}
       ${renderRotationPickerModal({ state, editorState, referenceDate })}
       ${renderBookInspectorModal({

@@ -8,6 +8,7 @@
  *   2) Book Hunt ("Find It!" Bookshelf Treasure Search)
  */
 
+import { normalizeLanguage, t } from '../../config/index.js';
 import {
   escapeHtml,
   formatBookBinding,
@@ -16,6 +17,7 @@ import {
 import { getPlayAppsConfig } from '../../data/play-apps-config.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
 import { renderBookInspectorModal } from '../../ui/components/book-inspector-modal.js';
+import { renderInputClearButton } from '../../ui/components/clearable-input.js';
 import { renderIcon } from '../../ui/icons.js';
 import {
   buildBookHuntClue,
@@ -27,7 +29,7 @@ import {
  * @typedef {Object} PlayUiState
  * @property {'storytime-picker' | 'book-hunt' | null} [activeAppId] - Currently open mini-app bottom sheet (`null` shows preview gallery only)
  * @property {boolean} [sheetClosedExplicitly] - True after user closes the Play sheet so background session state stays preserved without re-opening automatically
- * @property {number} randomizerCount - Number of books to pick (1..4, default 3)
+ * @property {number} randomizerCount - Number of books to pick (1+, default 3)
  * @property {'active-shelf' | 'owned-library'} randomizerScope - Source pool for Storytime Picker
  * @property {string} randomizerTopic - Optional topic/mood query (e.g. 'bedtime', 'trucks', 'winter')
  * @property {boolean} randomizerUnreadFirst - Prefer unread books first when picking
@@ -205,8 +207,9 @@ export function renderPlayView({
     limit: 6,
   });
 
-  const countOptions = [1, 2, 3, 4];
-  const selectedCount = Math.max(1, Math.min(6, playUiState.randomizerCount || 3));
+  const lang = normalizeLanguage(state.settings?.language);
+  const selectedCount = Math.max(1, Math.min(50, Math.trunc(Number(playUiState.randomizerCount) || 3)));
+  const maxStepperCount = Math.max(1, Math.min(50, Math.max(randomizerPool.pool.length || 0, 20)));
   const pickedBooks = (playUiState.pickedBookIds || [])
     .map((id) => bookMap.get(id))
     .filter(/** @returns {b is import('../../types/models.js').Book} */ (b) => Boolean(b));
@@ -320,26 +323,45 @@ export function renderPlayView({
     .join('');
 
   // --- Storytime Picker Interactive Body (rendered inside slide-up sheet when active) ---
-  const countSelectorHtml = countOptions
-    .map((n) => {
-      const isSelected = selectedCount === n;
-      return `
-        <button
-          type="button"
-          data-action="set-randomizer-count"
-          data-count="${n}"
-          aria-pressed="${isSelected ? 'true' : 'false'}"
-          class="min-h-[44px] flex-1 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold font-mono-tabular transition-colors ${
-            isSelected
-              ? 'bg-forest-900 text-ivory dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
-              : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
-          }"
-        >
-          ${n} ${n === 1 ? 'book' : 'books'}
-        </button>
-      `;
-    })
-    .join('');
+  const countStepperHtml = `
+    <div
+      data-randomizer-stepper="true"
+      role="group"
+      aria-label="Number of storytime books"
+      class="inline-flex items-center p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 shrink-0"
+    >
+      <button
+        type="button"
+        data-action="step-randomizer-count"
+        data-step="-1"
+        data-delta="-1"
+        aria-label="${escapeHtml(t(lang, 'play.decreaseBooks'))}"
+        ${selectedCount <= 1 ? 'disabled' : ''}
+        class="h-9 w-9 rounded-lg bg-ivory hover:bg-linen-50 disabled:opacity-40 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white font-bold text-base flex items-center justify-center transition-colors shadow-2xs"
+      >
+        −
+      </button>
+      <span
+        data-randomizer-count-display="true"
+        class="min-w-[68px] px-2 text-center text-xs sm:text-sm font-bold font-mono-tabular text-forest-900 dark:text-white whitespace-nowrap select-none"
+      >
+        ${selectedCount} ${escapeHtml(
+          selectedCount === 1 ? t(lang, 'common.booksSingular') : t(lang, 'common.booksPlural')
+        )}
+      </span>
+      <button
+        type="button"
+        data-action="step-randomizer-count"
+        data-step="1"
+        data-delta="1"
+        aria-label="${escapeHtml(t(lang, 'play.increaseBooks'))}"
+        ${selectedCount >= maxStepperCount ? 'disabled' : ''}
+        class="h-9 w-9 rounded-lg bg-ivory hover:bg-linen-50 disabled:opacity-40 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white font-bold text-base flex items-center justify-center transition-colors shadow-2xs"
+      >
+        +
+      </button>
+    </div>
+  `;
 
   const quickTopicButtonsHtml = [
     `
@@ -466,42 +488,35 @@ export function renderPlayView({
   const storytimePickerInteractiveHtml = `
     <div data-storytime-picker-card="true" class="space-y-4">
       <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5">
-            How many books?
-          </label>
-          <div class="flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
-            ${countSelectorHtml}
-          </div>
-        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          ${countStepperHtml}
 
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div class="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+          <div class="flex-1 min-w-[184px] flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
             <button
               type="button"
               data-action="set-randomizer-scope"
               data-scope="active-shelf"
               aria-pressed="${playUiState.randomizerScope === 'active-shelf' ? 'true' : 'false'}"
-              class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              class="flex-1 min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                 playUiState.randomizerScope === 'active-shelf'
                   ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
                   : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
               }"
             >
-              Active Shelf
+              ${escapeHtml(t(lang, 'play.activeShelfScope'))}
             </button>
             <button
               type="button"
               data-action="set-randomizer-scope"
               data-scope="owned-library"
               aria-pressed="${playUiState.randomizerScope === 'owned-library' ? 'true' : 'false'}"
-              class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              class="flex-1 min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                 playUiState.randomizerScope === 'owned-library'
                   ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
                   : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
               }"
             >
-              Home Library
+              ${escapeHtml(t(lang, 'play.homeLibraryScope'))}
             </button>
           </div>
 
@@ -510,13 +525,23 @@ export function renderPlayView({
             role="switch"
             aria-checked="${playUiState.randomizerUnreadFirst ? 'true' : 'false'}"
             data-action="toggle-randomizer-unread"
-            class="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors text-left sm:text-right ${
+            data-unread-toggle-button="true"
+            class="min-h-[42px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-2xs ${
               playUiState.randomizerUnreadFirst
-                ? 'text-forest-800 dark:text-[#5ED3DA]'
-                : 'text-stone-ink dark:text-slate-400'
+                ? 'bg-forest-900 hover:bg-forest-800 text-ivory border-forest-900 dark:bg-[#5ED3DA] dark:hover:bg-[#4bc2c9] dark:text-night-950 dark:border-[#5ED3DA]'
+                : 'bg-ivory hover:bg-linen-100 text-stone-ink border-linen-200 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 dark:border-night-700'
             }"
           >
-            Unread first: ${playUiState.randomizerUnreadFirst ? 'On' : 'Off'}
+            ${
+              playUiState.randomizerUnreadFirst
+                ? renderIcon('check', 'w-3.5 h-3.5 shrink-0', 2.4)
+                : '<span aria-hidden="true" class="w-3 h-3 rounded-full border border-current opacity-60 shrink-0"></span>'
+            }
+            <span>${escapeHtml(
+              playUiState.randomizerUnreadFirst
+                ? t(lang, 'play.unreadFirstOn')
+                : t(lang, 'play.unreadFirstOff')
+            )}</span>
           </button>
         </div>
 
@@ -524,7 +549,7 @@ export function renderPlayView({
           <label for="play-topic-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5">
             Topic or mood (optional)
           </label>
-          <div class="relative">
+          <div class="relative min-w-0">
             <input
               id="play-topic-input"
               type="search"
@@ -532,21 +557,12 @@ export function renderPlayView({
               placeholder="Any topic — or type bedtime, trucks, winter, animals…"
               class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-forest-700"
             />
-            ${
-              activeTopicTrimmed
-                ? `
-                  <button
-                    type="button"
-                    data-action="set-randomizer-topic"
-                    data-topic=""
-                    aria-label="Clear topic filter"
-                    class="absolute right-1.5 top-1/2 -translate-y-1/2 min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white"
-                  >
-                    ${renderIcon('close', 'w-4 h-4')}
-                  </button>
-                `
-                : ''
-            }
+            ${renderInputClearButton({
+              targetId: 'play-topic-input',
+              value: playUiState.randomizerTopic,
+              label: 'Clear topic filter',
+              lang,
+            })}
           </div>
           <div class="mt-2 flex flex-wrap items-center gap-1.5">
             ${quickTopicButtonsHtml}
@@ -858,7 +874,7 @@ export function renderPlayView({
             }
           </p>
           <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight">
-            Play &amp; Storytime Tools
+            ${escapeHtml(t(lang, 'play.heading'))}
           </h1>
           <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
             Tap an activity card below to slide up the interactive game.

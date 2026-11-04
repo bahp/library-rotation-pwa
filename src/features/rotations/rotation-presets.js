@@ -262,7 +262,7 @@ export function normalizeRotationPresetInput(input, flags = {}) {
         .filter(Boolean);
   const preferredTags = sanitizeTagList(rawTags, 10);
 
-  const count = Math.max(1, Math.min(15, Math.trunc(Number(input?.count) || 5)));
+  const count = Math.max(1, Math.trunc(Number(input?.count) || 5));
   const swapDays = Math.max(1, Math.min(90, Math.trunc(Number(input?.swapDays) || 14)));
   const cooldownNum = Number(input?.cooldownDays);
   const cooldownDays = Number.isFinite(cooldownNum)

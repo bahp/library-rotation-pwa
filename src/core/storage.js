@@ -10,6 +10,7 @@ import {
 } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 import { normalizeRotationPresetInput } from '../features/rotations/rotation-presets.js';
+import { NUMERIC_BOUNDS, normalizeLanguage } from '../config/index.js';
 
 const DB_NAME = 'library_rotation_db';
 const DB_VERSION = 1;
@@ -154,12 +155,16 @@ export function createSafeDefaultSettings(overrides = {}) {
     const rawStaleDays =
       overrides.staleBookDays !== undefined && overrides.staleBookDays !== null
         ? Number(overrides.staleBookDays)
-        : 10;
+        : NUMERIC_BOUNDS.staleBookDaysDefault;
     const clampedStaleDays = Number.isFinite(rawStaleDays)
-      ? Math.max(3, Math.min(60, Math.trunc(rawStaleDays)))
-      : 10;
+      ? Math.max(
+          NUMERIC_BOUNDS.staleBookDaysMin,
+          Math.min(NUMERIC_BOUNDS.staleBookDaysMax, Math.trunc(rawStaleDays))
+        )
+      : NUMERIC_BOUNDS.staleBookDaysDefault;
 
     return {
+      language: normalizeLanguage(overrides.language),
       theme: overrides.theme || 'system',
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,

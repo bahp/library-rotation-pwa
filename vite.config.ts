@@ -1,7 +1,20 @@
 import tailwindcss from '@tailwindcss/vite';
+import fs from 'fs';
 import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+function loadLocaleYamlBundle(): Record<string, string> {
+  const localesDir = path.resolve(import.meta.dirname, 'src/config/locales');
+  const bundle: Record<string, string> = {};
+  for (const code of ['en', 'es', 'it']) {
+    const filePath = path.join(localesDir, `${code}.yaml`);
+    if (fs.existsSync(filePath)) {
+      bundle[code] = fs.readFileSync(filePath, 'utf8');
+    }
+  }
+  return bundle;
+}
 
 /**
  * Vite 8 unconditionally injects `/@vite/client` (needed by dev CSS `updateStyle`) even when
@@ -39,9 +52,13 @@ export function createSuppressDisabledHmrWebSocketPlugin(enableHmr: boolean): Pl
 export default defineConfig(() => {
   const base = process.env.BASE_URL || '/';
   const enableHmr = process.env.ENABLE_HMR === 'true';
+  const localeYamlBundle = loadLocaleYamlBundle();
 
   return {
     base,
+    define: {
+      'globalThis.__BOOK_ROTATION_LOCALE_YAML__': JSON.stringify(localeYamlBundle),
+    },
     plugins: [
       createSuppressDisabledHmrWebSocketPlugin(enableHmr),
       tailwindcss(),

@@ -6,6 +6,7 @@
  * - Offline connectivity banner, polite toast notifications, and iOS install guide
  */
 
+import { normalizeLanguage, t } from '../../config/index.js';
 import { escapeHtml, formatProfileAgeLabel } from '../../types/models.js';
 import { renderIcon } from '../icons.js';
 import {
@@ -15,14 +16,30 @@ import {
 } from './profile-sheets.js';
 import { renderWelcomeBooksSetupModal } from './welcome-setup-modal.js';
 
-/** @type {Array<{ id: import('../../types/models.js').RouteId, label: string, mobileLabel: string, icon: string, emphasize?: boolean }>} */
-const NAV_ITEMS = [
-  { id: 'home', label: 'Home', mobileLabel: 'Home', icon: 'home' },
-  { id: 'library', label: 'Library', mobileLabel: 'Library', icon: 'library' },
-  { id: 'scan', label: 'Scan & Add', mobileLabel: 'Scan', icon: 'scan', emphasize: true },
-  { id: 'rotations', label: 'Rotations', mobileLabel: 'Rotations', icon: 'rotations' },
-  { id: 'play', label: 'Play', mobileLabel: 'Play', icon: 'dice' },
-];
+/**
+ * @param {string} lang
+ * @returns {Array<{ id: import('../../types/models.js').RouteId, label: string, mobileLabel: string, icon: string, emphasize?: boolean }>}
+ */
+function getNavItems(lang) {
+  return [
+    { id: 'home', label: t(lang, 'nav.shelf'), mobileLabel: t(lang, 'nav.shelf'), icon: 'home' },
+    { id: 'library', label: t(lang, 'nav.library'), mobileLabel: t(lang, 'nav.library'), icon: 'library' },
+    {
+      id: 'scan',
+      label: t(lang, 'nav.addBookDesktop'),
+      mobileLabel: t(lang, 'nav.addBook'),
+      icon: 'scan',
+      emphasize: true,
+    },
+    {
+      id: 'rotations',
+      label: t(lang, 'nav.rotations'),
+      mobileLabel: t(lang, 'nav.rotations'),
+      icon: 'rotations',
+    },
+    { id: 'play', label: t(lang, 'nav.play'), mobileLabel: t(lang, 'nav.play'), icon: 'dice' },
+  ];
+}
 
 /**
  * Renders the outer responsive shell around the active view HTML.
@@ -57,12 +74,14 @@ export function renderAppShell({
   },
   contentHtml,
 }) {
+  const lang = normalizeLanguage(state.settings?.language);
+  const navItems = getNavItems(lang);
   const activeProfile =
     state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
   const ageLabel = formatProfileAgeLabel(activeProfile);
   const isSettingsActive = activeRoute === 'settings' || activeRoute === 'profiles';
 
-  const desktopNavHtml = NAV_ITEMS.map((item) => {
+  const desktopNavHtml = navItems.map((item) => {
     const isActive =
       item.id === activeRoute || (item.id === 'rotations' && activeRoute === 'presets');
     const activeClasses = isActive
@@ -80,7 +99,7 @@ export function renderAppShell({
     `;
   }).join('');
 
-  const mobileTabsHtml = NAV_ITEMS.map((item) => {
+  const mobileTabsHtml = navItems.map((item) => {
     const isActive =
       item.id === activeRoute || (item.id === 'rotations' && activeRoute === 'presets');
     const activeTopBarHtml = isActive
@@ -156,7 +175,7 @@ export function renderAppShell({
   const offlineBannerHtml = !pwaStatus.isOnline
     ? `
       <div role="status" class="bg-amber-100 dark:bg-amber-950/80 border-b border-amber-300/70 dark:border-amber-800 px-4 py-1.5 text-xs font-medium text-amber-950 dark:text-amber-200 text-center">
-        Offline mode — browsing cached library and rotations on this device.
+        ${escapeHtml(t(lang, 'nav.offlineBanner'))}
       </div>
     `
     : '';
@@ -329,8 +348,8 @@ export function renderAppShell({
             <a
               href="#/settings"
               data-top-settings-link="true"
-              aria-label="Settings and preferences"
-              title="Settings"
+              aria-label="${escapeHtml(t(lang, 'nav.settings'))}"
+              title="${escapeHtml(t(lang, 'nav.settings'))}"
               ${isSettingsActive ? 'aria-current="page"' : ''}
               class="min-h-[40px] min-w-[40px] rounded-full border inline-flex items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
                 isSettingsActive

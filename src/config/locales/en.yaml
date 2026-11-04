@@ -1,0 +1,118 @@
+# English (en) UI Dictionary — Default Locale
+# Edit keys in en.yaml / es.yaml / it.yaml to customize interface labels.
+
+nav:
+  shelf: "Home"
+  library: "Library"
+  addBookDesktop: "Scan & Add"
+  addBook: "Scan"
+  rotations: "Rotations"
+  play: "Play"
+  settings: "Settings"
+  presets: "Presets"
+  offlineBanner: "Offline mode — browsing cached library and rotations on this device."
+
+common:
+  clearText: "Clear text"
+  edit: "Edit"
+  done: "Done"
+  cancel: "Cancel"
+  close: "Close"
+  save: "Save"
+  delete: "Delete"
+  enabled: "Enabled"
+  disabled: "Disabled"
+  booksSingular: "book"
+  booksPlural: "books"
+
+home:
+  booksInRotation: "Books in Rotation"
+  readSummary: "{completed} of {total} read"
+  noActiveShelfTitle: "No Active Shelf for {name}"
+  noActiveShelfSubtitle: "Generate a fresh book rotation matched to {name}’s age and favorite themes."
+  createShelf: "Create Shelf"
+  savedRotations: "Saved Rotations"
+  allShelves: "All shelves"
+  activate: "Activate"
+  suggestedNext: "Suggested Next for {name}"
+  offShelfPicks: "Off-shelf picks"
+  activeCollection: "Active Collection"
+  wishlistBtn: "Wishlist ({count})"
+
+library:
+  title: "Family Book Catalog"
+  searchPlaceholder: "Search title, author, topic, or ISBN…"
+  filtersBtn: "Filters"
+  filterAll: "All"
+  filterForReader: "For {name}"
+  filterUnseenLong: "Unseen Long"
+  filterNeverRotated: "Never Rotated"
+  filterLoved: "Loved"
+  filterWishlist: "Wishlist"
+  filterNeedsCare: "Needs Care"
+
+rotations:
+  eyebrow: "Shelf Planner"
+  heading: "{name}’s Rotations"
+  newShelf: "New Shelf"
+  generateSheetTitle: "New Shelf for {name}"
+  presetPromptQuestion: "Seasonal holiday, milestone, or anytime seed?"
+  browsePresetsCta: "Browse Presets"
+  generateBtn: "Generate Active Shelf"
+
+presets:
+  eyebrow: "Curated Shelf Templates"
+  heading: "Collection Presets"
+  searchPlaceholder: "Search holiday, milestone, theme, or tag…"
+  newPreset: "New Preset"
+
+play:
+  eyebrow: "Interactive Shelf Games"
+  heading: "Play & Storytime Tools"
+  activeShelfScope: "Active Shelf"
+  homeLibraryScope: "Home Library"
+  unreadFirstLabel: "Unread first"
+  unreadFirstOn: "Unread first: On"
+  unreadFirstOff: "Unread first: Off"
+  decreaseBooks: "Decrease number of books"
+  increaseBooks: "Increase number of books"
+  topicPlaceholder: "Optional topic: trucks, bedtime, animals, space…"
+  pickBtnSingular: "Pick 1 Storytime Book"
+  pickBtnPlural: "Pick {count} Storytime Books"
+  pickAgainBtn: "Pick Again ({count})"
+
+profiles:
+  eyebrow: "Household Readers"
+  heading: "Reader Profiles"
+  newReader: "New Reader"
+  dateOfBirth: "Date of Birth"
+  booksPerRotation: "Books per Rotation"
+
+settings:
+  eyebrow: "Preferences & Device"
+  heading: "Settings"
+  appearanceHeading: "Appearance"
+  languageLabel: "App Language"
+  languageHint: "Translates navigation, headings, buttons, and shelf status badges (book titles stay in their original publication language)."
+  themeLabel: "Color Theme"
+  coverDisplayLabel: "Book Cover Display"
+
+badges:
+  wishlist: "Wishlist"
+  loan: "Loan"
+  saved: "Saved"
+  torn: "Torn"
+  broken: "Broken"
+  retired: "Retired"
+  loved: "Loved favorite"
+  shelf: "Shelf"
+  read: "Read"
+  restPrefix: "Rest"
+  shelfPrefix: "Shelf"
+  newBadge: "New"
+  neverRotated: "Never rotated"
+  cooldownCompact: "Cooldown · {days}d left"
+  onShelfToday: "On shelf today"
+  onShelfDays: "On shelf {days}d"
+  offShelfToday: "Off shelf today"
+  offShelfDays: "Off shelf {days}d"

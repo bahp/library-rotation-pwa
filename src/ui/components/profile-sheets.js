@@ -11,17 +11,12 @@ import {
   inferReadingStageFromAge,
   resolveBookOwnerBadges,
 } from '../../types/models.js';
+import { AVATAR_TONES } from '../../config/index.js';
+import { renderInputClearButton } from './clearable-input.js';
 import { renderFieldInfoButton, renderFieldInfoPanel } from './field-help.js';
 import { renderIcon } from '../icons.js';
 
-/** @type {Record<string, string>} */
-export const AVATAR_TONES = {
-  teal: 'bg-[#1F6E75] text-white',
-  amber: 'bg-[#9A5B25] text-white',
-  indigo: 'bg-[#2C4257] text-white',
-  rose: 'bg-[#963E47] text-white',
-  emerald: 'bg-[#2E6B4E] text-white',
-};
+export { AVATAR_TONES };
 
 /**
  * Renders a child reader's avatar badge with initial.
@@ -296,30 +291,36 @@ export function renderProfileFormSheet({
         <form
           id="add-profile-form"
           ${editingProfile ? `data-editing-profile-id="${escapeHtml(editingProfile.id)}"` : ''}
-          class="flex-1 overflow-y-auto p-5 space-y-4"
+          class="flex-1 overflow-y-auto overflow-x-hidden p-5 space-y-4 min-w-0"
         >
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 min-w-0">
+            <div class="min-w-0">
               <label for="profile-name" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
                 Child’s Name *
               </label>
-              <input
-                id="profile-name"
-                name="name"
-                type="text"
-                required
-                value="${escapeHtml(editingProfile?.name || '')}"
-                placeholder="e.g., Clara"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="profile-name"
+                  name="name"
+                  type="text"
+                  required
+                  value="${escapeHtml(editingProfile?.name || '')}"
+                  placeholder="e.g., Clara"
+                  class="w-full min-w-0 h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'profile-name',
+                  value: editingProfile?.name || '',
+                })}
+              </div>
             </div>
 
-            <div>
-              <div class="flex items-baseline justify-between gap-2 mb-1">
-                <label for="profile-birth-date" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+            <div class="min-w-0 overflow-hidden">
+              <div class="flex items-baseline justify-between gap-2 mb-1 min-w-0">
+                <label for="profile-birth-date" class="text-xs font-semibold text-forest-900 dark:text-slate-200 truncate">
                   Date of Birth *
                 </label>
-                <span id="profile-computed-age-badge" class="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] font-mono-tabular">
+                <span id="profile-computed-age-badge" class="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] font-mono-tabular shrink-0">
                   ${escapeHtml(agePreviewLabel)}
                 </span>
               </div>
@@ -330,18 +331,18 @@ export function renderProfileFormSheet({
                 required
                 max="${todayIso}"
                 value="${escapeHtml(defaultDob)}"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="block w-full max-w-full min-w-0 appearance-none box-border h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
             </div>
 
-            <div>
+            <div class="min-w-0">
               <label for="profile-stage" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
                 Reading Stage
               </label>
               <select
                 id="profile-stage"
                 name="readingStage"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-w-0 h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="board-toddler" ${defaultStage === 'board-toddler' ? 'selected' : ''}>Board & Toddler</option>
                 <option value="picture-book" ${defaultStage === 'picture-book' ? 'selected' : ''}>Picture Book</option>
@@ -350,14 +351,14 @@ export function renderProfileFormSheet({
               </select>
             </div>
 
-            <div>
+            <div class="min-w-0">
               <label for="profile-tone" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
                 Avatar Color
               </label>
               <select
                 id="profile-tone"
                 name="avatarTone"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-w-0 h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               >
                 <option value="teal" ${defaultTone === 'teal' ? 'selected' : ''}>Forest Teal</option>
                 <option value="amber" ${defaultTone === 'amber' ? 'selected' : ''}>Warm Bronze</option>
@@ -366,7 +367,7 @@ export function renderProfileFormSheet({
               </select>
             </div>
 
-            <div>
+            <div class="min-w-0">
               <div class="flex items-center justify-between gap-1.5 mb-1">
                 <label for="profile-size" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
                   Books per Rotation
@@ -377,15 +378,15 @@ export function renderProfileFormSheet({
                 id="profile-size"
                 name="defaultRotationSize"
                 type="number"
-                min="2"
-                max="15"
+                min="1"
+                step="1"
                 value="${defaultSize}"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-w-0 h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
               ${renderFieldInfoPanel({ helpKey: 'defaultRotationSize', scope: 'profile' })}
             </div>
 
-            <div>
+            <div class="min-w-0">
               <div class="flex items-center justify-between gap-1.5 mb-1">
                 <label for="profile-cooldown" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
                   Cooldown (days)
@@ -399,23 +400,29 @@ export function renderProfileFormSheet({
                 min="0"
                 max="90"
                 value="${defaultCooldown}"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="w-full min-w-0 h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
               />
               ${renderFieldInfoPanel({ helpKey: 'cooldownDays', scope: 'profile' })}
             </div>
 
-            <div class="sm:col-span-2">
+            <div class="sm:col-span-2 min-w-0">
               <label for="profile-topics" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
                 Favorite Topics (comma-separated)
               </label>
-              <input
-                id="profile-topics"
-                name="favoriteTopics"
-                type="text"
-                value="${escapeHtml(defaultTopics)}"
-                placeholder="dinosaurs, music, bedtime, winter"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="profile-topics"
+                  name="favoriteTopics"
+                  type="text"
+                  value="${escapeHtml(defaultTopics)}"
+                  placeholder="dinosaurs, music, bedtime, winter"
+                  class="w-full min-w-0 h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'profile-topics',
+                  value: defaultTopics,
+                })}
+              </div>
             </div>
           </div>
 

@@ -22,6 +22,7 @@ import {
 } from '../../types/models.js';
 import { resolveBookCardTintHex } from '../catalog/cover-color-extractor.js';
 import { renderBookCover } from '../../ui/components/book-cover.js';
+import { renderInputClearButton } from '../../ui/components/clearable-input.js';
 import {
   describeProviderProvenance,
   renderProviderAttribution,
@@ -1446,27 +1447,41 @@ export function renderScanShellView({ state, uiState, scannerState }) {
             <label for="provider-title-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
               Title, Keywords, or ISBN
             </label>
-            <input
-              id="provider-title-input"
-              name="query"
-              type="search"
-              value="${escapeHtml(unifiedQueryValue)}"
-              placeholder="e.g., Gruffalo, bedtime, or 9780140501742"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="provider-title-input"
+                name="query"
+                type="search"
+                value="${escapeHtml(unifiedQueryValue)}"
+                placeholder="e.g., Gruffalo, bedtime, or 9780140501742"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'provider-title-input',
+                value: unifiedQueryValue,
+                label: 'Clear title or ISBN query',
+              })}
+            </div>
           </div>
           <div class="sm:col-span-4">
             <label for="provider-author-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
               Author (optional)
             </label>
-            <input
-              id="provider-author-input"
-              name="author"
-              type="search"
-              value="${escapeHtml(uiState.authorQuery)}"
-              placeholder="e.g., Julia Donaldson"
-              class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="provider-author-input"
+                name="author"
+                type="search"
+                value="${escapeHtml(uiState.authorQuery)}"
+                placeholder="e.g., Julia Donaldson"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'provider-author-input',
+                value: uiState.authorQuery,
+                label: 'Clear author query',
+              })}
+            </div>
           </div>
           <div class="sm:col-span-2 flex items-end">
             <button
@@ -1532,44 +1547,65 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               <label for="book-title" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
                 Book Title *
               </label>
-              <input
-                id="book-title"
-                name="title"
-                type="text"
-                required
-                value="${escapeHtml(draft.title)}"
-                placeholder="e.g., Make Way for Ducklings"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="book-title"
+                  name="title"
+                  type="text"
+                  required
+                  value="${escapeHtml(draft.title)}"
+                  placeholder="e.g., Make Way for Ducklings"
+                  class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'book-title',
+                  value: draft.title,
+                  label: 'Clear book title',
+                })}
+              </div>
             </div>
 
             <div>
               <label for="book-authors" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
                 Author(s) (comma-separated)
               </label>
-              <input
-                id="book-authors"
-                name="authors"
-                type="text"
-                value="${escapeHtml(draft.authors)}"
-                placeholder="e.g., Robert McCloskey"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="book-authors"
+                  name="authors"
+                  type="text"
+                  value="${escapeHtml(draft.authors)}"
+                  placeholder="e.g., Robert McCloskey"
+                  class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'book-authors',
+                  value: draft.authors,
+                  label: 'Clear authors',
+                })}
+              </div>
             </div>
 
             <div>
               <label for="book-isbn" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
                 ISBN-13 or ISBN-10 (optional)
               </label>
-              <input
-                id="book-isbn"
-                name="isbn"
-                type="text"
-                inputmode="text"
-                value="${escapeHtml(draft.isbn)}"
-                placeholder="978-0-670-45149-4"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="book-isbn"
+                  name="isbn"
+                  type="text"
+                  inputmode="text"
+                  value="${escapeHtml(draft.isbn)}"
+                  placeholder="978-0-670-45149-4"
+                  class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'book-isbn',
+                  value: draft.isbn,
+                  label: 'Clear ISBN',
+                })}
+              </div>
             </div>
 
             <div>
@@ -1669,14 +1705,21 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               <label for="book-cover-url" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
                 HTTPS Cover Image URL (optional)
               </label>
-              <input
-                id="book-cover-url"
-                name="coverUrl"
-                type="url"
-                value="${escapeHtml(draft.coverUrl)}"
-                placeholder="https://covers.openlibrary.org/..."
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="book-cover-url"
+                  name="coverUrl"
+                  type="url"
+                  value="${escapeHtml(draft.coverUrl)}"
+                  placeholder="https://covers.openlibrary.org/..."
+                  class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'book-cover-url',
+                  value: draft.coverUrl,
+                  label: 'Clear cover image URL',
+                })}
+              </div>
             </div>
 
             <div>
@@ -1699,14 +1742,21 @@ export function renderScanShellView({ state, uiState, scannerState }) {
               <label for="book-custom-owners" class="block text-xs font-semibold text-forest-900 dark:text-slate-300 mb-1">
                 Extra Owners (optional, comma-separated)
               </label>
-              <input
-                id="book-custom-owners"
-                name="customOwners"
-                type="text"
-                value="${escapeHtml(draft.customOwners || '')}"
-                placeholder="e.g., Grandma's House, Cousin Maya"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="book-custom-owners"
+                  name="customOwners"
+                  type="text"
+                  value="${escapeHtml(draft.customOwners || '')}"
+                  placeholder="e.g., Grandma's House, Cousin Maya"
+                  class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'book-custom-owners',
+                  value: draft.customOwners || '',
+                  label: 'Clear extra owners',
+                })}
+              </div>
             </div>
 
             <div class="sm:col-span-2">
@@ -1723,14 +1773,21 @@ export function renderScanShellView({ state, uiState, scannerState }) {
                   Suggest Tags
                 </button>
               </div>
-              <input
-                id="book-tags"
-                name="tags"
-                type="text"
-                value="${escapeHtml(draft.tags)}"
-                placeholder="animals, christmas, winter, family, bedtime"
-                class="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative min-w-0">
+                <input
+                  id="book-tags"
+                  name="tags"
+                  type="text"
+                  value="${escapeHtml(draft.tags)}"
+                  placeholder="animals, christmas, winter, family, bedtime"
+                  class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'book-tags',
+                  value: draft.tags,
+                  label: 'Clear topics and themes',
+                })}
+              </div>
             </div>
           </div>
 

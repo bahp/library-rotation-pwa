@@ -62,10 +62,12 @@ import {
 import {
   createBookHuntChallenge,
   pickStorytimeBooks,
+  resolvePlayBookPool,
 } from './features/play/play-activities.js';
 import { renderProfilesView } from './features/profiles/profiles-view.js';
 import { renderSettingsView } from './features/settings/settings-view.js';
 import { validateProxyEndpointUrl } from './features/tagging/ai-tag-adapter.js';
+import { normalizeLanguage } from './config/index.js';
 
 const rootEl = document.getElementById('app');
 const storage = createStorageAdapter();
@@ -870,6 +872,48 @@ function render() {
   syncDynamicCoverTints();
   syncAutoResizeTextareas();
   syncOpenFieldHelpPanels();
+  syncAllClearInputButtons();
+}
+
+/**
+ * Toggles the visibility (`hidden` vs `flex`) of an inline `×` clear button paired with `inputEl`.
+ * @param {HTMLInputElement} inputEl
+ */
+function syncClearInputButtonForInput(inputEl) {
+  if (!rootEl || !inputEl.id) return;
+  const escapedId =
+    typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(inputEl.id)
+      : inputEl.id;
+  const clearBtns = rootEl.querySelectorAll(
+    `[data-action="clear-input"][data-target-input="${escapedId}"]`
+  );
+  const hasText = String(inputEl.value || '').length > 0;
+  for (const btn of clearBtns) {
+    if (btn instanceof HTMLElement) {
+      btn.classList.toggle('hidden', !hasText);
+      btn.classList.toggle('flex', hasText);
+    }
+  }
+}
+
+/**
+ * Ensures every clearable input's `×` button reflects its live DOM value after patching.
+ */
+function syncAllClearInputButtons() {
+  if (!rootEl) return;
+  const clearBtns = rootEl.querySelectorAll('[data-action="clear-input"][data-target-input]');
+  for (const btn of clearBtns) {
+    if (!(btn instanceof HTMLElement)) continue;
+    const targetId = btn.getAttribute('data-target-input');
+    if (!targetId) continue;
+    const inputEl = document.getElementById(targetId);
+    if (inputEl instanceof HTMLInputElement) {
+      const hasText = String(inputEl.value || '').length > 0;
+      btn.classList.toggle('hidden', !hasText);
+      btn.classList.toggle('flex', hasText);
+    }
+  }
 }
 
 /**
@@ -2496,6 +2540,86 @@ function bindEvents() {
         await store.updateSettings({ theme });
         break;
       }
+      case 'set-language': {
+        const language = normalizeLanguage(target.getAttribute('data-language'));
+        await store.updateSettings({ language });
+        break;
+      }
+      case 'clear-input': {
+        const targetId = target.getAttribute('data-target-input') || '';
+        const inputEl = targetId ? document.getElementById(targetId) : null;
+        if (inputEl instanceof HTMLInputElement) {
+          inputEl.value = '';
+          syncClearInputButtonForInput(inputEl);
+
+          if (targetId === 'catalog-search-input') {
+            uiState.searchQuery = '';
+            render();
+          } else if (targetId === 'provider-title-input') {
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+            uiState.titleQuery = '';
+            uiState.isbnInput = '';
+            uiState.isbnError = '';
+            uiState.isbnNotFound = '';
+            uiState.isbnCandidate = null;
+            if (uiState.authorQuery.trim().length >= 2) {
+              await executeUnifiedCatalogSearch();
+            } else {
+              uiState.searchCandidates = [];
+              uiState.searchHasRun = false;
+              uiState.searchError = '';
+              render();
+            }
+          } else if (targetId === 'provider-author-input') {
+            if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+            uiState.authorQuery = '';
+            if (uiState.titleQuery.trim().length >= 2) {
+              await executeUnifiedCatalogSearch();
+            } else {
+              uiState.searchCandidates = [];
+              uiState.searchHasRun = false;
+              uiState.searchError = '';
+              render();
+            }
+          } else if (targetId === 'isbn-lookup-input') {
+            uiState.isbnInput = '';
+            uiState.isbnError = '';
+            uiState.isbnNotFound = '';
+            render();
+          } else if (targetId === 'rotation-modal-search-input') {
+            uiState.rotationEditor.searchQuery = '';
+            render();
+          } else if (targetId === 'presets-search-input') {
+            uiState.presetsUi.searchQuery = '';
+            render();
+          } else if (targetId === 'play-topic-input') {
+            uiState.playUi.randomizerTopic = '';
+            uiState.playUi.randomizerNoTopicMatches = false;
+            if (uiState.playUi.randomizerHasRun) {
+              runStorytimeRandomizer();
+            }
+            render();
+          } else if (targetId === 'inspector-cover-search-input') {
+            uiState.inspectorUi.coverSearchQuery = '';
+          } else if (!targetId.startsWith('edit-rot-title-')) {
+            const rotForm = inputEl.closest('form[data-form="edit-rotation-details"]');
+            if (rotForm instanceof HTMLFormElement) {
+              const rotId = rotForm.getAttribute('data-rotation-id');
+              if (rotId) {
+                try {
+                  await flushOpenRotationEdits(rotId, { silent: true });
+                } catch (_) {}
+              }
+            }
+          }
+
+          const refocused = document.getElementById(targetId);
+          if (refocused instanceof HTMLInputElement) {
+            refocused.focus();
+          }
+        }
+        break;
+      }
       case 'set-cover-aspect': {
         const aspect = /** @type {import('./types/models.js').CoverAspectRatio} */ (
           target.getAttribute('data-cover-aspect') === 'square' ? 'square' : 'portrait'
@@ -2650,7 +2774,34 @@ function bindEvents() {
         break;
       }
       case 'set-randomizer-count': {
-        const nextCount = Math.max(1, Math.min(6, Number(target.getAttribute('data-count') || 3)));
+        const nextCount = Math.max(1, Math.min(50, Number(target.getAttribute('data-count') || 3)));
+        uiState.playUi.randomizerCount = nextCount;
+        if (uiState.playUi.randomizerHasRun) {
+          runStorytimeRandomizer();
+        }
+        render();
+        break;
+      }
+      case 'step-randomizer-count': {
+        const delta = Number(
+          target.getAttribute('data-step') ?? target.getAttribute('data-delta') ?? 0
+        );
+        const st = store.getState();
+        const activeProfile =
+          st.profiles.find((p) => p.id === st.activeProfileId) || st.profiles[0] || null;
+        const activeRotation = activeProfile
+          ? st.rotations.find((r) => r.profileId === activeProfile.id && r.status === 'active') ||
+            null
+          : null;
+        const pool = resolvePlayBookPool({
+          books: st.books,
+          activeRotation,
+          activeProfile,
+          scope: uiState.playUi.randomizerScope,
+        }).pool;
+        const maxStepperCount = Math.max(1, Math.min(50, Math.max(pool.length || 0, 20)));
+        const currentCount = Number(uiState.playUi.randomizerCount) || 2;
+        const nextCount = Math.max(1, Math.min(maxStepperCount, currentCount + delta));
         uiState.playUi.randomizerCount = nextCount;
         if (uiState.playUi.randomizerHasRun) {
           runStorytimeRandomizer();
@@ -2951,6 +3102,7 @@ function bindEvents() {
       return;
     }
     if (!(target instanceof HTMLInputElement)) return;
+    syncClearInputButtonForInput(target);
 
     if (target.id === 'catalog-search-input') {
       uiState.searchQuery = target.value;

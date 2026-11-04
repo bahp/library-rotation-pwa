@@ -5,6 +5,7 @@
  * - Compact `+` button (`open-add-profile-sheet`) opens the Add / Edit Profile bottom sheet (`max-h-[85vh]`)
  */
 
+import { normalizeLanguage, t } from '../../config/index.js';
 import {
   escapeHtml,
   formatProfileAgeLabel,
@@ -144,15 +145,16 @@ export function renderProfilesView({
     })
     .join('');
 
+  const lang = normalizeLanguage(state.settings?.language);
   return `
     <div class="w-full space-y-5">
       <div class="flex items-center justify-between gap-3">
         <div>
           <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-            Family Readers
+            ${escapeHtml(lang === 'en' ? 'Family Readers' : t(lang, 'profiles.eyebrow'))}
           </p>
           <h1 id="profiles-heading" class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
-            Reader Profiles
+            ${escapeHtml(t(lang, 'profiles.heading'))}
           </h1>
         </div>
 
@@ -164,7 +166,7 @@ export function renderProfilesView({
           class="min-h-[44px] min-w-[44px] px-3 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0"
         >
           ${renderIcon('plus', 'w-5 h-5')}
-          <span class="hidden sm:inline">Add Profile</span>
+          <span class="hidden sm:inline">${escapeHtml(lang === 'en' ? 'Add Profile' : t(lang, 'profiles.newReader'))}</span>
         </button>
       </div>
 

@@ -366,7 +366,10 @@ export function generateRotationSelection({
   excludeBookIds = [],
   nowIso = new Date().toISOString(),
 }) {
-  const targetCount = Math.max(1, Math.min(20, Math.trunc(Number(rules.count) || profile.defaultRotationSize || 4)));
+  const targetCount = Math.max(
+    1,
+    Math.trunc(Number(rules.count) || profile.defaultRotationSize || 4)
+  );
   const enforceVariety = rules.varietyMix !== false;
   const rng = createSeededRng(rules.seed);
   const parsedObjective = parseRotationObjective(rules.objective || '');

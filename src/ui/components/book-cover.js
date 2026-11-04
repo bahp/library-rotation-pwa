@@ -4,35 +4,7 @@
  */
 
 import { escapeHtml } from '../../types/models.js';
-
-/** @type {Record<string, { bg: string, spine: string, text: string }>} */
-const PALETTES = {
-  teal: {
-    bg: 'bg-[#1D5C63] dark:bg-[#194E54]',
-    spine: 'bg-[#0F363B]/60',
-    text: 'text-[#FAF6EE]',
-  },
-  indigo: {
-    bg: 'bg-[#2C4257] dark:bg-[#25384A]',
-    spine: 'bg-[#182635]/60',
-    text: 'text-[#FAF6EE]',
-  },
-  amber: {
-    bg: 'bg-[#9A5B25] dark:bg-[#824B1D]',
-    spine: 'bg-[#5C3311]/55',
-    text: 'text-[#FFF9F0]',
-  },
-  rose: {
-    bg: 'bg-[#963E47] dark:bg-[#7D323A]',
-    spine: 'bg-[#591F26]/55',
-    text: 'text-[#FFF5F6]',
-  },
-  emerald: {
-    bg: 'bg-[#2D6247] dark:bg-[#24503A]',
-    spine: 'bg-[#183828]/55',
-    text: 'text-[#F4FBF6]',
-  },
-};
+import { BOOK_SPINE_PALETTES_BY_KEY } from '../../config/index.js';
 
 /**
  * Renders a book cover card ('portrait' 3:4 or 'square' 1:1) with automatic image fallback to an archival cloth edition design.
@@ -42,7 +14,7 @@ const PALETTES = {
  * @returns {string}
  */
 export function renderBookCover(book, size = 'md', aspectRatio = 'square') {
-  const palette = PALETTES[book.spineColor] || PALETTES.teal;
+  const palette = BOOK_SPINE_PALETTES_BY_KEY[book.spineColor] || BOOK_SPINE_PALETTES_BY_KEY.teal;
   const isGrid = size === 'grid';
   const isSquare = aspectRatio !== 'portrait';
 

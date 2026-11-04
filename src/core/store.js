@@ -46,14 +46,19 @@ import {
   stripDiacritics,
 } from '../features/tagging/rule-tagger.js';
 import { createTaggingService } from '../features/tagging/tagging-service.js';
+import {
+  normalizeLanguage,
+  normalizePositiveBookCount,
+} from '../config/index.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
 
 /**
- * Applies light/dark class on document.documentElement according to user preference.
+ * Applies light/dark class and `<html lang>` on document.documentElement according to user preference.
  * @param {import('../types/models.js').ThemeMode} theme
+ * @param {string} [language]
  */
-export function applyThemeToDom(theme) {
+export function applyThemeToDom(theme, language = 'en') {
   if (typeof document === 'undefined' || typeof window === 'undefined') return;
   try {
     if (typeof window.localStorage !== 'undefined') {
@@ -65,6 +70,9 @@ export function applyThemeToDom(theme) {
     window.matchMedia('(prefers-color-scheme: dark)').matches;
   const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
   document.documentElement.classList.toggle('dark', isDark);
+  if (typeof document.documentElement.setAttribute === 'function') {
+    document.documentElement.setAttribute('lang', normalizeLanguage(language));
+  }
   const themeMeta =
     document.getElementById('lr-theme-color') ||
     document.querySelector('meta[name="theme-color"]');
@@ -134,7 +142,7 @@ export function createAppStore(storage, deps = {}) {
    */
   async function commit(next) {
     state = migrateState(next);
-    applyThemeToDom(state.settings.theme);
+    applyThemeToDom(state.settings.theme, state.settings.language);
     emit();
     await storage.save(state);
   }
@@ -145,13 +153,13 @@ export function createAppStore(storage, deps = {}) {
   async function init() {
     state = await storage.load();
     initialized = true;
-    applyThemeToDom(state.settings.theme);
+    applyThemeToDom(state.settings.theme, state.settings.language);
 
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       const media = window.matchMedia('(prefers-color-scheme: dark)');
       media.addEventListener('change', () => {
         if (state.settings.theme === 'system') {
-          applyThemeToDom('system');
+          applyThemeToDom('system', state.settings.language);
         }
       });
     }
@@ -229,7 +237,7 @@ export function createAppStore(storage, deps = {}) {
       age: effectiveAge,
       readingStage: input.readingStage || inferReadingStageFromAge(effectiveAge),
       favoriteTopics: (input.favoriteTopics || []).filter(Boolean),
-      defaultRotationSize: Math.max(2, Math.min(15, Number(input.defaultRotationSize) || 5)),
+      defaultRotationSize: normalizePositiveBookCount(input.defaultRotationSize, 5),
       cooldownDays: Math.max(0, Math.min(90, Number(input.cooldownDays) || 14)),
       avatarTone: input.avatarTone || 'teal',
       readHistoryBookIds: [],
@@ -294,7 +302,7 @@ export function createAppStore(storage, deps = {}) {
           : existing.favoriteTopics,
       defaultRotationSize:
         patch.defaultRotationSize !== undefined
-          ? Math.max(2, Math.min(15, Number(patch.defaultRotationSize) || 5))
+          ? normalizePositiveBookCount(patch.defaultRotationSize, 5)
           : existing.defaultRotationSize,
       cooldownDays:
         patch.cooldownDays !== undefined
@@ -696,6 +704,13 @@ export function createAppStore(storage, deps = {}) {
       spineColor: existing.spineColor,
       addedAt: existing.addedAt,
       ...(existing.lastRotatedAt ? { lastRotatedAt: existing.lastRotatedAt } : {}),
+      ...(typeof existing.rotationCount === 'number'
+        ? { rotationCount: existing.rotationCount }
+        : {}),
+      ...(Array.isArray(existing.rotationHistory) && existing.rotationHistory.length > 0
+        ? { rotationHistory: existing.rotationHistory }
+        : {}),
+      ...(existing.lastReadAt ? { lastReadAt: existing.lastReadAt } : {}),
       sources: existing.sources,
     };
 
@@ -1415,9 +1430,9 @@ export function createAppStore(storage, deps = {}) {
       throw new Error('Add at least one book to your catalog before generating a rotation.');
     }
 
-    const desiredCount = Math.max(
-      1,
-      Math.min(15, Number(input.count) || profile.defaultRotationSize || 4)
+    const desiredCount = normalizePositiveBookCount(
+      input.count,
+      profile.defaultRotationSize || 4
     );
     const cooldownDays =
       input.cooldownDays !== undefined && !Number.isNaN(Number(input.cooldownDays))
@@ -1653,7 +1668,7 @@ export function createAppStore(storage, deps = {}) {
     const profile =
       state.profiles.find((p) => p.id === rotation.profileId) || state.profiles[0];
 
-    const safeCount = Math.max(1, Math.min(10, Math.trunc(Number(count) || 1)));
+    const safeCount = normalizePositiveBookCount(count, 1);
     const now = new Date().toISOString();
     const picked = pickRandomEligibleBooks({
       books: state.books,
@@ -1724,7 +1739,13 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Deletes an entire saved or active rotation shelf.
+   * Deletes an entire saved or active rotation shelf while:
+   * - Keeping all catalog books (`state.books`) and child reading accomplishments (`profile.readHistoryBookIds`
+   *   and `book.lastReadAt`) completely intact.
+   * - Rolling back any cooldown/rotation-history entries created specifically by `rotationId` so deleting
+   *   an accidental or test rotation never leaves its books stuck in a phantom cooldown.
+   * - Automatically promoting the profile's next saved rotation to `'active'` if the deleted shelf was active.
+   *
    * @param {string} rotationId
    */
   async function deleteRotation(rotationId) {
@@ -1737,16 +1758,87 @@ export function createAppStore(storage, deps = {}) {
       const candidateIndex = remaining.findIndex((r) => r.profileId === target.profileId);
       if (candidateIndex !== -1) {
         const promotedNow = new Date().toISOString();
+        const candidate = remaining[candidateIndex];
         remaining[candidateIndex] = {
-          ...remaining[candidateIndex],
+          ...candidate,
           status: 'active',
           activatedAt: promotedNow,
+          slotAddedAt: syncRotationSlotAddedAt(
+            candidate.slotAddedAt,
+            candidate.bookIds,
+            promotedNow,
+            {
+              fallbackStartIso: candidate.activatedAt || candidate.createdAt || promotedNow,
+            }
+          ),
           updatedAt: promotedNow,
         };
       }
     }
 
-    await commit({ ...state, rotations: remaining });
+    const targetBookSet = new Set(target.bookIds);
+    const reconciledBooks = state.books.map((book) => {
+      const prevHistory = Array.isArray(book.rotationHistory) ? book.rotationHistory : [];
+      const filteredHistory = prevHistory.filter((entry) => entry?.rotationId !== rotationId);
+      const removedHistoryCount = prevHistory.length - filteredHistory.length;
+
+      // Also handle legacy seed/imported books that had `lastRotatedAt === target.createdAt` without `rotationHistory`
+      const hadLegacyStampOnly =
+        prevHistory.length === 0 &&
+        targetBookSet.has(book.id) &&
+        book.lastRotatedAt &&
+        (book.lastRotatedAt === target.activatedAt || book.lastRotatedAt === target.createdAt);
+
+      if (removedHistoryCount === 0 && !hadLegacyStampOnly) {
+        return book;
+      }
+
+      // Determine latest remaining rotation timestamp for this book across surviving history or surviving shelves
+      let latestRemainingIso =
+        filteredHistory.length > 0
+          ? filteredHistory[filteredHistory.length - 1].rotatedAt
+          : undefined;
+      if (!latestRemainingIso) {
+        for (const survivingRot of remaining) {
+          if (survivingRot.bookIds.includes(book.id)) {
+            const rotStamp = survivingRot.activatedAt || survivingRot.createdAt;
+            if (rotStamp && (!latestRemainingIso || rotStamp > latestRemainingIso)) {
+              latestRemainingIso = rotStamp;
+            }
+          }
+        }
+      }
+
+      const prevCount =
+        typeof book.rotationCount === 'number'
+          ? book.rotationCount
+          : Math.max(prevHistory.length, book.lastRotatedAt ? 1 : 0);
+      const decrementedCount = Math.max(
+        filteredHistory.length,
+        latestRemainingIso ? 1 : 0,
+        prevCount - Math.max(1, removedHistoryCount)
+      );
+
+      const nextBook = { ...book };
+      if (filteredHistory.length > 0) {
+        nextBook.rotationHistory = filteredHistory;
+      } else {
+        delete nextBook.rotationHistory;
+      }
+      if (latestRemainingIso) {
+        nextBook.lastRotatedAt = latestRemainingIso;
+      } else {
+        delete nextBook.lastRotatedAt;
+      }
+      if (decrementedCount > 0) {
+        nextBook.rotationCount = decrementedCount;
+      } else {
+        delete nextBook.rotationCount;
+      }
+      return nextBook;
+    });
+
+    await commit({ ...state, books: reconciledBooks, rotations: remaining });
     notify(`Deleted rotation "${target.title}".`, 'info');
   }
 
@@ -1826,7 +1918,7 @@ export function createAppStore(storage, deps = {}) {
 
     const nextCount =
       patch.count !== undefined && !Number.isNaN(Number(patch.count))
-        ? Math.max(1, Math.min(15, Math.trunc(Number(patch.count) || 1)))
+        ? normalizePositiveBookCount(patch.count, 1)
         : existing.rules.count;
 
     const nextCooldownDays =

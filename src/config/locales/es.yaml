@@ -1,0 +1,118 @@
+# Español (es) UI Dictionary
+# Diccionario de interfaz en español para Book Rotation.
+
+nav:
+  shelf: "Inicio"
+  library: "Biblioteca"
+  addBookDesktop: "Escanear y Añadir"
+  addBook: "Escanear"
+  rotations: "Rotaciones"
+  play: "Jugar"
+  settings: "Ajustes"
+  presets: "Colecciones"
+  offlineBanner: "Modo sin conexión — explorando la biblioteca y rotaciones guardadas en este dispositivo."
+
+common:
+  clearText: "Borrar texto"
+  edit: "Editar"
+  done: "Listo"
+  cancel: "Cancelar"
+  close: "Cerrar"
+  save: "Guardar"
+  delete: "Eliminar"
+  enabled: "Activado"
+  disabled: "Desactivado"
+  booksSingular: "libro"
+  booksPlural: "libros"
+
+home:
+  booksInRotation: "Libros en rotación"
+  readSummary: "{completed} de {total} leídos"
+  noActiveShelfTitle: "Sin estante activo para {name}"
+  noActiveShelfSubtitle: "Genera una nueva rotación adaptada a la edad y temas favoritos de {name}."
+  createShelf: "Crear estante"
+  savedRotations: "Rotaciones guardadas"
+  allShelves: "Todos los estantes"
+  activate: "Activar"
+  suggestedNext: "Sugeridos para {name}"
+  offShelfPicks: "En caja"
+  activeCollection: "Colección familiar"
+  wishlistBtn: "Deseos ({count})"
+
+library:
+  title: "Catálogo Familiar"
+  searchPlaceholder: "Buscar título, autor, tema o ISBN…"
+  filtersBtn: "Filtros"
+  filterAll: "Todos"
+  filterForReader: "Para {name}"
+  filterUnseenLong: "Sin salir"
+  filterNeverRotated: "Sin rotar"
+  filterLoved: "Favoritos"
+  filterWishlist: "Deseos"
+  filterNeedsCare: "Cuidado"
+
+rotations:
+  eyebrow: "Planificador"
+  heading: "Rotaciones de {name}"
+  newShelf: "Nuevo estante"
+  generateSheetTitle: "Nuevo estante para {name}"
+  presetPromptQuestion: "¿Temporada, etapa o colección temática lista?"
+  browsePresetsCta: "Ver colecciones"
+  generateBtn: "Generar estante activo"
+
+presets:
+  eyebrow: "Plantillas curadas"
+  heading: "Colecciones y temas"
+  searchPlaceholder: "Buscar fiesta, etapa, tema o etiqueta…"
+  newPreset: "Nueva colección"
+
+play:
+  eyebrow: "Juegos de lectura"
+  heading: "Jugar y Cuentos"
+  activeShelfScope: "Estante activo"
+  homeLibraryScope: "Toda la biblioteca"
+  unreadFirstLabel: "No leídos primero"
+  unreadFirstOn: "No leídos primero: Sí"
+  unreadFirstOff: "No leídos primero: No"
+  decreaseBooks: "Reducir número de libros"
+  increaseBooks: "Aumentar número de libros"
+  topicPlaceholder: "Tema opcional: camiones, dormir, animales, espacio…"
+  pickBtnSingular: "Elegir 1 cuento"
+  pickBtnPlural: "Elegir {count} cuentos"
+  pickAgainBtn: "Elegir otra vez ({count})"
+
+profiles:
+  eyebrow: "Lectores en casa"
+  heading: "Perfiles de lectura"
+  newReader: "Nuevo lector"
+  dateOfBirth: "Fecha de nacimiento"
+  booksPerRotation: "Libros por rotación"
+
+settings:
+  eyebrow: "Preferencias y dispositivo"
+  heading: "Ajustes"
+  appearanceHeading: "Apariencia e idioma"
+  languageLabel: "Idioma de la app"
+  languageHint: "Traduce navegación, títulos, botones y etiquetas de estado (los títulos de los libros conservan su idioma original)."
+  themeLabel: "Tema de color"
+  coverDisplayLabel: "Formato de portadas"
+
+badges:
+  wishlist: "Deseo"
+  loan: "Préstamo"
+  saved: "Guardado"
+  torn: "Rasgado"
+  broken: "Dañado"
+  retired: "Retirado"
+  loved: "Libro favorito"
+  shelf: "Estante"
+  read: "Leído"
+  restPrefix: "Pausa"
+  shelfPrefix: "Estante"
+  newBadge: "Nuevo"
+  neverRotated: "Sin rotar"
+  cooldownCompact: "Pausa · {days}d rest."
+  onShelfToday: "En estante hoy"
+  onShelfDays: "En estante {days}d"
+  offShelfToday: "En caja hoy"
+  offShelfDays: "En caja {days}d"

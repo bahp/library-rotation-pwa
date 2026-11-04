@@ -30,6 +30,7 @@ import {
 } from '../../features/rotations/usage-insights.js';
 import { resolveBookCardTintHex } from '../../features/catalog/cover-color-extractor.js';
 import { renderBookCover } from './book-cover.js';
+import { renderInputClearButton } from './clearable-input.js';
 import {
   formatSingleProviderName,
   renderProviderAttribution,
@@ -181,14 +182,21 @@ export function renderBookInspectorModal({
 
         <form id="inspector-cover-search-form" class="flex items-center gap-2">
           <label for="inspector-cover-search-input" class="sr-only">Search book covers online</label>
-          <input
-            id="inspector-cover-search-input"
-            name="coverQuery"
-            type="search"
-            value="${escapeHtml(searchSeed)}"
-            placeholder="Search Google Books / Open Library covers…"
-            class="flex-1 h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-          />
+          <div class="relative flex-1 min-w-0">
+            <input
+              id="inspector-cover-search-input"
+              name="coverQuery"
+              type="search"
+              value="${escapeHtml(searchSeed)}"
+              placeholder="Search Google Books / Open Library covers…"
+              class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+            />
+            ${renderInputClearButton({
+              targetId: 'inspector-cover-search-input',
+              value: searchSeed,
+              label: 'Clear cover search',
+            })}
+          </div>
           <button
             type="submit"
             data-action="search-book-covers"
@@ -289,40 +297,61 @@ export function renderBookInspectorModal({
             <label for="edit-book-title" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Title *
             </label>
-            <input
-              id="edit-book-title"
-              name="title"
-              type="text"
-              required
-              value="${escapeHtml(book.title)}"
-              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="edit-book-title"
+                name="title"
+                type="text"
+                required
+                value="${escapeHtml(book.title)}"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'edit-book-title',
+                value: book.title,
+                label: 'Clear book title',
+              })}
+            </div>
           </div>
 
           <div>
             <label for="edit-book-authors" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               Author(s)
             </label>
-            <input
-              id="edit-book-authors"
-              name="authors"
-              type="text"
-              value="${escapeHtml(book.authors.join(', '))}"
-              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="edit-book-authors"
+                name="authors"
+                type="text"
+                value="${escapeHtml(book.authors.join(', '))}"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'edit-book-authors',
+                value: book.authors.join(', '),
+                label: 'Clear authors',
+              })}
+            </div>
           </div>
 
           <div>
             <label for="edit-book-isbn" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
               ISBN (optional)
             </label>
-            <input
-              id="edit-book-isbn"
-              name="isbn"
-              type="text"
-              value="${escapeHtml(book.isbn13 || book.isbn10 || '')}"
-              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="edit-book-isbn"
+                name="isbn"
+                type="text"
+                value="${escapeHtml(book.isbn13 || book.isbn10 || '')}"
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'edit-book-isbn',
+                value: book.isbn13 || book.isbn10 || '',
+                label: 'Clear ISBN',
+              })}
+            </div>
           </div>
 
           <div>
@@ -430,14 +459,21 @@ export function renderBookInspectorModal({
                   : ''
               })
             </label>
-            <input
-              id="edit-book-cover-url"
-              name="coverUrl"
-              type="url"
-              value="${escapeHtml(httpsCoverUrlValue)}"
-              placeholder="https://covers.openlibrary.org/..."
-              class="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-            />
+            <div class="relative min-w-0">
+              <input
+                id="edit-book-cover-url"
+                name="coverUrl"
+                type="url"
+                value="${escapeHtml(httpsCoverUrlValue)}"
+                placeholder="https://covers.openlibrary.org/..."
+                class="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+              ${renderInputClearButton({
+                targetId: 'edit-book-cover-url',
+                value: httpsCoverUrlValue,
+                label: 'Clear cover URL',
+              })}
+            </div>
           </div>
         </div>
 
@@ -719,13 +755,21 @@ export function renderBookInspectorModal({
             </summary>
             <form id="inspector-add-owner-form" data-book-id="${escapeHtml(book.id)}" class="mt-2 flex items-center gap-2">
               <label for="inspector-new-owner-input" class="sr-only">Add custom household or relative owner</label>
-              <input
-                id="inspector-new-owner-input"
-                name="owner"
-                type="text"
-                placeholder="e.g., Grandma's House, Cousin Maya"
-                class="flex-1 h-11 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative flex-1 min-w-0">
+                <input
+                  id="inspector-new-owner-input"
+                  name="owner"
+                  type="text"
+                  placeholder="e.g., Grandma's House, Cousin Maya"
+                  class="w-full h-11 pl-3 pr-8 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'inspector-new-owner-input',
+                  value: '',
+                  label: 'Clear owner name',
+                  compact: true,
+                })}
+              </div>
               <button
                 type="submit"
                 class="h-11 px-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
@@ -988,13 +1032,21 @@ export function renderBookInspectorModal({
 
             <form id="inspector-add-tag-form" data-book-id="${escapeHtml(book.id)}" class="flex items-center gap-2">
               <label for="inspector-new-tag-input" class="sr-only">Add topic tag</label>
-              <input
-                id="inspector-new-tag-input"
-                name="tag"
-                type="text"
-                placeholder="Add topic (e.g., bedtime, dinosaurs)"
-                class="flex-1 h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-              />
+              <div class="relative flex-1 min-w-0">
+                <input
+                  id="inspector-new-tag-input"
+                  name="tag"
+                  type="text"
+                  placeholder="Add topic (e.g., bedtime, dinosaurs)"
+                  class="w-full h-11 pl-3 pr-8 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+                ${renderInputClearButton({
+                  targetId: 'inspector-new-tag-input',
+                  value: '',
+                  label: 'Clear topic tag',
+                  compact: true,
+                })}
+              </div>
               <button
                 type="submit"
                 class="h-11 px-3.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
