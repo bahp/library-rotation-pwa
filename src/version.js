@@ -10,9 +10,12 @@ export const APP_VERSION = '1.20.0';
  */
 export const APP_DOCS_LINKS = Object.freeze({
   overview: 'docs/index.html',
+  coverBadges: 'docs/index.html#cover-badges',
+  bedtimeSets: 'docs/index.html#bedtime-sets',
   configuration: 'docs/configuration.html',
   cloudflareWorkerGuide: 'docs/configuration.html#phone-proxy',
   playAppsGuide: 'docs/configuration.html#play-apps',
   taggingAndAi: 'docs/tagging-and-ai.html',
   architectureAndProviders: 'docs/architecture-and-providers.html',
+  developerConfig: 'docs/architecture-and-providers.html#config-dir',
 });

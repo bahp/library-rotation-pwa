@@ -1,5 +1,5 @@
 # English (en) UI Dictionary — Default Locale
-# Edit keys in en.yaml / es.yaml / it.yaml to customize interface labels.
+# Centralized translation keys for Little Shelf.
 
 nav:
   shelf: "Home"
@@ -24,6 +24,14 @@ common:
   disabled: "Disabled"
   booksSingular: "book"
   booksPlural: "books"
+  search: "Search"
+  loading: "Loading…"
+  update: "Update"
+  back: "Back"
+  all: "All"
+  add: "Add"
+  remove: "Remove"
+  refresh: "Refresh"
 
 home:
   booksInRotation: "Books in Rotation"
@@ -38,6 +46,11 @@ home:
   offShelfPicks: "Off-shelf picks"
   activeCollection: "Active Collection"
   wishlistBtn: "Wishlist ({count})"
+  readWith: "read with {name}"
+  wishlisted: "{count} wishlisted"
+  swapDueNotice: "Swap due · Time for a fresh shelf cycle!"
+  staleSpotlightTitle: "Stale Book Spotlight"
+  staleSpotlightDesc: "These books have been resting on {name}’s shelf for {days}+ days without being logged as read. Swap them into storage or re-introduce them tonight!"
 
 library:
   title: "Family Book Catalog"
@@ -50,6 +63,10 @@ library:
   filterLoved: "Loved"
   filterWishlist: "Wishlist"
   filterNeedsCare: "Needs Care"
+  emptyCatalogTitle: "Your catalog is empty"
+  emptyCatalogSubtitle: "Scan barcodes or search titles to add your family's favorite books."
+  addFirstBookCta: "Scan First Book"
+  booksFoundCount: "{count} books found"
 
 rotations:
   eyebrow: "Shelf Planner"
@@ -59,17 +76,51 @@ rotations:
   presetPromptQuestion: "Seasonal holiday, milestone, or anytime seed?"
   browsePresetsCta: "Browse Presets"
   generateBtn: "Generate Active Shelf"
+  fieldTitle: "Shelf Title"
+  fieldObjective: "Rotation Objective / Description"
+  fieldCount: "Target Book Count"
+  fieldSwapCycle: "Swap Cycle (days)"
+  fieldCooldown: "Cooldown Window (days)"
+  fieldBinding: "Binding Preference"
+  fieldTopics: "Topic Preferences"
+  fieldSeed: "Deterministic Seed"
+  savedShelvesTitle: "Saved & Upcoming Shelves"
+  savedShelvesSubtitle: "Keep dedicated sets like Bedtime Tales or Holiday Favorites ready to swap in."
+  deleteShelfTitle: "Delete Rotation"
+  deleteShelfDesc: "Removing a shelf keeps the books in your catalog and preserves reading history."
+  deleteConfirm: "Are you sure you want to delete this rotation? Books remain in your catalog."
+  makeActiveShelf: "Make Active Shelf"
+  editShelf: "Edit Shelf"
+  addBooksToShelf: "Add Books to Shelf"
+  removeBookFromShelf: "Remove from Shelf"
+  swapBook: "Swap with Off-Shelf Book"
+  activeBadge: "Active Shelf"
+  savedBadge: "Saved Shelf"
+  cycleDuration: "Every {days} days"
 
 presets:
   eyebrow: "Curated Shelf Templates"
   heading: "Collection Presets"
   searchPlaceholder: "Search holiday, milestone, theme, or tag…"
   newPreset: "New Preset"
+  applyPreset: "Apply Preset"
+  createPreset: "Create Custom Preset"
+  infoBanner: "Collection Presets help you quickly generate themed shelves for holidays, seasons, or learning milestones."
+  filterHelp: "Filter by category or search tags"
+  emptyPresetsTitle: "No presets match your search"
+  emptyPresetsSubtitle: "Try searching for a season like 'Winter', a milestone like 'Potty', or create a custom preset."
+  annualDate: "Annual date: {date}"
+  anytimeLabel: "Anytime"
+  suggestedForReader: "Recommended for {name}"
 
 play:
   eyebrow: "Interactive Shelf Games"
   heading: "Play & Storytime Tools"
   activeShelfScope: "Active Shelf"
+  savedRotationsScope: "Saved Shelf / Set"
+  selectRotationLabel: "Choose saved shelf"
+  noSavedRotationsYet: "No saved shelves yet."
+  createShelfLink: "Create a shelf"
   homeLibraryScope: "Home Library"
   unreadFirstLabel: "Unread first"
   unreadFirstOn: "Unread first: On"
@@ -80,6 +131,14 @@ play:
   pickBtnSingular: "Pick 1 Storytime Book"
   pickBtnPlural: "Pick {count} Storytime Books"
   pickAgainBtn: "Pick Again ({count})"
+  bookHuntTitle: "Book Hunt: Bookshelf Treasure Search"
+  bookHuntDesc: "Turn the active bookshelf into an interactive treasure hunt with kid-friendly clues."
+  foundItBtn: "Found It!"
+  peekCoverBtn: "Peek at Cover"
+  huntPromptPrefix: "Find the book…"
+  huntFoundCelebration: "Awesome! You found the book!"
+  bedtimeBasketTitle: "Bedtime & Storytime Randomizer"
+  bedtimeBasketDesc: "Select 1 to 4 books without bedtime negotiations from your active shelf or bedtime basket."
 
 profiles:
   eyebrow: "Household Readers"
@@ -87,6 +146,10 @@ profiles:
   newReader: "New Reader"
   dateOfBirth: "Date of Birth"
   booksPerRotation: "Books per Rotation"
+  saveProfile: "Save Profile"
+  deleteProfile: "Delete Profile"
+  avatarTone: "Avatar Color"
+  activeReaderBadge: "Active Reader"
 
 settings:
   eyebrow: "Preferences & Device"
@@ -96,6 +159,23 @@ settings:
   languageHint: "Translates navigation, headings, buttons, and shelf status badges (book titles stay in their original publication language)."
   themeLabel: "Color Theme"
   coverDisplayLabel: "Book Cover Display"
+  storageHeading: "Storage & Browser Cache"
+  storageDesc: "All books, photos, and shelves stay private on this device. Clear cover cache safely anytime."
+  clearCoverCache: "Clear Cover Cache"
+  backupHeading: "Export & Import"
+  backupDesc: "Download a portable JSON backup of your library, reading logs, and presets."
+  exportBackup: "Export Library Backup (.json)"
+  importBackup: "Import Library Backup (.json)"
+  docsHeading: "Documentation & Developer Guide"
+  docsDesc: "Learn how rotation rules, offline storage, 4-corner badges, and custom Google Books proxies work."
+  googleKeyHelp: "Optional Google Books API key for higher rate limits."
+  cloudflareHelp: "Set up a free Cloudflare Worker proxy to route requests securely without CORS issues."
+  rotationHistoryHeading: "Rotation History & Cooldown Insights"
+  rotationHistoryDesc: "Track when books were last out on shelf and filter long-unseen titles."
+  staleSpotlightHeading: "Stale Book Spotlight"
+  staleSpotlightDesc: "Highlight books that have stayed unread on the active shelf for too long."
+  coverAdornosHeading: "Book Cover Stickers & Badges"
+  coverAdornosDesc: "Show status stickers (Read, Shelf, Rest cooldown, New) over book covers."
 
 badges:
   wishlist: "Wishlist"

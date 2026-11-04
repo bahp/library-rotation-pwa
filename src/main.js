@@ -507,6 +507,8 @@ function runStorytimeRandomizer() {
     activeProfile,
     count: uiState.playUi.randomizerCount,
     scope: uiState.playUi.randomizerScope,
+    selectedRotationId: uiState.playUi.randomizerRotationId,
+    rotations: state.rotations,
     topicQuery: uiState.playUi.randomizerTopic,
     unreadFirst: uiState.playUi.randomizerUnreadFirst,
   });
@@ -2798,6 +2800,8 @@ function bindEvents() {
           activeRotation,
           activeProfile,
           scope: uiState.playUi.randomizerScope,
+          selectedRotationId: uiState.playUi.randomizerRotationId,
+          rotations: st.rotations,
         }).pool;
         const maxStepperCount = Math.max(1, Math.min(50, Math.max(pool.length || 0, 20)));
         const currentCount = Number(uiState.playUi.randomizerCount) || 2;
@@ -2810,15 +2814,32 @@ function bindEvents() {
         break;
       }
       case 'set-randomizer-scope': {
+        const rawScope = target.getAttribute('data-scope');
         const scope =
-          target.getAttribute('data-scope') === 'owned-library'
+          rawScope === 'owned-library'
             ? 'owned-library'
-            : 'active-shelf';
+            : rawScope === 'rotation'
+              ? 'rotation'
+              : 'active-shelf';
         uiState.playUi.randomizerScope = scope;
         if (uiState.playUi.randomizerHasRun) {
           runStorytimeRandomizer();
         }
         render();
+        break;
+      }
+      case 'set-randomizer-rotation-id': {
+        const rotId =
+          target.getAttribute('data-rotation-id') ||
+          (target instanceof HTMLSelectElement ? target.value : null);
+        if (rotId) {
+          uiState.playUi.randomizerRotationId = rotId;
+          uiState.playUi.randomizerScope = 'rotation';
+          if (uiState.playUi.randomizerHasRun) {
+            runStorytimeRandomizer();
+          }
+          render();
+        }
         break;
       }
       case 'toggle-randomizer-unread': {
@@ -3195,6 +3216,18 @@ function bindEvents() {
     if (target instanceof HTMLInputElement && target.id === 'setting-stale-book-days') {
       const clampedDays = Math.max(3, Math.min(60, Math.trunc(Number(target.value) || 10)));
       await store.updateSettings({ staleBookDays: clampedDays });
+      return;
+    }
+    if (
+      target instanceof HTMLSelectElement &&
+      target.getAttribute('data-action') === 'set-randomizer-rotation-id'
+    ) {
+      uiState.playUi.randomizerRotationId = target.value;
+      uiState.playUi.randomizerScope = 'rotation';
+      if (uiState.playUi.randomizerHasRun) {
+        runStorytimeRandomizer();
+      }
+      render();
       return;
     }
     if (!(target instanceof HTMLInputElement)) return;

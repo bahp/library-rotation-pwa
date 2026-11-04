@@ -16,9 +16,9 @@
         </a>
         <nav class="docs-nav" aria-label="Documentation pages">
           <a href="./index.html" aria-current="page">User Guide</a>
-          <a href="./configuration.html">Google Books Setup</a>
-          <a href="./tagging-and-ai.html">Tag Rules &amp; Presets</a>
-          <a href="./architecture-and-providers.html">Developer Guide</a>
+          <a href="./architecture-and-providers.html">Developer &amp; Config Guide</a>
+          <a href="./configuration.html">Google Books &amp; Cloudflare</a>
+          <a href="./tagging-and-ai.html">Taxonomy &amp; Tag Rules</a>
         </nav>
         <a href="../#/home" class="docs-back-app">Open App →</a>
       </div>
@@ -26,25 +26,29 @@
 
     <main class="docs-main">
       <section class="hero">
-        <p class="eyebrow">Quickstart &amp; Daily Use</p>
-        <h1>Little Shelf in 2 Minutes</h1>
+        <p class="eyebrow">User Guide &amp; Family Playbook</p>
+        <h1>Little Shelf Guide</h1>
         <p class="lead">
-          Catalog your child’s books offline, rotate small face-out shelves so forgotten favorites get read again, and turn cleanup or bedtime into a quick game.
+          Catalog your child’s books offline, rotate small face-out shelves so forgotten favorites get read again, create dedicated off-shelf sets (like Bedtime Baskets), and turn bedtime into a peaceful pick.
         </p>
         <div class="jump-bar">
           <a href="#screens">Phone Screens</a>
           <a href="#quickstart">3-Step Start</a>
           <a href="#rotations">Rotations &amp; Presets</a>
+          <a href="#bedtime-sets">Bedtime Sets &amp; Off-Shelf Baskets</a>
+          <a href="#storytime-picker">Storytime Randomizer</a>
+          <a href="#cover-badges">Book Cover Stickers &amp; Badges</a>
           <a href="#install">Install on Phone</a>
           <a href="#backups">Backups</a>
         </div>
       </section>
 
+      <!-- 1. Phone Screens -->
       <section id="screens" class="section-block">
         <h2>1. Phone Interface Tour</h2>
         <p>
-          Everything runs from the 5 bottom tabs (plus Settings in the top-right corner).
-          Drop real phone screenshots (`390×844` PNG) into <code>public/docs/screenshots/</code> anytime to replace any preview frame automatically.
+          Little Shelf is designed for one-handed phone use with 5 bottom tabs:
+          <strong>Home</strong> (the active shelf), <strong>Library</strong> (the full catalog), <strong>Scan</strong> (ISBN barcode reader), <strong>Rotations</strong> (shelves &amp; presets), and <strong>Play</strong> (storytime randomizer &amp; book hunt).
         </p>
 
         <div class="phone-gallery">
@@ -84,7 +88,7 @@
               </div>
             </div>
             <div class="phone-caption">Home — Active Shelf</div>
-            <div class="phone-subcaption">Tap covers to mark read; alerts pop up when a swap or holiday preset arrives.</div>
+            <div class="phone-subcaption">Tap checkmarks to mark books read; alerts appear when a swap or holiday preset arrives.</div>
           </div>
 
           <!-- Phone 2: Scan -->
@@ -117,7 +121,7 @@
               </div>
             </div>
             <div class="phone-caption">Scan — Camera &amp; Search</div>
-            <div class="phone-subcaption">Live ISBN camera with torch button, plus unified title/author/ISBN search.</div>
+            <div class="phone-subcaption">Continuous ISBN camera with torch button, plus unified title/author search.</div>
           </div>
 
           <!-- Phone 3: Rotations -->
@@ -156,7 +160,7 @@
               </div>
             </div>
             <div class="phone-caption">Rotations &amp; Presets</div>
-            <div class="phone-subcaption">Tap Edit on any shelf to adjust its name, cycle rules, and books in one place.</div>
+            <div class="phone-subcaption">Create, rename, customize rules, or keep saved sets like Bedtime Baskets.</div>
           </div>
 
           <!-- Phone 4: Play -->
@@ -177,44 +181,46 @@
                 </div>
                 <div class="mock-body">
                   <div class="mock-card">
-                    <strong>Book Hunt!</strong>
-                    <span>“Find the book about animals &amp; bedtime!”</span>
+                    <strong>Storytime Randomizer</strong>
+                    <span>Pick 2 or 3 books from Shelf, Bedtime Set, or Library</span>
                   </div>
                   <div class="mock-card">
-                    <strong>Storytime Picker</strong>
-                    <span>Pick 2 or 3 tonight’s books — zero negotiation</span>
+                    <strong>Book Hunt!</strong>
+                    <span>“Find the book with the blue truck!”</span>
                   </div>
                 </div>
                 <div class="mock-slot-hint">screenshots/play-games.png · 390×844</div>
               </div>
             </div>
-            <div class="phone-caption">Play — Shelf Games</div>
-            <div class="phone-subcaption">Turn active shelf books into a physical treasure hunt or instant bedtime pick.</div>
+            <div class="phone-caption">Play — Storytime &amp; Games</div>
+            <div class="phone-subcaption">Zero-negotiation bedtime book randomizer and physical bookshelf treasure hunts.</div>
           </div>
         </div>
       </section>
 
+      <!-- 2. Quickstart -->
       <section id="quickstart" class="section-block">
         <h2>2. Start in 3 Steps</h2>
         <div class="step-grid">
           <div class="step-card">
             <span class="step-num">1</span>
             <h3>Set Child’s Birth Date</h3>
-            <p>Tap the child chip in the top-left header. Age in months automatically tunes rotation sizes and reading-stage fits.</p>
+            <p>Tap the top profile chip. Age in months automatically tunes rotation counts (5–12 books) and reading-stage heuristics.</p>
           </div>
           <div class="step-card">
             <span class="step-num">2</span>
             <h3>Scan a Stack of Books</h3>
-            <p>Open <strong>Scan</strong>, point at the back-cover ISBN barcode (`978…`), and tap <strong>Save Owned</strong>. Use <strong>Search</strong> for older books without barcodes.</p>
+            <p>Open <strong>Scan</strong>, point at the back-cover barcode (<code>978…</code>), and tap <strong>Save Owned</strong>. Use <strong>Search</strong> for books without barcodes.</p>
           </div>
           <div class="step-card">
             <span class="step-num">3</span>
             <h3>Generate Your Shelf</h3>
-            <p>Open <strong>Rotations</strong> → tap <strong>+</strong> (or <strong>Presets</strong>) to pick 5–8 age-matched books and place those physical books face-out.</p>
+            <p>Open <strong>Rotations</strong> → tap <strong>+</strong> (or browse <strong>Presets</strong>) to pick 5–8 age-matched books and put them face-out on your physical shelf.</p>
           </div>
         </div>
       </section>
 
+      <!-- 3. Rotations & Presets -->
       <section id="rotations" class="section-block">
         <h2>3. Editing Shelves &amp; Collection Presets</h2>
         <table>
@@ -227,52 +233,213 @@
           <tbody>
             <tr>
               <td><strong>Edit a shelf’s name, description, rules, or books</strong></td>
-              <td>On <strong>Rotations</strong>, tap <strong>Edit</strong>. Change the title, description, swap cycle, cooldown, topics, binding, or swap/remove books—then tap <strong>Done</strong> (everything saves automatically).</td>
+              <td>On <strong>Rotations</strong>, tap <strong>Edit</strong>. Change the title, description, swap cycle, cooldown window, binding, or swap/remove books. Tap <strong>Done</strong> to save automatically.</td>
             </tr>
             <tr>
               <td><strong>Use a seasonal or milestone preset</strong></td>
-              <td>Open <strong>Rotations → Presets</strong> (<code>#/presets</code>). Browse 15+ ready-made themes (Winter Holidays, Lunar New Year, Back to School, New Sibling, Calm Bedtime) with countdown badges like <em>In 12 days</em>.</td>
+              <td>Open <strong>Rotations → Presets</strong> (<code>#/presets</code>). Browse 15+ curated themes (Winter Holidays, Lunar New Year, Back to School, New Sibling, Calm Bedtime) with automatic countdown badges.</td>
             </tr>
             <tr>
-              <td><strong>Create your own preset</strong></td>
-              <td>In <strong>Presets</strong>, tap <strong>+ Add Preset</strong>. Set topic tags, book count, swap cycle, cooldown, and an optional yearly start date (month + day).</td>
+              <td><strong>Remove a rotation without losing book history</strong></td>
+              <td>Tap <strong>Delete Rotation</strong>. The books remain safely in your catalog, their past reading dates stay recorded, and the app gracefully rolls back the rotation counter.</td>
             </tr>
           </tbody>
         </table>
       </section>
 
+      <!-- 4. Bedtime Sets & Off-Shelf Baskets -->
+      <section id="bedtime-sets" class="section-block">
+        <h2>4. Bedtime Baskets &amp; Off-Shelf Book Sets</h2>
+        <p>
+          A common question from parents: <em>"How do I create a set of books that are NOT on the daytime shelf? For example, all our bedtime stories are kept on a nightstand basket and only read before sleep."</em>
+        </p>
+
+        <div class="card-grid">
+          <div class="card">
+            <h3>Method A: Dedicated "Bedtime Set" Saved Rotation (Recommended)</h3>
+            <ol>
+              <li>Go to <strong>Rotations</strong> (<code>#/rotations</code>) → Tap <strong>+ New Shelf</strong>.</li>
+              <li>Name it <strong>"Bedtime Tales"</strong> or <strong>"Night Basket"</strong>.</li>
+              <li>Add all your evening bedtime favorites to this shelf.</li>
+              <li><strong>Crucial Step:</strong> Do <em>not</em> tap "Make Active Shelf"! Leave it in <strong>Saved</strong> status.</li>
+            </ol>
+            <p class="text-sm">
+              Because it is a <strong>Saved Shelf</strong>, these books will <strong>never</strong> appear on the child’s daytime living room shelf (<code>#/home</code>) and will never clutter daytime play.
+            </p>
+          </div>
+
+          <div class="card">
+            <h3>Method B: Night-Only Topic Tag (<code>bedtime</code>)</h3>
+            <p>
+              Tag your bedtime books with <code>bedtime</code>. When generating your daytime rotation shelf, set daytime objectives (e.g. <code>animals, trucks, nature</code>) so daytime auto-generation only selects daytime titles, keeping your bedtime books in reserve.
+            </p>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Why this works so well:</strong>
+          You can keep multiple specialized off-shelf sets ready at the same time: a <em>Bedtime Basket</em> on the nightstand, a <em>Car Travel Pouch</em> in the glovebox, and a <em>Holiday Box</em> in storage!
+        </div>
+      </section>
+
+      <!-- 5. Storytime Randomizer -->
+      <section id="storytime-picker" class="section-block">
+        <h2>5. Storytime Randomizer: Pick from Specific Shelves &amp; Sets</h2>
+        <p>
+          In the <strong>Play</strong> tab (<code>#/play</code>), open the <strong>Bedtime &amp; Storytime Randomizer</strong>.
+          You can adjust the number of books with the <code>− N books +</code> stepper, toggle <em>Unread first</em>, and choose exactly where the books come from:
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Scope Option</th>
+              <th>How it picks</th>
+              <th>When to use</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Active Shelf</strong></td>
+              <td>Picks from the 5–10 books currently out on your child's main shelf.</td>
+              <td>Everyday reading or when you want your child to focus on the current rotation.</td>
+            </tr>
+            <tr>
+              <td><strong>Saved Shelf / Set</strong></td>
+              <td>Picks directly from any specific rotation you choose in the dropdown (e.g. <em>"🌙 Bedtime Tales (6 books)"</em>).</td>
+              <td><strong>Bedtime!</strong> When you want 2 or 3 surprise books picked strictly from the night basket, without daytime books interfering.</td>
+            </tr>
+            <tr>
+              <td><strong>Home Library</strong></td>
+              <td>Draws from your reader's entire owned collection across all boxes.</td>
+              <td>When looking for a book on a specific theme (e.g. typing <em>"space"</em> or <em>"dinosaurs"</em>) anywhere in the house.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- 6. Cover Badges Guide -->
+      <section id="cover-badges" class="section-block">
+        <h2>6. Book Cover Stickers &amp; Badges (4-Corner Taxonomy)</h2>
+        <p>
+          To keep book cover artwork clear and beautiful, Little Shelf places status stickers in <strong>4 dedicated, non-overlapping corner slots</strong>.
+          Some badges are mutually exclusive (only the most important status wins), while others can appear simultaneously.
+        </p>
+
+        <!-- Visual Diagram -->
+        <div class="cover-diagram-card">
+          <div class="spine"></div>
+          <span class="cover-slot-marker slot-top-left">Top-Left: Catalog State</span>
+          <span class="cover-slot-marker slot-top-right">Top-Right: ♥ Loved</span>
+          <div style="font-weight: 800; font-size: 1.1rem; line-height: 1.2;">The Snowy Day</div>
+          <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 4px;">Ezra Jack Keats</div>
+          <span class="cover-slot-marker slot-bottom-left">Bottom-Left: Rotation &amp; Usage</span>
+          <span class="cover-slot-marker slot-bottom-right">Bottom-Right: Owners</span>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Corner Slot</th>
+              <th>Badges &amp; Meanings</th>
+              <th>Exclusivity Rules</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Top-Left<br/><code>catalog-state</code></strong></td>
+              <td>
+                <span class="badge-tag-pill badge-tag-amber">Wishlist</span> — Not yet owned; gift/purchase idea.<br/>
+                <span class="badge-tag-pill badge-tag-sky">Saved</span> — Saved/interested title.<br/>
+                <span class="badge-tag-pill badge-tag-dark">Loan</span> — Borrowed library or friend book.<br/>
+                <span class="badge-tag-pill badge-tag-rose">Torn / Broken</span> — Needs tape or repairs.
+              </td>
+              <td>
+                <strong>Mutually Exclusive (Max 1).</strong><br/>
+                Standard <em>Owned + Good</em> rotatable books show <strong>nothing</strong> in this slot so the cover art stays clean.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Top-Right<br/><code>affection</code></strong></td>
+              <td>
+                <span class="badge-tag-pill badge-tag-rose">♥ Loved</span> — Child's favorite comfort book.
+              </td>
+              <td>
+                <strong>Independent Boolean.</strong><br/>
+                Can appear alongside any catalog status, rotation state, or owner initial.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Bottom-Left<br/><code>rotation-state</code></strong></td>
+              <td>
+                <span class="badge-tag-pill badge-tag-green">✓ Read</span> — Read on the active shelf.<br/>
+                <span class="badge-tag-pill badge-tag-amber">⏱ Shelf 12d</span> — On active shelf for 12 days without being logged as read (Stale Spotlight).<br/>
+                <span class="badge-tag-pill badge-tag-dark">▤ Shelf</span> — Currently out on active shelf.<br/>
+                <span class="badge-tag-pill badge-tag-amber">⏱ Rest 15d</span> — Resting in cooldown with 15 days left before it can rotate out again.<br/>
+                <span class="badge-tag-pill badge-tag-sky">✦ New</span> — Fresh addition; never placed on a rotation shelf yet.<br/>
+                <span class="badge-tag-pill badge-tag-dark">✓ Read</span> (light) — Off-shelf book read together in a previous cycle.
+              </td>
+              <td>
+                <strong>Mutually Exclusive (Max 1).</strong><br/>
+                Notice the explicit prefixes: <code>Shelf 12d</code> (days on shelf) vs <code>Rest 15d</code> (days remaining in cooldown). They can never be confused.
+              </td>
+            </tr>
+            <tr>
+              <td><strong>Bottom-Right<br/><code>owners</code></strong></td>
+              <td>
+                <span class="badge-tag-pill badge-tag-sky">M</span> <span class="badge-tag-pill badge-tag-purple">L</span> — Child initials showing which reader(s) own the book.
+              </td>
+              <td>
+                <strong>Independent.</strong><br/>
+                Hidden when a book belongs to the entire household (<em>Shared</em>).
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <strong>Prefer clean covers without stickers?</strong>
+          You can toggle cover badges anytime: open <strong>Settings → Appearance → Book Cover Stickers &amp; Badges</strong>. When turned off, the detailed usage metrics still appear in the 1-line text caption under each card and inside the Book Inspector sheet.
+        </div>
+      </section>
+
+      <!-- 7. Install on Phone -->
       <section id="install" class="section-block">
-        <h2>4. Install on Your Phone (Offline PWA)</h2>
+        <h2>7. Install on Your Phone (Offline PWA)</h2>
         <div class="card-grid">
           <div class="card">
             <h3>iPhone / iPad (Safari)</h3>
             <ol>
               <li>Open Little Shelf in <strong>Safari</strong>.</li>
-              <li>Tap <strong>Share</strong> (square with upward arrow).</li>
-              <li>Tap <strong>Add to Home Screen</strong> → <strong>Add</strong>.</li>
+              <li>Tap the <strong>Share</strong> button (square with arrow pointing up).</li>
+              <li>Scroll down and tap <strong>Add to Home Screen</strong> → tap <strong>Add</strong>.</li>
             </ol>
+            <p class="text-sm">Opens full-screen without Safari browser bars.</p>
           </div>
           <div class="card">
             <h3>Android (Chrome)</h3>
             <ol>
               <li>Open Little Shelf in <strong>Chrome</strong>.</li>
-              <li>Tap <strong>Install</strong> on the in-app banner (or <strong>⋮ → Install app</strong>).</li>
+              <li>Tap <strong>Install</strong> on the in-app banner (or tap <strong>⋮ → Install app</strong>).</li>
             </ol>
+            <p class="text-sm">Launches instantly like a native app from your home screen.</p>
           </div>
         </div>
       </section>
 
+      <!-- 8. Private Storage & Backups -->
       <section id="backups" class="section-block">
-        <h2>5. Private Storage &amp; Backups</h2>
+        <h2>8. Private Storage &amp; Backups</h2>
         <div class="callout">
-          <strong>100% On-Device Storage</strong>
-          Books, covers, profiles, rotations, and custom presets stay in IndexedDB on your phone or laptop. Before switching phones or clearing browser data, open <strong>Settings → Export Backup (.json)</strong>.
+          <strong>100% On-Device Storage:</strong>
+          Books, photos, reader profiles, reading histories, and custom presets stay stored in IndexedDB on your device.
+          Before clearing your browser cache or switching devices, go to <strong>Settings → Export Library Backup (.json)</strong> to save a complete copy.
         </div>
       </section>
 
       <footer class="docs-footer">
         <span>Little Shelf Documentation</span>
-        <a href="./configuration.html">Next: Google Books Setup →</a>
+        <a href="./architecture-and-providers.html">Developer &amp; Config Guide →</a>
       </footer>
     </main>
   </body>

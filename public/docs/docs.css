@@ -635,6 +635,128 @@ tr:last-child td {
   border-bottom: none;
 }
 
+/* Badge Visual Mockups & Cover Diagram */
+.cover-diagram-card {
+  position: relative;
+  width: 220px;
+  height: 270px;
+  background: linear-gradient(135deg, #1D5C63 0%, #134045 100%);
+  color: #FAF6EE;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  margin: 1.5rem auto;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.cover-diagram-card .spine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 14px;
+  background: rgba(0, 0, 0, 0.3);
+  border-top-left-radius: 16px;
+  border-bottom-left-radius: 16px;
+}
+
+.cover-slot-marker {
+  position: absolute;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  line-height: 1.2;
+}
+
+.slot-top-left {
+  top: 10px;
+  left: 20px;
+  background: #FEF3C7;
+  color: #78350F;
+  border: 1px solid #FCD34D;
+}
+
+.slot-top-right {
+  top: 10px;
+  right: 10px;
+  background: #FFF1F2;
+  color: #BE123C;
+  border: 1px solid #FECDD3;
+}
+
+.slot-bottom-left {
+  bottom: 10px;
+  left: 20px;
+  background: #14532D;
+  color: #FFFFFF;
+  border: 1px solid #86EFAC;
+}
+
+.slot-bottom-right {
+  bottom: 10px;
+  right: 10px;
+  background: #1E3A8A;
+  color: #FFFFFF;
+  border: 1px solid #93C5FD;
+}
+
+.badge-tag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-tag-amber {
+  background: #FEF3C7;
+  color: #78350F;
+  border: 1px solid #FCD34D;
+}
+
+.badge-tag-green {
+  background: #DCFCE7;
+  color: #166534;
+  border: 1px solid #86EFAC;
+}
+
+.badge-tag-sky {
+  background: #E0F2FE;
+  color: #0369A1;
+  border: 1px solid #7DD3FC;
+}
+
+.badge-tag-rose {
+  background: #FFE4E6;
+  color: #9F1239;
+  border: 1px solid #FDA4AF;
+}
+
+.badge-tag-dark {
+  background: #1E293B;
+  color: #F8FAFC;
+  border: 1px solid #475569;
+}
+
+.badge-tag-purple {
+  background: #F3E8FF;
+  color: #6B21A8;
+  border: 1px solid #D8B4FE;
+}
+
 .docs-footer {
   margin-top: 2.5rem;
   padding-top: 1.1rem;

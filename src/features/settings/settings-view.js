@@ -1453,7 +1453,25 @@ export function renderSettingsView({
                 User Guide &amp; Walkthrough
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                Scanning, profiles, rotations, Swap Day &amp; Play
+                Scanning, profiles, rotations, Bedtime Baskets &amp; Play
+              </p>
+            </div>
+            <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
+          </a>
+
+          <a
+            href="${escapeHtml(APP_DOCS_LINKS.coverBadges)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-docs-link="cover-badges"
+            class="rounded-xl p-3 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
+          >
+            <div class="min-w-0">
+              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                Cover Badges &amp; Stickers Guide
+              </p>
+              <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+                4-corner taxonomy: Read, Shelf, Rest cooldown &amp; Wishlist
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
@@ -1471,7 +1489,25 @@ export function renderSettingsView({
                 Google Books &amp; Proxy Config
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                Local .env, Cloud Console &amp; GitHub Pages Worker
+                Local .env, Cloud Console &amp; Cloudflare Worker guide
+              </p>
+            </div>
+            <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
+          </a>
+
+          <a
+            href="${escapeHtml(APP_DOCS_LINKS.architectureAndProviders)}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-docs-link="architecture-and-providers"
+            class="rounded-xl p-3 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
+          >
+            <div class="min-w-0">
+              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                Developer &amp; Config Guide
+              </p>
+              <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+                /src/config/ guide, YAML locales &amp; data models
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
@@ -1489,25 +1525,7 @@ export function renderSettingsView({
                 Local Tag Rules &amp; AI Adapters
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                Editing rule-tagger.js &amp; custom LLM enrichment
-              </p>
-            </div>
-            <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
-          </a>
-
-          <a
-            href="${escapeHtml(APP_DOCS_LINKS.architectureAndProviders)}"
-            target="_blank"
-            rel="noopener noreferrer"
-            data-docs-link="architecture-and-providers"
-            class="rounded-xl p-3 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
-          >
-            <div class="min-w-0">
-              <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
-                Developer Architecture &amp; Providers
-              </p>
-              <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                Codebase map &amp; adding a book MetadataProvider
+                Offline rule-tagger.js &amp; pluggable AI adapters
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>

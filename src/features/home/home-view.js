@@ -317,7 +317,11 @@ export function renderHomeView({
                     </div>
                     <div class="flex items-center gap-2.5 shrink-0">
                       <span class="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 whitespace-nowrap">
-                        ${rot.bookIds.length} books
+                        ${rot.bookIds.length} ${
+                          rot.bookIds.length === 1
+                            ? t(lang, 'common.booksSingular')
+                            : t(lang, 'common.booksPlural')
+                        }
                       </span>
                       <button
                         type="button"
@@ -325,7 +329,7 @@ export function renderHomeView({
                         data-rotation-id="${escapeHtml(rot.id)}"
                         class="min-h-[38px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors"
                       >
-                        Activate
+                        ${escapeHtml(t(lang, 'home.activate'))}
                       </button>
                     </div>
                   </div>
@@ -350,10 +354,10 @@ export function renderHomeView({
         <section aria-labelledby="up-next-heading" class="pt-3 border-t border-linen-200/90 dark:border-night-800 space-y-2.5">
           <div class="flex items-baseline justify-between gap-2">
             <h2 id="up-next-heading" class="font-display text-base font-bold text-espresso-800 dark:text-white">
-              Suggested Next for ${escapeHtml(activeProfile.name)}
+              ${escapeHtml(t(lang, 'home.suggestedNext', { name: activeProfile.name }))}
             </h2>
             <span class="text-[11px] text-stone-ink dark:text-slate-400">
-              Off-shelf picks
+              ${escapeHtml(t(lang, 'home.offShelfPicks'))}
             </span>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -410,13 +414,15 @@ export function renderHomeView({
     <section aria-label="Active collection summary" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 px-4 py-3 flex items-center justify-between gap-3">
       <div class="min-w-0">
         <p class="font-display text-sm font-bold text-espresso-800 dark:text-white">
-          Active Collection
+          ${escapeHtml(t(lang, 'home.activeCollection'))}
         </p>
         <p class="text-xs text-stone-ink dark:text-slate-400 font-mono-tabular truncate">
-          ${state.books.length} ${state.books.length === 1 ? 'book' : 'books'} · ${
-            activeProfile.readHistoryBookIds.length
-          } read with ${escapeHtml(activeProfile.name)}${
-            wishlistCount > 0 ? ` · ${wishlistCount} wishlisted` : ''
+          ${state.books.length} ${
+            state.books.length === 1 ? t(lang, 'common.booksSingular') : t(lang, 'common.booksPlural')
+          } · ${activeProfile.readHistoryBookIds.length} ${escapeHtml(
+            t(lang, 'home.readWith', { name: activeProfile.name })
+          )}${
+            wishlistCount > 0 ? ` · ${escapeHtml(t(lang, 'home.wishlisted', { count: wishlistCount }))}` : ''
           }
         </p>
       </div>
@@ -428,7 +434,7 @@ export function renderHomeView({
                 href="#/library?filter=wishlist"
                 class="min-h-[44px] px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
               >
-                Wishlist (${wishlistCount})
+                ${escapeHtml(t(lang, 'home.wishlistBtn', { count: wishlistCount }))}
               </a>
             `
             : ''
@@ -437,7 +443,7 @@ export function renderHomeView({
           href="#/library"
           class="min-h-[44px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap"
         >
-          Library
+          ${escapeHtml(t(lang, 'nav.library'))}
           ${renderIcon('chevronRight', 'w-3.5 h-3.5')}
         </a>
       </div>

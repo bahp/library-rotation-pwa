@@ -30,7 +30,8 @@ import {
  * @property {'storytime-picker' | 'book-hunt' | null} [activeAppId] - Currently open mini-app bottom sheet (`null` shows preview gallery only)
  * @property {boolean} [sheetClosedExplicitly] - True after user closes the Play sheet so background session state stays preserved without re-opening automatically
  * @property {number} randomizerCount - Number of books to pick (1+, default 3)
- * @property {'active-shelf' | 'owned-library'} randomizerScope - Source pool for Storytime Picker
+ * @property {'active-shelf' | 'owned-library' | 'rotation'} randomizerScope - Source pool for Storytime Picker
+ * @property {string | null} [randomizerRotationId] - Selected saved rotation ID when picking from a specific rotation
  * @property {string} randomizerTopic - Optional topic/mood query (e.g. 'bedtime', 'trucks', 'winter')
  * @property {boolean} randomizerUnreadFirst - Prefer unread books first when picking
  * @property {string[]} pickedBookIds - Currently picked book IDs
@@ -58,6 +59,7 @@ export function createDefaultPlayUiState() {
     sheetClosedExplicitly: false,
     randomizerCount: 3,
     randomizerScope: 'active-shelf',
+    randomizerRotationId: null,
     randomizerTopic: '',
     randomizerUnreadFirst: true,
     pickedBookIds: [],
@@ -186,11 +188,20 @@ export function renderPlayView({
 
   const bookMap = new Map(state.books.map((b) => [b.id, b]));
 
+  const readerRotations = (state.rotations || []).filter(
+    (r) => !activeProfile || r.profileId === activeProfile.id
+  );
+  const allRotations = readerRotations.length > 0 ? readerRotations : state.rotations || [];
+  const currentRotationId =
+    playUiState.randomizerRotationId || (allRotations.length > 0 ? allRotations[0].id : null);
+
   const randomizerPool = resolvePlayBookPool({
     books: state.books,
     activeRotation,
     activeProfile,
     scope: playUiState.randomizerScope,
+    selectedRotationId: currentRotationId,
+    rotations: state.rotations,
   });
 
   const huntPool = resolvePlayBookPool({
@@ -491,13 +502,13 @@ export function renderPlayView({
         <div class="flex flex-wrap items-center gap-2">
           ${countStepperHtml}
 
-          <div class="flex-1 min-w-[184px] flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+          <div class="flex-1 min-w-[240px] flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
             <button
               type="button"
               data-action="set-randomizer-scope"
               data-scope="active-shelf"
               aria-pressed="${playUiState.randomizerScope === 'active-shelf' ? 'true' : 'false'}"
-              class="flex-1 min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+              class="flex-1 min-h-[36px] px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap text-center ${
                 playUiState.randomizerScope === 'active-shelf'
                   ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
                   : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
@@ -508,9 +519,22 @@ export function renderPlayView({
             <button
               type="button"
               data-action="set-randomizer-scope"
+              data-scope="rotation"
+              aria-pressed="${playUiState.randomizerScope === 'rotation' ? 'true' : 'false'}"
+              class="flex-1 min-h-[36px] px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap text-center ${
+                playUiState.randomizerScope === 'rotation'
+                  ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+              }"
+            >
+              ${escapeHtml(t(lang, 'play.savedRotationsScope'))}
+            </button>
+            <button
+              type="button"
+              data-action="set-randomizer-scope"
               data-scope="owned-library"
               aria-pressed="${playUiState.randomizerScope === 'owned-library' ? 'true' : 'false'}"
-              class="flex-1 min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+              class="flex-1 min-h-[36px] px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap text-center ${
                 playUiState.randomizerScope === 'owned-library'
                   ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
                   : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
@@ -544,6 +568,53 @@ export function renderPlayView({
             )}</span>
           </button>
         </div>
+
+        ${
+          playUiState.randomizerScope === 'rotation'
+            ? `
+              <div data-rotation-scope-selector="true" class="w-full flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-xl bg-linen-100/90 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+                <label for="play-rotation-select" class="text-xs font-semibold text-forest-900 dark:text-slate-200 shrink-0 flex items-center gap-1.5">
+                  ${renderIcon('library', 'w-3.5 h-3.5 text-forest-800 dark:text-[#5ED3DA]')}
+                  <span>${escapeHtml(t(lang, 'play.selectRotationLabel'))}:</span>
+                </label>
+                ${
+                  allRotations.length > 0
+                    ? `
+                      <select
+                        id="play-rotation-select"
+                        data-action="set-randomizer-rotation-id"
+                        aria-label="${escapeHtml(t(lang, 'play.selectRotationLabel'))}"
+                        class="flex-1 min-h-[40px] px-3 py-1.5 rounded-lg bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                      >
+                        ${allRotations
+                          .map((rot) => {
+                            const isSelected = rot.id === currentRotationId;
+                            const isCurActive = rot.status === 'active';
+                            const count = rot.bookIds.length;
+                            const countLabel =
+                              count === 1
+                                ? t(lang, 'common.booksSingular')
+                                : t(lang, 'common.booksPlural');
+                            return `<option value="${escapeHtml(rot.id)}" ${
+                              isSelected ? 'selected' : ''
+                            }>${isCurActive ? '★ [Active] ' : '▤ '}${escapeHtml(rot.title)} (${count} ${countLabel})</option>`;
+                          })
+                          .join('')}
+                      </select>
+                    `
+                    : `
+                      <div class="text-xs text-stone-ink dark:text-slate-400 flex items-center gap-1.5">
+                        <span>${escapeHtml(t(lang, 'play.noSavedRotationsYet'))}</span>
+                        <a href="#/rotations" class="underline font-semibold text-forest-800 dark:text-[#5ED3DA]">${escapeHtml(
+                          t(lang, 'play.createShelfLink')
+                        )}</a>
+                      </div>
+                    `
+                }
+              </div>
+            `
+            : ''
+        }
 
         <div>
           <label for="play-topic-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5">

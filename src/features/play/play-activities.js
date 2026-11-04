@@ -107,21 +107,24 @@ export function shuffleItems(items, rng = Math.random) {
 }
 
 /**
- * Resolves the eligible book pool for Play activities (`'active-shelf'` or `'owned-library'`).
- * Automatically falls back to the reader's owned rotatable library when no active shelf exists yet.
+ * Resolves the eligible book pool for Play activities (`'active-shelf'`, `'owned-library'`, or `'rotation'` / `'specific-rotation'`).
+ * Automatically falls back to the reader's owned rotatable library when the specified source has 0 books.
  * @param {{
  *   books: import('../../types/models.js').Book[],
  *   activeRotation: import('../../types/models.js').RotationList | null | undefined,
  *   activeProfile: import('../../types/models.js').ChildProfile | null | undefined,
- *   scope?: 'active-shelf' | 'owned-library'
+ *   scope?: 'active-shelf' | 'owned-library' | 'rotation' | 'specific-rotation',
+ *   selectedRotationId?: string | null,
+ *   rotations?: import('../../types/models.js').RotationList[]
  * }} params
  * @returns {{
  *   pool: import('../../types/models.js').Book[],
  *   activeShelfBooks: import('../../types/models.js').Book[],
  *   readerLibraryBooks: import('../../types/models.js').Book[],
- *   effectiveScope: 'active-shelf' | 'owned-library',
+ *   effectiveScope: 'active-shelf' | 'owned-library' | 'rotation',
  *   usedFallbackToLibrary: boolean,
- *   poolLabel: string
+ *   poolLabel: string,
+ *   selectedRotation?: import('../../types/models.js').RotationList | null
  * }}
  */
 export function resolvePlayBookPool({
@@ -129,6 +132,8 @@ export function resolvePlayBookPool({
   activeRotation,
   activeProfile,
   scope = 'active-shelf',
+  selectedRotationId = null,
+  rotations = [],
 }) {
   const allBooks = Array.isArray(books) ? books : [];
   const bookById = new Map(allBooks.map((b) => [b.id, b]));
@@ -147,15 +152,42 @@ export function resolvePlayBookPool({
 
   const readerName = activeProfile?.name || 'Reader';
 
-  if (scope === 'active-shelf') {
+  // Specific saved rotation / bedtime group pool
+  if (scope === 'rotation' || scope === 'specific-rotation') {
+    const targetRotation =
+      (rotations || []).find((r) => r.id === selectedRotationId) ||
+      (rotations || []).find((r) => r.profileId === activeProfile?.id) ||
+      (rotations || [])[0] ||
+      null;
+
+    if (targetRotation) {
+      const targetBooks = targetRotation.bookIds
+        .map((id) => bookById.get(id))
+        .filter(/** @returns {b is import('../../types/models.js').Book} */ (b) => Boolean(b));
+
+      if (targetBooks.length > 0) {
+        return {
+          pool: targetBooks,
+          activeShelfBooks,
+          readerLibraryBooks,
+          effectiveScope: 'rotation',
+          usedFallbackToLibrary: false,
+          poolLabel: targetRotation.title || 'Saved Shelf',
+          selectedRotation: targetRotation,
+        };
+      }
+    }
+
+    // Fallback if the selected rotation has 0 books or was removed
     if (activeShelfBooks.length > 0) {
       return {
         pool: activeShelfBooks,
         activeShelfBooks,
         readerLibraryBooks,
         effectiveScope: 'active-shelf',
-        usedFallbackToLibrary: false,
+        usedFallbackToLibrary: true,
         poolLabel: activeRotation?.title || `${readerName}’s Active Shelf`,
+        selectedRotation: null,
       };
     }
     return {
@@ -165,6 +197,30 @@ export function resolvePlayBookPool({
       effectiveScope: 'owned-library',
       usedFallbackToLibrary: true,
       poolLabel: `${readerName}’s Home Library`,
+      selectedRotation: null,
+    };
+  }
+
+  if (scope === 'active-shelf') {
+    if (activeShelfBooks.length > 0) {
+      return {
+        pool: activeShelfBooks,
+        activeShelfBooks,
+        readerLibraryBooks,
+        effectiveScope: 'active-shelf',
+        usedFallbackToLibrary: false,
+        poolLabel: activeRotation?.title || `${readerName}’s Active Shelf`,
+        selectedRotation: activeRotation || null,
+      };
+    }
+    return {
+      pool: readerLibraryBooks,
+      activeShelfBooks,
+      readerLibraryBooks,
+      effectiveScope: 'owned-library',
+      usedFallbackToLibrary: true,
+      poolLabel: `${readerName}’s Home Library`,
+      selectedRotation: null,
     };
   }
 
@@ -175,6 +231,7 @@ export function resolvePlayBookPool({
     effectiveScope: 'owned-library',
     usedFallbackToLibrary: false,
     poolLabel: `${readerName}’s Home Library`,
+    selectedRotation: null,
   };
 }
 
@@ -321,7 +378,9 @@ export function scoreBookForTopic(book, rawTopicQuery) {
  *   activeRotation: import('../../types/models.js').RotationList | null | undefined,
  *   activeProfile: import('../../types/models.js').ChildProfile | null | undefined,
  *   count?: number,
- *   scope?: 'active-shelf' | 'owned-library',
+ *   scope?: 'active-shelf' | 'owned-library' | 'rotation' | 'specific-rotation',
+ *   selectedRotationId?: string | null,
+ *   rotations?: import('../../types/models.js').RotationList[],
  *   topicQuery?: string,
  *   unreadFirst?: boolean,
  *   rng?: () => number
@@ -345,6 +404,8 @@ export function pickStorytimeBooks({
   activeProfile,
   count = 3,
   scope = 'active-shelf',
+  selectedRotationId = null,
+  rotations = [],
   topicQuery = '',
   unreadFirst = true,
   rng = Math.random,
@@ -357,9 +418,12 @@ export function pickStorytimeBooks({
     activeRotation,
     activeProfile,
     scope,
+    selectedRotationId,
+    rotations,
   });
 
   const completedInActive = new Set(activeRotation?.completedBookIds || []);
+  const completedInTarget = new Set(poolInfo.selectedRotation?.completedBookIds || []);
   const readHistory = new Set(activeProfile?.readHistoryBookIds || []);
 
   /**
@@ -368,6 +432,9 @@ export function pickStorytimeBooks({
   const isUnread = (b) => {
     if (poolInfo.effectiveScope === 'active-shelf' && activeRotation) {
       return !completedInActive.has(b.id);
+    }
+    if (poolInfo.effectiveScope === 'rotation' && poolInfo.selectedRotation) {
+      return !completedInTarget.has(b.id);
     }
     return !completedInActive.has(b.id) && !readHistory.has(b.id);
   };
