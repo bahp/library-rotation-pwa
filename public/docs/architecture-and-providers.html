@@ -10,126 +10,224 @@
   <body>
     <header class="docs-header">
       <div class="docs-header-inner">
-        <a href="./index.html" class="docs-brand">
-          <img src="../icons/icon-192.png" alt="Little Shelf" />
-          <span>Little Shelf Docs</span>
-        </a>
+        <div class="docs-header-left">
+          <a href="./index.html" class="docs-brand">
+            <img src="../icons/icon-192.png" alt="Little Shelf" />
+            <span>Little Shelf Docs</span>
+          </a>
+          <span class="docs-header-tag">Developer &amp; Config</span>
+        </div>
         <nav class="docs-nav" aria-label="Documentation pages">
           <a href="./index.html">User Guide</a>
           <a href="./architecture-and-providers.html" aria-current="page">Developer &amp; Config Guide</a>
           <a href="./configuration.html">Google Books &amp; Cloudflare</a>
           <a href="./tagging-and-ai.html">Taxonomy &amp; Tag Rules</a>
         </nav>
-        <a href="../#/home" class="docs-back-app">Open App →</a>
+        <div class="docs-header-actions">
+          <a href="../#/home" class="docs-back-app">Open App →</a>
+        </div>
       </div>
     </header>
 
-    <main class="docs-main">
-      <section class="hero">
-        <p class="eyebrow">Developer &amp; Architecture Reference</p>
-        <h1>Developer &amp; Configuration Guide</h1>
-        <p class="lead">
-          Everything a maintainer or developer needs to know about Little Shelf: centralized config files, the 4-corner badge taxonomy, rotation math, offline IndexedDB storage, and localization.
-        </p>
-        <div class="jump-bar">
-          <a href="#pipeline">Data Flow</a>
-          <a href="#config-dir">Centralized /src/config/</a>
-          <a href="#cover-taxonomy">Cover Badge Taxonomy</a>
-          <a href="#locales">YAML Translations</a>
-          <a href="#presets-config">Collection Presets</a>
-          <a href="#data-models">Data Models &amp; Storage</a>
-          <a href="#rotation-engine">Rotation Math</a>
-          <a href="#commands">Dev Commands</a>
+    <div class="docs-layout">
+      <!-- Sticky Sidebar: Index & Subindex (Zensical Style) -->
+      <aside class="docs-sidebar" aria-label="Documentation Index & Navigation">
+        <div class="sidebar-group">
+          <div class="sidebar-heading">Guides</div>
+          <ul class="sidebar-nav-list">
+            <li><a href="./index.html" class="sidebar-link"><span>User Guide</span> <span class="badge-tag-pill badge-tag-amber">Parent</span></a></li>
+            <li><a href="./architecture-and-providers.html" class="sidebar-link" aria-current="page"><span>Developer &amp; Config</span> <span class="badge-tag-pill badge-tag-sky">Tech</span></a></li>
+            <li><a href="./configuration.html" class="sidebar-link"><span>Google Books &amp; Worker</span> <span class="badge-tag-pill badge-tag-dark">Proxy</span></a></li>
+            <li><a href="./tagging-and-ai.html" class="sidebar-link"><span>Taxonomy &amp; AI Rules</span> <span class="badge-tag-pill badge-tag-purple">Tags</span></a></li>
+          </ul>
         </div>
-      </section>
 
-      <!-- 1. Data Flow -->
-      <section id="pipeline" class="section-block">
-        <h2>1. End-to-End Data Flow</h2>
-        <div class="flow-strip" aria-label="Architecture pipeline">
-          <span class="flow-node">Scan / Search</span>
-          <span class="flow-sep">→</span>
-          <span class="flow-node">CatalogService (Parallel Providers)</span>
-          <span class="flow-sep">→</span>
-          <span class="flow-node">Merge &amp; Deduplication</span>
-          <span class="flow-sep">→</span>
-          <span class="flow-node">RuleTagger (Taxonomy)</span>
-          <span class="flow-sep">→</span>
-          <span class="flow-node">Store (IndexedDB)</span>
-          <span class="flow-sep">→</span>
-          <span class="flow-node">patchRootHtml() (DOM diff)</span>
+        <div class="sidebar-group">
+          <div class="sidebar-heading">On This Page</div>
+          <ul class="sidebar-toc-list">
+            <li>
+              <a href="#pipeline" class="sidebar-link">1. End-to-End Data Flow</a>
+            </li>
+            <li>
+              <a href="#config-dir" class="sidebar-link">2. Centralized /src/config/</a>
+              <ul class="sidebar-subindex">
+                <li><a href="#config-dir" class="sidebar-sublink">colors-and-badges.js</a></li>
+                <li><a href="#config-dir" class="sidebar-sublink">presets.js &amp; defaults.js</a></li>
+                <li><a href="#config-dir" class="sidebar-sublink">locales/ Dictionaries</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#providers-interface" class="sidebar-link">3. MetadataProvider Contract</a>
+              <ul class="sidebar-subindex">
+                <li><a href="#providers-interface" class="sidebar-sublink">lookupByIsbn</a></li>
+                <li><a href="#providers-interface" class="sidebar-sublink">searchBooks</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#cover-taxonomy" class="sidebar-link">4. Cover Badge Taxonomy</a>
+              <ul class="sidebar-subindex">
+                <li><a href="#cover-taxonomy" class="sidebar-sublink">COVER_BADGE_SLOTS</a></li>
+                <li><a href="#cover-taxonomy" class="sidebar-sublink">Exclusivity Logic</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#locales" class="sidebar-link">5. YAML Locale System</a>
+            </li>
+            <li>
+              <a href="#presets-config" class="sidebar-link">6. Collection Presets</a>
+            </li>
+            <li>
+              <a href="#data-models" class="sidebar-link">7. Models &amp; IndexedDB</a>
+            </li>
+            <li>
+              <a href="#rotation-engine" class="sidebar-link">8. Rotation Math</a>
+            </li>
+            <li>
+              <a href="#commands" class="sidebar-link">9. Dev &amp; Test Commands</a>
+            </li>
+          </ul>
         </div>
-        <ul>
-          <li><strong>No cover flicker:</strong> <code>src/core/dom-patch.js</code> diffs live DOM nodes in place so unchanged <code>&lt;img&gt;</code> book covers never unmount or re-fetch on navigation.</li>
-          <li><strong>Deterministic rotation generation:</strong> Both manual shelf generation and <code>#/presets</code> collections run through a seeded PRNG (<code>src/features/rotations/rotation-engine.js</code>) for reproducible tests and predictable shelf swaps.</li>
-          <li><strong>100% Client-Side Privacy:</strong> Zero user data leaves the phone. IndexedDB persists catalog, profile, and rotation collections offline.</li>
-        </ul>
-      </section>
+      </aside>
 
-      <!-- 2. Centralized Config Directory -->
-      <section id="config-dir" class="section-block">
-        <h2>2. Centralized Configuration Directory (<code>/src/config/</code>)</h2>
-        <p>
-          All configurable app behaviors, styling palettes, collection presets, numeric boundaries, and language dictionaries are unified inside <code>/src/config/</code>.
-          This makes customizing the app clean and straightforward without editing core component code.
-        </p>
+      <!-- Main Documentation Content -->
+      <main class="docs-main">
+        <section class="hero">
+          <p class="eyebrow">Developer &amp; Architecture Reference</p>
+          <h1>Developer &amp; Configuration Guide</h1>
+          <p class="lead">
+            Everything a maintainer or developer needs to know about Little Shelf: centralized config files, the 4-corner badge taxonomy, rotation math, offline IndexedDB storage, and localization.
+          </p>
+          <div class="jump-bar">
+            <a href="#pipeline">Data Flow</a>
+            <a href="#config-dir">Centralized /src/config/</a>
+            <a href="#providers-interface">MetadataProvider Contract</a>
+            <a href="#cover-taxonomy">Cover Badge Taxonomy</a>
+            <a href="#locales">YAML Translations</a>
+            <a href="#presets-config">Collection Presets</a>
+            <a href="#data-models">Data Models &amp; Storage</a>
+            <a href="#rotation-engine">Rotation Math</a>
+            <a href="#commands">Dev Commands</a>
+          </div>
+        </section>
 
-        <table>
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>What it configures &amp; How to edit</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>/src/config/colors-and-badges.js</code></td>
-              <td>
-                Defines the <strong>4-corner cover overlay slots</strong> (<code>COVER_BADGE_SLOTS</code>), avatar color tones (<code>AVATAR_TONES</code>), cloth-bound book spine fallback palettes (<code>BOOK_SPINE_PALETTES_BY_KEY</code>), and CSS styling maps for catalog badges and rotation adornos.
-              </td>
-            </tr>
-            <tr>
-              <td><code>/src/config/presets.js</code></td>
-              <td>
-                Contains the 15+ curated collection presets (<code>DEFAULT_ROTATION_PRESETS</code>) including Winter Holidays, Ramadan, First Day of School, Bedtime Calm, and Potty Training, with target book counts, swap days, cooldown days, and annual MM-DD start dates.
-              </td>
-            </tr>
-            <tr>
-              <td><code>/src/config/play-apps.js</code></td>
-              <td>
-                Configures the Storytime Randomizer and Book Hunt cards in <code>#/play</code>, including app IDs, titles, descriptions, SVG icons, and optional custom logo / illustration URLs.
-              </td>
-            </tr>
-            <tr>
-              <td><code>/src/config/defaults.js</code></td>
-              <td>
-                Default constants: initial child profile age settings, safe numeric boundaries (<code>NUMERIC_BOUNDS</code>: book count, swap days, cooldown days), and default AppSettings.
-              </td>
-            </tr>
-            <tr>
-              <td><code>/src/config/i18n.js</code></td>
-              <td>
-                Isomorphic localization loader and formatting helper (<code>t(lang, key, replacements)</code>) supporting English (<code>en</code>), Spanish (<code>es</code>), and Italian (<code>it</code>).
-              </td>
-            </tr>
-            <tr>
-              <td><code>/src/config/locales/</code></td>
-              <td>
-                Raw YAML locale dictionaries: <code>en.yaml</code> (English default), <code>es.yaml</code> (Spanish), and <code>it.yaml</code> (Italian).
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        <!-- 1. Data Flow -->
+        <section id="pipeline" class="section-block">
+          <h2>1. End-to-End Data Flow</h2>
+          <div class="flow-strip" aria-label="Architecture pipeline">
+            <span class="flow-node">Scan / Search</span>
+            <span class="flow-sep">→</span>
+            <span class="flow-node">CatalogService (Parallel Providers)</span>
+            <span class="flow-sep">→</span>
+            <span class="flow-node">Merge &amp; Deduplication</span>
+            <span class="flow-sep">→</span>
+            <span class="flow-node">RuleTagger (Taxonomy)</span>
+            <span class="flow-sep">→</span>
+            <span class="flow-node">Store (IndexedDB)</span>
+            <span class="flow-sep">→</span>
+            <span class="flow-node">patchRootHtml() (DOM diff)</span>
+          </div>
+          <ul>
+            <li><strong>No cover flicker:</strong> <code>src/core/dom-patch.js</code> diffs live DOM nodes in place so unchanged <code>&lt;img&gt;</code> book covers never unmount or re-fetch on navigation.</li>
+            <li><strong>Deterministic rotation generation:</strong> Both manual shelf generation and <code>#/presets</code> collections run through a seeded PRNG (<code>src/features/rotations/rotation-engine.js</code>) for reproducible tests and predictable shelf swaps.</li>
+            <li><strong>100% Client-Side Privacy:</strong> Zero user data leaves the phone. IndexedDB persists catalog, profile, and rotation collections offline.</li>
+          </ul>
+        </section>
 
-      <!-- 3. Cover Badge Taxonomy -->
-      <section id="cover-taxonomy" class="section-block">
-        <h2>3. Cover Badge Taxonomy Specification</h2>
-        <p>
-          Book covers use 4 fixed, non-overlapping corner slots defined in <code>src/config/colors-and-badges.js</code>:
-        </p>
+        <!-- 2. Centralized Config Directory -->
+        <section id="config-dir" class="section-block">
+          <h2>2. Centralized Configuration Directory (<code>/src/config/</code>)</h2>
+          <p>
+            All configurable app behaviors, styling palettes, collection presets, numeric boundaries, and language dictionaries are unified inside <code>/src/config/</code>.
+            This makes customizing the app clean and straightforward without editing core component code.
+          </p>
 
-        <pre><code>export const COVER_BADGE_SLOTS = Object.freeze({
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>What it configures &amp; How to edit</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>/src/config/colors-and-badges.js</code></td>
+                <td>
+                  Defines the <strong>4-corner cover overlay slots</strong> (<code>COVER_BADGE_SLOTS</code>), avatar color tones (<code>AVATAR_TONES</code>), cloth-bound book spine fallback palettes (<code>BOOK_SPINE_PALETTES_BY_KEY</code>), and CSS styling maps for catalog badges and rotation adornos.
+                </td>
+              </tr>
+              <tr>
+                <td><code>/src/config/presets.js</code></td>
+                <td>
+                  Contains the 15+ curated collection presets (<code>DEFAULT_ROTATION_PRESETS</code>) including Winter Holidays, Ramadan, First Day of School, Bedtime Calm, and Potty Training, with target book counts, swap days, cooldown days, and annual MM-DD start dates.
+                </td>
+              </tr>
+              <tr>
+                <td><code>/src/config/play-apps.js</code></td>
+                <td>
+                  Configures the Storytime Randomizer and Book Hunt cards in <code>#/play</code>, including app IDs, titles, descriptions, SVG icons, and optional custom logo / illustration URLs.
+                </td>
+              </tr>
+              <tr>
+                <td><code>/src/config/defaults.js</code></td>
+                <td>
+                  Default constants: initial child profile age settings, safe numeric boundaries (<code>NUMERIC_BOUNDS</code>: book count, swap days, cooldown days), and default AppSettings.
+                </td>
+              </tr>
+              <tr>
+                <td><code>/src/config/i18n.js</code></td>
+                <td>
+                  Isomorphic localization loader and formatting helper (<code>t(lang, key, replacements)</code>) supporting English (<code>en</code>), Spanish (<code>es</code>), and Italian (<code>it</code>).
+                </td>
+              </tr>
+              <tr>
+                <td><code>/src/config/locales/</code></td>
+                <td>
+                  Raw YAML locale dictionaries: <code>en.yaml</code> (English default), <code>es.yaml</code> (Spanish), and <code>it.yaml</code> (Italian).
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- 3. MetadataProvider Architecture & Interface -->
+        <section id="providers-interface" class="section-block">
+          <h2>3. MetadataProvider Architecture &amp; Service Contracts</h2>
+          <p>
+            All external book catalog integrations implement the uniform <code>MetadataProvider</code> interface.
+            This contract allows Open Library, Google Books, and future library services to run concurrently, fault-tolerantly, and return normalized book candidates.
+          </p>
+
+          <pre><code>/**
+ * @typedef {Object} MetadataProvider
+ * @property {string} name - Unique provider identifier ('open-library' | 'google-books')
+ * @property {(isbn: string) => Promise<BookCandidate | null>} lookupByIsbn - Fetch single book by ISBN-10 or ISBN-13
+ * @property {(query: string, options?: SearchOptions) => Promise<BookCandidate[]>} searchBooks - Search catalog by title/author/keywords
+ */</code></pre>
+
+          <div class="card-grid">
+            <div class="card">
+              <h3><code>lookupByIsbn(isbn)</code></h3>
+              <p>
+                Takes an EAN-13 barcode or 10-digit ISBN. Queries provider endpoints in parallel, normalizes publisher categories, cleans external IDs (e.g. strips <code>/books/</code>), and returns a pristine <code>BookCandidate</code>.
+              </p>
+            </div>
+            <div class="card">
+              <h3><code>searchBooks(query)</code></h3>
+              <p>
+                Takes user search terms (title, author, or keywords). Executes keyword searches, merges duplicate records via ISBN-13 deduplication, and enriches candidates with local reading-stage tags.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. Cover Badge Taxonomy -->
+        <section id="cover-taxonomy" class="section-block">
+          <h2>4. Cover Badge Taxonomy Specification</h2>
+          <p>
+            Book covers use 4 fixed, non-overlapping corner slots defined in <code>src/config/colors-and-badges.js</code>:
+          </p>
+
+          <pre><code>export const COVER_BADGE_SLOTS = Object.freeze({
   catalogState: {
     slot: 'catalog-state',
     corner: 'top-left',
@@ -156,63 +254,63 @@
   },
 });</code></pre>
 
-        <div class="card-grid">
-          <div class="card">
-            <h3>Top-Left: Catalog State (Mutually Exclusive)</h3>
-            <p>Shown <strong>only</strong> when a book has an exceptional catalog state:</p>
-            <ul>
-              <li><code>Wishlist</code>: Not yet owned; shopping idea.</li>
-              <li><code>Loan</code>: Borrowed from a public library or friend.</li>
-              <li><code>Saved</code>: Saved / interested.</li>
-              <li><code>Torn / Broken / Retired</code>: Physical condition flag.</li>
-            </ul>
-            <p class="text-sm">Standard <em>Owned + Good</em> rotatable books leave this slot empty.</p>
+          <div class="card-grid">
+            <div class="card">
+              <h3>Top-Left: Catalog State (Mutually Exclusive)</h3>
+              <p>Shown <strong>only</strong> when a book has an exceptional catalog state:</p>
+              <ul>
+                <li><code>Wishlist</code>: Not yet owned; shopping idea.</li>
+                <li><code>Loan</code>: Borrowed from a public library or friend.</li>
+                <li><code>Saved</code>: Saved / interested.</li>
+                <li><code>Torn / Broken / Retired</code>: Physical condition flag.</li>
+              </ul>
+              <p class="text-sm">Standard <em>Owned + Good</em> rotatable books leave this slot empty.</p>
+            </div>
+
+            <div class="card">
+              <h3>Bottom-Left: Rotation &amp; Usage (Mutually Exclusive)</h3>
+              <p>Strict priority resolution on rotatable books when badges are enabled:</p>
+              <ol>
+                <li><code>✓ Read</code>: Solid green checkmark (read on active shelf).</li>
+                <li><code>⏱ Shelf Xd</code>: Solid amber (on active shelf &gt;= stale days &amp; unread).</li>
+                <li><code>▤ Shelf</code>: Dark pill (currently out on active shelf).</li>
+                <li><code>⏱ Rest Xd</code>: Amber tint (resting in box cooldown with X days left).</li>
+                <li><code>✦ New</code>: Sky pill (never rotated on any shelf yet).</li>
+                <li><code>✓ Read</code> (light): Off-shelf book read together in past cycle.</li>
+              </ol>
+            </div>
           </div>
+        </section>
 
-          <div class="card">
-            <h3>Bottom-Left: Rotation &amp; Usage (Mutually Exclusive)</h3>
-            <p>Strict priority resolution on rotatable books when badges are enabled:</p>
-            <ol>
-              <li><code>✓ Read</code>: Solid green checkmark (read on active shelf).</li>
-              <li><code>⏱ Shelf Xd</code>: Solid amber (on active shelf &gt;= stale days &amp; unread).</li>
-              <li><code>▤ Shelf</code>: Dark pill (currently out on active shelf).</li>
-              <li><code>⏱ Rest Xd</code>: Amber tint (resting in box cooldown with X days left).</li>
-              <li><code>✦ New</code>: Sky pill (never rotated on any shelf yet).</li>
-              <li><code>✓ Read</code> (light): Off-shelf book read together in past cycle.</li>
-            </ol>
+        <!-- 5. YAML Translations -->
+        <section id="locales" class="section-block">
+          <h2>5. YAML Locale Dictionaries (<code>en.yaml</code>, <code>es.yaml</code>, <code>it.yaml</code>)</h2>
+          <p>
+            All user interface strings are stored in human-readable YAML files inside <code>/src/config/locales/</code>.
+            To add or update translations:
+          </p>
+          <ol>
+            <li>Open <code>src/config/locales/en.yaml</code>, <code>es.yaml</code>, or <code>it.yaml</code>.</li>
+            <li>Edit or add the key path under the relevant namespace (e.g. <code>home.myNewFeature</code>).</li>
+            <li>Use <code>{placeholder}</code> for variables (e.g. <code>readSummary: "{completed} of {total} read"</code>).</li>
+            <li>In your UI code, call <code>t(lang, 'home.myNewFeature', { placeholder: value })</code>.</li>
+          </ol>
+          <div class="callout">
+            <strong>Note on Book Titles:</strong>
+            Book titles, author names, and ISBNs stay in their original publication language. The locale files translate navigation, headings, badges, and instruction text.
           </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- 4. YAML Translations -->
-      <section id="locales" class="section-block">
-        <h2>4. YAML Locale Dictionaries (<code>en.yaml</code>, <code>es.yaml</code>, <code>it.yaml</code>)</h2>
-        <p>
-          All user interface strings are stored in human-readable YAML files inside <code>/src/config/locales/</code>.
-          To add or update translations:
-        </p>
-        <ol>
-          <li>Open <code>src/config/locales/en.yaml</code>, <code>es.yaml</code>, or <code>it.yaml</code>.</li>
-          <li>Edit or add the key path under the relevant namespace (e.g. <code>home.myNewFeature</code>).</li>
-          <li>Use <code>{placeholder}</code> for variables (e.g. <code>readSummary: "{completed} of {total} read"</code>).</li>
-          <li>In your UI code, call <code>t(lang, 'home.myNewFeature', { placeholder: value })</code>.</li>
-        </ol>
-        <div class="callout">
-          <strong>Note on Book Titles:</strong>
-          Book titles, author names, and ISBNs stay in their original publication language. The locale files translate navigation, headings, badges, and instruction text.
-        </div>
-      </section>
-
-      <!-- 5. Presets Config -->
-      <section id="presets-config" class="section-block">
-        <h2>5. Customizing Collection Presets</h2>
-        <p>
-          Presets in <code>src/config/presets.js</code> allow families to generate themed shelves with one tap.
-          Each preset specifies:
-        </p>
-        <pre><code>{
+        <!-- 6. Presets Config -->
+        <section id="presets-config" class="section-block">
+          <h2>6. Customizing Collection Presets</h2>
+          <p>
+            Presets in <code>src/config/presets.js</code> allow families to generate themed shelves with one tap.
+            Each preset specifies:
+          </p>
+          <pre><code>{
   id: 'bedtime-calm',
-  title: 'Calm Bedtime & Goodnight',
+  title: 'Calm Bedtime &amp; Goodnight',
   description: 'Soothing rhythms, stars, moons, and gentle bedtime stories.',
   category: 'evergreen',
   preferredTags: ['bedtime', 'sleep', 'night', 'stars', 'moon'],
@@ -225,57 +323,57 @@
   suggestedStartMonthDay: undefined, // anytime
   motif: 'moon',
 }</code></pre>
-      </section>
+        </section>
 
-      <!-- 6. Data Models -->
-      <section id="data-models" class="section-block">
-        <h2>6. Data Models &amp; Storage Schema</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Model</th>
-              <th>Key Properties</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>Book</code></td>
-              <td><code>id</code>, <code>isbn</code>, <code>title</code>, <code>authors</code>, <code>coverUrl</code>, <code>collectionStatus</code> ('owned' | 'wishlist'), <code>condition</code>, <code>loved</code>, <code>owners</code>, <code>tags</code>, <code>readingStage</code>, <code>rotationCount</code>, <code>lastRotatedAt</code>, <code>lastReadAt</code>, <code>rotationHistory</code>.</td>
-            </tr>
-            <tr>
-              <td><code>RotationList</code></td>
-              <td><code>id</code>, <code>profileId</code>, <code>title</code>, <code>status</code> ('active' | 'saved' | 'draft'), <code>bookIds</code>, <code>completedBookIds</code>, <code>activatedAt</code>, <code>rules</code> (objective, count, swapDays, cooldownDays, seed).</td>
-            </tr>
-            <tr>
-              <td><code>ChildProfile</code></td>
-              <td><code>id</code>, <code>name</code>, <code>birthDate</code> (ISO date), <code>readingStage</code>, <code>booksPerRotation</code>, <code>favoriteTopics</code>, <code>avatarTone</code>, <code>readHistoryBookIds</code>.</td>
-            </tr>
-            <tr>
-              <td><code>AppSettings</code></td>
-              <td><code>language</code> ('en' | 'es' | 'it'), <code>theme</code> ('warm-linen' | 'night-sky' | 'system'), <code>coverAspectRatio</code> ('portrait' | 'square'), <code>showCoverUsageAdornos</code> (boolean), <code>staleBookDays</code> (number).</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+        <!-- 7. Data Models -->
+        <section id="data-models" class="section-block">
+          <h2>7. Data Models &amp; Storage Schema</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Model</th>
+                <th>Key Properties</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>Book</code></td>
+                <td><code>id</code>, <code>isbn</code>, <code>title</code>, <code>authors</code>, <code>coverUrl</code>, <code>collectionStatus</code> ('owned' | 'wishlist'), <code>condition</code>, <code>loved</code>, <code>owners</code>, <code>tags</code>, <code>readingStage</code>, <code>rotationCount</code>, <code>lastRotatedAt</code>, <code>lastReadAt</code>, <code>rotationHistory</code>.</td>
+              </tr>
+              <tr>
+                <td><code>RotationList</code></td>
+                <td><code>id</code>, <code>profileId</code>, <code>title</code>, <code>status</code> ('active' | 'saved' | 'draft'), <code>bookIds</code>, <code>completedBookIds</code>, <code>activatedAt</code>, <code>rules</code> (objective, count, swapDays, cooldownDays, seed).</td>
+              </tr>
+              <tr>
+                <td><code>ChildProfile</code></td>
+                <td><code>id</code>, <code>name</code>, <code>birthDate</code> (ISO date), <code>readingStage</code>, <code>booksPerRotation</code>, <code>favoriteTopics</code>, <code>avatarTone</code>, <code>readHistoryBookIds</code>.</td>
+              </tr>
+              <tr>
+                <td><code>AppSettings</code></td>
+                <td><code>language</code> ('en' | 'es' | 'it'), <code>theme</code> ('warm-linen' | 'night-sky' | 'system'), <code>coverAspectRatio</code> ('portrait' | 'square'), <code>showCoverUsageAdornos</code> (boolean), <code>staleBookDays</code> (number).</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
 
-      <!-- 7. Rotation Math -->
-      <section id="rotation-engine" class="section-block">
-        <h2>7. Rotation Engine Math &amp; Variety Penalties</h2>
-        <p>
-          When Little Shelf generates a shelf, candidate books are scored using 4 weighted heuristics in <code>src/features/rotations/rotation-engine.js</code>:
-        </p>
-        <ul>
-          <li><strong>Age Fit (0 to +30 pts):</strong> Proximity between child age and the book's target age band.</li>
-          <li><strong>Theme &amp; Tag Relevance (0 to +25 pts):</strong> Matches against rotation objectives or preset tags.</li>
-          <li><strong>Cooldown Penalty (-100 pts):</strong> Heavy exclusion penalty if rotated within the cooldown window (e.g. past 14–30 days).</li>
-          <li><strong>Unseen Diversity Bonus (+15 pts):</strong> Books that have never been placed on a shelf (<code>✦ New</code>) or haven't been seen in the longest time receive priority.</li>
-        </ul>
-      </section>
+        <!-- 8. Rotation Math -->
+        <section id="rotation-engine" class="section-block">
+          <h2>8. Rotation Engine Math &amp; Variety Penalties</h2>
+          <p>
+            When Little Shelf generates a shelf, candidate books are scored using 4 weighted heuristics in <code>src/features/rotations/rotation-engine.js</code>:
+          </p>
+          <ul>
+            <li><strong>Age Fit (0 to +30 pts):</strong> Proximity between child age and the book's target age band.</li>
+            <li><strong>Theme &amp; Tag Relevance (0 to +25 pts):</strong> Matches against rotation objectives or preset tags.</li>
+            <li><strong>Cooldown Penalty (-100 pts):</strong> Heavy exclusion penalty if rotated within the cooldown window (e.g. past 14–30 days).</li>
+            <li><strong>Unseen Diversity Bonus (+15 pts):</strong> Books that have never been placed on a shelf (<code>✦ New</code>) or haven't been seen in the longest time receive priority.</li>
+          </ul>
+        </section>
 
-      <!-- 8. Dev Commands -->
-      <section id="commands" class="section-block">
-        <h2>8. Development &amp; Test Commands</h2>
-        <pre><code># Run complete test suite (138+ unit &amp; integration tests)
+        <!-- 9. Dev Commands -->
+        <section id="commands" class="section-block">
+          <h2>9. Development &amp; Test Commands</h2>
+          <pre><code># Run complete test suite (138+ unit &amp; integration tests)
 npm test
 
 # Run TypeScript typecheck across JS &amp; TS files
@@ -286,12 +384,13 @@ npm run build
 
 # Start local full-stack dev server on port 3000
 npm run dev</code></pre>
-      </section>
+        </section>
 
-      <footer class="docs-footer">
-        <span>Little Shelf Documentation</span>
-        <a href="./index.html">← Back to User Guide</a>
-      </footer>
-    </main>
+        <footer class="docs-footer">
+          <span>Little Shelf Documentation</span>
+          <a href="./index.html">← Back to User Guide</a>
+        </footer>
+      </main>
+    </div>
   </body>
 </html>

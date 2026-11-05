@@ -10,240 +10,253 @@
   <body>
     <header class="docs-header">
       <div class="docs-header-inner">
-        <a href="./index.html" class="docs-brand">
-          <img src="../icons/icon-192.png" alt="Little Shelf" />
-          <span>Little Shelf Docs</span>
-        </a>
+        <div class="docs-header-left">
+          <a href="./index.html" class="docs-brand">
+            <img src="../icons/icon-192.png" alt="Little Shelf" />
+            <span>Little Shelf Docs</span>
+          </a>
+          <span class="docs-header-tag">Google Books &amp; Worker</span>
+        </div>
         <nav class="docs-nav" aria-label="Documentation pages">
           <a href="./index.html">User Guide</a>
           <a href="./architecture-and-providers.html">Developer &amp; Config Guide</a>
           <a href="./configuration.html" aria-current="page">Google Books &amp; Cloudflare</a>
           <a href="./tagging-and-ai.html">Taxonomy &amp; Tag Rules</a>
         </nav>
-        <a href="../#/settings" class="docs-back-app">Open Settings →</a>
+        <div class="docs-header-actions">
+          <a href="../#/settings" class="docs-back-app">Open Settings →</a>
+        </div>
       </div>
     </header>
 
-    <main class="docs-main">
-      <section class="hero">
-        <p class="eyebrow">Book Lookup &amp; Quotas</p>
-        <h1>Google Books Setup</h1>
-        <p class="lead">
-          Little Shelf queries <strong>Open Library</strong> + <strong>Google Books</strong> in parallel and merges both results. Choose the setup that matches where you run the app.
-        </p>
-        <div class="jump-bar">
-          <a href="#modes">Which Mode Fits You?</a>
-          <a href="#get-key">Get a Free Google Key</a>
-          <a href="#local-env">Option A: Local / Node (.env)</a>
-          <a href="#phone-proxy">Option B: Cloudflare Worker (5 Min)</a>
-          <a href="#how-merging-works">How Merging &amp; Sync Work</a>
-          <a href="#play-apps">Play Logos &amp; Home Screen PWA</a>
+    <div class="docs-layout">
+      <!-- Sticky Sidebar: Index & Subindex (Zensical Style) -->
+      <aside class="docs-sidebar" aria-label="Documentation Index & Navigation">
+        <div class="sidebar-group">
+          <div class="sidebar-heading">Guides</div>
+          <ul class="sidebar-nav-list">
+            <li><a href="./index.html" class="sidebar-link"><span>User Guide</span> <span class="badge-tag-pill badge-tag-amber">Parent</span></a></li>
+            <li><a href="./architecture-and-providers.html" class="sidebar-link"><span>Developer &amp; Config</span> <span class="badge-tag-pill badge-tag-sky">Tech</span></a></li>
+            <li><a href="./configuration.html" class="sidebar-link" aria-current="page"><span>Google Books &amp; Worker</span> <span class="badge-tag-pill badge-tag-dark">Proxy</span></a></li>
+            <li><a href="./tagging-and-ai.html" class="sidebar-link"><span>Taxonomy &amp; AI Rules</span> <span class="badge-tag-pill badge-tag-purple">Tags</span></a></li>
+          </ul>
         </div>
-      </section>
 
-      <section id="modes" class="section-block">
-        <h2>1. Pick Your Setup</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Where you run Little Shelf</th>
-              <th>What works out of the box</th>
-              <th>Optional upgrade for international ISBNs</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><strong>Just trying it / English books</strong></td>
-              <td>Open Library works immediately with zero setup.</td>
-              <td>None needed unless Spanish, Catalan, French, Italian, or German barcodes miss.</td>
-            </tr>
-            <tr>
-              <td><strong>Laptop or self-hosted Node server</strong></td>
-              <td>Express proxies <code>/api/books/*</code> automatically.</td>
-              <td>Add <code>GOOGLE_BOOKS_API_KEY</code> in a local <code>.env</code> file (<a href="#local-env">Option A</a>).</td>
-            </tr>
-            <tr>
-              <td><strong>Static GitHub Pages / Phone PWA</strong></td>
-              <td>Browser queries Open Library + public Google Books directly.</td>
-              <td>Deploy a free Cloudflare Worker in under 5 minutes and paste its URL in <strong>Settings</strong> (<a href="#phone-proxy">Option B</a>).</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="callout callout-warn">
-          <strong>Never commit your own API key to a public GitHub repo</strong>
-          Anything inside <code>VITE_*</code> or committed source files is visible to every visitor and shares your personal daily quota. Keep keys in untracked <code>.env</code> files or a private Worker secret.
+        <div class="sidebar-group">
+          <div class="sidebar-heading">On This Page</div>
+          <ul class="sidebar-toc-list">
+            <li><a href="#modes" class="sidebar-link">1. Pick Your Setup</a></li>
+            <li><a href="#get-key" class="sidebar-link">2. Free Google Books Key</a></li>
+            <li><a href="#local-env" class="sidebar-link">3. Option A: Local / Node</a></li>
+            <li>
+              <a href="#phone-proxy" class="sidebar-link">4. Option B: Cloudflare Worker</a>
+              <ul class="sidebar-subindex">
+                <li><a href="#phone-proxy" class="sidebar-sublink">Step 1: Account</a></li>
+                <li><a href="#phone-proxy" class="sidebar-sublink">Step 2: Worker Code</a></li>
+                <li><a href="#phone-proxy" class="sidebar-sublink">Step 3: Environment Variables</a></li>
+                <li><a href="#phone-proxy" class="sidebar-sublink">Step 4: Copy URL &amp; Verify</a></li>
+              </ul>
+            </li>
+            <li><a href="#how-merging-works" class="sidebar-link">5. Dual Merging &amp; Sync</a></li>
+            <li><a href="#play-apps" class="sidebar-link">6. Play App Logos &amp; PWA</a></li>
+          </ul>
         </div>
-      </section>
+      </aside>
 
-      <section id="get-key" class="section-block">
-        <h2>2. Get a Free Google Books Key (60 Seconds)</h2>
-        <div class="step-grid">
+      <!-- Main Documentation Content -->
+      <main class="docs-main">
+        <section class="hero">
+          <p class="eyebrow">Book Lookup &amp; Quotas</p>
+          <h1>Google Books Setup</h1>
+          <p class="lead">
+            Little Shelf queries <strong>Open Library</strong> + <strong>Google Books</strong> in parallel and merges both results. Choose the setup that matches where you run the app.
+          </p>
+          <div class="jump-bar">
+            <a href="#modes">Which Mode Fits You?</a>
+            <a href="#get-key">Get a Free Google Key</a>
+            <a href="#local-env">Option A: Local / Node (.env)</a>
+            <a href="#phone-proxy">Option B: Cloudflare Worker (5 Min)</a>
+            <a href="#how-merging-works">How Merging &amp; Sync Work</a>
+            <a href="#play-apps">Play Logos &amp; Home Screen PWA</a>
+          </div>
+        </section>
+
+        <section id="modes" class="section-block">
+          <h2>1. Pick Your Setup</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Where you run Little Shelf</th>
+                <th>What works out of the box</th>
+                <th>Optional upgrade for international ISBNs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Just trying it / English books</strong></td>
+                <td>Open Library works immediately with zero setup.</td>
+                <td>None needed unless Spanish, Catalan, French, Italian, or German barcodes miss.</td>
+              </tr>
+              <tr>
+                <td><strong>Local development / Docker / Desktop</strong></td>
+                <td>Open Library works immediately.</td>
+                <td>Add <code>GOOGLE_BOOKS_API_KEY</code> to <code>.env</code> (<a href="#local-env">Option A</a>).</td>
+              </tr>
+              <tr>
+                <td><strong>Phone browser / Saved to Home Screen (PWA) / GitHub Pages</strong></td>
+                <td>Open Library works immediately.</td>
+                <td>Deploy a 5-minute personal Cloudflare Worker proxy (<a href="#phone-proxy">Option B</a>).</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="get-key" class="section-block">
+          <h2>2. Get a Free Google Books API Key (1 Minute)</h2>
+          <ol>
+            <li>Go to the <a href="https://console.cloud.google.com/apis/library/books.googleapis.com" target="_blank" rel="noopener">Google Cloud Console — Books API</a> and log in with any Google account.</li>
+            <li>Click <strong>Enable</strong>.</li>
+            <li>Go to <strong>Credentials → Create Credentials → API Key</strong>.</li>
+            <li>Copy your key (e.g. <code>AIzaSy...</code>). It includes <strong>1,000 free queries per day</strong>, which is more than enough for family library scans.</li>
+          </ol>
+        </section>
+
+        <section id="local-env" class="section-block">
+          <h2>3. Option A: Local Development / Node Server (<code>.env</code>)</h2>
+          <p>
+            If you run Little Shelf via <code>npm run dev</code> on your laptop, the local Express server already acts as a secure server-side proxy so your API key is never exposed to the browser.
+          </p>
+          <ol>
+            <li>Create or edit <code>.env</code> in the project root:
+              <pre><code>GOOGLE_BOOKS_API_KEY=AIzaSyYourKeyHere</code></pre>
+            </li>
+            <li>Restart your dev server: <code>npm run dev</code></li>
+            <li>Open <strong>Settings → Catalog Metadata Providers</strong>. The diagnostic will automatically verify the key and display a green checkmark.</li>
+          </ol>
+        </section>
+
+        <section id="phone-proxy" class="section-block">
+          <h2>4. Option B: Personal Phone Proxy via Free Cloudflare Worker (5 Minutes)</h2>
+          <div class="callout">
+            <strong>Why a proxy is needed on static phone hosts:</strong>
+            Browsers block direct client-side requests to Google Books when an API key is attached to prevent credentials from being stolen. A lightweight serverless proxy forwards barcode queries safely without exposing your key to visitors.
+          </div>
+
           <div class="step-card">
-            <span class="step-num">1</span>
-            <h3>Enable Books API</h3>
-            <p>In <a href="https://console.cloud.google.com/apis/library/books.googleapis.com" target="_blank" rel="noopener noreferrer">Google Cloud Console</a>, create a project and click <strong>Enable</strong> on <em>Books API</em>.</p>
-          </div>
-          <div class="step-card">
-            <span class="step-num">2</span>
-            <h3>Create Credentials</h3>
-            <p>Open <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">APIs &amp; Services → Credentials</a> → <strong>+ Create Credentials → API key</strong>.</p>
-          </div>
-          <div class="step-card">
-            <span class="step-num">3</span>
-            <h3>Restrict to Books API</h3>
-            <p>Under <strong>API restrictions</strong>, choose <strong>Restrict key</strong> and check <strong>Books API</strong> only → <strong>Save</strong>.</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="local-env" class="section-block">
-        <h2>3. Option A — Local / Self-Hosted Server (<code>.env</code>)</h2>
-        <p>Create <code>.env</code> in the project root (already ignored by Git) and restart <code>npm run dev</code>:</p>
-        <pre><code>GOOGLE_BOOKS_API_KEY="AIzaSyYourPrivateGoogleBooksKey"</code></pre>
-
-        <div class="example-pair">
-          <div class="example-box">
-            <span class="example-label">Browser Request</span>
-            <code>GET /api/books/volumes?q=isbn:9788426132277</code>
-          </div>
-          <div class="example-arrow">→</div>
-          <div class="example-box">
-            <span class="example-label">Express Proxy Result</span>
-            Attaches <code>GOOGLE_BOOKS_API_KEY</code> on the server and returns merged cover + metadata.
-          </div>
-        </div>
-      </section>
-
-      <section id="phone-proxy" class="section-block">
-        <h2>4. Option B — GitHub Pages / Phone PWA (Cloudflare Worker in Under 5 Minutes)</h2>
-        <p>
-          When running as a static PWA (like GitHub Pages) or hitting browser CORS / shared-IP restrictions, setting up a free <strong>Cloudflare Worker proxy</strong> is the cleanest solution. Here is the complete, step-by-step guide to deploying your Cloudflare Worker proxy in under 5 minutes.
-        </p>
-
-        <div class="step-grid">
-          <div class="step-card">
-            <span class="step-num">1</span>
-            <h3>Step 1: Create a Free Cloudflare Account &amp; Open Workers</h3>
-            <p>
-              Go to <a href="https://cloudflare.com" target="_blank" rel="noopener noreferrer">cloudflare.com</a> and log in or create a free account. In the Cloudflare dashboard sidebar, click <strong>Workers &amp; Pages</strong> &rarr; <strong>Create application</strong> &rarr; <strong>Create Worker</strong>, name it (e.g. <code>books-proxy</code>), and click <strong>Deploy</strong>. (Don’t worry about the template code yet; we will replace it next.)
-            </p>
+            <h3>Step 1: Create a Free Cloudflare Account</h3>
+            <p>Sign up at <a href="https://dash.cloudflare.com/sign-up" target="_blank" rel="noopener">dash.cloudflare.com</a> (free forever, no credit card required). Go to <strong>Compute (Workers &amp; Pages) → Workers → Create Application → Create Worker</strong>.</p>
           </div>
 
           <div class="step-card">
-            <span class="step-num">2</span>
             <h3>Step 2: Paste Your Worker Code</h3>
-            <p>
-              Once deployed, click <strong>Edit code</strong> to open Cloudflare’s in-browser editor. Delete whatever default code is inside <code>index.js</code> (or <code>worker.js</code>), paste the exact Worker script below, and click <strong>Save and deploy</strong> in the top right.
-            </p>
-          </div>
-        </div>
-
-        <pre><code>export default {
+            <p>Click <strong>Quick Edit</strong> and replace the code with this secure proxy handler:</p>
+            <pre><code>export default {
   async fetch(request, env) {
-    const origin = request.headers.get('Origin') || '';
-    const cors = {
-      'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || origin || '*',
+    const origin = request.headers.get('Origin') || '*';
+    const allowed = env.ALLOWED_ORIGIN || '*';
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': allowed === '*' ? '*' : origin,
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
     };
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 
-    const incoming = new URL(request.url);
-    const upstream = new URL('https://www.googleapis.com/books/v1/volumes');
-    for (const key of ['q', 'maxResults', 'printType']) {
-      if (incoming.searchParams.get(key)) upstream.searchParams.set(key, incoming.searchParams.get(key));
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
     }
-    if (env.GOOGLE_BOOKS_API_KEY) upstream.searchParams.set('key', env.GOOGLE_BOOKS_API_KEY);
 
-    const res = await fetch(upstream.toString(), { headers: { Accept: 'application/json' } });
-    return new Response(await res.text(), {
-      status: res.status,
-      headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' },
+    const url = new URL(request.url);
+    const targetUrl = new URL('https://www.googleapis.com/books/v1/volumes');
+    url.searchParams.forEach((val, key) => targetUrl.searchParams.set(key, val));
+
+    if (env.GOOGLE_BOOKS_API_KEY) {
+      targetUrl.searchParams.set('key', env.GOOGLE_BOOKS_API_KEY);
+    }
+
+    const response = await fetch(targetUrl.toString(), {
+      headers: { 'User-Agent': 'LittleShelf-Proxy/1.0' }
     });
-  },
+
+    const body = await response.text();
+    return new Response(body, {
+      status: response.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
 };</code></pre>
+            <p>Click <strong>Save and Deploy</strong>.</p>
+          </div>
 
-        <div class="step-grid">
           <div class="step-card">
-            <span class="step-num">3</span>
-            <h3>Step 3: Add Your Environment Variables &amp; Secrets</h3>
-            <p>
-              To keep your Google API key safe and lock down who can use your proxy, go back to your Worker’s main dashboard page (<strong>Workers &amp; Pages</strong> &rarr; select <code>books-proxy</code>) &rarr; <strong>Settings</strong> tab &rarr; <strong>Variables &amp; Secrets</strong>:
-            </p>
+            <h3>Step 3: Add Your Environment Variables</h3>
+            <p>In your Worker dashboard, go to <strong>Settings → Variables and Secrets</strong>:</p>
             <ul>
-              <li><strong>Plain Variable:</strong> Name <code>ALLOWED_ORIGIN</code>, Value: your PWA’s URL (e.g. <code>https://yourname.github.io</code> or <code>http://localhost:5173</code> for local testing).</li>
-              <li><strong>Encrypted Secret:</strong> Name <code>GOOGLE_BOOKS_API_KEY</code>, Value: paste your actual Google API key (starting with <code>AIzaSy...</code>).</li>
+              <li>Add <code>GOOGLE_BOOKS_API_KEY</code> = your Google API key (click <strong>Encrypt</strong>).</li>
+              <li>Add <code>ALLOWED_ORIGIN</code> = your hosted site URL (e.g. <code>https://yourname.github.io</code>) or leave as <code>*</code>.</li>
             </ul>
-            <p>Click <strong>Save / Deploy</strong> to apply the changes.</p>
           </div>
 
           <div class="step-card">
-            <span class="step-num">4</span>
-            <h3>Step 4: Copy Your Proxy URL &amp; Connect It</h3>
+            <h3>Step 4: Copy Your Proxy URL</h3>
             <p>
-              Back on your Worker summary page, copy your assigned <code>workers.dev</code> URL (e.g. <code>https://books-proxy.yourname.workers.dev</code>). Open your PWA on your phone or browser &rarr; <strong>Settings → Catalog Metadata Providers</strong> &rarr; expand <strong>Advanced (Optional): Custom Books Proxy Server URL</strong>, paste your Worker URL into <strong>Personal Phone PWA Books Proxy URL</strong>, and tap <strong>Save &amp; Verify</strong>.
-            </p>
-            <p>
-              <strong>Verification:</strong> You will immediately see a green confirmation box and a <code>✓</code> tick on <em>Check Google Books API</em> confirming your app is routing queries securely through your serverless proxy!
+              Copy your worker URL (e.g. <code>https://books-proxy.yourname.workers.dev</code>). Open Little Shelf on your phone, go to <strong>Settings → Catalog Metadata Providers → Custom Proxy URL</strong>, paste it, and tap <strong>Save &amp; Verify</strong>.
             </p>
           </div>
-        </div>
 
-        <div class="phone-gallery">
-          <div class="phone-card">
-            <div class="phone-frame">
-              <div class="phone-notch"></div>
-              <img
-                class="phone-screenshot"
-                src="./screenshots/settings-providers.png"
-                alt="Settings Catalog Metadata Providers card"
-                loading="lazy"
-                onerror="this.style.display='none'"
-              />
-              <div class="phone-placeholder">
-                <div class="mock-topbar">
-                  <span>Settings</span>
-                  <span class="mock-pill">✓ Verified</span>
-                </div>
-                <div class="mock-body">
-                  <div class="mock-card">
-                    <strong>Catalog Metadata Providers</strong>
-                    <span>Google Books + Open Library active</span>
+          <div class="phone-gallery" style="margin-top: 1.5rem;">
+            <div class="phone-card">
+              <div class="phone-frame">
+                <div class="phone-notch"></div>
+                <img
+                  class="phone-screenshot"
+                  src="./screenshots/settings-providers.png"
+                  alt="Settings Providers and Cloudflare proxy URL screen"
+                  loading="lazy"
+                  onerror="this.style.display='none'"
+                />
+                <div class="phone-placeholder">
+                  <div class="mock-topbar">
+                    <span>Settings</span>
+                    <span class="mock-pill">Providers</span>
                   </div>
-                  <div class="mock-card">
-                    <strong>Personal Phone Proxy URL</strong>
-                    <span>https://books-proxy.yourname.workers.dev</span>
+                  <div class="mock-body">
+                    <div class="mock-card">
+                      <strong>Catalog Metadata Providers</strong>
+                      <span>Google Books + Open Library active</span>
+                    </div>
+                    <div class="mock-card">
+                      <strong>Personal Phone Proxy URL</strong>
+                      <span>https://books-proxy.yourname.workers.dev</span>
+                    </div>
                   </div>
+                  <div class="mock-slot-hint">screenshots/settings-providers.png · 390×844</div>
                 </div>
-                <div class="mock-slot-hint">screenshots/settings-providers.png · 390×844</div>
               </div>
+              <div class="phone-caption">Settings — Save &amp; Verify Proxy URL</div>
+              <div class="phone-subcaption">Automatically probes Google Books and shows a green verified box (or red error details if misconfigured).</div>
             </div>
-            <div class="phone-caption">Settings — Save &amp; Verify Proxy URL</div>
-            <div class="phone-subcaption">Automatically probes Google Books and shows a green verified box (or red error details if misconfigured).</div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section id="how-merging-works" class="section-block">
-        <h2>5. How Google Books &amp; Open Library Merge + Updating Existing Books</h2>
-        <ul>
-          <li><strong>Parallel Lookup:</strong> When both providers are enabled (the default), barcode scans and searches query <strong>Google Books</strong> and <strong>Open Library</strong> concurrently via <code>Promise.allSettled</code>.</li>
-          <li><strong>Field Priority &amp; Union:</strong> When both find an edition, Google Books serves as the primary record (title, high-resolution cover thumbnail, summary, page count) while Open Library fills any missing fields and contributes archival subject headings so topic tags combine the best of both catalogs.</li>
-          <li><strong>Retroactive Library Sync:</strong> If you scanned books earlier using Open Library only and configure Google Books later, open <strong>Settings → Catalog Metadata Providers → Update Existing Library with Google Books</strong> to enrich existing books with Google Books covers, page counts, tags, and dual provenance without changing your owners, shelf status, or custom photos.</li>
-        </ul>
-      </section>
+        <section id="how-merging-works" class="section-block">
+          <h2>5. How Google Books &amp; Open Library Merge + Updating Existing Books</h2>
+          <ul>
+            <li><strong>Parallel Lookup:</strong> When both providers are enabled (the default), barcode scans and searches query <strong>Google Books</strong> and <strong>Open Library</strong> concurrently via <code>Promise.allSettled</code>.</li>
+            <li><strong>Field Priority &amp; Union:</strong> When both find an edition, Google Books serves as the primary record (title, high-resolution cover thumbnail, summary, page count) while Open Library fills any missing fields and contributes archival subject headings so topic tags combine the best of both catalogs.</li>
+            <li><strong>Retroactive Library Sync:</strong> If you scanned books earlier using Open Library only and configure Google Books later, open <strong>Settings → Catalog Metadata Providers → Update Existing Library with Google Books</strong> to enrich existing books with Google Books covers, page counts, tags, and dual provenance without changing your owners, shelf status, or custom photos.</li>
+          </ul>
+        </section>
 
-      <section id="play-apps" class="section-block">
-        <h2>6. Customizing Play App Logos, Preview Images &amp; Home Screen PWA</h2>
-        <p>
-          The <strong>Play</strong> tab (<code>#/play</code>) showcases preview cards for <em>Storytime &amp; Topic Picker</em> and <em>Book Hunt (“Find It!”)</em> that open smoothly as bottom sheets when tapped. You can swap their logos, preview illustrations, titles, or CTA labels in one file:
-        </p>
-        <ul>
-          <li><strong>Configuration file:</strong> <code>src/data/play-apps-config.js</code></li>
-          <li><strong>Static image folder:</strong> Drop any square logo (<code>1:1</code>) or landscape preview image (<code>16:10</code> / <code>4:3</code>) into <code>public/assets/play/</code> and reference it as <code>'assets/play/your-image.jpg'</code> (no leading slash so GitHub Pages subpaths work automatically).</li>
-          <li><strong>Vector-only mode:</strong> Set <code>logoUrl: ''</code> or <code>imageUrl: ''</code> if you prefer clean built-in SVG icons (<code>'dice'</code>, <code>'compass'</code>, <code>'sparkles'</code>, <code>'books'</code>).</li>
-        </ul>
-        <pre><code>// src/data/play-apps-config.js
+        <section id="play-apps" class="section-block">
+          <h2>6. Customizing Play App Logos, Preview Images &amp; Home Screen PWA</h2>
+          <p>
+            The <strong>Play</strong> tab (<code>#/play</code>) showcases preview cards for <em>Storytime &amp; Topic Picker</em> and <em>Book Hunt (“Find It!”)</em> that open smoothly as bottom sheets when tapped. You can swap their logos, preview illustrations, titles, or CTA labels in one file:
+          </p>
+          <ul>
+            <li><strong>Configuration file:</strong> <code>src/data/play-apps-config.js</code></li>
+            <li><strong>Static image folder:</strong> Drop any square logo (<code>1:1</code>) or landscape preview image (<code>16:10</code> / <code>4:3</code>) into <code>public/assets/play/</code> and reference it as <code>'assets/play/your-image.jpg'</code> (no leading slash so GitHub Pages subpaths work automatically).</li>
+            <li><strong>Vector-only mode:</strong> Set <code>logoUrl: ''</code> or <code>imageUrl: ''</code> if you prefer clean built-in SVG icons (<code>'dice'</code>, <code>'compass'</code>, <code>'sparkles'</code>, <code>'books'</code>).</li>
+          </ul>
+          <pre><code>// src/data/play-apps-config.js
 export const PLAY_APPS_CONFIG = Object.freeze([
   Object.freeze({
     id: 'storytime-picker',
@@ -255,15 +268,16 @@ export const PLAY_APPS_CONFIG = Object.freeze([
   }),
   // ...
 ]);</code></pre>
-        <p>
-          <strong>Saving as a Phone Home Screen App (PWA):</strong> Tap <strong>Settings → Installable Phone App (PWA) → Save to Home Screen</strong> (or use the compact Home Screen banner on the Shelf page). On Android Chrome/Edge this triggers the native one-tap install dialog; on iPhone/iPad Safari it opens step-by-step <em>Share → Add to Home Screen</em> instructions.
-        </p>
-      </section>
+          <p>
+            <strong>Saving as a Phone Home Screen App (PWA):</strong> Tap <strong>Settings → Installable Phone App (PWA) → Save to Home Screen</strong> (or use the compact Home Screen banner on the Shelf page). On Android Chrome/Edge this triggers the native one-tap install dialog; on iPhone/iPad Safari it opens step-by-step <em>Share → Add to Home Screen</em> instructions.
+          </p>
+        </section>
 
-      <footer class="docs-footer">
-        <a href="./index.html">← User Guide</a>
-        <a href="./tagging-and-ai.html">Next: Tag Rules &amp; Presets →</a>
-      </footer>
-    </main>
+        <footer class="docs-footer">
+          <a href="./index.html">← User Guide</a>
+          <a href="./tagging-and-ai.html">Next: Tag Rules &amp; Presets →</a>
+        </footer>
+      </main>
+    </div>
   </body>
 </html>

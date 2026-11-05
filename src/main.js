@@ -296,6 +296,7 @@ const uiState = {
     /** @type {'idle' | 'success' | 'error'} */
     catalogSyncTone: 'idle',
     browserStorageSummary: '',
+    hasCoverCache: false,
   },
 };
 
@@ -342,25 +343,19 @@ const PRESERVED_INPUT_IDS = new Set([
 ]);
 
 /**
- * Queries `navigator.storage.estimate()` when supported by the browser to display origin quota context.
- * Note: Chromium/Safari pad cross-origin opaque image responses (~7 MB virtual quota per cached cover thumbnail).
+ * Checks cache presence to know if cached cover thumbnails exist for the clear-cache action.
+ * Note: The padded quota estimate ("Origin cache quota: ... padded by browser") was removed per user request
+ * because cross-origin opaque responses pad ~7MB per thumbnail, misleadingly inflating storage metrics.
  */
 async function refreshBrowserStorageEstimate() {
   try {
-    if (
-      typeof navigator !== 'undefined' &&
-      navigator.storage &&
-      typeof navigator.storage.estimate === 'function'
-    ) {
-      const est = await navigator.storage.estimate();
-      if (typeof est.usage === 'number' && est.usage > 0) {
-        uiState.settingsUi.browserStorageSummary = `Origin cache quota: ${formatStorageBytes(est.usage)} (padded by browser)`;
-        if (router.getCurrent().route === 'settings') {
-          render();
-        }
-      } else {
-        uiState.settingsUi.browserStorageSummary = '';
-      }
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      const hasCache = await window.caches.has('book-cover-thumbnails');
+      uiState.settingsUi.hasCoverCache = Boolean(hasCache);
+    }
+    uiState.settingsUi.browserStorageSummary = '';
+    if (router.getCurrent().route === 'settings') {
+      render();
     }
   } catch (_) {}
 }

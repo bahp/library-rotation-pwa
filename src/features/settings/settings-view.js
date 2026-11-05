@@ -77,7 +77,8 @@ export function resolveGoogleBooksHealthTone(explicitTone, reportText) {
  *     catalogSyncProgressText?: string,
  *     catalogSyncReport?: string,
  *     catalogSyncTone?: 'idle' | 'success' | 'error',
- *     browserStorageSummary?: string
+ *     browserStorageSummary?: string,
+ *     hasCoverCache?: boolean,
  *   }
  * }} params
  * @returns {string}
@@ -104,9 +105,11 @@ export function renderSettingsView({
     catalogSyncReport: '',
     catalogSyncTone: 'idle',
     browserStorageSummary: '',
+    hasCoverCache: false,
   },
 }) {
   const { settings } = state;
+  const lang = normalizeLanguage(settings.language);
   const storageUsage = estimateAppStorageUsage(state);
   const presetDaysBefore = settings.presetAlertDaysBefore ?? 2;
   const presetDaysAfter = settings.presetAlertDaysAfter ?? 5;
@@ -139,7 +142,9 @@ export function renderSettingsView({
                 ${escapeHtml(profile.name)}
                 ${
                   isActive
-                    ? '<span class="text-xs font-semibold text-espresso-800 dark:text-[#5ED3DA]"> · Active</span>'
+                    ? `<span class="text-xs font-semibold text-espresso-800 dark:text-[#5ED3DA]"> · ${escapeHtml(
+                        t(lang, 'settings.activeReader')
+                      )}</span>`
                     : ''
                 }
               </p>
@@ -161,7 +166,7 @@ export function renderSettingsView({
                     data-profile-id="${escapeHtml(profile.id)}"
                     class="min-h-[38px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors"
                   >
-                    Select
+                    ${escapeHtml(t(lang, 'settings.selectProfile'))}
                   </button>
                 `
                 : ''
@@ -182,9 +187,9 @@ export function renderSettingsView({
     .join('');
 
   const themes = /** @type {Array<{ id: import('../../types/models.js').ThemeMode, label: string }>} */ ([
-    { id: 'system', label: 'System' },
-    { id: 'light', label: 'Light' },
-    { id: 'dark', label: 'Dark' },
+    { id: 'system', label: t(lang, 'settings.themeSystem') },
+    { id: 'light', label: t(lang, 'settings.themeLight') },
+    { id: 'dark', label: t(lang, 'settings.themeDark') },
   ]);
 
   const themeButtonsHtml = themes
@@ -208,8 +213,8 @@ export function renderSettingsView({
     .join('');
 
   const coverRatios = /** @type {Array<{ id: import('../../types/models.js').CoverAspectRatio, label: string }>} */ ([
-    { id: 'square', label: 'Square (1:1)' },
-    { id: 'portrait', label: 'Original (3:4)' },
+    { id: 'square', label: t(lang, 'settings.coverAspectSquare') },
+    { id: 'portrait', label: t(lang, 'settings.coverAspectPortrait') },
   ]);
 
   const coverAspectButtonsHtml = coverRatios
@@ -238,7 +243,7 @@ export function renderSettingsView({
     pwaActionHtml = `
       <p class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] inline-flex items-center gap-1.5">
         ${renderIcon('check', 'w-3.5 h-3.5', 2.4)}
-        <span>Installed in standalone home-screen mode</span>
+        <span>${escapeHtml(t(lang, 'settings.pwaInstalledMode'))}</span>
       </p>
     `;
   } else if (pwaStatus.isInstallable) {
@@ -249,7 +254,7 @@ export function renderSettingsView({
         class="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
       >
         ${renderIcon('download', 'w-4 h-4')}
-        <span>Save to Home Screen</span>
+        <span>${escapeHtml(t(lang, 'settings.pwaSaveHomeScreen'))}</span>
       </button>
     `;
   } else {
@@ -260,7 +265,9 @@ export function renderSettingsView({
         class="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shrink-0"
       >
         ${renderIcon('download', 'w-4 h-4')}
-        <span>${pwaStatus.isIOS ? 'Add to Home Screen' : 'Save to Home Screen'}</span>
+        <span>${escapeHtml(
+          pwaStatus.isIOS ? t(lang, 'settings.pwaAddToHomeScreen') : t(lang, 'settings.pwaSaveHomeScreen')
+        )}</span>
       </button>
     `;
   }
@@ -268,13 +275,13 @@ export function renderSettingsView({
   const catalogProviders = [
     {
       id: 'google-books',
-      label: 'Google Books Public Volumes API',
-      detail: 'Primary ISBN-13/10 lookup, cover thumbnails, and publisher descriptions.',
+      label: t(lang, 'settings.googleBooksProviderTitle'),
+      detail: t(lang, 'settings.googleBooksProviderDesc'),
     },
     {
       id: 'open-library',
-      label: 'Open Library Books & Search API',
-      detail: 'Complementary edition metadata, subject headings, and archive cover fallback.',
+      label: t(lang, 'settings.openLibraryProviderTitle'),
+      detail: t(lang, 'settings.openLibraryProviderDesc'),
     },
   ];
 
@@ -427,7 +434,6 @@ export function renderSettingsView({
       `
       : '';
 
-  const lang = normalizeLanguage(settings.language);
   const languageButtonsHtml = SUPPORTED_LANGUAGES.map((opt) => {
     const isSelected = opt.code === lang;
     return `
@@ -451,10 +457,10 @@ export function renderSettingsView({
     <div class="w-full space-y-5">
       <div>
         <p class="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
-          ${escapeHtml(lang === 'en' ? 'Account & Preferences' : t(lang, 'settings.eyebrow'))}
+          ${escapeHtml(t(lang, 'settings.eyebrow'))}
         </p>
         <h1 class="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
-          ${escapeHtml(lang === 'en' ? 'Settings & Profiles' : t(lang, 'settings.heading'))}
+          ${escapeHtml(t(lang, 'settings.heading'))}
         </h1>
       </div>
 
@@ -466,7 +472,7 @@ export function renderSettingsView({
               ${escapeHtml(t(lang, 'profiles.heading'))}
             </h2>
             <p class="text-xs text-stone-ink dark:text-slate-400">
-              Ages update automatically from each child’s birth date
+              ${escapeHtml(t(lang, 'settings.profilesDesc'))}
             </p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
@@ -474,7 +480,7 @@ export function renderSettingsView({
               href="#/profiles"
               class="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-1 transition-colors"
             >
-              All Details
+              ${escapeHtml(t(lang, 'settings.allProfilesDetails'))}
             </a>
             <button
               type="button"
@@ -499,7 +505,7 @@ export function renderSettingsView({
           ${escapeHtml(t(lang, 'settings.appearanceHeading'))}
         </h2>
         <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-          Warm linen light mode, deep night mode, or automatic system preference.
+          ${escapeHtml(t(lang, 'settings.appearanceDesc'))}
         </p>
         <div class="mt-3 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
           ${themeButtonsHtml}
@@ -524,10 +530,10 @@ export function renderSettingsView({
 
         <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800">
           <p class="text-sm font-semibold text-forest-900 dark:text-white">
-            Book Cover Ratio
+            ${escapeHtml(t(lang, 'settings.coverAspectLabel'))}
           </p>
           <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-            Show book covers in classic 3:4 portrait proportions or compact 1:1 squares.
+            ${escapeHtml(t(lang, 'settings.coverAspectHint'))}
           </p>
           <div class="mt-2.5 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
             ${coverAspectButtonsHtml}
@@ -537,10 +543,10 @@ export function renderSettingsView({
         <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
           <div>
             <p class="text-sm font-semibold text-forest-900 dark:text-white">
-              Dynamic Cover Art Card Tint
+              ${escapeHtml(t(lang, 'settings.dynamicTintLabel'))}
             </p>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Samples the dominant color from each book’s cover image to lightly tint the Book Detail card when opened.
+              ${escapeHtml(t(lang, 'settings.dynamicTintHint'))}
             </p>
           </div>
           <button
@@ -554,17 +560,17 @@ export function renderSettingsView({
                 : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
             }"
           >
-            ${settings.dynamicCoverTint !== false ? 'Enabled' : 'Disabled'}
+            ${settings.dynamicCoverTint !== false ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
           </button>
         </div>
 
         <div class="mt-4 pt-3.5 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
           <div>
             <p class="text-sm font-semibold text-forest-900 dark:text-white">
-              Preset Card Corner Decorations
+              ${escapeHtml(t(lang, 'settings.cornerDecorationsLabel'))}
             </p>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Displays subtle seasonal &amp; cultural line-art motifs in the top-right corner of Collection Preset cards for quick visual recognition.
+              ${escapeHtml(t(lang, 'settings.cornerDecorationsHint'))}
             </p>
           </div>
           <button
@@ -578,7 +584,7 @@ export function renderSettingsView({
                 : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
             }"
           >
-            ${showPresetDecorations ? 'Enabled' : 'Disabled'}
+            ${showPresetDecorations ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
           </button>
         </div>
       </section>
@@ -592,17 +598,17 @@ export function renderSettingsView({
         <div class="flex items-start justify-between gap-3">
           <div>
             <h2 id="preset-reminders-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-              Preset Tradition Reminders
+              ${escapeHtml(t(lang, 'settings.presetRemindersHeading'))}
             </h2>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
-              Choose how early seasonal &amp; cultural collection notifications appear before their suggested date, and how many days they stay visible afterward if you haven’t generated or dismissed them yet.
+              ${escapeHtml(t(lang, 'settings.presetRemindersDesc'))}
             </p>
           </div>
           <a
             href="#/presets"
             class="min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center transition-colors shrink-0 whitespace-nowrap"
           >
-            Open Presets
+            ${escapeHtml(t(lang, 'settings.openPresets'))}
           </a>
         </div>
 
@@ -612,12 +618,12 @@ export function renderSettingsView({
               <div>
                 <div class="flex items-center gap-1.5">
                   <label for="setting-preset-days-before" class="text-xs font-semibold text-forest-900 dark:text-white">
-                    Show in advance (days before)
+                    ${escapeHtml(t(lang, 'settings.presetDaysBeforeLabel'))}
                   </label>
                   ${renderFieldInfoButton({ helpKey: 'presetDaysBefore', scope: 'settings' })}
                 </div>
                 <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
-                  0 = exact day only · Default: 2d before
+                  ${escapeHtml(t(lang, 'settings.presetDaysBeforeSub'))}
                 </span>
               </div>
               <input
@@ -638,12 +644,12 @@ export function renderSettingsView({
               <div>
                 <div class="flex items-center gap-1.5">
                   <label for="setting-preset-days-after" class="text-xs font-semibold text-forest-900 dark:text-white">
-                    Keep after start if unactioned (days)
+                    ${escapeHtml(t(lang, 'settings.presetDaysAfterLabel'))}
                   </label>
                   ${renderFieldInfoButton({ helpKey: 'presetDaysAfter', scope: 'settings' })}
                 </div>
                 <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
-                  Shows “Suggested Xd ago” · Default: 5d
+                  ${escapeHtml(t(lang, 'settings.presetDaysAfterSub'))}
                 </span>
               </div>
               <input
@@ -669,10 +675,10 @@ export function renderSettingsView({
       >
         <div>
           <h2 id="freshness-spotlight-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-            Shelf Freshness &amp; Stale Book Spotlight
+            ${escapeHtml(t(lang, 'settings.freshnessHeading'))}
           </h2>
           <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
-            Track when each book was last active on a shelf so long-unseen books surface first, and get a gentle nudge when an active-shelf book sits unopened.
+            ${escapeHtml(t(lang, 'settings.freshnessDesc'))}
           </p>
         </div>
 
@@ -680,10 +686,10 @@ export function renderSettingsView({
           <div class="py-3 first:pt-1 flex items-center justify-between gap-4">
             <div>
               <p class="text-sm font-semibold text-forest-900 dark:text-white">
-                Rotation History &amp; Cooldown Log
+                ${escapeHtml(t(lang, 'settings.rotationHistoryHeading'))}
               </p>
               <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                Displays last-on-shelf dates, times rotated, and freshness filters across Library, Book Details, and Swap modals.
+                ${escapeHtml(t(lang, 'settings.rotationHistoryDesc'))}
               </p>
             </div>
             <button
@@ -697,7 +703,7 @@ export function renderSettingsView({
                   : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
               }"
             >
-              ${enableRotationHistoryInsights ? 'Enabled' : 'Disabled'}
+              ${enableRotationHistoryInsights ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
             </button>
           </div>
 
@@ -706,12 +712,12 @@ export function renderSettingsView({
               <div>
                 <div class="flex items-center gap-1.5">
                   <p class="text-sm font-semibold text-forest-900 dark:text-white">
-                    Cover Status Adornos
+                    ${escapeHtml(t(lang, 'settings.coverAdornosHeading'))}
                   </p>
                   ${renderFieldInfoButton({ helpKey: 'coverUsageAdornos', scope: 'settings' })}
                 </div>
                 <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                  Shows compact icon badges over Library book covers for active shelf, read status, cooldown days left, and unrotated books on small screens.
+                  ${escapeHtml(t(lang, 'settings.coverAdornosDesc'))}
                 </p>
               </div>
               <button
@@ -725,7 +731,7 @@ export function renderSettingsView({
                     : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
                 }"
               >
-                ${showCoverUsageAdornos ? 'Enabled' : 'Disabled'}
+                ${showCoverUsageAdornos ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
               </button>
             </div>
             ${renderFieldInfoPanel({ helpKey: 'coverUsageAdornos', scope: 'settings' })}
@@ -734,10 +740,10 @@ export function renderSettingsView({
           <div class="py-3 flex items-center justify-between gap-4">
             <div>
               <p class="text-sm font-semibold text-forest-900 dark:text-white">
-                Stale Book Spotlight Nudge
+                ${escapeHtml(t(lang, 'settings.staleSpotlightHeading'))}
               </p>
               <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                Highlights books sitting on the active shelf without being marked read so you can read them together or swap in a fresh pick.
+                ${escapeHtml(t(lang, 'settings.staleSpotlightDesc'))}
               </p>
             </div>
             <button
@@ -751,7 +757,7 @@ export function renderSettingsView({
                   : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
               }"
             >
-              ${enableStaleBookSpotlight ? 'Enabled' : 'Disabled'}
+              ${enableStaleBookSpotlight ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
             </button>
           </div>
 
@@ -760,12 +766,12 @@ export function renderSettingsView({
               <div>
                 <div class="flex items-center gap-1.5">
                   <label for="setting-stale-book-days" class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
-                    Unread days before spotlight
+                    ${escapeHtml(t(lang, 'settings.staleDaysLabel'))}
                   </label>
                   ${renderFieldInfoButton({ helpKey: 'staleBookDays', scope: 'settings' })}
                 </div>
                 <span class="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
-                  3–60 days on active shelf without being marked read · Default: 10d
+                  ${escapeHtml(t(lang, 'settings.staleDaysSub'))}
                 </span>
               </div>
               <input
@@ -789,12 +795,18 @@ export function renderSettingsView({
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 id="pwa-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-              Installable Phone App (PWA)
+              ${escapeHtml(t(lang, 'settings.pwaHeading'))}
             </h2>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Network: ${pwaStatus.isOnline ? 'Online' : 'Offline'} · Shell: ${
-                pwaStatus.swReady ? 'Ready' : 'Registering'
-              } · Storage: ${escapeHtml(storageBackend)}
+              ${escapeHtml(t(lang, 'settings.pwaNetwork'))}: ${
+                pwaStatus.isOnline
+                  ? escapeHtml(t(lang, 'settings.pwaOnline'))
+                  : escapeHtml(t(lang, 'settings.pwaOffline'))
+              } · ${escapeHtml(t(lang, 'settings.pwaShell'))}: ${
+                pwaStatus.swReady
+                  ? escapeHtml(t(lang, 'settings.pwaReady'))
+                  : escapeHtml(t(lang, 'settings.pwaRegistering'))
+              } · ${escapeHtml(t(lang, 'settings.pwaStorage'))}: ${escapeHtml(storageBackend)}
             </p>
           </div>
           <div class="shrink-0">
@@ -806,7 +818,7 @@ export function renderSettingsView({
       <!-- Catalog Metadata Providers -->
       <section aria-labelledby="metadata-providers-heading" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5">
         <h2 id="metadata-providers-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-          Catalog Metadata Providers
+          ${escapeHtml(t(lang, 'settings.metadataProvidersHeading'))}
         </h2>
         <div class="mt-2 divide-y divide-linen-200/70 dark:divide-night-800">
           ${catalogProvidersHtml}
@@ -814,10 +826,10 @@ export function renderSettingsView({
           <div class="py-3 flex items-center justify-between gap-4">
             <div>
               <p class="text-sm font-semibold text-forest-900 dark:text-white">
-                Retain Raw Provider Payloads
+                ${escapeHtml(t(lang, 'settings.retainRawTitle'))}
               </p>
               <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                Store raw Google Books and Open Library JSON on newly added books.
+                ${escapeHtml(t(lang, 'settings.retainRawDesc'))}
               </p>
             </div>
             <button
@@ -831,7 +843,7 @@ export function renderSettingsView({
                   : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
               }"
             >
-              ${settings.retainRawProviderPayloads ? 'Enabled' : 'Disabled'}
+              ${settings.retainRawProviderPayloads ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
             </button>
           </div>
 
@@ -839,10 +851,10 @@ export function renderSettingsView({
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div>
                 <p class="text-sm font-semibold text-forest-900 dark:text-white">
-                  Google Books Quota &amp; Zero-Storage Key Protection
+                  ${escapeHtml(t(lang, 'settings.googleQuotaTitle'))}
                 </p>
                 <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                  Probes Google Books via the leak-free server proxy (<code>/api/books/volumes</code>) or your personal phone proxy URL. Raw API keys are never typed into browser forms, saved in local storage, or exported in JSON backups.
+                  ${escapeHtml(t(lang, 'settings.googleQuotaDesc'))}
                 </p>
               </div>
               <button
@@ -867,7 +879,7 @@ export function renderSettingsView({
                         ? `<span data-google-check-icon="error" class="inline-flex text-rose-700 dark:text-rose-300">${renderIcon('close', 'w-3.5 h-3.5', 2.4)}</span>`
                         : renderIcon('activity', 'w-3.5 h-3.5')
                 }
-                <span>${settingsUiState.checkingGoogleBooks ? 'Checking API…' : 'Check Google Books API'}</span>
+                <span>${settingsUiState.checkingGoogleBooks ? escapeHtml(t(lang, 'settings.checkingGoogleApi')) : escapeHtml(t(lang, 'settings.checkGoogleApiBtn'))}</span>
               </button>
             </div>
 
@@ -915,12 +927,10 @@ export function renderSettingsView({
                     </span>
                     <div class="text-xs leading-relaxed min-w-0">
                       <p class="font-semibold text-forest-900 dark:text-[#5ED3DA]">
-                        Personal Phone Proxy Active (This Device Only)
+                        ${escapeHtml(t(lang, 'settings.deviceProxyActiveTitle'))}
                       </p>
                       <p class="text-stone-ink dark:text-slate-300 mt-0.5 break-all">
-                        Routing Google Books lookups on this device through <code>${escapeHtml(
-                          deviceProxyUrl
-                        )}</code>. Never included in JSON backups, and zero raw keys touch browser storage.
+                        ${escapeHtml(t(lang, 'settings.deviceProxyActiveDesc', { url: deviceProxyUrl }))}
                       </p>
                     </div>
                   </div>
@@ -939,10 +949,10 @@ export function renderSettingsView({
                     </span>
                     <div class="text-xs leading-relaxed">
                       <p class="font-semibold text-forest-900 dark:text-[#5ED3DA]">
-                        Google Books Server Key Configured
+                        ${escapeHtml(t(lang, 'settings.serverKeyConfiguredTitle'))}
                       </p>
                       <p class="text-stone-ink dark:text-slate-300 mt-0.5">
-                        <code>GOOGLE_BOOKS_API_KEY</code> is active on your server proxy. Lookups use your dedicated daily quota, and the key never touches browser storage, network URLs, or JSON backups.
+                        ${escapeHtml(t(lang, 'settings.serverKeyConfiguredDesc'))}
                       </p>
                     </div>
                   </div>
@@ -960,10 +970,10 @@ export function renderSettingsView({
                     </span>
                     <div class="text-xs leading-relaxed">
                       <p class="font-semibold text-forest-900 dark:text-white">
-                        Shared Anonymous Quota Active (Server Key Not Configured Yet)
+                        ${escapeHtml(t(lang, 'settings.sharedQuotaTitle'))}
                       </p>
                       <p class="text-stone-ink dark:text-slate-300 mt-0.5">
-                        <code>GOOGLE_BOOKS_API_KEY</code> is not set in server environment secrets yet. Lookups work via Google’s shared pool + automatic Open Library fallback, or connect a personal proxy URL below on your phone.
+                        ${escapeHtml(t(lang, 'settings.sharedQuotaDesc'))}
                       </p>
                     </div>
                   </div>
@@ -981,10 +991,10 @@ export function renderSettingsView({
                     </span>
                     <div class="text-xs leading-relaxed">
                       <p class="font-semibold text-forest-900 dark:text-white">
-                        Static Hosting Mode (e.g. GitHub Pages)
+                        ${escapeHtml(t(lang, 'settings.staticHostTitle'))}
                       </p>
                       <p class="text-stone-ink dark:text-slate-300 mt-0.5">
-                        Running without a built-in <code>/api/books</code> server route. Each user can optionally enter their own keyless HTTPS proxy URL below on their phone PWA for dedicated quota.
+                        ${escapeHtml(t(lang, 'settings.staticHostDesc'))}
                       </p>
                     </div>
                   </div>
@@ -1001,10 +1011,10 @@ export function renderSettingsView({
                   </span>
                   <div class="text-xs leading-relaxed">
                     <p class="font-semibold text-forest-900 dark:text-white">
-                      Per-Device Quota Without Exposing Raw Secrets
+                      ${escapeHtml(t(lang, 'settings.safeQuotaGeneralTitle'))}
                     </p>
                     <p class="text-stone-ink dark:text-slate-300 mt-0.5">
-                      Raw Google credentials are never entered directly into browser inputs (which would expose them in network URLs and Service Worker caches). Use <code>GOOGLE_BOOKS_API_KEY</code> on your server or enter your personal keyless proxy URL below on your phone.
+                      ${escapeHtml(t(lang, 'settings.safeQuotaGeneralDesc'))}
                     </p>
                   </div>
                 </div>
@@ -1021,7 +1031,7 @@ export function renderSettingsView({
               class="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5"
             >
               <summary class="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
-                <span>Advanced (Optional): Custom Books Proxy Server URL</span>
+                <span>${escapeHtml(t(lang, 'settings.advancedProxySummary'))}</span>
                 <span class="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
                   ${renderIcon('chevronDown', 'w-4 h-4')}
                 </span>
@@ -1038,7 +1048,7 @@ export function renderSettingsView({
                       for="device-books-proxy-url-input"
                       class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
                     >
-                      Personal Phone PWA Books Proxy URL (Optional · Saved on This Device Only)
+                      ${escapeHtml(t(lang, 'settings.deviceProxyLabel'))}
                     </label>
                     <div class="relative min-w-0">
                       <input
@@ -1052,7 +1062,7 @@ export function renderSettingsView({
                       ${renderInputClearButton({
                         targetId: 'device-books-proxy-url-input',
                         value: settingsUiState.deviceBooksProxyUrl || '',
-                        label: 'Clear device proxy URL',
+                        label: t(lang, 'common.clearText'),
                         lang,
                       })}
                     </div>
@@ -1063,7 +1073,7 @@ export function renderSettingsView({
                       ${settingsUiState.checkingGoogleBooks ? 'disabled' : ''}
                       class="h-11 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold transition-colors whitespace-nowrap"
                     >
-                      ${settingsUiState.checkingGoogleBooks ? 'Verifying…' : 'Save & Verify'}
+                      ${settingsUiState.checkingGoogleBooks ? escapeHtml(t(lang, 'settings.verifyingBtn')) : (lang === 'en' ? 'Save & Verify' : escapeHtml(t(lang, 'settings.saveAndVerifyBtn')))}
                     </button>
                     ${
                       settingsUiState.deviceBooksProxyUrl
@@ -1073,7 +1083,7 @@ export function renderSettingsView({
                             data-action="clear-device-books-proxy"
                             class="h-11 px-3 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-stone-ink dark:text-slate-300 transition-colors whitespace-nowrap"
                           >
-                            Clear
+                            ${escapeHtml(t(lang, 'common.clear'))}
                           </button>
                         `
                         : ''
@@ -1081,7 +1091,7 @@ export function renderSettingsView({
                   </div>
                 </div>
                 <p class="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
-                  Saving automatically runs a live Google Books probe to verify your proxy works. Stored only on this device (never exported in JSON backups).
+                  ${escapeHtml(t(lang, 'settings.proxyAutoCheckHint'))}
                   <a
                     href="${escapeHtml(APP_DOCS_LINKS.cloudflareWorkerGuide)}"
                     target="_blank"
@@ -1089,7 +1099,7 @@ export function renderSettingsView({
                     data-cloudflare-guide-link="true"
                     class="font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white ml-1 whitespace-nowrap"
                   >
-                    5-Minute Cloudflare Worker Setup Guide &nearr;
+                    ${escapeHtml(t(lang, 'settings.cloudflareGuideLinkText'))}
                   </a>
                 </p>
                 ${
@@ -1108,22 +1118,22 @@ export function renderSettingsView({
               class="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5"
             >
               <summary class="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
-                <span>How each phone PWA user can set up a safe personal Google Books quota</span>
+                <span>${escapeHtml(t(lang, 'settings.googleGuideSummary'))}</span>
                 <span class="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
                   ${renderIcon('chevronDown', 'w-4 h-4')}
                 </span>
               </summary>
               <div class="pt-2.5 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
                 <p>
-                  <strong class="text-forest-900 dark:text-white">1. Enable &amp; restrict your Google credential:</strong>
+                  <strong class="text-forest-900 dark:text-white">${escapeHtml(t(lang, 'settings.googleGuideStep1'))}</strong>
                   In <a href="${escapeHtml(GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL)}" target="_blank" rel="noopener noreferrer" class="font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2">Google Cloud Console</a> &rarr; <strong>APIs &amp; Services &rarr; Library</strong>, enable <strong>Books API</strong>, create a credential under <strong>Credentials</strong>, and restrict it strictly to <strong>Books API</strong>.
                 </p>
                 <p>
-                  <strong class="text-forest-900 dark:text-white">2. Server / Cloud Run / Local setup:</strong>
+                  <strong class="text-forest-900 dark:text-white">${escapeHtml(t(lang, 'settings.googleGuideStep2'))}</strong>
                   Set <code>GOOGLE_BOOKS_API_KEY=your_secret_here</code> in server environment variables or local untracked <code>.env</code>. The built-in <code>/api/books/volumes</code> proxy injects it automatically.
                 </p>
                 <p>
-                  <strong class="text-forest-900 dark:text-white">3. Per-user Phone PWA on GitHub Pages (Free Cloudflare Worker in 5 min):</strong>
+                  <strong class="text-forest-900 dark:text-white">${escapeHtml(t(lang, 'settings.googleGuideStep3'))}</strong>
                   Create a free Worker, paste the CORS-ready proxy script below, add variable <code>ALLOWED_ORIGIN</code> (e.g. <code>https://yourname.github.io</code>) + encrypted secret <code>GOOGLE_BOOKS_API_KEY</code>, and paste your Worker URL above:
                 </p>
                 <pre class="p-2.5 rounded-lg bg-night-950 text-ivory font-mono-tabular text-[11px] overflow-x-auto">export default {
@@ -1155,7 +1165,7 @@ export function renderSettingsView({
                     data-action="open-welcome-books-modal"
                     class="min-h-[36px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors"
                   >
-                    Open Startup Setup Prompt
+                    ${escapeHtml(t(lang, 'settings.openWelcomeModalBtn'))}
                   </button>
                   <a
                     href="${escapeHtml(APP_DOCS_LINKS.cloudflareWorkerGuide)}"
@@ -1163,7 +1173,7 @@ export function renderSettingsView({
                     rel="noopener noreferrer"
                     class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white"
                   >
-                    Open Step-by-Step Cloudflare Worker &amp; Google Books Guide &nearr;
+                    ${escapeHtml(t(lang, 'settings.openCloudflareGuideBtn'))}
                   </a>
                 </div>
               </div>
@@ -1177,10 +1187,15 @@ export function renderSettingsView({
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <p class="text-sm font-semibold text-forest-900 dark:text-white">
-                  Update Existing Library with Google Books
+                  ${escapeHtml(t(lang, 'settings.syncLibraryTitle'))}
                 </p>
                 <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
-                  Scanned books earlier with Open Library only? Re-checks saved books (${booksNeedingGoogleSyncCount} of ${state.books.length} missing Google Books or cover metadata) to pull covers, page counts, topic tags, and dual-catalog provenance without altering owners, shelf status, or custom photos.
+                  ${escapeHtml(
+                    t(lang, 'settings.syncLibraryDesc', {
+                      needed: booksNeedingGoogleSyncCount,
+                      total: state.books.length,
+                    })
+                  )}
                 </p>
               </div>
               <button
@@ -1192,8 +1207,8 @@ export function renderSettingsView({
                 ${renderIcon('rotations', settingsUiState.syncingCatalogMetadata ? 'w-3.5 h-3.5 animate-spin' : 'w-3.5 h-3.5')}
                 <span>${
                   settingsUiState.syncingCatalogMetadata
-                    ? escapeHtml(settingsUiState.catalogSyncProgressText || 'Updating Library…')
-                    : `Update Existing Library (${booksNeedingGoogleSyncCount})`
+                    ? escapeHtml(settingsUiState.catalogSyncProgressText || t(lang, 'settings.syncingLibraryProgress'))
+                    : escapeHtml(t(lang, 'settings.syncLibraryBtn', { count: booksNeedingGoogleSyncCount }))
                 }</span>
               </button>
             </div>
@@ -1231,22 +1246,26 @@ export function renderSettingsView({
         </div>
       </section>
 
-      <!-- Phase 5: Tagging & Pluggable AI Enrichment Provider Config -->
+      <!-- Tagging & Pluggable AI Enrichment Provider Config -->
       <section aria-labelledby="tagging-providers-heading" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-3.5">
         <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-linen-200/80 dark:border-night-800">
           <div>
             <h2 id="tagging-providers-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-              Tagging & Optional AI Enrichment
+              ${escapeHtml(t(lang, 'settings.taggingHeading'))}
             </h2>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Offline rule tagging is active by default; AI adapters are strictly opt-in.
+              ${escapeHtml(t(lang, 'settings.taggingDesc'))}
             </p>
           </div>
           <span class="text-xs text-stone-ink dark:text-slate-400 whitespace-nowrap">
-            Mode: <strong class="font-semibold text-forest-900 dark:text-slate-200">${
+            ${escapeHtml(t(lang, 'settings.modeLabel'))}: <strong class="font-semibold text-forest-900 dark:text-slate-200">${
               settings.aiEnrichmentOptIn
-                ? `Local + ${escapeHtml(selectedAdapter ? selectedAdapter.label : settings.aiAdapterId)}`
-                : 'Local Rules Only'
+                ? escapeHtml(
+                    t(lang, 'settings.localPlusAdapter', {
+                      adapter: selectedAdapter ? selectedAdapter.label : settings.aiAdapterId,
+                    })
+                  )
+                : escapeHtml(t(lang, 'settings.localRulesOnly'))
             }</strong>
           </span>
         </div>
@@ -1254,10 +1273,10 @@ export function renderSettingsView({
         <div class="flex items-center justify-between gap-4">
           <div>
             <p class="text-sm font-semibold text-forest-900 dark:text-white">
-              Automatic Local Rule-Based Tagging
+              ${escapeHtml(t(lang, 'settings.autoTaggingTitle'))}
             </p>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Offline children’s taxonomy + reading-level pacing hints.
+              ${escapeHtml(t(lang, 'settings.autoTaggingDesc'))}
             </p>
           </div>
           <button
@@ -1271,17 +1290,17 @@ export function renderSettingsView({
                 : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
             }"
           >
-            ${settings.autoLocalTagging ? 'Enabled' : 'Disabled'}
+            ${settings.autoLocalTagging ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
           </button>
         </div>
 
         <div class="pt-3 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
           <div>
             <p class="text-sm font-semibold text-forest-900 dark:text-white">
-              Optional AI-Assisted Tag Enrichment
+              ${escapeHtml(t(lang, 'settings.aiOptInTitle'))}
             </p>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Supplements local tags via your chosen keyless adapter.
+              ${escapeHtml(t(lang, 'settings.aiOptInDesc'))}
             </p>
           </div>
           <button
@@ -1295,13 +1314,13 @@ export function renderSettingsView({
                 : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
             }"
           >
-            ${settings.aiEnrichmentOptIn ? 'Opted In' : 'Opted Out'}
+            ${settings.aiEnrichmentOptIn ? escapeHtml(t(lang, 'settings.optedIn')) : escapeHtml(t(lang, 'settings.optedOut'))}
           </button>
         </div>
 
         <div class="pt-3 border-t border-linen-200/70 dark:border-night-800">
           <p class="text-xs font-semibold text-forest-900 dark:text-slate-200">
-            Pluggable AI Enrichment Adapter
+            ${escapeHtml(t(lang, 'settings.aiAdapterHeading'))}
           </p>
           ${adapterSelectorHtml}
           ${customEndpointFormHtml}
@@ -1327,8 +1346,8 @@ export function renderSettingsView({
             ${renderIcon('sparkles', 'w-3.5 h-3.5')}
             ${
               settingsUiState.enrichingCatalog
-                ? 'Enriching…'
-                : `Re-Enrich (${state.books.length} books)`
+                ? escapeHtml(t(lang, 'settings.enrichingProgress'))
+                : escapeHtml(t(lang, 'settings.reEnrichBtn', { count: state.books.length }))
             }
           </button>
 
@@ -1338,7 +1357,7 @@ export function renderSettingsView({
             ${settingsUiState.testingAdapter ? 'disabled' : ''}
             class="min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-60 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold transition-colors whitespace-nowrap"
           >
-            ${settingsUiState.testingAdapter ? 'Testing…' : 'Test Pipeline'}
+            ${settingsUiState.testingAdapter ? escapeHtml(t(lang, 'settings.testingProgress')) : escapeHtml(t(lang, 'settings.testPipelineBtn'))}
           </button>
 
           <button
@@ -1346,7 +1365,7 @@ export function renderSettingsView({
             data-action="reset-provider-defaults"
             class="min-h-[42px] px-3.5 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800 text-stone-ink dark:text-slate-300 text-xs font-semibold transition-colors whitespace-nowrap"
           >
-            Safe Defaults
+            ${escapeHtml(t(lang, 'settings.safeDefaultsBtn'))}
           </button>
         </div>
       </section>
@@ -1354,10 +1373,10 @@ export function renderSettingsView({
       <!-- Backup, Restore & Reset -->
       <section aria-labelledby="backup-heading" class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5">
         <h2 id="backup-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-          Backup & Portability
+          ${escapeHtml(t(lang, 'settings.backupHeading'))}
         </h2>
         <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-          Export or import your full catalog, reader profiles, and rotations as JSON.
+          ${escapeHtml(t(lang, 'settings.backupDesc'))}
         </p>
 
         <div class="mt-3.5 flex flex-wrap items-center gap-2.5">
@@ -1367,12 +1386,12 @@ export function renderSettingsView({
             class="min-h-[42px] px-3.5 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-linen-100 dark:hover:bg-white text-white dark:text-night-950 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
           >
             ${renderIcon('download', 'w-3.5 h-3.5')}
-            Export Backup
+            ${escapeHtml(t(lang, 'settings.exportBtn'))}
           </button>
 
           <label class="min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap">
             ${renderIcon('upload', 'w-3.5 h-3.5')}
-            Import Backup
+            ${escapeHtml(t(lang, 'settings.importBtn'))}
             <input id="import-backup-input" type="file" accept="application/json,.json" class="sr-only" />
           </label>
 
@@ -1381,7 +1400,7 @@ export function renderSettingsView({
             data-action="reset-seed-data"
             class="min-h-[42px] px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold transition-colors whitespace-nowrap"
           >
-            Reset Sample Data
+            ${escapeHtml(t(lang, 'settings.resetSeedBtn'))}
           </button>
         </div>
       </section>
@@ -1395,10 +1414,10 @@ export function renderSettingsView({
         <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-linen-200/80 dark:border-night-800">
           <div>
             <h2 id="about-app-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-              About Book Rotation
+              ${escapeHtml(t(lang, 'settings.aboutHeading'))}
             </h2>
             <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-              Offline-first family library catalog, shelf rotation planner, and reading games.
+              ${escapeHtml(t(lang, 'settings.aboutDesc'))}
             </p>
           </div>
           <div class="sm:text-right shrink-0">
@@ -1406,28 +1425,28 @@ export function renderSettingsView({
               data-settings-version-memory="true"
               class="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 whitespace-nowrap"
             >
-              Version <strong class="font-semibold text-forest-900 dark:text-white">${escapeHtml(APP_VERSION)}</strong>
+              ${escapeHtml(t(lang, 'settings.versionLabel'))} <strong class="font-semibold text-forest-900 dark:text-white">${escapeHtml(APP_VERSION)}</strong>
               <span aria-hidden="true" class="mx-1">·</span>
-              Memory <strong data-settings-memory-value="true" class="font-semibold text-forest-900 dark:text-white">${escapeHtml(storageUsage.formatted)}</strong>
+              ${escapeHtml(t(lang, 'settings.memoryLabel'))} <strong data-settings-memory-value="true" class="font-semibold text-forest-900 dark:text-white">${escapeHtml(storageUsage.formatted)}</strong>
             </span>
             ${
-              storageUsage.coverDataUrlBytes > 0 || settingsUiState.browserStorageSummary
+              storageUsage.coverDataUrlBytes > 0 || settingsUiState.hasCoverCache || settingsUiState.browserStorageSummary
                 ? `<div class="mt-0.5 flex flex-wrap sm:justify-end items-center gap-x-2 gap-y-0.5 text-[11px] font-mono-tabular text-stone-ink/80 dark:text-slate-400">
                     <span>${escapeHtml(
                       [
                         storageUsage.coverDataUrlBytes > 0
-                          ? `Photos: ${formatStorageBytes(storageUsage.coverDataUrlBytes)}`
+                          ? `${t(lang, 'settings.photosLabel')}: ${formatStorageBytes(storageUsage.coverDataUrlBytes)}`
                           : '',
-                        settingsUiState.browserStorageSummary || '',
+                        settingsUiState.browserStorageSummary && !settingsUiState.browserStorageSummary.includes('padded by browser')
+                          ? settingsUiState.browserStorageSummary
+                          : '',
                       ]
                         .filter(Boolean)
                         .join(' · ')
                     )}</span>
-                    ${
-                      settingsUiState.browserStorageSummary
-                        ? `<button type="button" data-action="clear-cover-cache" class="font-sans text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white">Clear Cover Cache</button>`
-                        : ''
-                    }
+                    <button type="button" data-action="clear-cover-cache" class="font-sans text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white">${escapeHtml(
+                      t(lang, 'settings.clearCoverCache')
+                    )}</button>
                   </div>`
                 : ''
             }
@@ -1435,9 +1454,14 @@ export function renderSettingsView({
         </div>
 
         <p class="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
-          All reader profiles (${state.profiles.length}), shelf rotations (${state.rotations.length}), and book records (${state.books.length}) live privately in your device’s browser storage (${escapeHtml(
-            storageBackend
-          )}). Open the HTML guides below for setup steps, local tagging rule customization, and developer extension APIs.
+          ${escapeHtml(
+            t(lang, 'settings.aboutStorageText', {
+              profiles: state.profiles.length,
+              rotations: state.rotations.length,
+              books: state.books.length,
+              backend: storageBackend,
+            })
+          )}
         </p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1450,10 +1474,10 @@ export function renderSettingsView({
           >
             <div class="min-w-0">
               <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
-                User Guide &amp; Walkthrough
+                ${escapeHtml(t(lang, 'settings.userGuideTitle'))}
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                Scanning, profiles, rotations, Bedtime Baskets &amp; Play
+                ${escapeHtml(t(lang, 'settings.userGuideDesc'))}
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
@@ -1468,10 +1492,10 @@ export function renderSettingsView({
           >
             <div class="min-w-0">
               <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
-                Cover Badges &amp; Stickers Guide
+                ${escapeHtml(t(lang, 'settings.coverBadgesTitle'))}
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                4-corner taxonomy: Read, Shelf, Rest cooldown &amp; Wishlist
+                ${escapeHtml(t(lang, 'settings.coverBadgesDesc'))}
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
@@ -1486,10 +1510,10 @@ export function renderSettingsView({
           >
             <div class="min-w-0">
               <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
-                Google Books &amp; Proxy Config
+                ${escapeHtml(t(lang, 'settings.configGuideTitle'))}
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                Local .env, Cloud Console &amp; Cloudflare Worker guide
+                ${escapeHtml(t(lang, 'settings.configGuideDesc'))}
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
@@ -1504,10 +1528,10 @@ export function renderSettingsView({
           >
             <div class="min-w-0">
               <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
-                Developer &amp; Config Guide
+                ${escapeHtml(t(lang, 'settings.devGuideTitle'))}
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                /src/config/ guide, YAML locales &amp; data models
+                ${escapeHtml(t(lang, 'settings.devGuideDesc'))}
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
@@ -1522,14 +1546,13 @@ export function renderSettingsView({
           >
             <div class="min-w-0">
               <p class="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
-                Local Tag Rules &amp; AI Adapters
+                ${escapeHtml(t(lang, 'settings.taggingGuideTitle'))}
               </p>
               <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
-                Offline rule-tagger.js &amp; pluggable AI adapters
+                ${escapeHtml(t(lang, 'settings.taggingGuideDesc'))}
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
-          </a>
         </div>
       </section>
     </div>

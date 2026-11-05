@@ -10,88 +10,133 @@
   <body>
     <header class="docs-header">
       <div class="docs-header-inner">
-        <a href="./index.html" class="docs-brand">
-          <img src="../icons/icon-192.png" alt="Little Shelf" />
-          <span>Little Shelf Docs</span>
-        </a>
+        <div class="docs-header-left">
+          <a href="./index.html" class="docs-brand">
+            <img src="../icons/icon-192.png" alt="Little Shelf" />
+            <span>Little Shelf Docs</span>
+          </a>
+          <span class="docs-header-tag">Taxonomy &amp; AI</span>
+        </div>
         <nav class="docs-nav" aria-label="Documentation pages">
           <a href="./index.html">User Guide</a>
           <a href="./architecture-and-providers.html">Developer &amp; Config Guide</a>
           <a href="./configuration.html">Google Books &amp; Cloudflare</a>
           <a href="./tagging-and-ai.html" aria-current="page">Taxonomy &amp; Tag Rules</a>
         </nav>
-        <a href="../#/presets" class="docs-back-app">Open Presets →</a>
+        <div class="docs-header-actions">
+          <a href="../#/presets" class="docs-back-app">Open Presets →</a>
+        </div>
       </div>
     </header>
 
-    <main class="docs-main">
-      <section class="hero">
-        <p class="eyebrow">Topics, Seasonal Collections &amp; Webhooks</p>
-        <h1>Local Tag Rules, Presets &amp; AI</h1>
-        <p class="lead">
-          Every book is tagged instantaneously offline by deterministic keyword rules, then matched against seasonal &amp; milestone presets—with zero cloud dependency required.
-        </p>
-        <div class="jump-bar">
-          <a href="#how-it-works">Example: Book → Tags</a>
-          <a href="#edit-tags">Add a Topic Tag</a>
-          <a href="#edit-presets">Add a Collection Preset</a>
-          <a href="#ai-adapter">Optional AI Adapter</a>
+    <div class="docs-layout">
+      <!-- Sticky Sidebar: Index & Subindex (Zensical Style) -->
+      <aside class="docs-sidebar" aria-label="Documentation Index & Navigation">
+        <div class="sidebar-group">
+          <div class="sidebar-heading">Guides</div>
+          <ul class="sidebar-nav-list">
+            <li><a href="./index.html" class="sidebar-link"><span>User Guide</span> <span class="badge-tag-pill badge-tag-amber">Parent</span></a></li>
+            <li><a href="./architecture-and-providers.html" class="sidebar-link"><span>Developer &amp; Config</span> <span class="badge-tag-pill badge-tag-sky">Tech</span></a></li>
+            <li><a href="./configuration.html" class="sidebar-link"><span>Google Books &amp; Worker</span> <span class="badge-tag-pill badge-tag-dark">Proxy</span></a></li>
+            <li><a href="./tagging-and-ai.html" class="sidebar-link" aria-current="page"><span>Taxonomy &amp; AI Rules</span> <span class="badge-tag-pill badge-tag-purple">Tags</span></a></li>
+          </ul>
         </div>
-      </section>
 
-      <section id="how-it-works" class="section-block">
-        <h2>1. How Local Tagging Works</h2>
-        <p>
-          <code>src/features/tagging/rule-tagger.js</code> scans a book’s title, synopsis, publisher categories, format, and page count to assign tags and reading stage offline.
-        </p>
+        <div class="sidebar-group">
+          <div class="sidebar-heading">On This Page</div>
+          <ul class="sidebar-toc-list">
+            <li>
+              <a href="#how-it-works" class="sidebar-link">1. How Local Tagging Works</a>
+              <ul class="sidebar-subindex">
+                <li><a href="#how-it-works" class="sidebar-sublink">rule-tagger.js</a></li>
+                <li><a href="#how-it-works" class="sidebar-sublink">TAXONOMY_RULES</a></li>
+              </ul>
+            </li>
+            <li>
+              <a href="#edit-tags" class="sidebar-link">2. Add a Topic Rule</a>
+            </li>
+            <li>
+              <a href="#edit-presets" class="sidebar-link">3. Seasonal Collection Presets</a>
+            </li>
+            <li>
+              <a href="#ai-adapter" class="sidebar-link">4. Optional AI Webhook</a>
+              <ul class="sidebar-subindex">
+                <li><a href="#ai-adapter" class="sidebar-sublink">AiTagEnrichmentAdapter</a></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </aside>
 
-        <div class="example-pair">
-          <div class="example-box">
-            <span class="example-label">Input Book Metadata</span>
-            <strong>Goodnight, Goodnight, Construction Site</strong><br />
-            <span>Pages: 32 · Format: Board Book</span><br />
-            <span>Categories: “Juvenile Fiction / Bedtime &amp; Dreams / Trucks”</span>
+      <!-- Main Documentation Content -->
+      <main class="docs-main">
+        <section class="hero">
+          <p class="eyebrow">Topics, Seasonal Collections &amp; Webhooks</p>
+          <h1>Local Tag Rules, Presets &amp; AI</h1>
+          <p class="lead">
+            Every book is tagged instantaneously offline by deterministic keyword rules, then matched against seasonal &amp; milestone presets—with zero cloud dependency required.
+          </p>
+          <div class="jump-bar">
+            <a href="#how-it-works">Example: Book → Tags</a>
+            <a href="#edit-tags">Add a Topic Tag</a>
+            <a href="#edit-presets">Add a Collection Preset</a>
+            <a href="#ai-adapter">Optional AI Adapter</a>
           </div>
-          <div class="example-arrow">→</div>
-          <div class="example-box">
-            <span class="example-label">Rule Tagger Output</span>
-            <strong>Stage:</strong> Toddler (1–3y) · Ages 1–4
-            <div class="tag-row">
-              <span class="tag-chip">bedtime</span>
-              <span class="tag-chip">vehicles</span>
-              <span class="tag-chip">rhyming</span>
+        </section>
+
+        <section id="how-it-works" class="section-block">
+          <h2>1. How Local Tagging Works</h2>
+          <p>
+            <code>src/features/tagging/rule-tagger.js</code> scans a book’s title, synopsis, publisher categories, format, and page count to assign tags and reading stage offline.
+          </p>
+
+          <div class="example-pair">
+            <div class="example-box">
+              <span class="example-label">Input Book Metadata</span>
+              <strong>Goodnight, Goodnight, Construction Site</strong><br />
+              <span>Pages: 32 · Format: Board Book</span><br />
+              <span>Categories: “Juvenile Fiction / Bedtime &amp; Dreams / Trucks”</span>
+            </div>
+            <div class="example-arrow">→</div>
+            <div class="example-box">
+              <span class="example-label">Rule Tagger Output</span>
+              <strong>Stage:</strong> Toddler (1–3y) · Ages 1–4
+              <div class="tag-row">
+                <span class="tag-chip">bedtime</span>
+                <span class="tag-chip">vehicles</span>
+                <span class="tag-chip">rhyming</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>What you edit there</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>src/features/tagging/rule-tagger.js</code></td>
-              <td><code>TAXONOMY_RULES</code> keyword lists + age/stage inference rules.</td>
-            </tr>
-            <tr>
-              <td><code>src/data/rotation-presets-config.js</code></td>
-              <td>Built-in seasonal, holiday, milestone, and everyday shelf presets.</td>
-            </tr>
-            <tr>
-              <td><code>src/features/tagging/ai-tag-adapter.js</code></td>
-              <td>Optional <code>AiTagEnrichmentAdapter</code> webhook or custom tagger.</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
+          <table>
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>What you edit there</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>src/features/tagging/rule-tagger.js</code></td>
+                <td><code>TAXONOMY_RULES</code> keyword lists + age/stage inference rules.</td>
+              </tr>
+              <tr>
+                <td><code>src/data/rotation-presets-config.js</code></td>
+                <td>Built-in seasonal, holiday, milestone, and everyday shelf presets.</td>
+              </tr>
+              <tr>
+                <td><code>src/features/tagging/ai-tag-adapter.js</code></td>
+                <td>Optional <code>AiTagEnrichmentAdapter</code> webhook or custom tagger.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
 
-      <section id="edit-tags" class="section-block">
-        <h2>2. Example — Add a New Topic Rule (e.g. <code>dinosaurs</code>)</h2>
-        <p>Open <code>src/features/tagging/rule-tagger.js</code> and add an entry to <code>TAXONOMY_RULES</code>:</p>
-        <pre><code>// src/features/tagging/rule-tagger.js
+        <section id="edit-tags" class="section-block">
+          <h2>2. Example — Add a New Topic Rule (e.g. <code>dinosaurs</code>)</h2>
+          <p>Open <code>src/features/tagging/rule-tagger.js</code> and add an entry to <code>TAXONOMY_RULES</code>:</p>
+          <pre><code>// src/features/tagging/rule-tagger.js
 const TAXONOMY_RULES = [
   // ...existing rules...
   {
@@ -107,18 +152,18 @@ const TAXONOMY_RULES = [
     ],
   },
 ];</code></pre>
-        <p>
-          <strong>Tip:</strong> Manual tags you type or delete on a book card are never overwritten by automatic re-tagging.
-        </p>
-      </section>
+          <p>
+            <strong>Tip:</strong> Manual tags you type or delete on a book card are never overwritten by automatic re-tagging.
+          </p>
+        </section>
 
-      <section id="edit-presets" class="section-block">
-        <h2>3. Example — Add a Seasonal Collection Preset</h2>
-        <p>
-          Presets never hardcode book titles—they describe <strong>topic preferences, count, swap cycle, cooldown, deterministic seed, and optional <code>MM-DD</code> start date</strong> so shelves build from each family’s own library.
-          Add one in the UI (<strong>Rotations → Presets → + Add Preset</strong>) or in <code>src/data/rotation-presets-config.js</code>:
-        </p>
-        <pre><code>// src/data/rotation-presets-config.js
+        <section id="edit-presets" class="section-block">
+          <h2>3. Example — Add a Seasonal Collection Preset</h2>
+          <p>
+            Presets never hardcode book titles—they describe <strong>topic preferences, count, swap cycle, cooldown, deterministic seed, and optional <code>MM-DD</code> start date</strong> so shelves build from each family’s own library.
+            Add one in the UI (<strong>Rotations → Presets → + Add Preset</strong>) or in <code>src/data/rotation-presets-config.js</code>:
+          </p>
+          <pre><code>// src/data/rotation-presets-config.js
 {
   id: 'preset-world-space-week',
   title: 'Space &amp; Stargazing Week',
@@ -132,36 +177,36 @@ const TAXONOMY_RULES = [
   deterministicSeed: 'preset:world-space-week',
   suggestedStartMonthDay: '10-04', // Alerts every Oct 4 + shows countdown in #/presets (omit for Anytime)
 }</code></pre>
-      </section>
+        </section>
 
-      <section id="ai-adapter" class="section-block">
-        <h2>4. Optional AI / Webhook Enrichment</h2>
-        <p>
-          AI enrichment is <strong>off by default</strong>. You can connect a private HTTPS webhook in <strong>Settings → AI Tagging</strong> or pass a custom <code>AiTagEnrichmentAdapter</code> in code:
-        </p>
+        <section id="ai-adapter" class="section-block">
+          <h2>4. Optional AI / Webhook Enrichment</h2>
+          <p>
+            AI enrichment is <strong>off by default</strong>. You can connect a private HTTPS webhook in <strong>Settings → AI Tagging</strong> or pass a custom <code>AiTagEnrichmentAdapter</code> in code:
+          </p>
 
-        <div class="example-pair">
-          <div class="example-box">
-            <span class="example-label">POST Payload Sent</span>
-            <pre><code>{
+          <div class="example-pair">
+            <div class="example-box">
+              <span class="example-label">POST Payload Sent</span>
+              <pre><code>{
   "title": "El Monstruo de Colores",
   "authors": ["Anna Llenas"],
   "existingTags": ["Spanish"]
 }</code></pre>
-          </div>
-          <div class="example-arrow">→</div>
-          <div class="example-box">
-            <span class="example-label">JSON Response Returned</span>
-            <pre><code>{
+            </div>
+            <div class="example-arrow">→</div>
+            <div class="example-box">
+              <span class="example-label">JSON Response Returned</span>
+              <pre><code>{
   "tags": ["emotions", "colors"],
   "readingStage": "preschool",
   "ageMin": 2,
   "ageMax": 5
 }</code></pre>
+            </div>
           </div>
-        </div>
 
-        <pre><code>/** @type {import('./src/features/tagging/ai-tag-adapter.js').AiTagEnrichmentAdapter} */
+          <pre><code>/** @type {import('./src/features/tagging/ai-tag-adapter.js').AiTagEnrichmentAdapter} */
 const myCustomAdapter = {
   id: 'local-classifier',
   label: 'Custom Classifier',
@@ -172,12 +217,13 @@ const myCustomAdapter = {
     return { tags: ['emotions'], confidence: 0.92, source: 'local-classifier' };
   },
 };</code></pre>
-      </section>
+        </section>
 
-      <footer class="docs-footer">
-        <a href="./configuration.html">← Google Books Setup</a>
-        <a href="./architecture-and-providers.html">Next: Developer Guide →</a>
-      </footer>
-    </main>
+        <footer class="docs-footer">
+          <a href="./configuration.html">← Google Books Setup</a>
+          <a href="./architecture-and-providers.html">Next: Developer Guide →</a>
+        </footer>
+      </main>
+    </div>
   </body>
 </html>
