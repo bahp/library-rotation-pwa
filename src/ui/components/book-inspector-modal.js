@@ -917,135 +917,177 @@ export function renderBookInspectorModal({
 
         <!-- Scrollable Card Body -->
         <div class="p-4 sm:p-5 overflow-y-auto space-y-4">
-          <!-- Hero Identity: Single Clickable Cover (centered Cover badge) + Bibliographic Metadata -->
-          <div class="flex items-start gap-3.5 sm:gap-4 min-w-0">
-            <button
-              type="button"
-              data-action="toggle-cover-picker"
-              aria-expanded="${inspectorUiState.isCoverPickerOpen ? 'true' : 'false'}"
-              aria-label="Change cover for ${escapeHtml(book.title)}"
-              title="Tap to change book cover"
-              class="group relative shrink-0 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
-            >
-              ${renderBookCover(book, 'md', coverAspectRatio)}
-              <span
-                data-cover-badge="centered"
-                class="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-20 flex justify-center"
+          <!-- Hero Identity: Left Column (Cover + 5 Stars Underneath + ISBN Tag) & Right Column (Title + Structured Reading Specs) -->
+          <div class="flex items-start gap-3.5 sm:gap-5 min-w-0">
+            <!-- Left Column: Book Cover + Snug 5-Star Rating + ISBN Tag -->
+            <div class="w-20 sm:w-24 shrink-0 flex flex-col items-center">
+              <button
+                type="button"
+                data-action="toggle-cover-picker"
+                aria-expanded="${inspectorUiState.isCoverPickerOpen ? 'true' : 'false'}"
+                aria-label="Change cover for ${escapeHtml(book.title)}"
+                title="Tap to change book cover"
+                class="group relative rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
               >
-                <span class="px-2 py-0.5 rounded-lg bg-night-950/80 backdrop-blur-xs text-ivory text-[10px] font-semibold inline-flex items-center justify-center gap-1 shadow-xs whitespace-nowrap">
-                  ${renderIcon('camera', 'w-3 h-3')}
-                  <span>${inspectorUiState.isCoverPickerOpen ? 'Close' : 'Cover'}</span>
+                ${renderBookCover(book, 'md', coverAspectRatio)}
+                <span
+                  data-cover-badge="centered"
+                  class="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-20 flex justify-center"
+                >
+                  <span class="px-2 py-0.5 rounded-lg bg-night-950/80 backdrop-blur-xs text-ivory text-[10px] font-semibold inline-flex items-center justify-center gap-1 shadow-xs whitespace-nowrap">
+                    ${renderIcon('camera', 'w-3 h-3')}
+                    <span>${inspectorUiState.isCoverPickerOpen ? 'Close' : 'Cover'}</span>
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
 
-            <div class="min-w-0 flex-1">
-              <h2 id="inspect-book-title" class="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white leading-snug text-balance">
-                ${escapeHtml(book.title)}
-              </h2>
-              <p class="text-xs sm:text-sm font-medium text-stone-ink dark:text-slate-300 mt-0.5">
-                ${escapeHtml(book.authors.join(', '))}
-              </p>
+              <!-- 5 Stars User Rating (tight, snug stars sitting directly flush under the cover artwork) -->
+              ${(() => {
+                const userRating = typeof book.userRating === 'number' ? book.userRating : 0;
+                return `
+                  <div class="mt-2 w-full flex flex-col items-center">
+                    <div class="inline-flex items-center justify-center -space-x-0.5" role="group" aria-label="Rate this book 1 to 5 stars">
+                      ${[1, 2, 3, 4, 5]
+                        .map((star) => {
+                          const filled = star <= userRating;
+                          const starTone = filled
+                            ? 'text-amber-500 dark:text-amber-400'
+                            : 'text-stone-ink/30 dark:text-slate-600 hover:text-amber-400';
+                          return `
+                            <button
+                              type="button"
+                              data-action="set-book-user-rating"
+                              data-book-id="${escapeHtml(book.id)}"
+                              data-rating="${star}"
+                              aria-label="Rate ${star} out of 5 stars"
+                              title="Rate ${star} star${star === 1 ? '' : 's'}"
+                              class="w-4 h-6 flex items-center justify-center ${starTone} hover:scale-125 active:scale-95 transition-transform focus-visible:outline-none"
+                            >
+                              ${renderIcon(filled ? 'starFilled' : 'star', 'w-3.5 h-3.5')}
+                            </button>
+                          `;
+                        })
+                        .join('')}
+                    </div>
+                    <div class="mt-0.5 text-center leading-tight">
+                      ${
+                        userRating > 0
+                          ? `
+                            <span class="text-[10px] font-semibold text-forest-900 dark:text-slate-200">${userRating}/5</span>
+                            <span aria-hidden="true" class="text-stone-ink/40 text-[10px]">·</span>
+                            <button
+                              type="button"
+                              data-action="set-book-user-rating"
+                              data-book-id="${escapeHtml(book.id)}"
+                              data-rating="0"
+                              aria-label="Clear star rating"
+                              class="text-[10px] text-stone-ink/75 hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-300 underline underline-offset-1"
+                            >Clear</button>
+                          `
+                          : `<span class="text-[9px] text-stone-ink/60 dark:text-slate-400">Rate book</span>`
+                      }
+                    </div>
+                  </div>
+                `;
+              })()}
 
-              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-stone-ink dark:text-slate-400 mt-2">
-                <span>Ages ${book.ageMin}–${book.ageMax}</span>
-                <span aria-hidden="true">·</span>
-                <span>${escapeHtml(formatReadingStage(book.readingStage))}</span>
-                <span aria-hidden="true">·</span>
+              <!-- Compact ISBN tag below stars under cover -->
+              ${
+                book.isbn13 || book.isbn10
+                  ? `
+                    <div class="mt-1.5 w-full text-center">
+                      <span class="inline-block px-1 py-0.5 rounded bg-linen-100/90 dark:bg-night-800 text-[10px] font-mono-tabular text-stone-ink/80 dark:text-slate-300 max-w-full truncate" title="ISBN ${escapeHtml(
+                        book.isbn13 || book.isbn10 || ''
+                      )}">
+                        ISBN ${escapeHtml(book.isbn13 || book.isbn10 || '')}
+                      </span>
+                    </div>
+                  `
+                  : ''
+              }
+            </div>
+
+            <!-- Right Column: Title, Author & Multi-tier Scannable Reading Metadata -->
+            <div class="min-w-0 flex-1 space-y-1.5 sm:space-y-2">
+              <div>
+                <h2 id="inspect-book-title" class="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white leading-snug text-balance">
+                  ${escapeHtml(book.title)}
+                </h2>
+                <p class="text-xs sm:text-sm font-medium text-stone-ink dark:text-slate-300 mt-0.5">
+                  ${escapeHtml(book.authors.join(', '))}
+                </p>
+              </div>
+
+              <!-- Tier 1: Target Age & Reading Stage (Clear, high-priority guidance for parents) -->
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                <span class="font-bold text-forest-900 dark:text-slate-100">
+                  Ages ${book.ageMin}–${book.ageMax}
+                </span>
+                <span aria-hidden="true" class="text-stone-ink/40">·</span>
+                <span class="font-medium text-stone-ink dark:text-slate-300">
+                  ${escapeHtml(formatReadingStage(book.readingStage))}
+                </span>
+              </div>
+
+              <!-- Tier 2: Physical Specs (Binding, page count, publication year, language) -->
+              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink/80 dark:text-slate-400">
                 <span>${escapeHtml(formatBookBinding(book.format))}</span>
                 ${
                   book.pageCount
-                    ? `<span aria-hidden="true">·</span><span class="font-mono-tabular">${book.pageCount} pp</span>`
+                    ? `<span aria-hidden="true" class="text-stone-ink/40">·</span><span class="font-mono-tabular">${book.pageCount} pp</span>`
                     : ''
                 }
                 ${
                   book.publishedYear
-                    ? `<span aria-hidden="true">·</span><span class="font-mono-tabular">${book.publishedYear}</span>`
+                    ? `<span aria-hidden="true" class="text-stone-ink/40">·</span><span class="font-mono-tabular">${book.publishedYear}</span>`
                     : ''
                 }
                 ${
                   book.language && book.language !== 'english'
-                    ? `<span aria-hidden="true">·</span><span class="capitalize">${escapeHtml(book.language)}</span>`
+                    ? `<span aria-hidden="true" class="text-stone-ink/40">·</span><span class="capitalize">${escapeHtml(book.language)}</span>`
                     : ''
                 }
               </div>
 
+              <!-- Tier 3: Reading level / Read-aloud hint -->
               ${
                 book.readingLevelHint
-                  ? `<p class="text-xs text-forest-700 dark:text-[#5ED3DA] mt-1.5">${escapeHtml(
+                  ? `<p class="text-xs font-medium text-forest-700 dark:text-[#5ED3DA] leading-snug pt-0.5">${escapeHtml(
                       book.readingLevelHint
                     )}</p>`
                   : ''
               }
 
-              <!-- ISBN & Metadata Tag Row -->
-              <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-mono-tabular text-stone-ink dark:text-slate-400 mt-1.5">
-                ${
-                  book.isbn13
-                    ? `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-linen-100/90 dark:bg-night-800 text-stone-ink dark:text-slate-300">ISBN ${escapeHtml(
-                        book.isbn13
-                      )}${book.isbn10 ? ` · ${escapeHtml(book.isbn10)}` : ''}</span>`
-                    : ''
-                }
-                ${
-                  book.publisher
-                    ? `<span class="truncate max-w-[180px] font-sans" title="Publisher">${escapeHtml(book.publisher)}</span>`
-                    : ''
-                }
-                ${
-                  book.previewLink
-                    ? `<a href="${escapeHtml(book.previewLink)}" target="_blank" rel="noopener noreferrer" class="text-forest-700 hover:underline dark:text-[#5ED3DA] font-sans inline-flex items-center gap-0.5">Preview &nearr;</a>`
-                    : ''
-                }
-              </div>
-
-              <!-- 5 Stars User Rating (positioned below the ISBN tag) -->
+              <!-- Tier 4: Community Rating & Publisher / External Links -->
               ${
-                (() => {
-                  const userRating = typeof book.userRating === 'number' ? book.userRating : 0;
-                  return `
-                    <div class="mt-2.5 pt-2 border-t border-linen-200/70 dark:border-night-800/80 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span class="text-xs font-semibold text-forest-900 dark:text-slate-200">Your Rating:</span>
-                      <div class="inline-flex items-center gap-0.5" role="group" aria-label="Rate this book 1 to 5 stars">
-                        ${[1, 2, 3, 4, 5]
-                          .map((star) => {
-                            const filled = star <= userRating;
-                            return `
-                              <button
-                                type="button"
-                                data-action="set-book-user-rating"
-                                data-book-id="${escapeHtml(book.id)}"
-                                data-rating="${star}"
-                                aria-label="Rate ${star} out of 5 stars"
-                                title="Rate ${star} star${star === 1 ? '' : 's'}"
-                                class="min-h-[34px] min-w-[34px] flex items-center justify-center rounded-lg text-amber-500 hover:text-amber-600 dark:hover:text-amber-400 hover:scale-110 active:scale-95 transition-all focus-visible:outline-2 focus-visible:outline-forest-700"
-                              >
-                                ${renderIcon(filled ? 'starFilled' : 'star', 'w-4 h-4')}
-                              </button>
-                            `;
-                          })
-                          .join('')}
-                      </div>
-                      ${
-                        userRating > 0
-                          ? `<button type="button" data-action="set-book-user-rating" data-book-id="${escapeHtml(
-                              book.id
-                            )}" data-rating="0" class="text-[11px] text-stone-ink dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 underline ml-1">Clear</button>`
-                          : ''
-                      }
+                (book.averageRating || book.publisher || book.previewLink)
+                  ? `
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-stone-ink/80 dark:text-slate-400 pt-0.5">
                       ${
                         book.averageRating
                           ? `
-                            <span class="inline-flex items-center gap-1 text-[11px] text-stone-ink dark:text-slate-400 ml-auto font-mono-tabular" title="Google Books rating">
-                              <span class="text-amber-500">★</span>
-                              <span>${book.averageRating}${book.ratingsCount ? ` (${book.ratingsCount})` : ''}</span>
+                            <span class="inline-flex items-center gap-1 font-mono-tabular font-medium text-amber-700 dark:text-amber-400" title="Google Books rating">
+                              <span>★ ${book.averageRating}</span>
+                              ${book.ratingsCount ? `<span class="opacity-75 font-normal font-sans">(${book.ratingsCount})</span>` : ''}
                             </span>
                           `
                           : ''
                       }
+                      ${book.averageRating && (book.publisher || book.previewLink) ? `<span aria-hidden="true" class="text-stone-ink/40">·</span>` : ''}
+                      ${
+                        book.publisher
+                          ? `<span class="truncate max-w-[150px] font-sans" title="Publisher">${escapeHtml(book.publisher)}</span>`
+                          : ''
+                      }
+                      ${book.publisher && book.previewLink ? `<span aria-hidden="true" class="text-stone-ink/40">·</span>` : ''}
+                      ${
+                        book.previewLink
+                          ? `<a href="${escapeHtml(book.previewLink)}" target="_blank" rel="noopener noreferrer" class="text-forest-700 hover:underline dark:text-[#5ED3DA] font-sans font-medium inline-flex items-center gap-0.5">Preview &nearr;</a>`
+                          : ''
+                      }
                     </div>
-                  `;
-                })()
+                  `
+                  : ''
               }
             </div>
           </div>

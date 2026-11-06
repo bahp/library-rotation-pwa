@@ -158,7 +158,7 @@ describe('Phase 32 — Bug Fixes & User Rating Verification', () => {
     assert.match(fullHtml, /href="#\/play"/);
   });
 
-  it('7. Book inspector positions 5-star user rating below ISBN tag and includes responsive container sizing', async () => {
+  it('7. Book inspector positions snug 5-star rating and ISBN below cover with responsive container sizing and no dividing line', async () => {
     const store = await createTestStore();
     const st = store.getState();
     const book = { ...st.books[0], isbn13: '9780545010221', userRating: 3 };
@@ -174,7 +174,10 @@ describe('Phase 32 — Bug Fixes & User Rating Verification', () => {
 
     assert.ok(isbnIndex > 0, 'ISBN tag must be rendered');
     assert.ok(ratingIndex > 0, 'User rating widget must be rendered');
-    assert.ok(ratingIndex > isbnIndex, 'User rating widget must appear AFTER the ISBN tag in DOM order');
+
+    // Verify stars are rendered in snug group directly under cover without artificial border-t dividing line between ISBN and stars
+    assert.match(html, /-space-x-0\.5/);
+    assert.equal(html.includes('border-t border-linen-200/70 dark:border-night-800/80 flex flex-wrap items-center gap-x-2 gap-y-1'), false);
 
     // Dialog has responsive container classes for mobile vertical and computer screens
     assert.match(html, /max-w-lg\s+sm:max-w-xl\s+lg:max-w-2xl/);
