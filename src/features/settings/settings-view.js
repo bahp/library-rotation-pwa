@@ -847,6 +847,30 @@ export function renderSettingsView({
             </button>
           </div>
 
+          <div class="py-3 flex items-center justify-between gap-4">
+            <div>
+              <p class="text-sm font-semibold text-forest-900 dark:text-white">
+                ${escapeHtml(t(lang, 'settings.searchWhileTypingTitle'))}
+              </p>
+              <p class="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                ${escapeHtml(t(lang, 'settings.searchWhileTypingDesc'))}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked="${settings.searchWhileTyping ? 'true' : 'false'}"
+              data-action="toggle-search-while-typing"
+              class="min-h-[42px] px-4 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
+                settings.searchWhileTyping
+                  ? 'bg-forest-700 text-white'
+                  : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
+              }"
+            >
+              ${settings.searchWhileTyping ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
+            </button>
+          </div>
+
           <div class="pt-3.5 pb-3.5 flex flex-col gap-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div>

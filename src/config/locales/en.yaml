@@ -211,6 +211,8 @@ settings:
   openLibraryProviderDesc: "Complementary edition metadata, subject headings, and archive cover fallback."
   retainRawTitle: "Retain Raw Provider Payloads"
   retainRawDesc: "Store raw Google Books and Open Library JSON on newly added books."
+  searchWhileTypingTitle: "Search Quickly While Typing"
+  searchWhileTypingDesc: "Automatically query book metadata providers as you type in Scan & Search (uses more API requests). When off, search only runs when clicking Find."
   googleQuotaTitle: "Google Books Quota & Zero-Storage Key Protection"
   googleQuotaDesc: "Probes Google Books via the leak-free server proxy (/api/books/volumes) or your personal phone proxy URL. Raw API keys are never typed into browser forms, saved in local storage, or exported in JSON backups."
   checkGoogleApiBtn: "Check Google Books API"

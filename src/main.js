@@ -1875,9 +1875,12 @@ function bindEvents() {
       }
       case 'set-book-user-rating': {
         const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
-        const rating = Number(target.getAttribute('data-rating') || 0);
+        const requestedRating = Number(target.getAttribute('data-rating') || 0);
         if (bookId) {
-          await store.setUserRating(bookId, rating);
+          const currentBook = store.getState().books.find((b) => b.id === bookId);
+          const finalRating =
+            currentBook && currentBook.userRating === requestedRating ? 0 : requestedRating;
+          await store.setUserRating(bookId, finalRating);
         }
         break;
       }
@@ -2930,6 +2933,17 @@ function bindEvents() {
         await store.updateSettings({ retainRawProviderPayloads: !current });
         break;
       }
+      case 'toggle-search-while-typing': {
+        const current = Boolean(store.getState().settings.searchWhileTyping);
+        await store.updateSettings({ searchWhileTyping: !current });
+        store.notify(
+          !current
+            ? 'Enabled live search while typing in Scan & Search.'
+            : 'Disabled live search while typing. Click Find to run searches.',
+          'info'
+        );
+        break;
+      }
       case 'toggle-metadata-provider': {
         const providerId = target.getAttribute('data-provider-id');
         if (providerId) {
@@ -3133,13 +3147,17 @@ function bindEvents() {
       render();
     } else if (target.id === 'provider-title-input') {
       uiState.titleQuery = target.value;
-      if (uiState.titleQuery.trim().length >= 2 || !uiState.titleQuery.trim()) {
-        scheduleDebouncedSearch();
+      if (store.getState().settings.searchWhileTyping) {
+        if (uiState.titleQuery.trim().length >= 2 || !uiState.titleQuery.trim()) {
+          scheduleDebouncedSearch();
+        }
       }
     } else if (target.id === 'provider-author-input') {
       uiState.authorQuery = target.value;
-      if (uiState.authorQuery.trim().length >= 2 || uiState.titleQuery.trim().length >= 2) {
-        scheduleDebouncedSearch();
+      if (store.getState().settings.searchWhileTyping) {
+        if (uiState.authorQuery.trim().length >= 2 || uiState.titleQuery.trim().length >= 2) {
+          scheduleDebouncedSearch();
+        }
       }
     } else if (target.id === 'isbn-lookup-input') {
       uiState.isbnInput = target.value;

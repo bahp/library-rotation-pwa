@@ -79,6 +79,7 @@ export function createDefaultAppSettings() {
     preferredScanMode: 'barcode',
     enabledMetadataProviders: ['google-books', 'open-library'],
     retainRawProviderPayloads: false,
+    searchWhileTyping: false,
     autoLocalTagging: true,
     aiEnrichmentOptIn: false,
     aiAdapterId: 'local-rules',

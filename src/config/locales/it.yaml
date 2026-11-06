@@ -211,6 +211,8 @@ settings:
   openLibraryProviderDesc: "Metadati complementari delle edizioni, soggetti e copertine di riserva dall'archivio."
   retainRawTitle: "Conserva Dati Grezzi dei Provider"
   retainRawDesc: "Salva il JSON grezzo di Google Books e Open Library sui libri appena aggiunti."
+  searchWhileTypingTitle: "Cerca Rapidamente Durante la Digitazione"
+  searchWhileTypingDesc: "Interroga automaticamente i provider di metadati mentre scrivi in Scansione e Cerca (usa più richieste API). Disattivato per impostazione predefinita; fai clic su Cerca per avviare la ricerca."
   googleQuotaTitle: "Quota Google Books e Protezione Chiavi"
   googleQuotaDesc: "Verifica Google Books tramite proxy server protetto (/api/books/volumes) o URL proxy personale sul telefono. Le chiavi non vengono mai esposte né salvate in locale."
   checkGoogleApiBtn: "Verifica API Google Books"

@@ -211,6 +211,8 @@ settings:
   openLibraryProviderDesc: "Metadatos complementarios de ediciones, materias y portadas de archivo de reserva."
   retainRawTitle: "Conservar Respuestas Originales de Proveedores"
   retainRawDesc: "Guarda el JSON original de Google Books y Open Library en los libros añadidos."
+  searchWhileTypingTitle: "Buscar Rápidamente al Escribir"
+  searchWhileTypingDesc: "Consulta automáticamente los proveedores de metadatos al escribir en Escaneo y Búsqueda (usa más peticiones). Desactivado por defecto; pulsa Buscar para consultar."
   googleQuotaTitle: "Cuota de Google Books y Protección de Claves"
   googleQuotaDesc: "Comprueba Google Books mediante el proxy del servidor (/api/books/volumes) o tu proxy personal en el móvil. Las claves nunca se escriben en el navegador ni se exportan en copias de seguridad."
   checkGoogleApiBtn: "Comprobar API de Google Books"

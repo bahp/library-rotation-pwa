@@ -266,6 +266,7 @@ export function createSeedState() {
       coverAspectRatio: 'square',
       dynamicCoverTint: true,
       retainRawProviderPayloads: false,
+      searchWhileTyping: false,
       enabledMetadataProviders: ['google-books', 'open-library'],
       autoLocalTagging: true,
       aiEnrichmentOptIn: false,

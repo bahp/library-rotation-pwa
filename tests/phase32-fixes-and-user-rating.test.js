@@ -158,10 +158,15 @@ describe('Phase 32 — Bug Fixes & User Rating Verification', () => {
     assert.match(fullHtml, /href="#\/play"/);
   });
 
-  it('7. Book inspector positions snug 5-star rating and ISBN below cover with responsive container sizing and no dividing line', async () => {
+  it('7. Book inspector renders 5 stars under cover, separate ISBN line, bold ages, and green storytime hints', async () => {
     const store = await createTestStore();
     const st = store.getState();
-    const book = { ...st.books[0], isbn13: '9780545010221', userRating: 3 };
+    const book = {
+      ...st.books[0],
+      isbn13: '9780545010221',
+      userRating: 3,
+      readingLevelHint: 'Storytime Read-Aloud · Rich illustrations · ~5–7 min',
+    };
 
     const html = renderBookInspectorModal({
       book,
@@ -169,18 +174,75 @@ describe('Phase 32 — Bug Fixes & User Rating Verification', () => {
       rotations: st.rotations,
     });
 
-    const isbnIndex = html.indexOf('ISBN 9780545010221');
-    const ratingIndex = html.indexOf('data-action="set-book-user-rating"');
+    // 5 stars are positioned directly underneath the cover image
+    assert.match(html, /data-inspector-cover-stars="true"/);
+    const coverIndex = html.indexOf('data-action="toggle-cover-picker"');
+    const starsIndex = html.indexOf('data-inspector-cover-stars="true"');
+    assert.ok(starsIndex > coverIndex, '5 stars must be rendered in the cover column under the cover');
 
-    assert.ok(isbnIndex > 0, 'ISBN tag must be rendered');
-    assert.ok(ratingIndex > 0, 'User rating widget must be rendered');
+    // ISBN is rendered on its own separated line
+    assert.match(
+      html,
+      /<div[^>]*font-mono-tabular[^>]*>[\s\S]*?<span[^>]*>ISBN<\/span>[\s\S]*?<span>9780545010221<\/span>[\s\S]*?<\/div>/
+    );
 
-    // Verify stars are rendered in snug group directly under cover without artificial border-t dividing line between ISBN and stars
-    assert.match(html, /-space-x-0\.5/);
-    assert.equal(html.includes('border-t border-linen-200/70 dark:border-night-800/80 flex flex-wrap items-center gap-x-2 gap-y-1'), false);
+    // Ages are rendered darker and bold
+    assert.match(
+      html,
+      /<span class="font-bold text-forest-900 dark:text-white">Ages\s+\d+–\d+<\/span>/
+    );
+
+    // Storytime, rich illustration, and read duration are colored green
+    assert.match(
+      html,
+      /<span class="text-emerald-700 dark:text-emerald-400 font-medium">Storytime Read-Aloud<\/span>/
+    );
+    assert.match(
+      html,
+      /<span class="text-emerald-700 dark:text-emerald-400 font-medium">Rich illustrations<\/span>/
+    );
+    assert.match(
+      html,
+      /<span class="text-emerald-700 dark:text-emerald-400 font-medium">~5–7 min<\/span>/
+    );
+
+    // Atomic wrapping: each metadata item is wrapped in whitespace-nowrap so multi-word items never break internally
+    assert.match(html, /class="[^"]*whitespace-nowrap[^"]*"/);
+
+    // Option A: Active star (star 3) has data-rating="0" to toggle clear when tapped again
+    assert.match(html, /data-rating="0"[\s\S]*?aria-label="Remove rating"/);
+
+    // No clutter text underneath stars (no "Clear" text button, no "4/5" or "Rate book")
+    assert.equal(html.includes('Clear</button>'), false);
+
+    // No artificial dividing line separating metadata from stars
+    assert.equal(html.includes('border-t border-linen-200/70 dark:border-night-800/80'), false);
 
     // Dialog has responsive container classes for mobile vertical and computer screens
     assert.match(html, /max-w-lg\s+sm:max-w-xl\s+lg:max-w-2xl/);
+  });
+
+  it('8. searchWhileTyping setting defaults to off (false), persists across updates, and renders in Settings', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+
+    // Default must be false so typing in search does not spam network requests before clicking Find
+    assert.equal(st.settings.searchWhileTyping, false);
+
+    // Toggle setting on
+    await store.updateSettings({ searchWhileTyping: true });
+    assert.equal(store.getState().settings.searchWhileTyping, true);
+
+    // Renders switch in Settings view with localized title and switch role
+    const html = renderSettingsView({
+      state: store.getState(),
+      storageBackend: 'indexeddb',
+      pwaStatus: DEFAULT_PWA_STATUS,
+    });
+
+    assert.match(html, /data-action="toggle-search-while-typing"/);
+    assert.match(html, /role="switch"[\s\S]*?aria-checked="true"/);
+    assert.match(html, /Search Quickly While Typing/);
   });
 });
 

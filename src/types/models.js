@@ -143,6 +143,7 @@
  * @property {boolean} [showCoverUsageAdornos] - Show compact icon+code usage/cooldown/read adornos over Library book covers (default: true)
  * @property {boolean} [enableStaleBookSpotlight] - Show gentle Stale Book Spotlight banner for long-unopened active shelf books (default: true)
  * @property {number} [staleBookDays] - Days on active shelf without being marked read before spotlight triggers (3-60, default: 10)
+ * @property {boolean} [searchWhileTyping] - Enable live provider search as you type in Scan & Search (default: false)
  */
 
 /**

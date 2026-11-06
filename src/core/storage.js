@@ -169,6 +169,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,
       retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
+      searchWhileTyping: Boolean(overrides.searchWhileTyping),
       enabledMetadataProviders:
         rawProviders.length > 0 ? Array.from(new Set(rawProviders)) : [...DEFAULT_METADATA_PROVIDERS],
       autoLocalTagging: overrides.autoLocalTagging !== false,
