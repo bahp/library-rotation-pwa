@@ -1873,6 +1873,14 @@ function bindEvents() {
         }
         break;
       }
+      case 'set-book-user-rating': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        const rating = Number(target.getAttribute('data-rating') || 0);
+        if (bookId) {
+          await store.setUserRating(bookId, rating);
+        }
+        break;
+      }
       case 'set-book-status': {
         const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
         const status = normalizeCollectionStatus(target.getAttribute('data-status'));

@@ -66,6 +66,13 @@
  * @property {number} [rotationCount] - Total number of times placed on a rotation shelf
  * @property {Array<{ rotatedAt: string, rotationId?: string, profileId?: string }>} [rotationHistory] - Bounded log of most recent shelf activations
  * @property {string} [lastReadAt] - ISO-8601 timestamp when most recently marked read
+ * @property {string} [language] - Normalized non-English language tag ('spanish', 'italian', etc.)
+ * @property {string | Record<string, unknown>} [dimensions] - Optional physical book dimensions
+ * @property {number} [averageRating] - Average rating from provider (e.g. 4.5)
+ * @property {number} [ratingsCount] - Total number of ratings/votes
+ * @property {string} [publisher] - Publisher name
+ * @property {string} [previewLink] - Preview URL
+ * @property {number} [userRating] - User's own rating (1 to 5 stars)
  * @property {ProviderSource[]} sources - Metadata provenance list
  */
 

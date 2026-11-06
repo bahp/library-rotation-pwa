@@ -348,13 +348,13 @@ export function renderPlayView({
         data-delta="-1"
         aria-label="${escapeHtml(t(lang, 'play.decreaseBooks'))}"
         ${selectedCount <= 1 ? 'disabled' : ''}
-        class="h-9 w-9 rounded-lg bg-ivory hover:bg-linen-50 disabled:opacity-40 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white font-bold text-base flex items-center justify-center transition-colors shadow-2xs"
+        class="h-9 w-9 rounded-lg bg-ivory hover:bg-linen-50 disabled:opacity-40 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white font-bold text-base flex items-center justify-center leading-none transition-colors shadow-2xs"
       >
         −
       </button>
       <span
         data-randomizer-count-display="true"
-        class="min-w-[68px] px-2 text-center text-xs sm:text-sm font-bold font-mono-tabular text-forest-900 dark:text-white whitespace-nowrap select-none"
+        class="min-w-[68px] px-2 text-center text-xs sm:text-sm font-bold font-mono-tabular text-forest-900 dark:text-white whitespace-nowrap select-none flex items-center justify-center"
       >
         ${selectedCount} ${escapeHtml(
           selectedCount === 1 ? t(lang, 'common.booksSingular') : t(lang, 'common.booksPlural')
@@ -367,7 +367,7 @@ export function renderPlayView({
         data-delta="1"
         aria-label="${escapeHtml(t(lang, 'play.increaseBooks'))}"
         ${selectedCount >= maxStepperCount ? 'disabled' : ''}
-        class="h-9 w-9 rounded-lg bg-ivory hover:bg-linen-50 disabled:opacity-40 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white font-bold text-base flex items-center justify-center transition-colors shadow-2xs"
+        class="h-9 w-9 rounded-lg bg-ivory hover:bg-linen-50 disabled:opacity-40 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white font-bold text-base flex items-center justify-center leading-none transition-colors shadow-2xs"
       >
         +
       </button>
@@ -502,6 +502,32 @@ export function renderPlayView({
         <div class="flex flex-wrap items-center gap-2">
           ${countStepperHtml}
 
+          <button
+            type="button"
+            role="switch"
+            aria-checked="${playUiState.randomizerUnreadFirst ? 'true' : 'false'}"
+            data-action="toggle-randomizer-unread"
+            data-unread-toggle-button="true"
+            class="min-h-[42px] px-3.5 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-2xs ${
+              playUiState.randomizerUnreadFirst
+                ? 'bg-forest-900 hover:bg-forest-800 text-ivory border-forest-900 dark:bg-[#5ED3DA] dark:hover:bg-[#4bc2c9] dark:text-night-950 dark:border-[#5ED3DA]'
+                : 'bg-ivory hover:bg-linen-100 text-stone-ink border-linen-200 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 dark:border-night-700'
+            }"
+          >
+            ${
+              playUiState.randomizerUnreadFirst
+                ? renderIcon('check', 'w-3.5 h-3.5 shrink-0', 2.4)
+                : '<span aria-hidden="true" class="w-3 h-3 rounded-full border border-current opacity-60 shrink-0"></span>'
+            }
+            <span>${escapeHtml(
+              playUiState.randomizerUnreadFirst
+                ? t(lang, 'play.unreadFirstOn')
+                : t(lang, 'play.unreadFirstOff')
+            )}</span>
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
           <div class="flex-1 min-w-[240px] flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
             <button
               type="button"
@@ -543,30 +569,6 @@ export function renderPlayView({
               ${escapeHtml(t(lang, 'play.homeLibraryScope'))}
             </button>
           </div>
-
-          <button
-            type="button"
-            role="switch"
-            aria-checked="${playUiState.randomizerUnreadFirst ? 'true' : 'false'}"
-            data-action="toggle-randomizer-unread"
-            data-unread-toggle-button="true"
-            class="min-h-[42px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-2xs ${
-              playUiState.randomizerUnreadFirst
-                ? 'bg-forest-900 hover:bg-forest-800 text-ivory border-forest-900 dark:bg-[#5ED3DA] dark:hover:bg-[#4bc2c9] dark:text-night-950 dark:border-[#5ED3DA]'
-                : 'bg-ivory hover:bg-linen-100 text-stone-ink border-linen-200 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 dark:border-night-700'
-            }"
-          >
-            ${
-              playUiState.randomizerUnreadFirst
-                ? renderIcon('check', 'w-3.5 h-3.5 shrink-0', 2.4)
-                : '<span aria-hidden="true" class="w-3 h-3 rounded-full border border-current opacity-60 shrink-0"></span>'
-            }
-            <span>${escapeHtml(
-              playUiState.randomizerUnreadFirst
-                ? t(lang, 'play.unreadFirstOn')
-                : t(lang, 'play.unreadFirstOff')
-            )}</span>
-          </button>
         </div>
 
         ${

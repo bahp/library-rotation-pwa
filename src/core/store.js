@@ -745,6 +745,29 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
+   * Sets or updates a book's user rating (1 to 5 stars).
+   * @param {string} bookId
+   * @param {number} rating
+   */
+  async function setUserRating(bookId, rating) {
+    const cleanRating = Math.max(0, Math.min(5, Math.trunc(Number(rating) || 0)));
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) return null;
+    const updatedBook = { ...target, userRating: cleanRating > 0 ? cleanRating : undefined };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(
+      cleanRating > 0
+        ? `Rated "${target.title}" ${cleanRating} star${cleanRating === 1 ? '' : 's'}.`
+        : `Removed rating from "${target.title}".`,
+      'info'
+    );
+    return updatedBook;
+  }
+
+  /**
    * Silently caches a sampled dominant cover hex color onto a book record without triggering a toast.
    * @param {string} bookId
    * @param {string} rawHex
@@ -2272,6 +2295,7 @@ export function createAppStore(storage, deps = {}) {
     updateBook,
     toggleBookLoved,
     setBookDominantColor,
+    setUserRating,
     addBookTag,
     removeBookTag,
     enrichSingleBook,

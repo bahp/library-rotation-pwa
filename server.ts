@@ -11,10 +11,22 @@ import express from 'express';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+
+// Clean up tsx leaking a non-absolute __dirname (e.g. '.') onto globalThis, which breaks
+// ESM packages like vite-plugin-pwa that check `typeof __dirname !== 'undefined'` and call createRequire(__dirname).
+const globalScope = globalThis as unknown as { __dirname?: string };
+if (typeof globalScope.__dirname === 'string' && !path.isAbsolute(globalScope.__dirname)) {
+  delete globalScope.__dirname;
+}
+
 import { createServer as createViteServer } from 'vite';
 import { proxyGoogleBooksVolumes } from './src/server/books-proxy.js';
 
-const PORT = Number(process.env.PORT || 3000);
+// Port 3000 is required by the dev environment; port 8080 is reserved by the container's Nginx reverse-proxy.
+const PORT = Number(
+  process.env.APP_PORT ||
+    (process.env.PORT && process.env.PORT !== '8080' ? process.env.PORT : 3000)
+);
 const HOST = '0.0.0.0';
 
 async function startServer() {

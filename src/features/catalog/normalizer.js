@@ -300,6 +300,13 @@ export function normalizeGoogleBooksItem(item, options = {}) {
   });
 
   const cleanGoogleId = cleanProviderExternalId(typeof item.id === 'string' ? item.id : undefined);
+  const language = resolveLanguageTag(info.language, isbn13) || (typeof info.language === 'string' ? info.language.trim() : undefined);
+  const dimensions = info.dimensions;
+  const averageRating = typeof info.averageRating === 'number' ? info.averageRating : undefined;
+  const ratingsCount = typeof info.ratingsCount === 'number' ? Math.trunc(info.ratingsCount) : undefined;
+  const publisher = typeof info.publisher === 'string' ? info.publisher.trim() : undefined;
+  const previewLink = typeof info.previewLink === 'string' ? info.previewLink.trim() : undefined;
+
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
     provider: 'google-books',
@@ -325,6 +332,12 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     ...(coverUrl ? { coverUrl } : {}),
     ...(description ? { summary: description.slice(0, 320) } : {}),
     ...(categories.length ? { subjects: categories.slice(0, 12) } : {}),
+    ...(language ? { language } : {}),
+    ...(dimensions ? { dimensions } : {}),
+    ...(averageRating !== undefined ? { averageRating } : {}),
+    ...(ratingsCount !== undefined ? { ratingsCount } : {}),
+    ...(publisher ? { publisher } : {}),
+    ...(previewLink ? { previewLink } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
     sources: [source],
   };
@@ -562,6 +575,12 @@ export function mergeBookCandidates(primary, secondary) {
   const pageCount = primary.pageCount || secondary.pageCount;
   const summary = primary.summary || secondary.summary;
   const readingLevelHint = primary.readingLevelHint || secondary.readingLevelHint;
+  const language = primary.language || secondary.language;
+  const dimensions = primary.dimensions || secondary.dimensions;
+  const averageRating = primary.averageRating !== undefined ? primary.averageRating : secondary.averageRating;
+  const ratingsCount = primary.ratingsCount !== undefined ? primary.ratingsCount : secondary.ratingsCount;
+  const publisher = primary.publisher || secondary.publisher;
+  const previewLink = primary.previewLink || secondary.previewLink;
   const mergedSubjects = Array.from(
     new Set([...(primary.subjects || []), ...(secondary.subjects || [])])
   ).slice(0, 14);
@@ -578,6 +597,12 @@ export function mergeBookCandidates(primary, secondary) {
     ...(summary ? { summary } : {}),
     ...(readingLevelHint ? { readingLevelHint } : {}),
     ...(mergedSubjects.length ? { subjects: mergedSubjects } : {}),
+    ...(language ? { language } : {}),
+    ...(dimensions ? { dimensions } : {}),
+    ...(averageRating !== undefined ? { averageRating } : {}),
+    ...(ratingsCount !== undefined ? { ratingsCount } : {}),
+    ...(publisher ? { publisher } : {}),
+    ...(previewLink ? { previewLink } : {}),
     format: primary.format !== 'hardcover' ? primary.format : secondary.format,
     tags: mergedTags,
     sources: [...primary.sources, ...secondary.sources],
@@ -613,6 +638,12 @@ export function candidateToBook(candidate, options = {}) {
     ...(candidate.readingLevelHint ? { readingLevelHint: candidate.readingLevelHint } : {}),
     tags: sanitizeTagList(candidate.tags, 8),
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),
+    ...(candidate.language ? { language: candidate.language } : {}),
+    ...(candidate.dimensions ? { dimensions: candidate.dimensions } : {}),
+    ...(candidate.averageRating !== undefined ? { averageRating: candidate.averageRating } : {}),
+    ...(candidate.ratingsCount !== undefined ? { ratingsCount: candidate.ratingsCount } : {}),
+    ...(candidate.publisher ? { publisher: candidate.publisher } : {}),
+    ...(candidate.previewLink ? { previewLink: candidate.previewLink } : {}),
     spineColor:
       candidate.spineColor || pickDeterministicSpineColor(candidate.isbn13 || candidate.title),
     addedAt: now,

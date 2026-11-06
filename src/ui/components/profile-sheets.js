@@ -331,7 +331,7 @@ export function renderProfileFormSheet({
                 required
                 max="${todayIso}"
                 value="${escapeHtml(defaultDob)}"
-                class="block w-full max-w-full min-w-0 appearance-none box-border h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                class="block w-full max-w-full min-w-0 appearance-none box-border h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 text-left"
               />
             </div>
 

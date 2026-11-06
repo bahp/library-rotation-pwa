@@ -560,7 +560,7 @@ export function renderSettingsView({
                 : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
             }"
           >
-            ${settings.dynamicCoverTint !== false ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
+            ${settings.dynamicCoverTint !== false ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
           </button>
         </div>
 
@@ -584,7 +584,7 @@ export function renderSettingsView({
                 : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
             }"
           >
-            ${showPresetDecorations ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
+            ${showPresetDecorations ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
           </button>
         </div>
       </section>
@@ -703,7 +703,7 @@ export function renderSettingsView({
                   : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
               }"
             >
-              ${enableRotationHistoryInsights ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
+              ${enableRotationHistoryInsights ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
             </button>
           </div>
 
@@ -731,7 +731,7 @@ export function renderSettingsView({
                     : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
                 }"
               >
-                ${showCoverUsageAdornos ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
+                ${showCoverUsageAdornos ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
               </button>
             </div>
             ${renderFieldInfoPanel({ helpKey: 'coverUsageAdornos', scope: 'settings' })}
@@ -757,7 +757,7 @@ export function renderSettingsView({
                   : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
               }"
             >
-              ${enableStaleBookSpotlight ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
+              ${enableStaleBookSpotlight ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
             </button>
           </div>
 
@@ -843,7 +843,7 @@ export function renderSettingsView({
                   : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
               }"
             >
-              ${settings.retainRawProviderPayloads ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
+              ${settings.retainRawProviderPayloads ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
             </button>
           </div>
 
@@ -1290,7 +1290,7 @@ export function renderSettingsView({
                 : 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300'
             }"
           >
-            ${settings.autoLocalTagging ? escapeHtml(t(lang, 'settings.enabled')) : escapeHtml(t(lang, 'settings.disabled'))}
+            ${settings.autoLocalTagging ? escapeHtml(t(lang, 'common.enabled')) : escapeHtml(t(lang, 'common.disabled'))}
           </button>
         </div>
 
@@ -1553,6 +1553,7 @@ export function renderSettingsView({
               </p>
             </div>
             <span class="text-forest-700 dark:text-[#5ED3DA] shrink-0">${renderIcon('chevronRight', 'w-4 h-4')}</span>
+          </a>
         </div>
       </section>
     </div>

@@ -1,6 +1,14 @@
+import path from 'path';
+
+// Clean up tsx leaking a non-absolute __dirname (e.g. '.') onto globalThis, which breaks
+// ESM packages like vite-plugin-pwa that check `typeof __dirname !== 'undefined'` and call createRequire(__dirname).
+const leakedDirname = Reflect.get(globalThis, '__dirname');
+if (typeof leakedDirname === 'string' && !path.isAbsolute(leakedDirname)) {
+  Reflect.deleteProperty(globalThis, '__dirname');
+}
+
 import tailwindcss from '@tailwindcss/vite';
 import fs from 'fs';
-import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
