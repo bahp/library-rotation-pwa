@@ -180,10 +180,10 @@ describe('Phase 32 — Bug Fixes & User Rating Verification', () => {
     const starsIndex = html.indexOf('data-inspector-cover-stars="true"');
     assert.ok(starsIndex > coverIndex, '5 stars must be rendered in the cover column under the cover');
 
-    // ISBN is rendered on its own separated line
+    // ISBN is rendered on its own separated line with uniform text color
     assert.match(
       html,
-      /<div[^>]*font-mono-tabular[^>]*>[\s\S]*?<span[^>]*>ISBN<\/span>[\s\S]*?<span>9780545010221<\/span>[\s\S]*?<\/div>/
+      /<div[^>]*font-mono-tabular[^>]*>[\s\S]*?<span>ISBN\s+9780545010221<\/span>[\s\S]*?<\/div>/
     );
 
     // Ages are rendered darker and bold
@@ -243,6 +243,78 @@ describe('Phase 32 — Bug Fixes & User Rating Verification', () => {
     assert.match(html, /data-action="toggle-search-while-typing"/);
     assert.match(html, /role="switch"[\s\S]*?aria-checked="true"/);
     assert.match(html, /Search Quickly While Typing/);
+  });
+
+  it('9. Metadata lines have reduced vertical spacing (space-y-0.5 leading-snug) and profile birth date container does not clip outline', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+    const book = { ...st.books[0], isbn13: '9780545010221', readingLevelHint: 'Storytime Read-Aloud · ~5–7 min' };
+
+    const modalHtml = renderBookInspectorModal({
+      book,
+      profiles: st.profiles,
+      rotations: st.rotations,
+    });
+
+    // Space between the 3 lines is reduced to space-y-0.5 leading-snug
+    assert.match(modalHtml, /leading-snug[^"]*space-y-0\.5|space-y-0\.5[^"]*leading-snug/);
+
+    // Profile form birth date input wrapper does NOT have overflow-hidden
+    const profileHtml = renderProfileFormSheet({
+      state: st,
+      isOpen: true,
+      editingProfileId: null,
+    });
+    // Ensure the wrapper for profile-birth-date does not restrict focus outline with overflow-hidden
+    assert.equal(profileHtml.includes('<div class="min-w-0 overflow-hidden">'), false);
+  });
+
+  it('10. Allows books to be excluded from rotations via excludeFromRotations flag and toggleBookRotationEligibility', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+    const book = st.books[0];
+
+    // Starts eligible
+    assert.equal(book.excludeFromRotations, undefined);
+
+    // Toggle to exclude
+    const excluded = await store.toggleBookRotationEligibility(book.id);
+    assert.equal(excluded?.excludeFromRotations, true);
+
+    // Inspection modal renders Rotations row with Excluded status and switch button
+    const htmlExcluded = renderBookInspectorModal({
+      book: excluded,
+      profiles: st.profiles,
+      rotations: st.rotations,
+    });
+    assert.match(htmlExcluded, /data-customize-row="rotations"/);
+    assert.match(htmlExcluded, /data-action="toggle-book-rotation-eligibility"/);
+    assert.match(htmlExcluded, /Excluded\s*<\/button>/);
+    assert.match(htmlExcluded, /Excluded from shelf rotations/);
+
+    // For off-shelf books, quick shelf bar informs that it is excluded from auto-rotations
+    const offShelfBook = st.books.find((b) => !st.rotations.some((r) => r.bookIds.includes(b.id)));
+    if (offShelfBook) {
+      const offExcluded = { ...offShelfBook, excludeFromRotations: true };
+      const offHtml = renderBookInspectorModal({
+        book: offExcluded,
+        profiles: st.profiles,
+        rotations: st.rotations,
+      });
+      assert.match(offHtml, /Excluded from auto-rotations/);
+    }
+
+    // Toggle back to include
+    const included = await store.toggleBookRotationEligibility(book.id);
+    assert.equal(included?.excludeFromRotations, undefined);
+
+    const htmlIncluded = renderBookInspectorModal({
+      book: included,
+      profiles: st.profiles,
+      rotations: st.rotations,
+    });
+    assert.match(htmlIncluded, /Included\s*<\/button>/);
+    assert.match(htmlIncluded, /Eligible for shelf rotations/);
   });
 });
 

@@ -315,7 +315,7 @@ export function renderProfileFormSheet({
               </div>
             </div>
 
-            <div class="min-w-0 overflow-hidden">
+            <div class="min-w-0">
               <div class="flex items-baseline justify-between gap-2 mb-1 min-w-0">
                 <label for="profile-birth-date" class="text-xs font-semibold text-forest-900 dark:text-slate-200 truncate">
                   Date of Birth *
@@ -331,7 +331,7 @@ export function renderProfileFormSheet({
                 required
                 max="${todayIso}"
                 value="${escapeHtml(defaultDob)}"
-                class="block w-full max-w-full min-w-0 appearance-none box-border h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 text-left"
+                class="w-full min-w-0 h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 text-left"
               />
             </div>
 

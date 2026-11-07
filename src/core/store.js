@@ -570,7 +570,8 @@ export function createAppStore(storage, deps = {}) {
    *   condition?: import('../types/models.js').BookCondition,
    *   loved?: boolean,
    *   owners?: string[],
-   *   dominantColor?: string | null
+   *   dominantColor?: string | null,
+   *   excludeFromRotations?: boolean
    * }} patch
    */
   async function updateBook(bookId, patch) {
@@ -680,6 +681,11 @@ export function createAppStore(storage, deps = {}) {
       nextDominantColor = undefined;
     }
 
+    const nextExcludeFromRotations =
+      patch.excludeFromRotations !== undefined
+        ? Boolean(patch.excludeFromRotations)
+        : existing.excludeFromRotations;
+
     /** @type {import('../types/models.js').Book} */
     const updatedBook = {
       id: existing.id,
@@ -701,6 +707,14 @@ export function createAppStore(storage, deps = {}) {
       ...(nextOwners && nextOwners.length > 0 ? { owners: nextOwners } : {}),
       ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
       ...(nextDominantColor ? { dominantColor: nextDominantColor } : {}),
+      ...(nextExcludeFromRotations ? { excludeFromRotations: true } : {}),
+      ...(typeof existing.userRating === 'number' ? { userRating: existing.userRating } : {}),
+      ...(typeof existing.averageRating === 'number' ? { averageRating: existing.averageRating } : {}),
+      ...(typeof existing.ratingsCount === 'number' ? { ratingsCount: existing.ratingsCount } : {}),
+      ...(existing.publisher ? { publisher: existing.publisher } : {}),
+      ...(existing.previewLink ? { previewLink: existing.previewLink } : {}),
+      ...(existing.language ? { language: existing.language } : {}),
+      ...(existing.dimensions ? { dimensions: existing.dimensions } : {}),
       spineColor: existing.spineColor,
       addedAt: existing.addedAt,
       ...(existing.lastRotatedAt ? { lastRotatedAt: existing.lastRotatedAt } : {}),
@@ -762,6 +776,31 @@ export function createAppStore(storage, deps = {}) {
       cleanRating > 0
         ? `Rated "${target.title}" ${cleanRating} star${cleanRating === 1 ? '' : 's'}.`
         : `Removed rating from "${target.title}".`,
+      'info'
+    );
+    return updatedBook;
+  }
+
+  /**
+   * Toggles whether a book is eligible for automated shelf rotations.
+   * @param {string} bookId
+   */
+  async function toggleBookRotationEligibility(bookId) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) return null;
+    const nextExcluded = !target.excludeFromRotations;
+    const updatedBook = {
+      ...target,
+      excludeFromRotations: nextExcluded ? true : undefined,
+    };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(
+      nextExcluded
+        ? `Excluded "${target.title}" from shelf rotations.`
+        : `Included "${target.title}" in shelf rotations.`,
       'info'
     );
     return updatedBook;
@@ -2296,6 +2335,7 @@ export function createAppStore(storage, deps = {}) {
     toggleBookLoved,
     setBookDominantColor,
     setUserRating,
+    toggleBookRotationEligibility,
     addBookTag,
     removeBookTag,
     enrichSingleBook,

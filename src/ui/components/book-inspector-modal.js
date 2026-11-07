@@ -620,7 +620,7 @@ export function renderBookInspectorModal({
 
   // Quick Shelf & Read Bar (works for active shelf, saved shelf, and off-shelf catalog books)
   const quickShelfBarHtml =
-    targetRotation || (rotatable && effectiveReader)
+    targetRotation || ((rotatable || book.excludeFromRotations) && effectiveReader)
       ? `
         <div class="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 space-y-1.5">
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -634,7 +634,9 @@ export function renderBookInspectorModal({
                     ? activeRotation
                       ? 'Available for active shelf'
                       : 'Ready in family library'
-                    : `${escapeHtml(formatCollectionStatus(currentStatus))} (${escapeHtml(formatBookCondition(currentCondition))}) — off auto-rotations`
+                    : book.excludeFromRotations
+                      ? 'Excluded from auto-rotations'
+                      : `${escapeHtml(formatCollectionStatus(currentStatus))} (${escapeHtml(formatBookCondition(currentCondition))}) — off auto-rotations`
               }
             </span>
             <div class="flex flex-wrap items-center gap-2">
@@ -849,6 +851,31 @@ export function renderBookInspectorModal({
               .join('')}
           </div>
         </div>
+
+        <!-- Row 4: Rotations Eligibility -->
+        <div data-customize-row="rotations" class="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+          <div>
+            <span class="text-xs font-semibold text-stone-ink dark:text-slate-300">Rotations</span>
+            <p class="text-[11px] text-stone-ink/80 dark:text-slate-400">
+              ${book.excludeFromRotations ? 'Excluded from shelf rotations' : 'Eligible for shelf rotations'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            data-action="toggle-book-rotation-eligibility"
+            data-book-id="${escapeHtml(book.id)}"
+            aria-checked="${book.excludeFromRotations ? 'false' : 'true'}"
+            title="${book.excludeFromRotations ? 'Tap to include in rotations' : 'Tap to exclude from rotations'}"
+            class="min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+              book.excludeFromRotations
+                ? 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
+                : 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+            }"
+          >
+            ${book.excludeFromRotations ? 'Excluded' : 'Included'}
+          </button>
+        </div>
       </div>
     </section>
   `;
@@ -993,50 +1020,25 @@ export function renderBookInspectorModal({
                 ${escapeHtml(book.authors.join(', '))}
               </p>
 
-              <!-- Unified Metadata Block: Ages (darker & bold), stage, format, pages, year, read-aloud hints (green) -->
+              <!-- Unified Metadata Block: Bibliographic info line, Storytime & pacing line, and ISBN line -->
               ${(() => {
-                const hintParts = book.readingLevelHint
-                  ? String(book.readingLevelHint)
-                      .split('·')
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : [];
+                const biblioItems = [
+                  `<span class="font-bold text-forest-900 dark:text-white">Ages ${book.ageMin}–${book.ageMax}</span>`,
+                  formatReadingStage(book.readingStage),
+                  formatBookBinding(book.format),
+                  book.pageCount ? `${book.pageCount} pp` : null,
+                  book.publishedYear ? `${book.publishedYear}` : null,
+                  book.language && book.language !== 'english' ? book.language : null,
+                  book.publisher ? escapeHtml(book.publisher) : null,
+                ].filter(Boolean);
 
-                /** @type {Array<{ html: string, isGreen?: boolean, isDarkBold?: boolean } | null>} */
-                const rawItems = [
-                  {
-                    html: `Ages ${book.ageMin}–${book.ageMax}`,
-                    isDarkBold: true,
-                  },
-                  { html: formatReadingStage(book.readingStage) },
-                  { html: formatBookBinding(book.format) },
-                  book.pageCount ? { html: `${book.pageCount} pp` } : null,
-                  book.publishedYear ? { html: `${book.publishedYear}` } : null,
-                  book.language && book.language !== 'english' ? { html: book.language } : null,
-                  ...hintParts.map((part) => ({
-                    html: escapeHtml(part),
-                    isGreen: true,
-                  })),
-                  book.publisher ? { html: escapeHtml(book.publisher) } : null,
-                ];
-
-                const validItems = /** @type {Array<{ html: string, isGreen?: boolean, isDarkBold?: boolean }>} */ (
-                  rawItems.filter(Boolean)
-                );
-
-                const itemsMarkup = validItems
+                const biblioLineMarkup = biblioItems
                   .map((item, idx) => {
-                    const isLast = idx === validItems.length - 1 && !book.previewLink;
+                    const isLast = idx === biblioItems.length - 1 && !book.previewLink;
                     const sep = !isLast
                       ? '<span aria-hidden="true" class="mx-1 text-stone-ink/40 select-none">·</span>'
                       : '';
-                    const innerClass = item.isDarkBold
-                      ? 'font-bold text-forest-900 dark:text-white'
-                      : item.isGreen
-                        ? 'text-emerald-700 dark:text-emerald-400 font-medium'
-                        : '';
-                    const content = innerClass ? `<span class="${innerClass}">${item.html}</span>` : item.html;
-                    return `<span class="inline-flex items-center whitespace-nowrap"><span>${content}</span>${sep}</span>`;
+                    return `<span class="inline-flex items-center whitespace-nowrap"><span>${item}</span>${sep}</span>`;
                   })
                   .join('');
 
@@ -1046,19 +1048,47 @@ export function renderBookInspectorModal({
                     )}" target="_blank" rel="noopener noreferrer" class="text-forest-700 hover:underline dark:text-[#5ED3DA] font-medium inline-flex items-center gap-0.5">Preview &nearr;</a></span>`
                   : '';
 
+                const hintParts = book.readingLevelHint
+                  ? String(book.readingLevelHint)
+                      .split('·')
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : [];
+
+                const storytimeLineMarkup =
+                  hintParts.length > 0
+                    ? `
+                      <div class="flex flex-wrap items-center">
+                        ${hintParts
+                          .map((part, idx) => {
+                            const isLast = idx === hintParts.length - 1;
+                            const sep = !isLast
+                              ? '<span aria-hidden="true" class="mx-1 text-stone-ink/40 select-none">·</span>'
+                              : '';
+                            return `<span class="inline-flex items-center whitespace-nowrap"><span class="text-emerald-700 dark:text-emerald-400 font-medium">${escapeHtml(
+                              part
+                            )}</span>${sep}</span>`;
+                          })
+                          .join('')}
+                      </div>
+                    `
+                    : '';
+
                 const isbnVal = book.isbn13 || book.isbn10;
-                const isbnRowMarkup = isbnVal
-                  ? `<div class="mt-1.5 text-xs font-mono-tabular text-stone-ink dark:text-slate-400 flex items-center gap-1">
-                      <span class="font-semibold text-forest-900 dark:text-slate-200">ISBN</span>
-                      <span>${escapeHtml(isbnVal)}</span>
+                const isbnLineMarkup = isbnVal
+                  ? `<div class="font-mono-tabular text-stone-ink dark:text-slate-400 flex items-center">
+                      <span>ISBN ${escapeHtml(isbnVal)}</span>
                     </div>`
                   : '';
 
                 return `
-                  <div class="mt-2 text-xs leading-relaxed text-stone-ink dark:text-slate-300 flex flex-wrap items-center">
-                    ${itemsMarkup}${previewMarkup}
+                  <div class="mt-2 text-xs leading-snug text-stone-ink dark:text-slate-300 space-y-0.5">
+                    <div class="flex flex-wrap items-center">
+                      ${biblioLineMarkup}${previewMarkup}
+                    </div>
+                    ${storytimeLineMarkup}
+                    ${isbnLineMarkup}
                   </div>
-                  ${isbnRowMarkup}
                 `;
               })()}
             </div>

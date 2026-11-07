@@ -73,6 +73,7 @@
  * @property {string} [publisher] - Publisher name
  * @property {string} [previewLink] - Preview URL
  * @property {number} [userRating] - User's own rating (1 to 5 stars)
+ * @property {boolean} [excludeFromRotations] - Exclude from automated shelf rotations
  * @property {ProviderSource[]} sources - Metadata provenance list
  */
 
@@ -601,11 +602,12 @@ export function formatBookCondition(condition) {
  * Determines whether a book is physically available at home and playable for active shelf rotations.
  * Books in `'wishlist'` or `'interested'` (not at home yet) or in `'broken'` / `'retired'` state
  * are excluded from automatic rotation shelves and off-shelf recommendations.
- * @param {Pick<Book, 'collectionStatus' | 'condition'> | null | undefined} book
+ * @param {Pick<Book, 'collectionStatus' | 'condition' | 'excludeFromRotations'> | null | undefined} book
  * @returns {boolean}
  */
 export function isBookRotatable(book) {
   if (!book) return false;
+  if (Boolean(book.excludeFromRotations)) return false;
   const status = normalizeCollectionStatus(book.collectionStatus);
   const condition = normalizeBookCondition(book.condition);
   const availableAtHome = status === 'owned' || status === 'library';

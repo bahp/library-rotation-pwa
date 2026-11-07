@@ -1900,6 +1900,13 @@ function bindEvents() {
         }
         break;
       }
+      case 'toggle-book-rotation-eligibility': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        if (bookId) {
+          await store.toggleBookRotationEligibility(bookId);
+        }
+        break;
+      }
       case 'toggle-book-owner': {
         const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
         const ownerKey = (target.getAttribute('data-owner') || '').trim();
