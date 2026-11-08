@@ -10,7 +10,7 @@
     "build:gh-pages": "BASE_URL=./ vite build",
     "preview": "vite preview",
     "test": "node --test tests/*.test.js",
-    "test:smoke": "node --test tests/phase6-e2e-smoke.test.js",
+    "test:smoke": "node --test tests/e2e-smoke.test.js",
     "verify": "npm run lint && npm test && npm run build:gh-pages",
     "icons": "node scripts/generate-icons.mjs",
     "clean": "rm -rf dist server.js",

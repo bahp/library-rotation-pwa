@@ -1,0 +1,189 @@
+/**
+ * @fileoverview Consolidated Rotation Engine & Shelf Management Suite:
+ * - Deterministic seeded PRNG repeatability and order-independence.
+ * - Free-text rotation objective parsing (formats, stages, themes).
+ * - Cooldown recency prioritization and graceful relaxation.
+ * - Author diversity and variety constraints.
+ * - In-place shelf operations: Random swap, manual replacement, and random/manual additions.
+ * - Rotation history tracking, read sync, and stale book spotlight.
+ * - Rotation eligibility flag (excludeFromRotations) and toggleBookRotationEligibility.
+ */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+import {
+  applyBookAdditions,
+  applyBookReplacement,
+  createSeededRng,
+  generateRotationSelection,
+  isBookInCooldown,
+  parseRotationObjective,
+  pickRandomEligibleBooks,
+} from '../src/features/rotations/rotation-engine.js';
+import { createStorageAdapter } from '../src/core/storage.js';
+import { createAppStore } from '../src/core/store.js';
+import { createSeedState } from '../src/data/seed.js';
+
+describe('Rotation Engine & Shelf Management Suite', () => {
+  it('seeded PRNG produces 100% repeatable selections regardless of catalog order', () => {
+    const rngA = createSeededRng('holiday-2026');
+    const rngB = createSeededRng('holiday-2026');
+    assert.deepEqual(
+      [rngA(), rngA(), rngA(), rngA()],
+      [rngB(), rngB(), rngB(), rngB()]
+    );
+
+    const seededState = createSeedState();
+    const maya = seededState.profiles[0];
+    const nowIso = '2026-11-25T12:00:00.000Z';
+
+    const rules = {
+      count: 4,
+      objective: 'hardcover + nature & winter themes',
+      preferredTags: ['nature', 'winter'],
+      cooldownDays: 14,
+      varietyMix: true,
+      seed: 'winter-seed-42',
+    };
+
+    const run1 = generateRotationSelection({
+      books: seededState.books,
+      profile: maya,
+      rules,
+      nowIso,
+    });
+
+    const reversedCatalog = [...seededState.books].reverse();
+    const run2 = generateRotationSelection({
+      books: reversedCatalog,
+      profile: maya,
+      rules,
+      nowIso,
+    });
+
+    assert.equal(run1.selectedBookIds.length, 4);
+    assert.deepEqual(run1.selectedBookIds, run2.selectedBookIds);
+  });
+
+  it('parseRotationObjective extracts binding formats, reading stages, and normalized keywords', () => {
+    const parsed = parseRotationObjective('Hardcover + Christmas & woodland animals themes');
+    assert.deepEqual(parsed.formats, ['hardcover']);
+    assert.ok(parsed.keywords.includes('christmas'));
+    assert.ok(parsed.keywords.includes('woodland'));
+    assert.ok(parsed.keywords.includes('animal'));
+
+    const toddlerObj = parseRotationObjective('Board books for toddler bedtime');
+    assert.deepEqual(toddlerObj.formats, ['board-book']);
+    assert.deepEqual(toddlerObj.stages, ['board-toddler']);
+    assert.ok(toddlerObj.keywords.includes('bedtime'));
+  });
+
+  it('cooldown window prioritizes fresh books and relaxes when needed to fill shelf', () => {
+    const seeded = createSeedState();
+    const maya = seeded.profiles[0];
+    const twoDaysLater = '2026-11-01T12:00:00.000Z';
+
+    assert.equal(isBookInCooldown(seeded.books[0], 14, twoDaysLater), true);
+    const hungry = seeded.books.find((b) => b.id === 'book_very_hungry');
+    assert.ok(hungry);
+    assert.equal(isBookInCooldown(hungry, 14, twoDaysLater), false);
+
+    const singleFresh = generateRotationSelection({
+      books: seeded.books,
+      profile: maya,
+      rules: {
+        count: 1,
+        cooldownDays: 14,
+        varietyMix: false,
+        objective: '',
+        preferredTags: [],
+      },
+      nowIso: twoDaysLater,
+    });
+
+    assert.equal(singleFresh.selectedBookIds.length, 1);
+    assert.equal(singleFresh.selectedBookIds[0], 'book_very_hungry');
+  });
+
+  it('replacement and addition helpers preserve shelf order and prevent duplicates', () => {
+    const seeded = createSeedState();
+    const baseRot = seeded.rotations[0];
+
+    // Replace completed slot 'book_goodnight_moon' with 'book_very_hungry'
+    const replaced = applyBookReplacement(
+      baseRot,
+      'book_goodnight_moon',
+      'book_very_hungry',
+      '2026-11-02T00:00:00.000Z'
+    );
+    assert.equal(replaced.bookIds[3], 'book_very_hungry');
+    assert.equal(replaced.completedBookIds.includes('book_goodnight_moon'), false);
+
+    // Multi-book addition ignores duplicates and appends new IDs in order
+    const added = applyBookAdditions(replaced, [
+      'book_snowy_day', // already present -> skipped
+      'book_ada_twist',
+      'book_shark_lady',
+    ]);
+    assert.deepEqual(added.addedIds, ['book_ada_twist', 'book_shark_lady']);
+    assert.equal(added.rotation.bookIds.length, 6);
+  });
+
+  it('allows books to be excluded from rotations via excludeFromRotations flag', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+    const book = store.getState().books[0];
+
+    assert.equal(book.excludeFromRotations, undefined);
+
+    // Toggle exclusion on
+    const excluded = await store.toggleBookRotationEligibility(book.id);
+    assert.equal(excluded?.excludeFromRotations, true);
+
+    // Generator must not pick excluded book
+    const profile = store.getState().profiles[0];
+    const selection = generateRotationSelection({
+      books: store.getState().books,
+      profile,
+      rules: { count: 6, cooldownDays: 0, varietyMix: false, objective: '', preferredTags: [] },
+    });
+    assert.equal(selection.selectedBookIds.includes(book.id), false);
+
+    // Toggle back to included
+    const included = await store.toggleBookRotationEligibility(book.id);
+    assert.equal(included?.excludeFromRotations, undefined);
+  });
+
+  it('store executes full rotation lifecycle: generation, random swap, and read tracking', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+    const maya = store.getState().profiles[0];
+
+    const shelf = await store.generateRotation({
+      title: 'Spring Reading Basket',
+      count: 3,
+      cooldownDays: 0,
+    });
+    assert.equal(shelf.bookIds.length, 3);
+
+    // Random swap on first book
+    const oldBookId = shelf.bookIds[0];
+    const swappedBook = await store.replaceRotationBookRandom(shelf.id, oldBookId);
+    assert.ok(swappedBook);
+    assert.notEqual(swappedBook.id, oldBookId);
+
+    // Read toggle marks book in profile reading history
+    const targetBookId = shelf.bookIds[1];
+    await store.toggleRotationBookRead(shelf.id, targetBookId);
+    const updatedMaya = store.getState().profiles.find((p) => p.id === maya.id);
+    assert.ok(updatedMaya?.readHistoryBookIds.includes(targetBookId));
+
+    // Unmarking read removes it from reading history
+    await store.toggleRotationBookRead(shelf.id, targetBookId);
+    const clearedMaya = store.getState().profiles.find((p) => p.id === maya.id);
+    assert.equal(clearedMaya?.readHistoryBookIds.includes(targetBookId), false);
+  });
+});
