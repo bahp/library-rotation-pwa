@@ -316,5 +316,23 @@ describe('Phase 32 — Bug Fixes & User Rating Verification', () => {
     assert.match(htmlIncluded, /Included\s*<\/button>/);
     assert.match(htmlIncluded, /Eligible for shelf rotations/);
   });
+
+  it('11. Auto-computed parameters indicator ✦ is rendered for estimated age and storytime line', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+    const book = st.books[0];
+
+    const html = renderBookInspectorModal({
+      book,
+      profiles: st.profiles,
+      rotations: st.rotations,
+    });
+
+    // Contains ✦ indicator on the Age span with descriptive title/aria-label
+    assert.match(html, /<span[^>]*aria-label="Auto-computed age parameter"[^>]*>✦<\/span>/);
+
+    // Contains ✦ indicator on the storytime read-aloud line with descriptive title/aria-label
+    assert.match(html, /<span[^>]*aria-label="Auto-computed pacing and duration"[^>]*>✦<\/span>/);
+  });
 });
 

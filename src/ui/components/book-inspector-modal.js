@@ -1023,7 +1023,7 @@ export function renderBookInspectorModal({
               <!-- Unified Metadata Block: Bibliographic info line, Storytime & pacing line, and ISBN line -->
               ${(() => {
                 const biblioItems = [
-                  `<span class="font-bold text-forest-900 dark:text-white">Ages ${book.ageMin}–${book.ageMax}</span>`,
+                  `<span class="inline-flex items-center"><span class="font-bold text-forest-900 dark:text-white">Ages ${book.ageMin}–${book.ageMax}</span><span class="text-[10px] text-amber-600 dark:text-amber-400 select-none ml-0.5 cursor-help" title="Computed by local rule / AI (tap Edit Book to override)" aria-label="Auto-computed age parameter">✦</span></span>`,
                   formatReadingStage(book.readingStage),
                   formatBookBinding(book.format),
                   book.pageCount ? `${book.pageCount} pp` : null,
@@ -1059,6 +1059,7 @@ export function renderBookInspectorModal({
                   hintParts.length > 0
                     ? `
                       <div class="flex flex-wrap items-center">
+                        <span class="inline-flex items-center text-[10px] text-emerald-600 dark:text-emerald-400 select-none mr-1 cursor-help" title="Read-aloud pacing & duration computed by rule / AI" aria-label="Auto-computed pacing and duration">✦</span>
                         ${hintParts
                           .map((part, idx) => {
                             const isLast = idx === hintParts.length - 1;

@@ -180,6 +180,8 @@
  * @property {RotationList[]} rotations - Saved and active rotation lists
  * @property {RotationPreset[]} [customPresets] - User-defined rotation collection presets
  * @property {Record<string, RotationPreset>} [presetOverrides] - In-place edits to built-in default presets keyed by preset ID
+ * @property {Array<any>} [aiRecommendations] - Curated AI book recommendations for active reader
+ * @property {string} [aiRecommendationsPrompt] - Active custom prompt/mood query for AI recommendations
  * @property {AppSettings} settings - User preferences
  * @property {string} updatedAt - Last state persistence ISO timestamp
  */

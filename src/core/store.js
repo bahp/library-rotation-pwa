@@ -8,6 +8,7 @@ import {
   createId,
   formatCollectionStatus,
   inferReadingStageFromAge,
+  isBookRotatable,
   normalizeBirthDate,
   normalizeBookCondition,
   normalizeCollectionStatus,
