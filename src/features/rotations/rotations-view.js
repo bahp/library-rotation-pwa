@@ -326,20 +326,30 @@ function renderGenerateRotationSheet({ activeProfile, isOpen, lang = 'en' }) {
             ${renderFieldInfoPanel({ helpKey: 'varietyMix', scope: 'gen-rot' })}
           </div>
 
-          <div class="pt-2 flex items-center justify-end gap-2.5">
+          <div class="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
             <button
               type="button"
-              data-action="close-generate-rotation-sheet"
-              class="min-h-[46px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs sm:text-sm font-semibold text-forest-900 dark:text-slate-200 transition-colors"
+              data-action="open-ai-rotation-curator"
+              class="min-h-[42px] px-3.5 py-2 rounded-xl bg-forest-50 hover:bg-forest-100 text-forest-800 dark:bg-forest-950/60 dark:hover:bg-forest-900/60 dark:text-[#5ED3DA] text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
             >
-              Cancel
+              ${renderIcon('sparkles', 'w-3.5 h-3.5')}
+              <span>Curate with AI instead</span>
             </button>
-            <button
-              type="submit"
-              class="flex-1 sm:flex-initial min-h-[46px] px-5 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap"
-            >
-              Generate Rotation List
-            </button>
+            <div class="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                data-action="close-generate-rotation-sheet"
+                class="min-h-[46px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs sm:text-sm font-semibold text-forest-900 dark:text-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="flex-1 sm:flex-initial min-h-[46px] px-5 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+              >
+                Generate Rotation List
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -1382,12 +1392,21 @@ export function renderRotationsView({
         </div>
 
         <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            data-action="open-ai-rotation-curator"
+            title="Ask AI to curate a rotation shelf from your library"
+            class="min-h-[44px] px-3 py-2 rounded-2xl bg-forest-50 hover:bg-forest-100 text-forest-900 border border-forest-700/30 dark:bg-forest-950/60 dark:hover:bg-forest-900/60 dark:text-[#5ED3DA] dark:border-[#5ED3DA]/30 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+          >
+            ${renderIcon('sparkles', 'w-4 h-4 text-forest-700 dark:text-[#5ED3DA]')}
+            <span>AI Curator</span>
+          </button>
+
           <a
             href="#/presets"
             data-presets-link="true"
             class="min-h-[44px] px-3 py-2 rounded-2xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
           >
-            ${renderIcon('sparkles', 'w-4 h-4 text-forest-700 dark:text-[#5ED3DA]')}
             <span>${escapeHtml(t(lang, 'nav.presets'))}</span>
           </a>
 

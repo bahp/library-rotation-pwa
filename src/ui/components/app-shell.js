@@ -56,7 +56,8 @@ function getNavItems(lang) {
  *     isWelcomeModalOpen?: boolean,
  *     googleBooksKeyStatus?: 'unknown' | 'configured' | 'shared-quota' | 'static-host'
  *   },
- *   contentHtml: string
+ *   contentHtml: string,
+ *   aiModalsHtml?: string
  * }} props
  * @returns {string}
  */
@@ -73,6 +74,7 @@ export function renderAppShell({
     googleBooksKeyStatus: 'unknown',
   },
   contentHtml,
+  aiModalsHtml = '',
 }) {
   const lang = normalizeLanguage(state.settings?.language);
   const navItems = getNavItems(lang);
@@ -390,6 +392,7 @@ export function renderAppShell({
       ${welcomeBooksModalHtml}
       ${toastHtml}
       ${iosModalHtml}
+      ${aiModalsHtml}
     </div>
   `;
 }

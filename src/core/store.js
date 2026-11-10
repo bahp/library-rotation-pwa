@@ -51,6 +51,11 @@ import {
   normalizeLanguage,
   normalizePositiveBookCount,
 } from '../config/index.js';
+import {
+  queryBookCategorizedTags,
+  querySmartRotationPlan,
+  queryLibraryRecommendations,
+} from '../features/llm/llm-client.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
 
@@ -987,6 +992,250 @@ export function createAppStore(storage, deps = {}) {
       'success'
     );
     return { updatedBooksCount, newTagsCount, usedAiCount };
+  }
+
+  /**
+   * Action 1: Queries LLM for categorized (interactive format, developmental, concepts) + freeform tags.
+   * @param {string} bookId
+   */
+  async function queryCategorizedTagsForBook(bookId) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+    return queryBookCategorizedTags(target, state.settings);
+  }
+
+  /**
+   * Applies user-approved or LLM tags & metadata to a catalog book.
+   * @param {string} bookId
+   * @param {{ tags?: string[], readingStage?: import('../types/models.js').ReadingStage, readingLevelHint?: string }} patch
+   */
+  async function applyLlmTagsToBook(bookId, patch = {}) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+    const sanitized = sanitizeTagList(patch.tags || target.tags, 16);
+    const updatedBook = {
+      ...target,
+      tags: sanitized,
+      ...(patch.readingStage ? { readingStage: patch.readingStage } : {}),
+      ...(patch.readingLevelHint ? { readingLevelHint: patch.readingLevelHint } : {}),
+      sources: [
+        ...target.sources,
+        {
+          provider: `ai:${state.settings.llmProvider || 'gemini'}`,
+          fetchedAt: new Date().toISOString(),
+        },
+      ],
+    };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(`Saved ${sanitized.length} tags for "${target.title}".`, 'success');
+    return updatedBook;
+  }
+
+  /**
+   * Action 2: Smart Library Rotation Assistant
+   * Asks the LLM to curate the best rotation from the user's library matching criteria.
+   * @param {{ profileId?: string, objective?: string, count?: number, requiredFormat?: string }} options
+   */
+  async function curateRotationWithLlm(options = {}) {
+    const profile =
+      state.profiles.find((p) => p.id === (options.profileId || state.activeProfileId)) ||
+      state.profiles[0];
+    if (!profile) throw new Error('No active reader profile found.');
+
+    const plan = await querySmartRotationPlan({
+      libraryBooks: state.books,
+      profile,
+      rules: {
+        count: options.count || profile.defaultRotationSize || 5,
+        objective: options.objective || 'Balanced storytime rotation',
+        requiredFormat: options.requiredFormat || 'any',
+      },
+      rotations: state.rotations,
+      settings: state.settings,
+    });
+    return plan;
+  }
+
+  /**
+   * Saves or activates a curated rotation plan.
+   * @param {{ title?: string, objective?: string, bookIds: string[], profileId?: string, setActive?: boolean }} params
+   */
+  async function saveCuratedRotation(params) {
+    const profileId = params.profileId || state.activeProfileId;
+    const bookIds = Array.isArray(params.bookIds) ? params.bookIds : [];
+    if (bookIds.length === 0) throw new Error('Select at least one book for rotation.');
+
+    const newRotationId = createId('rot');
+    const nowIso = new Date().toISOString();
+    const shouldActivate = Boolean(params.setActive);
+
+    const newRotation = {
+      id: newRotationId,
+      profileId,
+      title: params.title || 'Curated Rotation',
+      rules: {
+        count: bookIds.length,
+        objective: params.objective || 'AI Curated Shelf',
+        preferredTags: [],
+        cooldownDays: 14,
+        swapDays: 14,
+        varietyMix: true,
+        requiredFormat: /** @type {const} */ ('any'),
+        seed: createId('seed'),
+      },
+      bookIds,
+      completedBookIds: [],
+      status: /** @type {'active' | 'saved'} */ (shouldActivate ? 'active' : 'saved'),
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      ...(shouldActivate ? { activatedAt: nowIso } : {}),
+    };
+
+    let nextRotations = state.rotations;
+    if (shouldActivate) {
+      nextRotations = nextRotations.map((r) =>
+        r.profileId === profileId && r.status === 'active'
+          ? { ...r, status: /** @type {const} */ ('saved'), updatedAt: nowIso }
+          : r
+      );
+    }
+    nextRotations = [newRotation, ...nextRotations];
+
+    const updatedBooks = shouldActivate
+      ? recordBooksRotated(state.books, bookIds, {
+          rotatedAt: nowIso,
+          rotationId: newRotationId,
+          profileId,
+        })
+      : state.books;
+
+    await commit({
+      ...state,
+      books: updatedBooks,
+      rotations: nextRotations,
+    });
+
+    notify(
+      shouldActivate
+        ? `Activated rotation "${newRotation.title}" with ${bookIds.length} books!`
+        : `Saved rotation "${newRotation.title}" (${bookIds.length} books).`,
+      'success'
+    );
+    return newRotation;
+  }
+
+  /**
+   * Action 3: Smart Library Recommendations
+   * Queries LLM to suggest books filling gaps, matching favorites, or preparing for next stage.
+   * @param {{ profileId?: string, goal?: 'gaps' | 'similar-favorites' | 'next-stage' | 'custom', customPrompt?: string, count?: number }} options
+   */
+  async function generateLibraryRecommendationsWithLlm(options = {}) {
+    const profile =
+      state.profiles.find((p) => p.id === (options.profileId || state.activeProfileId)) ||
+      state.profiles[0];
+    if (!profile) throw new Error('No active reader profile found.');
+
+    const res = await queryLibraryRecommendations({
+      libraryBooks: state.books,
+      profile,
+      goal: options.goal || 'gaps',
+      customPrompt: options.customPrompt || '',
+      count: options.count || 4,
+      settings: state.settings,
+    });
+
+    const nowIso = new Date().toISOString();
+    await commit({
+      ...state,
+      aiRecommendations: res.recommendations || [],
+      aiRecommendationsGoal: options.goal || 'gaps',
+      aiRecommendationsPrompt: options.customPrompt || '',
+      aiRecommendationsGeneratedAt: nowIso,
+    });
+
+    notify(`Generated ${res.recommendations.length} recommendations for ${profile.name}!`, 'success');
+    return res;
+  }
+
+  /**
+   * 1-tap converts an AI recommendation into a saved 'wishlist' book in the user's library.
+   * @param {{ title: string, author?: string, ageRange?: string, readingStage?: string, category?: string, reason?: string, gapFilled?: string }} rec
+   * @param {string} [profileId]
+   */
+  async function addRecommendedBookToWishlist(rec, profileId) {
+    if (!rec || !rec.title) throw new Error('Invalid recommendation.');
+    const effectiveProfileId = profileId || state.activeProfileId || 'shared';
+    const cleanTitle = String(rec.title).trim();
+    const cleanAuthor = String(rec.author || 'Unknown Author').trim();
+
+    // Check if already in catalog
+    const existing = state.books.find(
+      (b) =>
+        b.title.toLowerCase() === cleanTitle.toLowerCase() &&
+        b.authors.some((a) => a.toLowerCase() === cleanAuthor.toLowerCase())
+    );
+    if (existing) {
+      notify(
+        `"${cleanTitle}" is already in your library (${formatCollectionStatus(existing.collectionStatus)}).`,
+        'info'
+      );
+      return existing;
+    }
+
+    /** @type {import('../types/models.js').ReadingStage} */
+    const stage =
+      rec.readingStage &&
+      ['board-toddler', 'picture-book', 'early-reader', 'chapter-book'].includes(rec.readingStage)
+        ? /** @type {import('../types/models.js').ReadingStage} */ (rec.readingStage)
+        : 'picture-book';
+
+    const tags = sanitizeTagList(
+      [
+        ...(rec.category ? [rec.category] : []),
+        ...(rec.gapFilled ? [rec.gapFilled] : []),
+        'wishlist',
+        'ai-recommended',
+      ],
+      6
+    );
+
+    const nowIso = new Date().toISOString();
+    /** @type {import('../types/models.js').Book} */
+    const newBook = {
+      id: createId('book'),
+      isbn13: '',
+      title: cleanTitle,
+      authors: [cleanAuthor],
+      format: stage === 'board-toddler' ? 'board-book' : 'hardcover',
+      ageMin: stage === 'board-toddler' ? 1 : stage === 'early-reader' ? 5 : 3,
+      ageMax: stage === 'board-toddler' ? 3 : stage === 'early-reader' ? 8 : 7,
+      readingStage: stage,
+      readingLevelHint: rec.reason ? rec.reason.slice(0, 80) : '',
+      tags,
+      collectionStatus: 'wishlist',
+      condition: 'good',
+      loved: false,
+      owners: [effectiveProfileId],
+      spineColor: SPINE_COLORS[Math.floor(Math.random() * SPINE_COLORS.length)],
+      addedAt: nowIso,
+      sources: [
+        {
+          provider: 'ai:recommendation',
+          fetchedAt: nowIso,
+        },
+      ],
+    };
+
+    await commit({
+      ...state,
+      books: [newBook, ...state.books],
+    });
+
+    notify(`Added "${cleanTitle}" to your Wishlist!`, 'success');
+    return newBook;
   }
 
   /**
@@ -2363,6 +2612,12 @@ export function createAppStore(storage, deps = {}) {
     updateSettings,
     toggleMetadataProvider,
     resetProviderSettingsToSafeDefaults,
+    queryCategorizedTagsForBook,
+    applyLlmTagsToBook,
+    curateRotationWithLlm,
+    saveCuratedRotation,
+    generateLibraryRecommendationsWithLlm,
+    addRecommendedBookToWishlist,
     importBackupJson,
     resetToSeedData,
   };

@@ -189,6 +189,22 @@ export function createSafeDefaultSettings(overrides = {}) {
       showCoverUsageAdornos: overrides.showCoverUsageAdornos !== false,
       enableStaleBookSpotlight: overrides.enableStaleBookSpotlight !== false,
       staleBookDays: clampedStaleDays,
+      llmProvider:
+        overrides.llmProvider === 'cloudflare-worker' ||
+        overrides.llmProvider === 'byok-gemini' ||
+        overrides.llmProvider === 'byok-openai'
+          ? overrides.llmProvider
+          : 'server-gemini',
+      llmModel:
+        typeof overrides.llmModel === 'string' && overrides.llmModel.trim()
+          ? overrides.llmModel.trim()
+          : 'gemini-3.8-flash',
+      llmCloudflareUrl:
+        typeof overrides.llmCloudflareUrl === 'string' ? overrides.llmCloudflareUrl.trim() : '',
+      llmBaseUrl: typeof overrides.llmBaseUrl === 'string' ? overrides.llmBaseUrl.trim() : '',
+      llmApiKey: typeof overrides.llmApiKey === 'string' ? overrides.llmApiKey.trim() : '',
+      llmCustomPromptHint:
+        typeof overrides.llmCustomPromptHint === 'string' ? overrides.llmCustomPromptHint.trim() : '',
     };
   }
 

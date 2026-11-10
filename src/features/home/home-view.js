@@ -356,9 +356,19 @@ export function renderHomeView({
             <h2 id="up-next-heading" class="font-display text-base font-bold text-espresso-800 dark:text-white">
               ${escapeHtml(t(lang, 'home.suggestedNext', { name: activeProfile.name }))}
             </h2>
-            <span class="text-[11px] text-stone-ink dark:text-slate-400">
-              ${escapeHtml(t(lang, 'home.offShelfPicks'))}
-            </span>
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                data-action="open-ai-recommendations"
+                class="text-[11px] font-semibold text-forest-700 hover:underline dark:text-[#5ED3DA] inline-flex items-center gap-1"
+              >
+                ${renderIcon('sparkles', 'w-3 h-3')}
+                <span>AI Discovery</span>
+              </button>
+              <span class="text-[11px] text-stone-ink dark:text-slate-400">
+                · ${escapeHtml(t(lang, 'home.offShelfPicks'))}
+              </span>
+            </div>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             ${recommendations

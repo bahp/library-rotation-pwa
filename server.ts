@@ -21,18 +21,48 @@ if (typeof globalScope.__dirname === 'string' && !path.isAbsolute(globalScope.__
 
 import { createServer as createViteServer } from 'vite';
 import { proxyGoogleBooksVolumes } from './src/server/books-proxy.js';
+import { executeLlmQuery } from './src/server/llm-service.js';
 
-// Port 3000 is required by the dev environment; port 8080 is reserved by the container's Nginx reverse-proxy.
-const PORT = Number(
-  process.env.APP_PORT ||
-    (process.env.PORT && process.env.PORT !== '8080' ? process.env.PORT : 3000)
-);
+// Dev server must run strictly on port 3000 in the AI Studio environment.
+const PORT = 3000;
 const HOST = '0.0.0.0';
 
 async function startServer() {
   const app = express();
   app.disable('x-powered-by');
+  app.use(express.json({ limit: '2mb' }));
   const httpServer = http.createServer(app);
+
+  // LLM Status & configuration route (checks whether server Gemini API key is configured)
+  app.get('/api/llm/status', (_req, res) => {
+    const serverKeyConfigured = Boolean((process.env.GEMINI_API_KEY || '').trim());
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json({
+      ok: true,
+      serverKeyConfigured,
+      defaultModel: 'gemini-3.8-flash',
+    });
+  });
+
+  // LLM query endpoint supporting server Gemini, Cloudflare Workers, and BYOK
+  app.post('/api/llm/generate', async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const result = await executeLlmQuery(payload);
+      res.setHeader('Cache-Control', 'no-store');
+      // Note: Nginx intercepts 403, 502, 503, and 504 and replaces the body with HTML error pages (warmup.html/forbidden.html).
+      // To ensure the client always receives structured JSON with user-facing messages, map status codes to 200 (or 400/429).
+      const httpStatus = result.status === 429 ? 429 : result.status === 400 ? 400 : 200;
+      res.status(httpStatus).json(result);
+    } catch (err: unknown) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json({
+        ok: false,
+        error: 'INTERNAL_ERROR',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
 
   // Health & configuration boolean check (NEVER returns the key value itself)
   app.get('/api/books/status', (_req, res) => {

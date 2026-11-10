@@ -1104,15 +1104,27 @@ export function renderBookInspectorModal({
           <section aria-label="Topics and themes" class="space-y-2.5 text-xs text-stone-ink dark:text-slate-300">
             <div class="flex items-center justify-between gap-2">
               <strong class="text-xs font-bold text-forest-900 dark:text-white">Topics & Themes</strong>
-              <button
-                type="button"
-                data-action="enrich-book-tags"
-                data-book-id="${escapeHtml(book.id)}"
-                class="min-h-[36px] px-2.5 py-1 rounded-xl bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-              >
-                ${renderIcon('sparkles', 'w-3.5 h-3.5')}
-                <span>Auto-Enrich</span>
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-action="open-ai-tag-modal"
+                  data-book-id="${escapeHtml(book.id)}"
+                  title="Query LLM for interactive features, developmental themes & story tags"
+                  class="min-h-[36px] px-2.5 py-1 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                >
+                  ${renderIcon('sparkles', 'w-3.5 h-3.5')}
+                  <span>AI Tag Assistant</span>
+                </button>
+                <button
+                  type="button"
+                  data-action="enrich-book-tags"
+                  data-book-id="${escapeHtml(book.id)}"
+                  title="Quick local rule enrichment"
+                  class="min-h-[36px] px-2.5 py-1 rounded-xl bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                >
+                  <span>Quick Rules</span>
+                </button>
+              </div>
             </div>
 
             ${

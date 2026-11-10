@@ -68,6 +68,12 @@ import { renderProfilesView } from './features/profiles/profiles-view.js';
 import { renderSettingsView } from './features/settings/settings-view.js';
 import { validateProxyEndpointUrl } from './features/tagging/ai-tag-adapter.js';
 import { normalizeLanguage } from './config/index.js';
+import {
+  renderAiTaggingModal,
+  renderAiRotationCuratorModal,
+  renderAiRecommendationsModal,
+} from './ui/components/ai-modals.js';
+import { checkServerLlmStatus, testLlmConnection } from './features/llm/llm-client.js';
 
 const rootEl = document.getElementById('app');
 const storage = createStorageAdapter();
@@ -276,6 +282,31 @@ const uiState = {
   },
   presetsUi: createDefaultPresetsUiState(),
   playUi: createDefaultPlayUiState(),
+  aiTagModal: {
+    isOpen: false,
+    bookId: /** @type {string | null} */ (null),
+    isLoading: false,
+    error: '',
+    tagResults: /** @type {any} */ (null),
+    selectedTags: /** @type {Set<string>} */ (new Set()),
+  },
+  aiCuratorModal: {
+    isOpen: false,
+    isCurating: false,
+    error: '',
+    objectiveInput: 'Bedtime routines, lullabies & calming stories',
+    bookCount: 5,
+    curatorPlan: /** @type {any} */ (null),
+    selectedBookIds: /** @type {Set<string>} */ (new Set()),
+  },
+  aiRecsModal: {
+    isOpen: false,
+    isLoading: false,
+    error: '',
+    activeGoal: 'gaps',
+    customPrompt: '',
+    count: 4,
+  },
   settingsUi: {
     testingAdapter: false,
     enrichingCatalog: false,
@@ -297,6 +328,12 @@ const uiState = {
     catalogSyncTone: 'idle',
     browserStorageSummary: '',
     hasCoverCache: false,
+    testingLlm: false,
+    llmTestReport: '',
+    /** @type {'idle' | 'success' | 'error'} */
+    llmTestTone: 'idle',
+    showLlmApiKey: false,
+    serverLlmConfigured: false,
   },
 };
 
@@ -340,6 +377,16 @@ const PRESERVED_INPUT_IDS = new Set([
   'setting-preset-days-after',
   'setting-stale-book-days',
   'device-books-proxy-url-input',
+  'llm-cloudflare-url-input',
+  'llm-base-url-input',
+  'llm-openai-model-input',
+  'llm-api-key-input',
+  'llm-model-select',
+  'llm-custom-hint-input',
+  'ai-curator-objective-input',
+  'ai-curator-count-input',
+  'ai-rec-custom-input',
+  'ai-rec-count-input',
 ]);
 
 /**
@@ -481,6 +528,99 @@ async function refreshGoogleBooksKeyStatus() {
     }
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/**
+ * Action 1: Queries LLM to classify and categorize book features, themes, and concepts.
+ * @param {string} bookId
+ */
+async function executeAiBookTagging(bookId) {
+  uiState.aiTagModal.isLoading = true;
+  uiState.aiTagModal.error = '';
+  render();
+  try {
+    const res = await store.queryCategorizedTagsForBook(bookId);
+    uiState.aiTagModal.tagResults = res;
+    // Auto-select suggested tags
+    uiState.aiTagModal.selectedTags = new Set(res.allTags || []);
+  } catch (err) {
+    uiState.aiTagModal.error = err instanceof Error ? err.message : String(err);
+  } finally {
+    uiState.aiTagModal.isLoading = false;
+    render();
+  }
+}
+
+/**
+ * Action 2: Asks LLM to curate an intentional rotation from the reader's home library.
+ */
+async function executeAiCuratorQuery() {
+  uiState.aiCuratorModal.isCurating = true;
+  uiState.aiCuratorModal.error = '';
+  render();
+  try {
+    const plan = await store.curateRotationWithLlm({
+      objective: uiState.aiCuratorModal.objectiveInput,
+      count: uiState.aiCuratorModal.bookCount,
+    });
+    uiState.aiCuratorModal.curatorPlan = plan;
+    const selectedIds = Array.isArray(plan.selectedBooks)
+      ? plan.selectedBooks.map((s) => s.bookId).filter(Boolean)
+      : [];
+    uiState.aiCuratorModal.selectedBookIds = new Set(selectedIds);
+  } catch (err) {
+    uiState.aiCuratorModal.error = err instanceof Error ? err.message : String(err);
+  } finally {
+    uiState.aiCuratorModal.isCurating = false;
+    render();
+  }
+}
+
+/**
+ * Action 3: Asks LLM to discover targeted book recommendations filling collection gaps.
+ */
+async function executeAiRecommendationsQuery() {
+  uiState.aiRecsModal.isLoading = true;
+  uiState.aiRecsModal.error = '';
+  render();
+  try {
+    await store.generateLibraryRecommendationsWithLlm({
+      goal: /** @type {any} */ (uiState.aiRecsModal.activeGoal),
+      customPrompt: uiState.aiRecsModal.customPrompt,
+      count: uiState.aiRecsModal.count,
+    });
+  } catch (err) {
+    uiState.aiRecsModal.error = err instanceof Error ? err.message : String(err);
+  } finally {
+    uiState.aiRecsModal.isLoading = false;
+    render();
+  }
+}
+
+/**
+ * Runs a connectivity diagnostic against the selected LLM provider (Gemini / Cloudflare / BYOK).
+ */
+async function executeLlmConnectionTest() {
+  uiState.settingsUi.testingLlm = true;
+  uiState.settingsUi.llmTestReport = '';
+  uiState.settingsUi.llmTestTone = 'idle';
+  render();
+  try {
+    const report = /** @type {any} */ (await testLlmConnection(store.getState().settings));
+    uiState.settingsUi.llmTestTone = report.ok ? 'success' : 'error';
+    uiState.settingsUi.llmTestReport = `${report.message} (Provider: ${report.provider || 'gemini'}${report.model ? `, Model: ${report.model}` : ''}${report.latencyMs ? `, ${report.latencyMs}ms` : ''})`;
+    store.notify(
+      report.ok ? 'LLM connection verified!' : 'LLM connection check failed.',
+      report.ok ? 'success' : 'error'
+    );
+  } catch (err) {
+    uiState.settingsUi.llmTestTone = 'error';
+    uiState.settingsUi.llmTestReport = err instanceof Error ? err.message : String(err);
+    store.notify('LLM connection test failed.', 'error');
+  } finally {
+    uiState.settingsUi.testingLlm = false;
+    render();
   }
 }
 
@@ -816,6 +956,45 @@ function render() {
       break;
   }
 
+  const activeProfile =
+    state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0];
+
+  const aiModalsHtml = [
+    renderAiTaggingModal({
+      book: state.books.find((b) => b.id === uiState.aiTagModal.bookId) || null,
+      isOpen: uiState.aiTagModal.isOpen,
+      isLoading: uiState.aiTagModal.isLoading,
+      error: uiState.aiTagModal.error,
+      tagResults: uiState.aiTagModal.tagResults,
+      selectedTags: uiState.aiTagModal.selectedTags,
+    }),
+    renderAiRotationCuratorModal({
+      activeProfile,
+      isOpen: uiState.aiCuratorModal.isOpen,
+      isCurating: uiState.aiCuratorModal.isCurating,
+      curatorPlan: uiState.aiCuratorModal.curatorPlan,
+      error: uiState.aiCuratorModal.error,
+      objectiveInput: uiState.aiCuratorModal.objectiveInput,
+      bookCount: uiState.aiCuratorModal.bookCount,
+      selectedBookIds: uiState.aiCuratorModal.selectedBookIds,
+      rotatableCatalogCount: state.books.filter((b) => b.collectionStatus === 'owned').length,
+    }),
+    renderAiRecommendationsModal({
+      activeProfile,
+      isOpen: uiState.aiRecsModal.isOpen,
+      isLoading: uiState.aiRecsModal.isLoading,
+      recommendations: state.aiRecommendations || [],
+      summary: state.aiRecommendationsGoal
+        ? `Recommendations generated for ${activeProfile?.name || 'Reader'}`
+        : '',
+      error: uiState.aiRecsModal.error,
+      activeGoal: /** @type {any} */ (uiState.aiRecsModal.activeGoal),
+      customPrompt: uiState.aiRecsModal.customPrompt,
+      count: uiState.aiRecsModal.count,
+      existingLibraryTitles: new Set(state.books.map((b) => b.title.trim().toLowerCase())),
+    }),
+  ].join('');
+
   const nextShellHtml = renderAppShell({
     activeRoute: route,
     state,
@@ -826,6 +1005,7 @@ function render() {
       googleBooksKeyStatus: uiState.settingsUi.googleBooksKeyStatus,
     },
     contentHtml,
+    aiModalsHtml,
   });
 
   // Patch live DOM in place so unchanged book cover <img> nodes never unmount, re-decode, or flash
@@ -1286,6 +1466,27 @@ function bindEvents() {
   // Global keyboard handler: Escape closes active bottom sheets/modals & Tab traps focus inside open [role="dialog"]
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
+      if (uiState.aiTagModal.isOpen) {
+        event.preventDefault();
+        closeSheetWithMotion(() => {
+          uiState.aiTagModal.isOpen = false;
+        });
+        return;
+      }
+      if (uiState.aiCuratorModal.isOpen) {
+        event.preventDefault();
+        closeSheetWithMotion(() => {
+          uiState.aiCuratorModal.isOpen = false;
+        });
+        return;
+      }
+      if (uiState.aiRecsModal.isOpen) {
+        event.preventDefault();
+        closeSheetWithMotion(() => {
+          uiState.aiRecsModal.isOpen = false;
+        });
+        return;
+      }
       if (uiState.shellUi.isProfileFormSheetOpen) {
         event.preventDefault();
         closeSheetWithMotion(() => {
@@ -1405,6 +1606,24 @@ function bindEvents() {
     // Allow clicking outside bottom-sheet/modal content on [data-backdrop-action] overlay to close cleanly
     if (event.target instanceof Element && event.target.hasAttribute('data-backdrop-action')) {
       const backdropAction = event.target.getAttribute('data-backdrop-action');
+      if (backdropAction === 'close-ai-tag-modal') {
+        closeSheetWithMotion(() => {
+          uiState.aiTagModal.isOpen = false;
+        });
+        return;
+      }
+      if (backdropAction === 'close-ai-rotation-curator') {
+        closeSheetWithMotion(() => {
+          uiState.aiCuratorModal.isOpen = false;
+        });
+        return;
+      }
+      if (backdropAction === 'close-ai-recommendations') {
+        closeSheetWithMotion(() => {
+          uiState.aiRecsModal.isOpen = false;
+        });
+        return;
+      }
       if (backdropAction === 'close-profile-switcher') {
         closeSheetWithMotion(() => {
           uiState.shellUi.isProfileSwitcherOpen = false;
@@ -1789,6 +2008,175 @@ function bindEvents() {
         render();
         break;
       }
+      // AI Action 1: Categorized Tagging Assistant
+      case 'open-ai-tag-modal': {
+        const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
+        const book = store.getState().books.find((b) => b.id === bookId);
+        if (!book) return;
+        rememberModalTrigger(target);
+        uiState.aiTagModal.isOpen = true;
+        uiState.aiTagModal.bookId = bookId;
+        uiState.aiTagModal.error = '';
+        uiState.aiTagModal.tagResults = null;
+        uiState.aiTagModal.selectedTags = new Set(book.tags || []);
+        render();
+        await executeAiBookTagging(book.id);
+        break;
+      }
+      case 'close-ai-tag-modal': {
+        closeSheetWithMotion(() => {
+          uiState.aiTagModal.isOpen = false;
+        });
+        break;
+      }
+      case 'retry-ai-tag-query':
+      case 'start-ai-tag-query': {
+        if (uiState.aiTagModal.bookId) {
+          await executeAiBookTagging(uiState.aiTagModal.bookId);
+        }
+        break;
+      }
+      case 'toggle-ai-suggested-tag': {
+        const tag = target.getAttribute('data-tag');
+        if (!tag) return;
+        if (uiState.aiTagModal.selectedTags.has(tag)) {
+          uiState.aiTagModal.selectedTags.delete(tag);
+        } else {
+          uiState.aiTagModal.selectedTags.add(tag);
+        }
+        render();
+        break;
+      }
+      case 'select-all-ai-tags': {
+        if (uiState.aiTagModal.tagResults?.allTags) {
+          for (const t of uiState.aiTagModal.tagResults.allTags) {
+            uiState.aiTagModal.selectedTags.add(t);
+          }
+          render();
+        }
+        break;
+      }
+      case 'clear-all-ai-tags': {
+        uiState.aiTagModal.selectedTags.clear();
+        render();
+        break;
+      }
+      case 'save-ai-tags-to-book': {
+        const bookId = uiState.aiTagModal.bookId;
+        if (!bookId) return;
+        const patch = {
+          tags: Array.from(uiState.aiTagModal.selectedTags),
+          ...(uiState.aiTagModal.tagResults?.readingStage
+            ? { readingStage: uiState.aiTagModal.tagResults.readingStage }
+            : {}),
+          ...(uiState.aiTagModal.tagResults?.readingLevelHint
+            ? { readingLevelHint: uiState.aiTagModal.tagResults.readingLevelHint }
+            : {}),
+        };
+        await store.applyLlmTagsToBook(bookId, patch);
+        closeSheetWithMotion(() => {
+          uiState.aiTagModal.isOpen = false;
+        });
+        break;
+      }
+
+      // AI Action 2: Rotation Shelf Curator
+      case 'open-ai-rotation-curator': {
+        rememberModalTrigger(target);
+        uiState.aiCuratorModal.isOpen = true;
+        uiState.aiCuratorModal.error = '';
+        render();
+        focusActiveDialogControl();
+        break;
+      }
+      case 'close-ai-rotation-curator': {
+        closeSheetWithMotion(() => {
+          uiState.aiCuratorModal.isOpen = false;
+        });
+        break;
+      }
+      case 'pick-ai-rotation-theme-chip': {
+        const theme = target.getAttribute('data-theme') || '';
+        uiState.aiCuratorModal.objectiveInput = theme;
+        render();
+        break;
+      }
+      case 'toggle-curated-book-selection': {
+        const bookId = target.getAttribute('data-book-id');
+        if (!bookId) return;
+        if (uiState.aiCuratorModal.selectedBookIds.has(bookId)) {
+          uiState.aiCuratorModal.selectedBookIds.delete(bookId);
+        } else {
+          uiState.aiCuratorModal.selectedBookIds.add(bookId);
+        }
+        render();
+        break;
+      }
+      case 'save-curated-rotation': {
+        const mode = target.getAttribute('data-mode') || 'save-only';
+        const setActive = mode === 'save-and-activate';
+        const bookIds = Array.from(uiState.aiCuratorModal.selectedBookIds);
+        if (bookIds.length === 0) {
+          store.notify('Select at least one book to save rotation.', 'error');
+          return;
+        }
+        const title = uiState.aiCuratorModal.curatorPlan?.title || 'AI Curated Shelf';
+        const objective = uiState.aiCuratorModal.objectiveInput || 'AI Curated Shelf';
+        await store.saveCuratedRotation({
+          title,
+          objective,
+          bookIds,
+          setActive,
+        });
+        closeSheetWithMotion(() => {
+          uiState.aiCuratorModal.isOpen = false;
+        });
+        break;
+      }
+
+      // AI Action 3: Smart Library Recommendations
+      case 'open-ai-recommendations': {
+        rememberModalTrigger(target);
+        uiState.aiRecsModal.isOpen = true;
+        uiState.aiRecsModal.error = '';
+        render();
+        focusActiveDialogControl();
+        break;
+      }
+      case 'close-ai-recommendations': {
+        closeSheetWithMotion(() => {
+          uiState.aiRecsModal.isOpen = false;
+        });
+        break;
+      }
+      case 'set-ai-rec-goal': {
+        const goal = target.getAttribute('data-goal') || 'gaps';
+        uiState.aiRecsModal.activeGoal = goal;
+        render();
+        break;
+      }
+      case 'add-rec-to-wishlist': {
+        const indexStr = target.getAttribute('data-rec-index');
+        const recIndex = parseInt(indexStr || '0', 10);
+        const rec = store.getState().aiRecommendations?.[recIndex];
+        if (rec) {
+          await store.addRecommendedBookToWishlist(rec);
+          render();
+        }
+        break;
+      }
+
+      // AI & LLM Settings BYOK Actions
+      case 'test-llm-connection': {
+        await executeLlmConnectionTest();
+        break;
+      }
+      case 'toggle-show-llm-api-key': {
+        uiState.settingsUi.showLlmApiKey = !uiState.settingsUi.showLlmApiKey;
+        render();
+        break;
+      }
+
       case 'inspect-book': {
         rememberModalTrigger(target);
         const bookId = target.getAttribute('data-book-id');
@@ -3218,6 +3606,12 @@ function bindEvents() {
         }
       }
     }
+    if (target instanceof HTMLInputElement && target.name === 'llmProvider') {
+      await store.updateSettings({
+        llmProvider: /** @type {import('./types/models.js').LlmProvider} */ (target.value),
+      });
+      return;
+    }
     if (target instanceof HTMLSelectElement && target.id === 'presets-category-select') {
       uiState.presetsUi.categoryFilter =
         /** @type {import('./features/rotations/presets-view.js').PresetFilterId} */ (
@@ -3652,6 +4046,66 @@ function bindEvents() {
         store.notify('Cleared personal Books proxy URL on this device.', 'info');
         render();
       }
+    } else if (form.id === 'ai-rotation-curator-form') {
+      const objInput = form.querySelector('#ai-curator-objective-input');
+      const countInput = form.querySelector('#ai-curator-count-input');
+      const objective =
+        objInput instanceof HTMLInputElement
+          ? objInput.value.trim()
+          : uiState.aiCuratorModal.objectiveInput;
+      const count =
+        countInput instanceof HTMLInputElement
+          ? parseInt(countInput.value, 10) || 5
+          : uiState.aiCuratorModal.bookCount;
+      uiState.aiCuratorModal.objectiveInput = objective;
+      uiState.aiCuratorModal.bookCount = count;
+      await executeAiCuratorQuery();
+    } else if (form.id === 'ai-recommendations-query-form') {
+      const customInput = form.querySelector('#ai-rec-custom-input');
+      const countInput = form.querySelector('#ai-rec-count-input');
+      const customPrompt =
+        customInput instanceof HTMLInputElement
+          ? customInput.value.trim()
+          : uiState.aiRecsModal.customPrompt;
+      const count =
+        countInput instanceof HTMLInputElement
+          ? parseInt(countInput.value, 10) || 4
+          : uiState.aiRecsModal.count;
+      uiState.aiRecsModal.customPrompt = customPrompt;
+      uiState.aiRecsModal.count = count;
+      await executeAiRecommendationsQuery();
+    } else if (form.id === 'llm-config-form') {
+      const providerEl = form.querySelector('input[name="llmProvider"]:checked');
+      const modelSelectEl = form.querySelector('#llm-model-select');
+      const modelInputEl = form.querySelector('#llm-openai-model-input');
+      const cfUrlEl = form.querySelector('#llm-cloudflare-url-input');
+      const baseUrlEl = form.querySelector('#llm-base-url-input');
+      const apiKeyEl = form.querySelector('#llm-api-key-input');
+      const hintEl = form.querySelector('#llm-custom-hint-input');
+
+      const chosenProvider =
+        providerEl instanceof HTMLInputElement
+          ? providerEl.value
+          : store.getState().settings.llmProvider || 'server-gemini';
+
+      let chosenModel = '';
+      if (chosenProvider === 'byok-openai') {
+        chosenModel = modelInputEl instanceof HTMLInputElement ? modelInputEl.value.trim() : '';
+      } else {
+        chosenModel = modelSelectEl instanceof HTMLSelectElement ? modelSelectEl.value : '';
+      }
+
+      const nextLlmSettings = {
+        llmProvider: /** @type {import('./types/models.js').LlmProvider} */ (chosenProvider),
+        ...(chosenModel ? { llmModel: chosenModel } : {}),
+        llmCloudflareUrl: cfUrlEl instanceof HTMLInputElement ? cfUrlEl.value.trim() : '',
+        llmBaseUrl: baseUrlEl instanceof HTMLInputElement ? baseUrlEl.value.trim() : '',
+        llmApiKey: apiKeyEl instanceof HTMLInputElement ? apiKeyEl.value.trim() : '',
+        llmCustomPromptHint: hintEl instanceof HTMLInputElement ? hintEl.value.trim() : '',
+      };
+      await store.updateSettings(nextLlmSettings);
+      store.notify('LLM & AI Assistant settings saved!', 'success');
+      render();
     }
   });
 }
@@ -3748,6 +4202,14 @@ async function bootstrap() {
   render();
   refreshGoogleBooksKeyStatus();
   void refreshBrowserStorageEstimate();
+  checkServerLlmStatus()
+    .then((status) => {
+      uiState.settingsUi.serverLlmConfigured = Boolean(status.serverConfigured);
+      if (router.getCurrent().route === 'settings') {
+        render();
+      }
+    })
+    .catch(() => {});
 }
 
 bootstrap();

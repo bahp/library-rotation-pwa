@@ -85,5 +85,11 @@ export function createDefaultAppSettings() {
     aiAdapterId: 'local-rules',
     aiEndpointUrl: '',
     aiTimeoutMs: NUMERIC_BOUNDS.aiTimeoutDefaultMs,
+    llmProvider: 'server-gemini',
+    llmModel: 'gemini-3.8-flash',
+    llmCloudflareUrl: '',
+    llmBaseUrl: '',
+    llmApiKey: '',
+    llmCustomPromptHint: '',
   };
 }

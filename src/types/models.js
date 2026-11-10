@@ -145,6 +145,16 @@
  * @property {boolean} [enableStaleBookSpotlight] - Show gentle Stale Book Spotlight banner for long-unopened active shelf books (default: true)
  * @property {number} [staleBookDays] - Days on active shelf without being marked read before spotlight triggers (3-60, default: 10)
  * @property {boolean} [searchWhileTyping] - Enable live provider search as you type in Scan & Search (default: false)
+ * @property {'server-gemini' | 'cloudflare-worker' | 'byok-gemini' | 'byok-openai'} [llmProvider] - LLM provider ('server-gemini' | 'cloudflare-worker' | 'byok-gemini' | 'byok-openai')
+ * @property {string} [llmModel] - Model identifier (e.g. 'gemini-3.8-flash', 'llama-3.3-70b-versatile')
+ * @property {string} [llmCloudflareUrl] - User-configured Cloudflare Worker URL for Gemini
+ * @property {string} [llmBaseUrl] - Custom base URL for OpenAI-compatible endpoints
+ * @property {string} [llmApiKey] - Personal API key for BYOK or protected proxy
+ * @property {string} [llmCustomPromptHint] - Optional parenting / curriculum style guidelines (e.g. Montessori, bilingual)
+ */
+
+/**
+ * @typedef {'server-gemini' | 'cloudflare-worker' | 'byok-gemini' | 'byok-openai'} LlmProvider
  */
 
 /**
@@ -182,6 +192,8 @@
  * @property {Record<string, RotationPreset>} [presetOverrides] - In-place edits to built-in default presets keyed by preset ID
  * @property {Array<any>} [aiRecommendations] - Curated AI book recommendations for active reader
  * @property {string} [aiRecommendationsPrompt] - Active custom prompt/mood query for AI recommendations
+ * @property {string} [aiRecommendationsGoal] - Selected recommendation goal ('gaps' | 'similar-favorites' | 'next-stage' | 'custom')
+ * @property {string} [aiRecommendationsGeneratedAt] - ISO timestamp when current recommendations were generated
  * @property {AppSettings} settings - User preferences
  * @property {string} updatedAt - Last state persistence ISO timestamp
  */

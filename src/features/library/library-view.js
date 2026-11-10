@@ -1110,15 +1110,27 @@ export function renderLibraryView({ state, uiState, referenceDate = new Date() }
           </h1>
         </div>
 
-        <a
-          href="#/scan"
-          aria-label="Scan or add a new book"
-          title="Scan or add a new book"
-          class="min-h-[44px] min-w-[44px] px-3 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0"
-        >
-          ${renderIcon('plus', 'w-5 h-5')}
-          <span class="hidden sm:inline">${escapeHtml(lang === 'en' ? 'Add Book' : t(lang, 'nav.addBook'))}</span>
-        </a>
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            data-action="open-ai-recommendations"
+            title="Get AI book recommendations & collection gap analysis"
+            class="min-h-[44px] px-3.5 py-2 rounded-2xl bg-forest-50 hover:bg-forest-100 text-forest-900 border border-forest-700/30 dark:bg-forest-950/60 dark:hover:bg-forest-900/60 dark:text-[#5ED3DA] dark:border-[#5ED3DA]/30 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+          >
+            ${renderIcon('sparkles', 'w-4 h-4 text-forest-700 dark:text-[#5ED3DA]')}
+            <span>AI Discover</span>
+          </button>
+
+          <a
+            href="#/scan"
+            aria-label="Scan or add a new book"
+            title="Scan or add a new book"
+            class="min-h-[44px] min-w-[44px] px-3 rounded-2xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors shrink-0"
+          >
+            ${renderIcon('plus', 'w-5 h-5')}
+            <span class="hidden sm:inline">${escapeHtml(lang === 'en' ? 'Add Book' : t(lang, 'nav.addBook'))}</span>
+          </a>
+        </div>
       </div>
 
       <!-- Compact Search + Filter Sidebar Trigger, Unified Reader Scope & Icon Quick Filters -->

@@ -374,3 +374,102 @@ export function createCustomEndpointAiAdapter(options = {}) {
     },
   };
 }
+
+/**
+ * Built-in Adapter 3: Intelligent LLM Tagging (Gemini & BYOK Provider).
+ * Uses the full-stack LLM service (/api/llm/generate) with structured interactive, developmental & freeform categories.
+ *
+ * @param {{ fetchImpl?: typeof fetch }} [options]
+ * @returns {AiTagEnrichmentAdapter}
+ */
+export function createLlmApiAdapter(options = {}) {
+  const fetchFn =
+    options.fetchImpl ||
+    (typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null);
+
+  return {
+    id: 'llm-service',
+    label: 'LLM Categorized Tagging (Gemini & BYOK)',
+    transportKind: 'proxy-webhook',
+    privacyNote:
+      'Queries Google Gemini, Cloudflare Worker, or BYOK provider configured in Settings. Categorizes interactive formats, developmental themes, and story topics.',
+
+    checkAvailability(settings) {
+      if (!fetchFn) {
+        return { available: false, reason: 'Fetch API unavailable in current runtime.' };
+      }
+      const provider = settings.llmProvider || 'server-gemini';
+      if (provider === 'cloudflare-worker' && !settings.llmCloudflareUrl) {
+        return {
+          available: false,
+          reason: 'Cloudflare Worker URL not configured in Settings > AI Assistant.',
+        };
+      }
+      if (provider === 'byok-openai' && !settings.llmBaseUrl) {
+        return {
+          available: false,
+          reason: 'OpenAI-compatible Base URL not configured in Settings > AI Assistant.',
+        };
+      }
+      return {
+        available: true,
+        reason: `LLM service ready (${provider}).`,
+      };
+    },
+
+    async enrichBook(input, context) {
+      if (!fetchFn) {
+        throw new Error('Fetch API unavailable.');
+      }
+
+      const provider = context.settings.llmProvider || 'server-gemini';
+      const endpointUrl =
+        provider === 'cloudflare-worker'
+          ? context.settings.llmCloudflareUrl
+          : provider === 'byok-openai'
+            ? context.settings.llmBaseUrl
+            : '';
+
+      const prompt = JSON.stringify({
+        title: input.title,
+        authors: input.authors || [],
+        format: input.format || 'hardcover',
+        pageCount: input.pageCount || null,
+        publishedYear: input.publishedYear || null,
+        existingTags: input.tags || [],
+        summary: (input.summary || '').slice(0, 350),
+        subjects: (input.subjects || []).slice(0, 8),
+      });
+
+      const response = await fetchFn('/api/llm/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          task: 'book-tagging',
+          prompt: `Analyze and tag this book: ${prompt}`,
+          systemInstruction:
+            'You are a children’s librarian cataloging assistant. Respond ONLY with compact valid JSON matching {"tags":["lowercase-topic"],"ageMin":3,"ageMax":7,"readingStage":"picture-book","readingLevelHint":"short pacing note"}. Include sensory/format tags (e.g. lift-the-flap, slide-and-see, touch-and-feel) and thematic tags. Allowed readingStage values: board-toddler, picture-book, early-reader, chapter-book.',
+          provider,
+          model: context.settings.llmModel || 'gemini-3.8-flash',
+          endpointUrl,
+          apiKey: context.settings.llmApiKey || '',
+          jsonMode: true,
+        }),
+        signal: context.signal,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `LLM service returned HTTP ${response.status}.`);
+      }
+
+      const data = await response.json();
+      const payload = data.data || data;
+      return normalizeAiEnrichmentPayload(payload);
+    },
+  };
+}
+

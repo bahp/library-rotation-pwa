@@ -8,6 +8,7 @@ import { enrichBookWithLocalRules, sanitizeTagList } from './rule-tagger.js';
 import {
   createBrowserPromptApiAdapter,
   createCustomEndpointAiAdapter,
+  createLlmApiAdapter,
 } from './ai-tag-adapter.js';
 
 /**
@@ -37,6 +38,7 @@ export function createTaggingService(config = {}) {
   const adapters = config.adapters
     ? [...config.adapters]
     : [
+        createLlmApiAdapter({ fetchImpl: config.fetchImpl }),
         createBrowserPromptApiAdapter({ globalScope: config.globalScope }),
         createCustomEndpointAiAdapter({ fetchImpl: config.fetchImpl }),
       ];

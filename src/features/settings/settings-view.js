@@ -29,6 +29,50 @@ import { renderAvatarBadge } from '../../ui/components/profile-sheets.js';
 import { GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL } from '../../ui/components/welcome-setup-modal.js';
 import { renderIcon } from '../../ui/icons.js';
 
+const CLOUDFLARE_WORKER_SAMPLE_SCRIPT = [
+  'export default {',
+  '  async fetch(request, env) {',
+  "    const origin = request.headers.get('Origin') || '*';",
+  '    const cors = {',
+  "      'Access-Control-Allow-Origin': origin,",
+  "      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',",
+  "      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-api-key',",
+  '    };',
+  "    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });",
+  "    if (request.method !== 'POST') return new Response('Method Not Allowed', { status: 405, headers: cors });",
+  '',
+  '    try {',
+  '      const body = await request.json();',
+  "      const apiKey = env.GEMINI_API_KEY || request.headers.get('x-api-key');",
+  "      const model = body.model || 'gemini-3.8-flash';",
+  "      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey || '');",
+  '',
+  '      const res = await fetch(url, {',
+  "        method: 'POST',",
+  "        headers: { 'Content-Type': 'application/json' },",
+  '        body: JSON.stringify({',
+  '          contents: [{ parts: [{ text: body.prompt }] }],',
+  '          systemInstruction: body.systemInstruction ? { parts: [{ text: body.systemInstruction }] } : undefined,',
+  "          generationConfig: body.jsonMode ? { responseMimeType: 'application/json' } : undefined,",
+  '        }),',
+  '      });',
+  '',
+  '      const data = await res.json();',
+  "      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';",
+  '      return new Response(JSON.stringify({ ok: true, text, modelUsed: model }), {',
+  '        status: res.status,',
+  "        headers: { ...cors, 'Content-Type': 'application/json' },",
+  '      });',
+  '    } catch (err) {',
+  '      return new Response(JSON.stringify({ ok: false, error: err.message }), {',
+  '        status: 500,',
+  "        headers: { ...cors, 'Content-Type': 'application/json' },",
+  '      });',
+  '    }',
+  '  },',
+  '};',
+].join('\\n');
+
 /**
  * Determines whether a Google Books diagnostic check report represents `'success'`, `'error'`, or `'idle'`.
  * @param {'idle' | 'success' | 'error' | undefined} explicitTone
@@ -79,6 +123,12 @@ export function resolveGoogleBooksHealthTone(explicitTone, reportText) {
  *     catalogSyncTone?: 'idle' | 'success' | 'error',
  *     browserStorageSummary?: string,
  *     hasCoverCache?: boolean,
+ *     testingLlm?: boolean,
+ *     llmTestReport?: string,
+ *     llmTestTone?: 'idle' | 'success' | 'error',
+ *     serverLlmConfigured?: boolean,
+ *     showLlmApiKey?: boolean,
+ *     isCloudflareLlmGuideOpen?: boolean,
  *   }
  * }} params
  * @returns {string}
@@ -106,6 +156,12 @@ export function renderSettingsView({
     catalogSyncTone: 'idle',
     browserStorageSummary: '',
     hasCoverCache: false,
+    testingLlm: false,
+    llmTestReport: '',
+    llmTestTone: 'idle',
+    serverLlmConfigured: false,
+    showLlmApiKey: false,
+    isCloudflareLlmGuideOpen: false,
   },
 }) {
   const { settings } = state;
@@ -1266,6 +1322,340 @@ export function renderSettingsView({
                   `
                 : ''
             }
+          </div>
+        </div>
+      </section>
+
+      <!-- Free LLM & BYOK AI Assistant Connection (Gemini / Cloudflare Worker / BYOK) -->
+      <section
+        aria-labelledby="llm-connection-heading"
+        data-llm-connection-section="true"
+        class="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-4"
+      >
+        <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-linen-200/80 dark:border-night-800">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-forest-50 dark:bg-forest-950/60 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center">
+                ${renderIcon('sparkles', 'w-4 h-4')}
+              </span>
+              <h2 id="llm-connection-heading" class="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
+                AI Assistant &amp; Free LLM Connection
+              </h2>
+            </div>
+            <p class="text-xs text-stone-ink dark:text-slate-400 mt-1">
+              Powers categorized book tagging (interactive formats &amp; themes), Smart Shelf Rotations, and Library Gap Recommendations.
+            </p>
+          </div>
+          <span class="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] bg-forest-50 dark:bg-forest-950/50 px-2.5 py-1 rounded-lg shrink-0">
+            ${settings.llmProvider === 'cloudflare-worker' ? 'Cloudflare Proxy' : settings.llmProvider === 'byok-openai' ? 'OpenAI-Compatible' : settings.llmProvider === 'byok-gemini' ? 'BYOK Gemini' : 'Google Gemini (Server)'}
+          </span>
+        </div>
+
+        <form id="llm-config-form" class="space-y-4" novalidate>
+          <!-- Provider Selection Cards -->
+          <div>
+            <label class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-2">
+              Select LLM Provider:
+            </label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              ${[
+                {
+                  id: 'server-gemini',
+                  title: 'Google Gemini (Free Server)',
+                  desc: 'Uses built-in Gemini 3.8 Flash via backend. Zero client setup needed when server key is present.',
+                  badge: settingsUiState.serverLlmConfigured ? 'Server Key Ready' : 'Shared / Free',
+                },
+                {
+                  id: 'cloudflare-worker',
+                  title: 'Cloudflare Worker for Gemini',
+                  desc: 'Run through your own free Cloudflare Worker reverse proxy to bypass quota or add your personal Gemini key.',
+                  badge: 'Recommended for Quotas',
+                },
+                {
+                  id: 'byok-gemini',
+                  title: 'Personal Gemini API Key',
+                  desc: 'Bring your own Google AI Studio API key directly for dedicated personal quota.',
+                  badge: 'BYOK',
+                },
+                {
+                  id: 'byok-openai',
+                  title: 'OpenAI-Compatible / Other LLMs',
+                  desc: 'Connect to Groq, OpenRouter, Mistral, Local Ollama, or Cloudflare Workers AI.',
+                  badge: 'Universal',
+                },
+              ]
+                .map((p) => {
+                  const isSelected = (settings.llmProvider || 'server-gemini') === p.id;
+                  return `
+                    <label class="cursor-pointer rounded-xl p-3 border transition-colors flex flex-col justify-between ${
+                      isSelected
+                        ? 'bg-linen-100/90 dark:bg-night-800 border-forest-700 dark:border-[#5ED3DA] shadow-2xs'
+                        : 'bg-linen-50/70 dark:bg-night-950/60 border-linen-200 dark:border-night-700 hover:border-forest-700/50'
+                    }">
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="llmProvider"
+                            value="${escapeHtml(p.id)}"
+                            ${isSelected ? 'checked' : ''}
+                            class="accent-[#1F6E75] h-4 w-4"
+                          />
+                          <span class="text-xs font-bold text-forest-900 dark:text-white">
+                            ${escapeHtml(p.title)}
+                          </span>
+                        </div>
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                          isSelected
+                            ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                            : 'bg-linen-200 text-stone-ink dark:bg-night-700 dark:text-slate-300'
+                        }">
+                          ${escapeHtml(p.badge)}
+                        </span>
+                      </div>
+                      <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-1.5 leading-relaxed">
+                        ${escapeHtml(p.desc)}
+                      </p>
+                    </label>
+                  `;
+                })
+                .join('')}
+            </div>
+          </div>
+
+          <!-- Conditional Inputs for Cloudflare Worker -->
+          ${
+            settings.llmProvider === 'cloudflare-worker'
+              ? `
+                <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 p-3.5 space-y-3">
+                  <div>
+                    <label for="llm-cloudflare-url-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
+                      Cloudflare Worker Proxy URL
+                    </label>
+                    <div class="relative min-w-0">
+                      <input
+                        id="llm-cloudflare-url-input"
+                        name="llmCloudflareUrl"
+                        type="url"
+                        value="${escapeHtml(settings.llmCloudflareUrl || '')}"
+                        placeholder="https://gemini-proxy.yourname.workers.dev"
+                        class="w-full h-11 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                      />
+                      ${renderInputClearButton({
+                        targetId: 'llm-cloudflare-url-input',
+                        value: settings.llmCloudflareUrl || '',
+                        label: 'Clear Cloudflare URL',
+                      })}
+                    </div>
+                    <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-1">
+                      Your worker receives the prompt and calls the Gemini API server-side using your personal quota.
+                    </p>
+                  </div>
+                </div>
+              `
+              : ''
+          }
+
+          <!-- Conditional Inputs for OpenAI-compatible / Other LLMs -->
+          ${
+            settings.llmProvider === 'byok-openai'
+              ? `
+                <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 p-3.5 space-y-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label for="llm-base-url-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
+                        Endpoint Base URL
+                      </label>
+                      <input
+                        id="llm-base-url-input"
+                        name="llmBaseUrl"
+                        type="url"
+                        value="${escapeHtml(settings.llmBaseUrl || '')}"
+                        placeholder="https://api.groq.com/openai/v1 or http://localhost:11434/v1"
+                        class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                      />
+                    </div>
+                    <div>
+                      <label for="llm-openai-model-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
+                        Model Name
+                      </label>
+                      <input
+                        id="llm-openai-model-input"
+                        name="llmModel"
+                        type="text"
+                        value="${escapeHtml(settings.llmModel || 'llama-3.3-70b-versatile')}"
+                        placeholder="llama-3.3-70b-versatile or mistral-small-latest"
+                        class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+              `
+              : ''
+          }
+
+          <!-- API Key Input for BYOK Gemini or BYOK OpenAI -->
+          ${
+            settings.llmProvider === 'byok-gemini' || settings.llmProvider === 'byok-openai' || settings.llmProvider === 'cloudflare-worker'
+              ? `
+                <div class="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 p-3.5 space-y-2">
+                  <div class="flex items-center justify-between gap-2">
+                    <label for="llm-api-key-input" class="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                      ${settings.llmProvider === 'byok-gemini' ? 'Google Gemini API Key' : settings.llmProvider === 'cloudflare-worker' ? 'Optional Proxy Auth Bearer Token' : 'Provider API Key'}
+                    </label>
+                    <button
+                      type="button"
+                      data-action="toggle-show-llm-api-key"
+                      class="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline"
+                    >
+                      ${settingsUiState.showLlmApiKey ? 'Hide Key' : 'Show Key'}
+                    </button>
+                  </div>
+                  <input
+                    id="llm-api-key-input"
+                    name="llmApiKey"
+                    type="${settingsUiState.showLlmApiKey ? 'text' : 'password'}"
+                    value="${escapeHtml(settings.llmApiKey || '')}"
+                    placeholder="${settings.llmProvider === 'byok-gemini' ? 'AIzaSy...' : 'sk-... or gsk_...'}"
+                    class="w-full h-11 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  />
+                  <p class="text-[11px] text-stone-ink dark:text-slate-400">
+                    Stored locally in browser storage. Never logged or sent to third-party trackers.
+                  </p>
+                </div>
+              `
+              : ''
+          }
+
+          <!-- Model Selection & Parenting Focus Guideline -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            ${
+              settings.llmProvider !== 'byok-openai'
+                ? `
+                  <div>
+                    <label for="llm-model-select" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
+                      Gemini Model
+                    </label>
+                    <select
+                      id="llm-model-select"
+                      name="llmModel"
+                      class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                    >
+                      <option value="gemini-3.8-flash" ${settings.llmModel === 'gemini-3.8-flash' || !settings.llmModel ? 'selected' : ''}>gemini-3.8-flash (Recommended · Fast &amp; Free)</option>
+                      <option value="gemini-2.5-flash" ${settings.llmModel === 'gemini-2.5-flash' ? 'selected' : ''}>gemini-2.5-flash</option>
+                      <option value="gemini-3.1-flash-lite" ${settings.llmModel === 'gemini-3.1-flash-lite' ? 'selected' : ''}>gemini-3.1-flash-lite (Ultra low latency)</option>
+                    </select>
+                  </div>
+                `
+                : ''
+            }
+            <div class="${settings.llmProvider === 'byok-openai' ? 'sm:col-span-2' : ''}">
+              <label for="llm-custom-hint-input" class="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
+                Parenting / Library Focus (Optional)
+              </label>
+              <input
+                id="llm-custom-hint-input"
+                name="llmCustomPromptHint"
+                type="text"
+                value="${escapeHtml(settings.llmCustomPromptHint || '')}"
+                placeholder="e.g. Montessori, hands-on sensory, Spanish bilingual, STEM"
+                class="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              />
+            </div>
+          </div>
+
+          <!-- Buttons: Test Connection & Save Config -->
+          <div class="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-linen-200/80 dark:border-night-800">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                data-action="test-llm-connection"
+                ${settingsUiState.testingLlm ? 'disabled' : ''}
+                class="min-h-[42px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 disabled:opacity-50 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              >
+                ${
+                  settingsUiState.testingLlm
+                    ? renderIcon('activity', 'w-3.5 h-3.5 animate-spin')
+                    : renderIcon('activity', 'w-3.5 h-3.5')
+                }
+                <span>${settingsUiState.testingLlm ? 'Testing…' : 'Test Connection'}</span>
+              </button>
+            </div>
+            <button
+              type="submit"
+              class="min-h-[42px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs"
+            >
+              ${renderIcon('check', 'w-4 h-4')}
+              <span>Save AI Settings</span>
+            </button>
+          </div>
+
+          <!-- Test Status Report Banner -->
+          ${
+            settingsUiState.llmTestReport
+              ? `
+                <div
+                  role="status"
+                  class="rounded-xl px-3.5 py-2.5 text-xs font-medium flex items-start gap-2 ${
+                    settingsUiState.llmTestTone === 'error'
+                      ? 'bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800'
+                      : 'bg-emerald-50 text-emerald-950 border border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-700'
+                  }"
+                >
+                  <span class="mt-0.5">
+                    ${renderIcon(settingsUiState.llmTestTone === 'error' ? 'close' : 'check', 'w-3.5 h-3.5', 2.4)}
+                  </span>
+                  <span class="min-w-0 break-words leading-relaxed">${escapeHtml(settingsUiState.llmTestReport)}</span>
+                </div>
+              `
+              : ''
+          }
+        </form>
+
+        <!-- Collapsible Cloudflare Worker Guide for Gemini API -->
+        <details
+          data-cloudflare-llm-guide="true"
+          ${settingsUiState.isCloudflareLlmGuideOpen ? 'open' : ''}
+          class="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5"
+        >
+          <summary class="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
+            <span class="inline-flex items-center gap-1.5">
+              <span>⚡</span>
+              <span>How to set up a free Cloudflare Worker for Gemini API (Copy-Paste Script)</span>
+            </span>
+            <span class="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
+              ${renderIcon('chevronDown', 'w-4 h-4')}
+            </span>
+          </summary>
+
+          <div class="pt-2.5 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2.5 text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+            <p>
+              A Cloudflare Worker acts as your own private gateway to the Google Gemini API with unlimited free monthly requests on Cloudflare's free tier.
+            </p>
+            <ol class="list-decimal list-inside space-y-1 font-medium text-forest-900 dark:text-white">
+              <li>Log in to <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" class="text-forest-700 dark:text-[#5ED3DA] underline">Cloudflare Dashboard</a> &rarr; <strong>Workers &amp; Pages</strong> &rarr; <strong>Create Worker</strong>.</li>
+              <li>Under <strong>Settings &rarr; Variables</strong>, add an Encrypted Secret named <code>GEMINI_API_KEY</code> with your Gemini key from Google AI Studio.</li>
+              <li>Paste this script into your Worker and click <strong>Deploy</strong>:</li>
+            </ol>
+            <pre class="p-3 rounded-lg bg-night-950 text-ivory font-mono-tabular text-[11px] overflow-x-auto leading-relaxed"><code>${escapeHtml(CLOUDFLARE_WORKER_SAMPLE_SCRIPT)}</code></pre>
+            <p>
+              4. Copy your Worker URL (e.g. <code>https://gemini-proxy.yourname.workers.dev</code>) and paste it into the Cloudflare Worker URL field above!
+            </p>
+          </div>
+        </details>
+
+        <!-- Quota Safety & Rate Limits Note -->
+        <div class="rounded-xl bg-linen-50/70 dark:bg-night-950/60 border border-linen-200 dark:border-night-800 p-3 flex items-start gap-2.5">
+          <span class="text-forest-700 dark:text-[#5ED3DA] mt-0.5 shrink-0">
+            ${renderIcon('shield', 'w-4 h-4')}
+          </span>
+          <div class="text-[11px] text-stone-ink dark:text-slate-400 space-y-0.5 leading-relaxed">
+            <p class="font-bold text-forest-900 dark:text-white">
+              Quota-Conscious Design:
+            </p>
+            <p>
+              All queries use compact, token-minimized prompts and cache recommendations locally. If you encounter a <code>RESOURCE_EXHAUSTED (429)</code> quota error, simply wait 60 seconds for the free tier per-minute window to reset, or deploy the Cloudflare Worker above for dedicated quota.
+            </p>
           </div>
         </div>
       </section>
