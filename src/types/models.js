@@ -113,6 +113,8 @@
  * @property {string[]} bookIds - Ordered list of Book IDs in this rotation
  * @property {string[]} completedBookIds - Subset of bookIds checked off as read during this rotation cycle
  * @property {string[]} [pickedBookIds] - Subset of bookIds marked as picked during this rotation cycle (automatically marks read)
+ * @property {string[]} [pickedAutoReadBookIds] - Subset of pickedBookIds whose read status was newly added solely by picking in this rotation
+ * @property {string[]} [pickedCycleOnlyReadBookIds] - Subset of pickedBookIds that were already read prior to this rotation and temporarily added to completedBookIds while picked
  * @property {string[]} [placedBookIds] - Subset of bookIds checked off in the physical shelf placement helper
  * @property {'active' | 'saved' | 'archived'} status - Lifecycle state for the child profile
  * @property {string} createdAt - ISO-8601 timestamp

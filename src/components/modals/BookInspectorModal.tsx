@@ -1044,6 +1044,18 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                       <span>{isReadInActive ? 'Read · Undo' : 'Mark Read'}</span>
                     </button>
 
+                    {!isReadInActive && usageSummary.isReadByActiveProfile && effectiveReader && (
+                      <button
+                        type="button"
+                        onClick={() => store.toggleProfileBookRead(effectiveReader.id, book.id)}
+                        title="Clear previous Read status for this reader"
+                        className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-rose-50 dark:bg-night-900 dark:hover:bg-rose-950/40 border border-linen-200 dark:border-night-700 text-xs font-semibold text-stone-ink hover:text-rose-700 dark:text-slate-300 dark:hover:text-rose-300 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <Icon name="close" className="w-3.5 h-3.5" />
+                        <span>Clear Read</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => store.replaceRotationBookRandom(activeRot.id, book.id)}

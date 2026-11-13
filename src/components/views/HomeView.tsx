@@ -78,10 +78,10 @@ export const HomeView: React.FC = () => {
     ).length;
   }, [state.books]);
 
-  const handleToggleRead = async (bookId: string, e?: React.MouseEvent) => {
+  const handleTogglePicked = async (bookId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!activeRotation) return;
-    await store.toggleRotationBookRead(activeRotation.id, bookId);
+    await store.toggleRotationBookPicked(activeRotation.id, bookId);
   };
 
   const handleActivateRotation = async (rotId: string) => {
@@ -224,11 +224,11 @@ export const HomeView: React.FC = () => {
                   ? 'ring-[1.5px] ring-forest-700/75 dark:ring-[#5ED3DA]/75 ring-offset-2 ring-offset-linen-50 dark:ring-offset-night-950'
                   : '';
 
-              const badgeAriaLabel = isRead
-                ? `Mark ${book.title} as unread in this rotation`
+              const badgeAriaLabel = isPicked
+                ? `Unmark ${book.title} as picked in this rotation`
                 : isReadPreviously
-                  ? `Read previously · Mark ${book.title} read in this rotation`
-                  : `Mark ${book.title} as read`;
+                  ? `Read previously · Mark ${book.title} as picked in this rotation`
+                  : `Mark ${book.title} as picked and read`;
 
               return (
                 <article key={book.id} data-book-card={book.id} className="group flex flex-col min-w-0">
@@ -253,11 +253,11 @@ export const HomeView: React.FC = () => {
                       />
                     </button>
 
-                    {/* Single Non-Overlapping Bottom-Left Status Toggle (44x44px Thumb Hitbox) */}
+                    {/* Single Non-Overlapping Bottom-Left Picked Toggle (44x44px Thumb Hitbox) */}
                     <button
                       type="button"
-                      onClick={(e) => handleToggleRead(book.id, e)}
-                      aria-pressed={isRead}
+                      onClick={(e) => handleTogglePicked(book.id, e)}
+                      aria-pressed={isPicked}
                       aria-label={badgeAriaLabel}
                       className="absolute -bottom-1 -left-1 z-20 min-h-[44px] min-w-[44px] flex items-end justify-start p-2.5 focus-visible:outline-2 focus-visible:outline-forest-700"
                     >

@@ -203,22 +203,50 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     assert.equal(isBookPickedInRotation(seedRot, 'book_goodnight_moon'), true);
     assert.equal(isBookReadInRotation(seedRot, 'book_goodnight_moon'), true);
 
-    // Picking a book in a rotation automatically marks it as read in that rotation & profile history
-    const targetBookId = seedRot.bookIds[0];
+    // 1) Unread book: picking marks picked & read; unpicking reverts both picked & auto-read
+    const targetBookId = seedRot.bookIds[0]; // book_owl_moon (unread)
     await store.toggleRotationBookPicked(seedRot.id, targetBookId);
-    const afterPickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
-    const afterPickMaya = store.getState().profiles[0];
+    let afterPickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    let afterPickMaya = store.getState().profiles[0];
     assert.equal(isBookPickedInRotation(afterPickRot, targetBookId), true);
     assert.equal(isBookReadInRotation(afterPickRot, targetBookId), true);
     assert.ok(afterPickMaya.readHistoryBookIds.includes(targetBookId));
 
-    // Unpicking leaves explicit read intact unless explicitly unmarked
     await store.toggleRotationBookPicked(seedRot.id, targetBookId);
-    const afterUnpickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    let afterUnpickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    let afterUnpickMaya = store.getState().profiles[0];
     assert.equal(isBookPickedInRotation(afterUnpickRot, targetBookId), false);
-    assert.equal(isBookReadInRotation(afterUnpickRot, targetBookId), true);
+    assert.equal(isBookReadInRotation(afterUnpickRot, targetBookId), false);
+    assert.equal(afterUnpickMaya.readHistoryBookIds.includes(targetBookId), false);
 
-    // Explicit per-rotation status allows marking picked without read when explicitly specified
+    // 2) Book read in a previous rotation (book_snowy_day): picking shows picked & read,
+    //    and unpicking removes picked + active cycle ring while preserving prior readHistoryBookIds!
+    await store.toggleRotationBookPicked(seedRot.id, 'book_snowy_day');
+    afterPickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    assert.equal(isBookPickedInRotation(afterPickRot, 'book_snowy_day'), true);
+    assert.equal(isBookReadInRotation(afterPickRot, 'book_snowy_day'), true);
+    assert.ok(store.getState().profiles[0].readHistoryBookIds.includes('book_snowy_day'));
+
+    await store.toggleRotationBookPicked(seedRot.id, 'book_snowy_day');
+    afterUnpickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    afterUnpickMaya = store.getState().profiles[0];
+    assert.equal(isBookPickedInRotation(afterUnpickRot, 'book_snowy_day'), false);
+    assert.equal(isBookReadInRotation(afterUnpickRot, 'book_snowy_day'), false);
+    assert.ok(afterUnpickMaya.readHistoryBookIds.includes('book_snowy_day'));
+
+    // Clearing prior read manually via book page (toggleProfileBookRead) removes it from readHistoryBookIds
+    await store.toggleProfileBookRead(seedMaya.id, 'book_snowy_day');
+    assert.equal(store.getState().profiles[0].readHistoryBookIds.includes('book_snowy_day'), false);
+
+    // 3) Explicitly marked read in current rotation stays read when unpicked
+    await store.setRotationBookStatus(seedRot.id, targetBookId, { read: true });
+    await store.toggleRotationBookPicked(seedRot.id, targetBookId);
+    await store.toggleRotationBookPicked(seedRot.id, targetBookId);
+    const explicitReadRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    assert.equal(isBookPickedInRotation(explicitReadRot, targetBookId), false);
+    assert.equal(isBookReadInRotation(explicitReadRot, targetBookId), true);
+
+    // 4) Explicit per-rotation status allows marking picked without read when explicitly specified
     await store.setRotationBookStatus(seedRot.id, targetBookId, { picked: true, read: false });
     const pickedOnlyRot = store.getState().rotations.find((r) => r.id === seedRot.id);
     assert.equal(isBookPickedInRotation(pickedOnlyRot, targetBookId), true);

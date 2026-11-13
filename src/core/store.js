@@ -1557,6 +1557,12 @@ export function createAppStore(storage, deps = {}) {
         pickedBookIds: Array.isArray(rot.pickedBookIds)
           ? rot.pickedBookIds.filter((id) => id !== bookId)
           : [],
+        pickedAutoReadBookIds: Array.isArray(rot.pickedAutoReadBookIds)
+          ? rot.pickedAutoReadBookIds.filter((id) => id !== bookId)
+          : [],
+        pickedCycleOnlyReadBookIds: Array.isArray(rot.pickedCycleOnlyReadBookIds)
+          ? rot.pickedCycleOnlyReadBookIds.filter((id) => id !== bookId)
+          : [],
         placedBookIds: Array.isArray(rot.placedBookIds)
           ? rot.placedBookIds.filter((id) => id !== bookId)
           : [],
@@ -1572,7 +1578,12 @@ export function createAppStore(storage, deps = {}) {
    *
    * @param {string} rotationId
    * @param {string} bookId
-   * @param {{ picked?: boolean, read?: boolean }} statusPatch
+   * @param {{
+   *   picked?: boolean,
+   *   read?: boolean,
+   *   _pickOrigin?: 'auto-from-pick' | 'prior-read' | 'already-in-cycle',
+   *   _preservePriorRead?: boolean
+   * }} statusPatch
    */
   async function setRotationBookStatus(rotationId, bookId, statusPatch = {}) {
     const rotation = state.rotations.find((r) => r.id === rotationId);
@@ -1580,6 +1591,12 @@ export function createAppStore(storage, deps = {}) {
 
     const wasRead = rotation.completedBookIds.includes(bookId);
     const currentPicked = Array.isArray(rotation.pickedBookIds) ? rotation.pickedBookIds : [];
+    const currentPickedAutoRead = Array.isArray(rotation.pickedAutoReadBookIds)
+      ? rotation.pickedAutoReadBookIds
+      : [];
+    const currentPickedCycleOnlyRead = Array.isArray(rotation.pickedCycleOnlyReadBookIds)
+      ? rotation.pickedCycleOnlyReadBookIds
+      : [];
     const wasPicked = currentPicked.includes(bookId);
 
     const nextPickedBool =
@@ -1592,7 +1609,29 @@ export function createAppStore(storage, deps = {}) {
           ? true
           : wasRead;
 
-    if (nextPickedBool === wasPicked && nextReadBool === wasRead) {
+    let nextPickedAutoRead = currentPickedAutoRead;
+    let nextPickedCycleOnlyRead = currentPickedCycleOnlyRead;
+
+    if (statusPatch._pickOrigin === 'auto-from-pick' && nextPickedBool && nextReadBool) {
+      nextPickedAutoRead = Array.from(new Set([...currentPickedAutoRead, bookId]));
+      nextPickedCycleOnlyRead = currentPickedCycleOnlyRead.filter((id) => id !== bookId);
+    } else if (statusPatch._pickOrigin === 'prior-read' && nextPickedBool && nextReadBool) {
+      nextPickedAutoRead = currentPickedAutoRead.filter((id) => id !== bookId);
+      nextPickedCycleOnlyRead = Array.from(new Set([...currentPickedCycleOnlyRead, bookId]));
+    } else if (
+      statusPatch._pickOrigin === 'already-in-cycle' ||
+      statusPatch.read !== undefined ||
+      statusPatch.picked === false
+    ) {
+      nextPickedAutoRead = currentPickedAutoRead.filter((id) => id !== bookId);
+      nextPickedCycleOnlyRead = currentPickedCycleOnlyRead.filter((id) => id !== bookId);
+    }
+
+    const originChanged =
+      nextPickedAutoRead.length !== currentPickedAutoRead.length ||
+      nextPickedCycleOnlyRead.length !== currentPickedCycleOnlyRead.length;
+
+    if (nextPickedBool === wasPicked && nextReadBool === wasRead && !originChanged) {
       return;
     }
 
@@ -1610,6 +1649,7 @@ export function createAppStore(storage, deps = {}) {
 
     const now = new Date().toISOString();
     const readChanged = nextReadBool !== wasRead;
+    const preservePriorRead = Boolean(statusPatch._preservePriorRead);
 
     const nextRotations = state.rotations.map((r) => {
       if (r.id === rotationId) {
@@ -1617,13 +1657,17 @@ export function createAppStore(storage, deps = {}) {
           ...r,
           completedBookIds: nextCompleted,
           pickedBookIds: nextPicked,
+          pickedAutoReadBookIds: nextPickedAutoRead,
+          pickedCycleOnlyReadBookIds: nextPickedCycleOnlyRead,
           updatedAt: now,
         };
       }
-      // If unmarking read on the profile's active shelf, keep active shelves for the same child consistent.
+      // If unmarking read on the profile's active shelf (and not merely reverting a pick on a previously read book),
+      // keep active shelves for the same child consistent.
       if (
         readChanged &&
         !nextReadBool &&
+        !preservePriorRead &&
         r.profileId === rotation.profileId &&
         r.status === 'active' &&
         r.completedBookIds.includes(bookId)
@@ -1637,7 +1681,7 @@ export function createAppStore(storage, deps = {}) {
       return r;
     });
 
-    if (!readChanged) {
+    if (!readChanged || (!nextReadBool && preservePriorRead)) {
       await commit({
         ...state,
         rotations: nextRotations,
@@ -1690,6 +1734,9 @@ export function createAppStore(storage, deps = {}) {
   /**
    * Toggles whether a book was picked during a specific rotation.
    * Picking a book automatically marks it as read in that rotation and updates reading history.
+   * Unpicking a book that was already read in a prior rotation (or read manually before picking)
+   * removes only the picked marker for this rotation while preserving its pre-existing Read status.
+   *
    * @param {string} rotationId
    * @param {string} bookId
    */
@@ -1697,10 +1744,59 @@ export function createAppStore(storage, deps = {}) {
     const rotation = state.rotations.find((r) => r.id === rotationId);
     if (!rotation) return;
     const isPicked = Array.isArray(rotation.pickedBookIds) && rotation.pickedBookIds.includes(bookId);
-    if (isPicked) {
-      await setRotationBookStatus(rotationId, bookId, { picked: false });
+    if (!isPicked) {
+      const profile = state.profiles.find((p) => p.id === rotation.profileId);
+      const wasInCycleCompleted = rotation.completedBookIds.includes(bookId);
+      const wasInPriorHistory =
+        Boolean(profile && Array.isArray(profile.readHistoryBookIds) && profile.readHistoryBookIds.includes(bookId)) ||
+        state.rotations.some(
+          (r) =>
+            r.id !== rotationId &&
+            r.profileId === rotation.profileId &&
+            Array.isArray(r.completedBookIds) &&
+            r.completedBookIds.includes(bookId)
+        );
+      const _pickOrigin = wasInCycleCompleted
+        ? 'already-in-cycle'
+        : wasInPriorHistory
+          ? 'prior-read'
+          : 'auto-from-pick';
+      await setRotationBookStatus(rotationId, bookId, {
+        picked: true,
+        read: true,
+        _pickOrigin,
+      });
+      return;
+    }
+
+    const isAutoFromPick =
+      Array.isArray(rotation.pickedAutoReadBookIds) &&
+      rotation.pickedAutoReadBookIds.includes(bookId);
+    const isCycleOnlyFromPriorRead =
+      Array.isArray(rotation.pickedCycleOnlyReadBookIds) &&
+      rotation.pickedCycleOnlyReadBookIds.includes(bookId);
+
+    if (isAutoFromPick) {
+      const hasOtherRotationRead = state.rotations.some(
+        (r) =>
+          r.id !== rotationId &&
+          r.profileId === rotation.profileId &&
+          Array.isArray(r.completedBookIds) &&
+          r.completedBookIds.includes(bookId)
+      );
+      await setRotationBookStatus(rotationId, bookId, {
+        picked: false,
+        read: false,
+        _preservePriorRead: hasOtherRotationRead,
+      });
+    } else if (isCycleOnlyFromPriorRead) {
+      await setRotationBookStatus(rotationId, bookId, {
+        picked: false,
+        read: false,
+        _preservePriorRead: true,
+      });
     } else {
-      await setRotationBookStatus(rotationId, bookId, { picked: true, read: true });
+      await setRotationBookStatus(rotationId, bookId, { picked: false });
     }
   }
 
@@ -2170,6 +2266,12 @@ export function createAppStore(storage, deps = {}) {
         completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
         pickedBookIds: Array.isArray(r.pickedBookIds)
           ? r.pickedBookIds.filter((id) => id !== bookId)
+          : [],
+        pickedAutoReadBookIds: Array.isArray(r.pickedAutoReadBookIds)
+          ? r.pickedAutoReadBookIds.filter((id) => id !== bookId)
+          : [],
+        pickedCycleOnlyReadBookIds: Array.isArray(r.pickedCycleOnlyReadBookIds)
+          ? r.pickedCycleOnlyReadBookIds.filter((id) => id !== bookId)
           : [],
         placedBookIds: Array.isArray(r.placedBookIds)
           ? r.placedBookIds.filter((id) => id !== bookId)

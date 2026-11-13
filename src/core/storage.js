@@ -259,6 +259,25 @@ export function migrateState(state, referenceDate = new Date()) {
               )
             )
           : [...cleanCompletedIds];
+        const pickedSet = new Set(cleanPickedIds);
+        const cleanPickedAutoReadIds = Array.isArray(rot.pickedAutoReadBookIds)
+          ? Array.from(
+              new Set(
+                rot.pickedAutoReadBookIds.filter(
+                  (id) => typeof id === 'string' && validSet.has(id) && pickedSet.has(id)
+                )
+              )
+            )
+          : [];
+        const cleanPickedCycleOnlyReadIds = Array.isArray(rot.pickedCycleOnlyReadBookIds)
+          ? Array.from(
+              new Set(
+                rot.pickedCycleOnlyReadBookIds.filter(
+                  (id) => typeof id === 'string' && validSet.has(id) && pickedSet.has(id)
+                )
+              )
+            )
+          : [];
         const cleanPlacedIds = Array.isArray(rot.placedBookIds)
           ? Array.from(
               new Set(
@@ -279,6 +298,8 @@ export function migrateState(state, referenceDate = new Date()) {
           bookIds: cleanBookIds,
           completedBookIds: cleanCompletedIds,
           pickedBookIds: cleanPickedIds,
+          pickedAutoReadBookIds: cleanPickedAutoReadIds,
+          pickedCycleOnlyReadBookIds: cleanPickedCycleOnlyReadIds,
           placedBookIds: cleanPlacedIds,
           status: cleanStatus,
         };

@@ -541,6 +541,12 @@ export function applyBookReplacement(
   const nextPicked = Array.isArray(rotation.pickedBookIds)
     ? rotation.pickedBookIds.filter((id) => id !== targetBookId)
     : [];
+  const nextPickedAutoRead = Array.isArray(rotation.pickedAutoReadBookIds)
+    ? rotation.pickedAutoReadBookIds.filter((id) => id !== targetBookId)
+    : [];
+  const nextPickedCycleOnlyRead = Array.isArray(rotation.pickedCycleOnlyReadBookIds)
+    ? rotation.pickedCycleOnlyReadBookIds.filter((id) => id !== targetBookId)
+    : [];
   const nextPlaced = Array.isArray(rotation.placedBookIds)
     ? rotation.placedBookIds.filter((id) => id !== targetBookId)
     : [];
@@ -556,6 +562,8 @@ export function applyBookReplacement(
     bookIds: nextBookIds,
     completedBookIds: nextCompleted,
     pickedBookIds: nextPicked,
+    pickedAutoReadBookIds: nextPickedAutoRead,
+    pickedCycleOnlyReadBookIds: nextPickedCycleOnlyRead,
     placedBookIds: nextPlaced,
     slotAddedAt: baseSlots,
     updatedAt: nowIso,
