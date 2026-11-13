@@ -16,6 +16,7 @@ interface RotationShelfEditorModalProps {
   rotation: RotationShelf | null;
   isOpen: boolean;
   onClose: () => void;
+  onOpenPlacement?: () => void;
   onSwapBook?: (bookId: string) => void;
   onReplaceBook?: (bookId: string) => void;
   onAddRandom?: (count: number) => void;
@@ -28,6 +29,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
   rotation,
   isOpen,
   onClose,
+  onOpenPlacement,
   onSwapBook,
   onReplaceBook,
   onAddRandom,
@@ -297,15 +299,28 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
 
           <hr className="border-linen-200 dark:border-night-800" />
 
-          {/* Section 2: Books on Shelf — Restored Edit Cards with full-width 4-button strip */}
+          {/* Section 2: Books on Shelf */}
           <section className="space-y-3">
-            <h3 className="font-display text-sm font-bold text-forest-900 dark:text-white uppercase tracking-wider">
-              Books on Shelf ({shelfBooks.length})
-            </h3>
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-display text-sm font-bold text-forest-900 dark:text-white uppercase tracking-wider">
+                Books on Shelf ({shelfBooks.length})
+              </h3>
+              {onOpenPlacement && (
+                <button
+                  type="button"
+                  onClick={onOpenPlacement}
+                  className="min-h-[34px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                >
+                  <Icon name="checklist" className="w-3.5 h-3.5" />
+                  <span>Stock Shelf</span>
+                </button>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
               {shelfBooks.map((book: Book) => {
                 const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
+                const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
                 const topicsLabel =
                   book.tags && book.tags.length > 0 ? book.tags.slice(0, 4).join(' · ') : 'general';
                 const owners = normalizeOwnersList(book.owners).filter(
@@ -411,8 +426,34 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                       </div>
                     </div>
 
-                    {/* 4-Icon Slot Control Strip spanning the full card width */}
-                    <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-linen-200/70 dark:border-night-800">
+                    {/* 5-Icon Slot Control Strip spanning the full card width */}
+                    <div className="grid grid-cols-5 gap-1.5 pt-2 border-t border-linen-200/70 dark:border-night-800">
+                      <button
+                        type="button"
+                        onClick={() => store.toggleRotationBookPicked(rotation.id, book.id)}
+                        aria-pressed={isBookPicked}
+                        aria-label={
+                          isBookPicked
+                            ? `Unmark ${book.title} picked in this rotation`
+                            : `Mark ${book.title} picked in this rotation`
+                        }
+                        title={
+                          isBookPicked
+                            ? 'Picked in this rotation'
+                            : 'Mark Picked (automatically marks read)'
+                        }
+                        className={`min-h-[42px] rounded-xl transition-colors flex items-center justify-center ${
+                          isBookPicked
+                            ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                            : 'bg-ivory hover:bg-linen-100 text-stone-ink dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
+                        }`}
+                      >
+                        <Icon
+                          name={isBookPicked ? 'bookmarkFilled' : 'bookmark'}
+                          className="w-4 h-4"
+                        />
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => onToggleRead?.(book.id)}

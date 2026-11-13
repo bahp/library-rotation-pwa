@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { Icon } from '../common/Icon.js';
 import { RotationShelfEditorModal } from '../modals/RotationShelfEditorModal.js';
+import { ShelfPlacementModal } from '../modals/ShelfPlacementModal.js';
 import { computeRotationSchedule } from '../../features/rotations/rotation-schedule.js';
 import type { RotationShelf, Book } from '../../types/models.js';
 
@@ -34,6 +35,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
 }) => {
   const { state, activeProfile, setInspectedBookId } = useApp();
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isPlacementOpen, setIsPlacementOpen] = useState(false);
 
   const coverAspect = state.settings?.coverAspectRatio || 'portrait';
 
@@ -115,6 +117,16 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
 
             <button
               type="button"
+              onClick={() => setIsPlacementOpen(true)}
+              aria-label={`Stock shelf checklist for ${rotation.title}`}
+              className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+            >
+              <Icon name="checklist" className="w-3.5 h-3.5" />
+              <span>Stock</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setIsEditorOpen(true)}
               aria-label={`Edit ${rotation.title}`}
               className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
@@ -129,6 +141,12 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
         <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-0.5">
           {shelfBooks.map((book: Book) => {
             const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
+            const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
+            const coverRingClass = isBookPicked
+              ? 'ring-2 ring-forest-700 dark:ring-[#5ED3DA] ring-offset-2 ring-offset-linen-50 dark:ring-offset-night-950'
+              : isBookRead
+                ? 'ring-[1.5px] ring-forest-700/75 dark:ring-[#5ED3DA]/75 ring-offset-2 ring-offset-linen-50 dark:ring-offset-night-950'
+                : '';
 
             return (
               <div key={book.id} className="relative min-w-0">
@@ -143,17 +161,13 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                     size="grid"
                     aspectRatio={coverAspect}
                     showBadges
+                    activeProfile={activeProfile}
+                    profiles={state.profiles}
                     isReadOnActiveShelf={isBookRead}
+                    isPickedInRotation={isBookPicked}
+                    className={coverRingClass}
                   />
                 </button>
-                {isBookRead && (
-                  <span
-                    className="pointer-events-none absolute bottom-1.5 left-1.5 z-20 w-5 h-5 rounded-full bg-forest-900 border border-ivory text-white dark:bg-[#5ED3DA] dark:border-night-950 dark:text-night-950 flex items-center justify-center shadow-xs"
-                    aria-hidden="true"
-                  >
-                    <Icon name="check" className="w-3 h-3" />
-                  </span>
-                )}
               </div>
             );
           })}
@@ -165,12 +179,23 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
         rotation={rotation}
         isOpen={isEditorOpen}
         onClose={() => setIsEditorOpen(false)}
+        onOpenPlacement={() => {
+          setIsEditorOpen(false);
+          setIsPlacementOpen(true);
+        }}
         onSwapBook={onSwapBook}
         onReplaceBook={onReplaceBook}
         onAddRandom={onAddRandom}
         onOpenAddModal={onOpenAddModal}
         onToggleRead={onToggleRead}
         onDelete={onDelete}
+      />
+
+      {/* Shelf Placement Helper Checklist Modal */}
+      <ShelfPlacementModal
+        rotation={rotation}
+        isOpen={isPlacementOpen}
+        onClose={() => setIsPlacementOpen(false)}
       />
     </>
   );

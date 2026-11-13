@@ -252,6 +252,20 @@ export function migrateState(state, referenceDate = new Date()) {
               )
             )
           : [];
+        const cleanPickedIds = Array.isArray(rot.pickedBookIds)
+          ? Array.from(
+              new Set(
+                rot.pickedBookIds.filter((id) => typeof id === 'string' && validSet.has(id))
+              )
+            )
+          : [...cleanCompletedIds];
+        const cleanPlacedIds = Array.isArray(rot.placedBookIds)
+          ? Array.from(
+              new Set(
+                rot.placedBookIds.filter((id) => typeof id === 'string' && validSet.has(id))
+              )
+            )
+          : [];
         let cleanStatus = rot.status;
         if (cleanStatus === 'active') {
           if (seenActiveProfileIds.has(rot.profileId)) {
@@ -264,6 +278,8 @@ export function migrateState(state, referenceDate = new Date()) {
           ...rot,
           bookIds: cleanBookIds,
           completedBookIds: cleanCompletedIds,
+          pickedBookIds: cleanPickedIds,
+          placedBookIds: cleanPlacedIds,
           status: cleanStatus,
         };
       })

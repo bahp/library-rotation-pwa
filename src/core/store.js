@@ -1088,6 +1088,8 @@ export function createAppStore(storage, deps = {}) {
       },
       bookIds,
       completedBookIds: [],
+      pickedBookIds: [],
+      placedBookIds: [],
       status: /** @type {'active' | 'saved'} */ (shouldActivate ? 'active' : 'saved'),
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -1552,34 +1554,76 @@ export function createAppStore(storage, deps = {}) {
         ...rot,
         bookIds: rot.bookIds.filter((id) => id !== bookId),
         completedBookIds: rot.completedBookIds.filter((id) => id !== bookId),
+        pickedBookIds: Array.isArray(rot.pickedBookIds)
+          ? rot.pickedBookIds.filter((id) => id !== bookId)
+          : [],
+        placedBookIds: Array.isArray(rot.placedBookIds)
+          ? rot.placedBookIds.filter((id) => id !== bookId)
+          : [],
       })),
     });
     notify(`Removed "${target.title}" from library.`, 'info');
   }
 
   /**
-   * Toggles read/completed state for a book inside a rotation and keeps profile `readHistoryBookIds`
-   * and book `lastReadAt` cleanly synchronized in both directions (marking AND unmarking).
+   * Explicitly updates per-rotation `picked` and/or `read` state for a book inside a rotation.
+   * When `picked` is marked `true` and `read` is not explicitly provided (`undefined`), `read`
+   * automatically defaults to `true` (and keeps profile `readHistoryBookIds` + `lastReadAt` synced).
+   *
    * @param {string} rotationId
    * @param {string} bookId
+   * @param {{ picked?: boolean, read?: boolean }} statusPatch
    */
-  async function toggleRotationBookRead(rotationId, bookId) {
+  async function setRotationBookStatus(rotationId, bookId, statusPatch = {}) {
     const rotation = state.rotations.find((r) => r.id === rotationId);
-    if (!rotation) return;
-    const isDone = rotation.completedBookIds.includes(bookId);
-    const nextCompleted = isDone
-      ? rotation.completedBookIds.filter((id) => id !== bookId)
-      : [...rotation.completedBookIds, bookId];
+    if (!rotation || !rotation.bookIds.includes(bookId)) return;
+
+    const wasRead = rotation.completedBookIds.includes(bookId);
+    const currentPicked = Array.isArray(rotation.pickedBookIds) ? rotation.pickedBookIds : [];
+    const wasPicked = currentPicked.includes(bookId);
+
+    const nextPickedBool =
+      statusPatch.picked !== undefined ? Boolean(statusPatch.picked) : wasPicked;
+    // Picking a book automatically marks it as read unless `read: false` is explicitly supplied
+    const nextReadBool =
+      statusPatch.read !== undefined
+        ? Boolean(statusPatch.read)
+        : statusPatch.picked === true
+          ? true
+          : wasRead;
+
+    if (nextPickedBool === wasPicked && nextReadBool === wasRead) {
+      return;
+    }
+
+    const nextCompleted = nextReadBool
+      ? wasRead
+        ? rotation.completedBookIds
+        : [...rotation.completedBookIds, bookId]
+      : rotation.completedBookIds.filter((id) => id !== bookId);
+
+    const nextPicked = nextPickedBool
+      ? wasPicked
+        ? currentPicked
+        : [...currentPicked, bookId]
+      : currentPicked.filter((id) => id !== bookId);
 
     const now = new Date().toISOString();
+    const readChanged = nextReadBool !== wasRead;
+
     const nextRotations = state.rotations.map((r) => {
       if (r.id === rotationId) {
-        return { ...r, completedBookIds: nextCompleted, updatedAt: now };
+        return {
+          ...r,
+          completedBookIds: nextCompleted,
+          pickedBookIds: nextPicked,
+          updatedAt: now,
+        };
       }
-      // If unmarking read on the profile's active shelf (or if the same book was checked off on
-      // another active shelf for the same child), keep the child's active shelf state consistent.
+      // If unmarking read on the profile's active shelf, keep active shelves for the same child consistent.
       if (
-        isDone &&
+        readChanged &&
+        !nextReadBool &&
         r.profileId === rotation.profileId &&
         r.status === 'active' &&
         r.completedBookIds.includes(bookId)
@@ -1593,6 +1637,14 @@ export function createAppStore(storage, deps = {}) {
       return r;
     });
 
+    if (!readChanged) {
+      await commit({
+        ...state,
+        rotations: nextRotations,
+      });
+      return;
+    }
+
     const stillReadOnProfileShelf = nextRotations.some(
       (r) =>
         r.profileId === rotation.profileId &&
@@ -1603,7 +1655,7 @@ export function createAppStore(storage, deps = {}) {
     const nextProfiles = state.profiles.map((p) => {
       if (p.id !== rotation.profileId) return p;
       const historySet = new Set(p.readHistoryBookIds);
-      if (!isDone) {
+      if (nextReadBool) {
         historySet.add(bookId);
       } else if (!stillReadOnProfileShelf) {
         historySet.delete(bookId);
@@ -1617,7 +1669,7 @@ export function createAppStore(storage, deps = {}) {
 
     const nextBooks = state.books.map((b) => {
       if (b.id !== bookId) return b;
-      if (!isDone) {
+      if (nextReadBool) {
         return { ...b, lastReadAt: now };
       }
       if (!anyProfileStillRead) {
@@ -1632,6 +1684,80 @@ export function createAppStore(storage, deps = {}) {
       books: nextBooks,
       profiles: nextProfiles,
       rotations: nextRotations,
+    });
+  }
+
+  /**
+   * Toggles whether a book was picked during a specific rotation.
+   * Picking a book automatically marks it as read in that rotation and updates reading history.
+   * @param {string} rotationId
+   * @param {string} bookId
+   */
+  async function toggleRotationBookPicked(rotationId, bookId) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) return;
+    const isPicked = Array.isArray(rotation.pickedBookIds) && rotation.pickedBookIds.includes(bookId);
+    if (isPicked) {
+      await setRotationBookStatus(rotationId, bookId, { picked: false });
+    } else {
+      await setRotationBookStatus(rotationId, bookId, { picked: true, read: true });
+    }
+  }
+
+  /**
+   * Toggles read/completed state for a book inside a rotation and keeps profile `readHistoryBookIds`
+   * and book `lastReadAt` cleanly synchronized in both directions (marking AND unmarking).
+   * @param {string} rotationId
+   * @param {string} bookId
+   */
+  async function toggleRotationBookRead(rotationId, bookId) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) return;
+    const isDone = rotation.completedBookIds.includes(bookId);
+    await setRotationBookStatus(rotationId, bookId, { read: !isDone });
+  }
+
+  /**
+   * Toggles physical shelf placement check-off for a book inside a rotation (for stocking/cleanup).
+   * @param {string} rotationId
+   * @param {string} bookId
+   */
+  async function toggleRotationBookPlaced(rotationId, bookId) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation || !rotation.bookIds.includes(bookId)) return;
+    const currentPlaced = Array.isArray(rotation.placedBookIds) ? rotation.placedBookIds : [];
+    const isPlaced = currentPlaced.includes(bookId);
+    const nextPlaced = isPlaced
+      ? currentPlaced.filter((id) => id !== bookId)
+      : [...currentPlaced, bookId];
+
+    const now = new Date().toISOString();
+    await commit({
+      ...state,
+      rotations: state.rotations.map((r) =>
+        r.id === rotationId ? { ...r, placedBookIds: nextPlaced, updatedAt: now } : r
+      ),
+    });
+  }
+
+  /**
+   * Batch sets physical shelf placement check-offs for a rotation (e.g. Check All, Check Completed, or Clear).
+   * @param {string} rotationId
+   * @param {string[]} bookIds
+   */
+  async function setRotationBooksPlaced(rotationId, bookIds) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) return;
+    const validSet = new Set(rotation.bookIds);
+    const nextPlaced = Array.from(
+      new Set((bookIds || []).filter((id) => typeof id === 'string' && validSet.has(id)))
+    );
+    const now = new Date().toISOString();
+    await commit({
+      ...state,
+      rotations: state.rotations.map((r) =>
+        r.id === rotationId ? { ...r, placedBookIds: nextPlaced, updatedAt: now } : r
+      ),
     });
   }
 
@@ -1805,6 +1931,8 @@ export function createAppStore(storage, deps = {}) {
       rules,
       bookIds: engineOut.selectedBookIds,
       completedBookIds: [],
+      pickedBookIds: [],
+      placedBookIds: [],
       status: 'active',
       createdAt: now,
       updatedAt: now,
@@ -2040,6 +2168,12 @@ export function createAppStore(storage, deps = {}) {
         ...r,
         bookIds: nextBookIds,
         completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
+        pickedBookIds: Array.isArray(r.pickedBookIds)
+          ? r.pickedBookIds.filter((id) => id !== bookId)
+          : [],
+        placedBookIds: Array.isArray(r.placedBookIds)
+          ? r.placedBookIds.filter((id) => id !== bookId)
+          : [],
         slotAddedAt: syncRotationSlotAddedAt(r.slotAddedAt, nextBookIds, now, {
           fallbackStartIso: r.activatedAt || r.createdAt || now,
         }),
@@ -2592,7 +2726,11 @@ export function createAppStore(storage, deps = {}) {
     enrichAllCatalogBooks,
     syncExistingCatalogMetadata,
     deleteBook,
+    setRotationBookStatus,
+    toggleRotationBookPicked,
     toggleRotationBookRead,
+    toggleRotationBookPlaced,
+    setRotationBooksPlaced,
     toggleProfileBookRead,
     generateRotation,
     createStarterRotation,

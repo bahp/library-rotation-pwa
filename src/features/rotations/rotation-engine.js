@@ -538,6 +538,12 @@ export function applyBookReplacement(
   nextBookIds[idx] = replacementBookId;
 
   const nextCompleted = rotation.completedBookIds.filter((id) => id !== targetBookId);
+  const nextPicked = Array.isArray(rotation.pickedBookIds)
+    ? rotation.pickedBookIds.filter((id) => id !== targetBookId)
+    : [];
+  const nextPlaced = Array.isArray(rotation.placedBookIds)
+    ? rotation.placedBookIds.filter((id) => id !== targetBookId)
+    : [];
   const fallbackAnchor = rotation.activatedAt || rotation.createdAt || nowIso;
   const baseSlots = syncRotationSlotAddedAt(rotation.slotAddedAt, rotation.bookIds, nowIso, {
     fallbackStartIso: fallbackAnchor,
@@ -549,6 +555,8 @@ export function applyBookReplacement(
     ...rotation,
     bookIds: nextBookIds,
     completedBookIds: nextCompleted,
+    pickedBookIds: nextPicked,
+    placedBookIds: nextPlaced,
     slotAddedAt: baseSlots,
     updatedAt: nowIso,
   };

@@ -11,7 +11,9 @@ interface BookCoverProps {
   activeProfile?: ChildProfile | null;
   profiles?: ChildProfile[];
   isReadOnActiveShelf?: boolean;
+  isPickedInRotation?: boolean;
   isOnActiveShelf?: boolean;
+  hideRotationAdorno?: boolean;
   cooldownDaysRemaining?: number;
   isStaleUnread?: boolean;
   staleShelfDays?: number;
@@ -27,7 +29,9 @@ export const BookCover: React.FC<BookCoverProps> = ({
   activeProfile = null,
   profiles = [],
   isReadOnActiveShelf = false,
+  isPickedInRotation = false,
   isOnActiveShelf = false,
+  hideRotationAdorno = false,
   cooldownDaysRemaining = 0,
   isStaleUnread = false,
   staleShelfDays = 0,
@@ -86,11 +90,21 @@ export const BookCover: React.FC<BookCoverProps> = ({
 
   // Rotation adorno logic
   let rotationAdorno: { label: string; icon: string; pillClass: string } | null = null;
-  if (showBadges && (!book.collectionStatus || book.collectionStatus === 'owned')) {
+  if (
+    showBadges &&
+    !hideRotationAdorno &&
+    (!book.collectionStatus || book.collectionStatus === 'owned')
+  ) {
     if (isReadOnActiveShelf) {
       rotationAdorno = {
         label: 'Read',
         icon: COVER_ROTATION_ADORNO_STYLES['shelf-read'].icon,
+        pillClass: COVER_ROTATION_ADORNO_STYLES['shelf-read'].pillClass,
+      };
+    } else if (isPickedInRotation) {
+      rotationAdorno = {
+        label: 'Picked',
+        icon: 'bookmarkFilled',
         pillClass: COVER_ROTATION_ADORNO_STYLES['shelf-read'].pillClass,
       };
     } else if (isStaleUnread) {
@@ -111,12 +125,6 @@ export const BookCover: React.FC<BookCoverProps> = ({
         icon: COVER_ROTATION_ADORNO_STYLES.cooldown.icon,
         pillClass: COVER_ROTATION_ADORNO_STYLES.cooldown.pillClass,
       };
-    } else if (!book.rotationCount || book.rotationCount === 0) {
-      rotationAdorno = {
-        label: 'New',
-        icon: COVER_ROTATION_ADORNO_STYLES['never-rotated'].icon,
-        pillClass: COVER_ROTATION_ADORNO_STYLES['never-rotated'].pillClass,
-      };
     } else if (
       activeProfile &&
       Array.isArray(activeProfile.readHistoryBookIds) &&
@@ -126,6 +134,12 @@ export const BookCover: React.FC<BookCoverProps> = ({
         label: 'Read',
         icon: COVER_ROTATION_ADORNO_STYLES['read-history'].icon,
         pillClass: COVER_ROTATION_ADORNO_STYLES['read-history'].pillClass,
+      };
+    } else if (!book.rotationCount || book.rotationCount === 0) {
+      rotationAdorno = {
+        label: 'New',
+        icon: COVER_ROTATION_ADORNO_STYLES['never-rotated'].icon,
+        pillClass: COVER_ROTATION_ADORNO_STYLES['never-rotated'].pillClass,
       };
     }
   }

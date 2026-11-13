@@ -111,7 +111,9 @@
  * @property {string} title - Human-friendly rotation title
  * @property {RotationRuleConfig} rules - Configuration used to generate/curate this list
  * @property {string[]} bookIds - Ordered list of Book IDs in this rotation
- * @property {string[]} completedBookIds - Subset of bookIds checked off during this rotation cycle
+ * @property {string[]} completedBookIds - Subset of bookIds checked off as read during this rotation cycle
+ * @property {string[]} [pickedBookIds] - Subset of bookIds marked as picked during this rotation cycle (automatically marks read)
+ * @property {string[]} [placedBookIds] - Subset of bookIds checked off in the physical shelf placement helper
  * @property {'active' | 'saved' | 'archived'} status - Lifecycle state for the child profile
  * @property {string} createdAt - ISO-8601 timestamp
  * @property {string} updatedAt - ISO-8601 timestamp
@@ -122,6 +124,34 @@
 /**
  * @typedef {RotationList} RotationShelf
  */
+
+/**
+ * Returns true when `bookId` is marked as picked in the given rotation.
+ * @param {Pick<RotationList, 'pickedBookIds'> | null | undefined} rotation
+ * @param {string} bookId
+ * @returns {boolean}
+ */
+export function isBookPickedInRotation(rotation, bookId) {
+  return Boolean(
+    rotation &&
+      Array.isArray(rotation.pickedBookIds) &&
+      rotation.pickedBookIds.includes(bookId)
+  );
+}
+
+/**
+ * Returns true when `bookId` is marked as read/completed in the given rotation.
+ * @param {Pick<RotationList, 'completedBookIds'> | null | undefined} rotation
+ * @param {string} bookId
+ * @returns {boolean}
+ */
+export function isBookReadInRotation(rotation, bookId) {
+  return Boolean(
+    rotation &&
+      Array.isArray(rotation.completedBookIds) &&
+      rotation.completedBookIds.includes(bookId)
+  );
+}
 
 /**
  * @typedef {'portrait' | 'square'} CoverAspectRatio

@@ -318,6 +318,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   );
   const inActiveShelf = Boolean(activeRot && activeRot.bookIds.includes(book.id));
   const isReadInActive = Boolean(activeRot && activeRot.completedBookIds?.includes(book.id));
+  const isPickedInActive = Boolean(activeRot && activeRot.pickedBookIds?.includes(book.id));
 
   const effectiveReader =
     activeProfile ||
@@ -340,7 +341,11 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         ? `On active shelf ${usageSummary.daysOnActiveShelf}d`
         : 'On active shelf today'
     );
-    if (usageSummary.isStaleUnreadOnShelf) {
+    if (usageSummary.isPickedInActiveShelf && usageSummary.isReadInActiveShelf) {
+      usageSegments.push('Picked & read this cycle');
+    } else if (usageSummary.isPickedInActiveShelf) {
+      usageSegments.push('Picked this cycle');
+    } else if (usageSummary.isStaleUnreadOnShelf) {
       usageSegments.push('Unread this cycle');
     } else if (usageSummary.isReadInActiveShelf) {
       usageSegments.push('Read this cycle');
@@ -369,7 +374,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       ? ` (${formatShortShelfDate(usageSummary.lastReadAt)})`
       : '';
     const readPrefix =
-      usageSummary.isCurrentlyOnActiveShelf && !usageSummary.isReadInActiveShelf
+      usageSummary.isCurrentlyOnActiveShelf &&
+      !usageSummary.isReadInActiveShelf &&
+      !usageSummary.isPickedInActiveShelf
         ? 'Read earlier with'
         : 'Read with';
     usageSegments.push(`${readPrefix} ${usageSummary.readByProfileNames.join(', ')}${readDateSuffix}`);
@@ -1001,6 +1008,28 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               <div className="flex flex-wrap items-center gap-2">
                 {inActiveShelf && activeRot ? (
                   <>
+                    <button
+                      type="button"
+                      onClick={() => store.toggleRotationBookPicked(activeRot.id, book.id)}
+                      aria-pressed={isPickedInActive}
+                      title={
+                        isPickedInActive
+                          ? 'Picked during this rotation (tap to unmark picked)'
+                          : 'Mark picked during this rotation (automatically marks read)'
+                      }
+                      className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+                        isPickedInActive
+                          ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                          : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
+                      }`}
+                    >
+                      <Icon
+                        name={isPickedInActive ? 'bookmarkFilled' : 'bookmark'}
+                        className="w-3.5 h-3.5"
+                      />
+                      <span>{isPickedInActive ? 'Picked' : 'Mark Picked'}</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => store.toggleRotationBookRead(activeRot.id, book.id)}

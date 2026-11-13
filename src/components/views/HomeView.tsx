@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { Icon } from '../common/Icon.js';
+import { ShelfPlacementModal } from '../modals/ShelfPlacementModal.js';
 import { getProfileRecommendations } from '../../features/tagging/recommendations.js';
 import {
   computeRotationSchedule,
@@ -31,6 +32,8 @@ export const HomeView: React.FC = () => {
     }
   });
 
+  const [isPlacementOpen, setIsPlacementOpen] = useState(false);
+
   const shelfBooks = useMemo(() => {
     if (!activeRotation) return [];
     const bookMap = new Map(state.books.map((b: Book) => [b.id, b]));
@@ -41,6 +44,10 @@ export const HomeView: React.FC = () => {
 
   const readBookIds = useMemo(() => {
     return new Set(activeRotation?.completedBookIds || []);
+  }, [activeRotation]);
+
+  const pickedBookIds = useMemo(() => {
+    return new Set(activeRotation?.pickedBookIds || []);
   }, [activeRotation]);
 
   const savedRotations = useMemo(() => {
@@ -91,6 +98,9 @@ export const HomeView: React.FC = () => {
 
   const completedCount = activeRotation
     ? activeRotation.completedBookIds.filter((id) => activeRotation.bookIds.includes(id)).length
+    : 0;
+  const pickedCount = activeRotation
+    ? (activeRotation.pickedBookIds || []).filter((id) => activeRotation.bookIds.includes(id)).length
     : 0;
 
   const coverAspectRatio = state.settings?.coverAspectRatio || 'portrait';
@@ -175,9 +185,19 @@ export const HomeView: React.FC = () => {
             <div className="text-right shrink-0">
               <p className="text-xs font-semibold text-forest-900 dark:text-slate-200 font-mono whitespace-nowrap">
                 {completedCount} of {shelfBooks.length} read
+                {pickedCount > 0 ? ` · ${pickedCount} picked` : ''}
               </p>
               <p className="text-[11px] text-stone-ink dark:text-slate-400 font-mono whitespace-nowrap">
                 {shelfBooks.length} {shelfBooks.length === 1 ? 'Book' : 'Books'} ·{' '}
+                <button
+                  type="button"
+                  onClick={() => setIsPlacementOpen(true)}
+                  className="font-sans font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline inline-flex items-center gap-0.5"
+                >
+                  <Icon name="checklist" className="w-3 h-3" />
+                  <span>Stock</span>
+                </button>
+                {' · '}
                 <a
                   href="#/rotations"
                   className="font-sans font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline"
@@ -192,7 +212,23 @@ export const HomeView: React.FC = () => {
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 gap-y-4 pt-0.5">
             {shelfBooks.map((book) => {
               const isRead = readBookIds.has(book.id);
+              const isPicked = pickedBookIds.has(book.id);
+              const isReadPreviously = Boolean(
+                activeProfile?.readHistoryBookIds?.includes(book.id)
+              );
               const primaryAuthor = book.authors[0] || 'Unknown Author';
+
+              const coverRingClass = isPicked
+                ? 'ring-2 ring-forest-700 dark:ring-[#5ED3DA] ring-offset-2 ring-offset-linen-50 dark:ring-offset-night-950'
+                : isRead
+                  ? 'ring-[1.5px] ring-forest-700/75 dark:ring-[#5ED3DA]/75 ring-offset-2 ring-offset-linen-50 dark:ring-offset-night-950'
+                  : '';
+
+              const badgeAriaLabel = isRead
+                ? `Mark ${book.title} as unread in this rotation`
+                : isReadPreviously
+                  ? `Read previously · Mark ${book.title} read in this rotation`
+                  : `Mark ${book.title} as read`;
 
               return (
                 <article key={book.id} data-book-card={book.id} className="group flex flex-col min-w-0">
@@ -208,27 +244,46 @@ export const HomeView: React.FC = () => {
                         size="grid"
                         aspectRatio={coverAspectRatio}
                         showBadges
+                        hideRotationAdorno
+                        activeProfile={activeProfile}
+                        profiles={state.profiles}
                         isReadOnActiveShelf={isRead}
+                        isPickedInRotation={isPicked}
+                        className={coverRingClass}
                       />
                     </button>
 
-                    {/* 44x44px Thumb Hitbox around Bottom-Left Read Check Badge */}
+                    {/* Single Non-Overlapping Bottom-Left Status Toggle (44x44px Thumb Hitbox) */}
                     <button
                       type="button"
                       onClick={(e) => handleToggleRead(book.id, e)}
                       aria-pressed={isRead}
-                      aria-label={isRead ? `Mark ${book.title} as unread` : `Mark ${book.title} as read`}
-                      className="absolute -bottom-1 -left-1 z-20 min-h-[44px] min-w-[44px] flex items-end justify-start p-2 focus-visible:outline-2 focus-visible:outline-forest-700"
+                      aria-label={badgeAriaLabel}
+                      className="absolute -bottom-1 -left-1 z-20 min-h-[44px] min-w-[44px] flex items-end justify-start p-2.5 focus-visible:outline-2 focus-visible:outline-forest-700"
                     >
-                      <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center shadow-xs border transition-colors ${
-                          isRead
-                            ? 'bg-forest-900 border-white text-white dark:bg-[#5ED3DA] dark:border-night-950 dark:text-night-950'
-                            : 'bg-white/90 border-linen-200 text-stone-ink/70 hover:text-forest-900 dark:bg-night-900/90 dark:border-night-700 dark:text-slate-400'
-                        }`}
-                      >
-                        <Icon name="check" className="w-3.5 h-3.5" />
-                      </span>
+                      {isRead ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-xs border bg-forest-800/95 text-white border-ivory/75 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-night-950">
+                          <Icon name="check" className="w-2.5 h-2.5" />
+                          <span>Read</span>
+                        </span>
+                      ) : isPicked ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-xs border bg-forest-800/95 text-white border-ivory/75 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-night-950">
+                          <Icon name="bookmarkFilled" className="w-2.5 h-2.5" />
+                          <span>Picked</span>
+                        </span>
+                      ) : isReadPreviously ? (
+                        <span
+                          title="Read previously (not picked in this rotation)"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-xs border bg-ivory/95 text-forest-800 border-linen-200/90 dark:bg-night-900/95 dark:text-[#5ED3DA] dark:border-night-700"
+                        >
+                          <Icon name="check" className="w-2.5 h-2.5" />
+                          <span>Read</span>
+                        </span>
+                      ) : (
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center shadow-xs border transition-colors bg-white/85 border-linen-200 text-stone-ink/70 hover:text-forest-900 dark:bg-night-900/85 dark:border-night-700 dark:text-slate-400">
+                          <Icon name="check" className="w-3 h-3" />
+                        </span>
+                      )}
                     </button>
                   </div>
 
@@ -441,6 +496,11 @@ export const HomeView: React.FC = () => {
           </button>
         </div>
       </section>
+      <ShelfPlacementModal
+        rotation={activeRotation}
+        isOpen={isPlacementOpen}
+        onClose={() => setIsPlacementOpen(false)}
+      />
     </div>
   );
 };

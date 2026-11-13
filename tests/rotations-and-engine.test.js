@@ -21,9 +21,10 @@ import {
   parseRotationObjective,
   pickRandomEligibleBooks,
 } from '../src/features/rotations/rotation-engine.js';
-import { createStorageAdapter } from '../src/core/storage.js';
+import { createStorageAdapter, migrateState } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import { createSeedState } from '../src/data/seed.js';
+import { isBookPickedInRotation, isBookReadInRotation } from '../src/types/models.js';
 
 describe('Rotation Engine & Shelf Management Suite', () => {
   it('seeded PRNG produces 100% repeatable selections regardless of catalog order', () => {
@@ -185,5 +186,92 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     await store.toggleRotationBookRead(shelf.id, targetBookId);
     const clearedMaya = store.getState().profiles.find((p) => p.id === maya.id);
     assert.equal(clearedMaya?.readHistoryBookIds.includes(targetBookId), false);
+  });
+
+  it('tracks per-rotation picked/read status independently of prior reading history', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    // Seed state: Maya read book_snowy_day previously, but only book_goodnight_moon was picked in rot_maya_woodland
+    const seedMaya = store.getState().profiles[0];
+    const seedRot = store.getState().rotations.find((r) => r.id === 'rot_maya_woodland');
+    assert.ok(seedRot);
+    assert.ok(seedMaya.readHistoryBookIds.includes('book_snowy_day'));
+    assert.equal(isBookPickedInRotation(seedRot, 'book_snowy_day'), false);
+    assert.equal(isBookReadInRotation(seedRot, 'book_snowy_day'), false);
+    assert.equal(isBookPickedInRotation(seedRot, 'book_goodnight_moon'), true);
+    assert.equal(isBookReadInRotation(seedRot, 'book_goodnight_moon'), true);
+
+    // Picking a book in a rotation automatically marks it as read in that rotation & profile history
+    const targetBookId = seedRot.bookIds[0];
+    await store.toggleRotationBookPicked(seedRot.id, targetBookId);
+    const afterPickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    const afterPickMaya = store.getState().profiles[0];
+    assert.equal(isBookPickedInRotation(afterPickRot, targetBookId), true);
+    assert.equal(isBookReadInRotation(afterPickRot, targetBookId), true);
+    assert.ok(afterPickMaya.readHistoryBookIds.includes(targetBookId));
+
+    // Unpicking leaves explicit read intact unless explicitly unmarked
+    await store.toggleRotationBookPicked(seedRot.id, targetBookId);
+    const afterUnpickRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    assert.equal(isBookPickedInRotation(afterUnpickRot, targetBookId), false);
+    assert.equal(isBookReadInRotation(afterUnpickRot, targetBookId), true);
+
+    // Explicit per-rotation status allows marking picked without read when explicitly specified
+    await store.setRotationBookStatus(seedRot.id, targetBookId, { picked: true, read: false });
+    const pickedOnlyRot = store.getState().rotations.find((r) => r.id === seedRot.id);
+    assert.equal(isBookPickedInRotation(pickedOnlyRot, targetBookId), true);
+    assert.equal(isBookReadInRotation(pickedOnlyRot, targetBookId), false);
+
+    // Migration preserves explicit empty pickedBookIds while defaulting legacy rotations cleanly
+    const migratedExplicit = migrateState({
+      ...store.getState(),
+      rotations: [
+        { ...seedRot, pickedBookIds: [] },
+      ],
+    });
+    assert.deepEqual(migratedExplicit.rotations[0].pickedBookIds, []);
+
+    const legacyRot = { ...seedRot };
+    delete legacyRot.pickedBookIds;
+    delete legacyRot.placedBookIds;
+    const migratedLegacy = migrateState({
+      ...store.getState(),
+      rotations: [legacyRot],
+    });
+    assert.deepEqual(migratedLegacy.rotations[0].pickedBookIds, legacyRot.completedBookIds);
+    assert.deepEqual(migratedLegacy.rotations[0].placedBookIds, []);
+  });
+
+  it('shelf placement checklist helper tracks placedBookIds without mutating read/picked state', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const rot = store.getState().rotations[0];
+    const [firstId, secondId] = rot.bookIds;
+    const initialCompleted = [...rot.completedBookIds];
+    const initialPicked = [...(rot.pickedBookIds || [])];
+
+    await store.toggleRotationBookPlaced(rot.id, firstId);
+    let updated = store.getState().rotations.find((r) => r.id === rot.id);
+    assert.deepEqual(updated?.placedBookIds, [firstId]);
+    assert.deepEqual(updated?.completedBookIds, initialCompleted);
+    assert.deepEqual(updated?.pickedBookIds, initialPicked);
+
+    await store.setRotationBooksPlaced(rot.id, [firstId, secondId, 'non_existent_id']);
+    updated = store.getState().rotations.find((r) => r.id === rot.id);
+    assert.deepEqual(updated?.placedBookIds, [firstId, secondId]);
+
+    // Replacing a book prunes it from pickedBookIds and placedBookIds
+    const replaced = applyBookReplacement(
+      updated,
+      firstId,
+      'book_very_hungry',
+      '2026-11-05T00:00:00.000Z'
+    );
+    assert.equal(replaced.placedBookIds?.includes(firstId), false);
+    assert.equal(replaced.pickedBookIds?.includes(firstId), false);
   });
 });

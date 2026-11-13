@@ -261,6 +261,12 @@ export function computeBookUsageSummary(book, context = {}) {
       activeRotation &&
       activeRotation.completedBookIds.includes(book.id)
   );
+  const isPickedInActiveShelf = Boolean(
+    isCurrentlyOnActiveShelf &&
+      activeRotation &&
+      Array.isArray(activeRotation.pickedBookIds) &&
+      activeRotation.pickedBookIds.includes(book.id)
+  );
 
   let daysOnActiveShelf = null;
   if (isCurrentlyOnActiveShelf && activeRotation) {
@@ -345,7 +351,22 @@ export function computeBookUsageSummary(book, context = {}) {
   let shortRecencyLabel = 'Ready from box';
   let compactRecencyLabel = 'Ready from box';
   if (isCurrentlyOnActiveShelf) {
-    if (isReadInActiveShelf) {
+    if (isPickedInActiveShelf && isReadInActiveShelf) {
+      shortRecencyLabel =
+        daysOnActiveShelf && daysOnActiveShelf > 0
+          ? `On shelf ${daysOnActiveShelf}d · Picked & Read`
+          : 'On shelf · Picked & Read';
+      compactRecencyLabel =
+        daysOnActiveShelf && daysOnActiveShelf > 0
+          ? `On shelf ${daysOnActiveShelf}d · Read`
+          : 'On shelf · Read';
+    } else if (isPickedInActiveShelf) {
+      shortRecencyLabel =
+        daysOnActiveShelf && daysOnActiveShelf > 0
+          ? `On shelf ${daysOnActiveShelf}d · Picked`
+          : 'On shelf · Picked';
+      compactRecencyLabel = shortRecencyLabel;
+    } else if (isReadInActiveShelf) {
       shortRecencyLabel =
         daysOnActiveShelf && daysOnActiveShelf > 0
           ? `On shelf ${daysOnActiveShelf}d · Read`
@@ -393,6 +414,7 @@ export function computeBookUsageSummary(book, context = {}) {
     isCurrentlyOnActiveShelf,
     daysOnActiveShelf,
     isReadInActiveShelf,
+    isPickedInActiveShelf,
     isStaleUnreadOnShelf,
     isLongUnseen,
     freshnessTier,
