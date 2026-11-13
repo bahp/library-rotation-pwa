@@ -144,8 +144,28 @@ export function createScannerController(options = {}) {
     torchOn: false,
   };
 
+  /** @type {Set<() => void>} */
+  const subscribers = new Set();
+
   function emit() {
     if (options.onStateChange) options.onStateChange();
+    for (const sub of subscribers) {
+      try {
+        sub();
+      } catch (_) {}
+    }
+  }
+
+  /**
+   * Subscribes a listener to scanner state changes.
+   * @param {() => void} listener
+   * @returns {() => void} Unsubscribe function
+   */
+  function subscribe(listener) {
+    subscribers.add(listener);
+    return () => {
+      subscribers.delete(listener);
+    };
   }
 
   async function initSupport() {
@@ -786,6 +806,7 @@ export function createScannerController(options = {}) {
 
   return {
     getState: () => state,
+    subscribe,
     initSupport,
     setMode,
     startCamera,

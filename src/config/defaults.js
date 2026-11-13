@@ -86,7 +86,7 @@ export function createDefaultAppSettings() {
     aiEndpointUrl: '',
     aiTimeoutMs: NUMERIC_BOUNDS.aiTimeoutDefaultMs,
     llmProvider: 'server-gemini',
-    llmModel: 'gemini-3.8-flash',
+    llmModel: 'gemini-2.5-flash',
     llmCloudflareUrl: '',
     llmBaseUrl: '',
     llmApiKey: '',

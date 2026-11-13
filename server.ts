@@ -40,7 +40,7 @@ async function startServer() {
     res.status(200).json({
       ok: true,
       serverKeyConfigured,
-      defaultModel: 'gemini-3.8-flash',
+      defaultModel: 'gemini-2.5-flash',
     });
   });
 

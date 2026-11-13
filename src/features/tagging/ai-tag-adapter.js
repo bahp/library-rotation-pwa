@@ -453,7 +453,7 @@ export function createLlmApiAdapter(options = {}) {
           systemInstruction:
             'You are a children’s librarian cataloging assistant. Respond ONLY with compact valid JSON matching {"tags":["lowercase-topic"],"ageMin":3,"ageMax":7,"readingStage":"picture-book","readingLevelHint":"short pacing note"}. Include sensory/format tags (e.g. lift-the-flap, slide-and-see, touch-and-feel) and thematic tags. Allowed readingStage values: board-toddler, picture-book, early-reader, chapter-book.',
           provider,
-          model: context.settings.llmModel || 'gemini-3.8-flash',
+          model: context.settings.llmModel || 'gemini-2.5-flash',
           endpointUrl,
           apiKey: context.settings.llmApiKey || '',
           jsonMode: true,

@@ -108,7 +108,7 @@ async function executeGeminiSdkQuery(
     };
   }
 
-  const requestedModel = payload.model?.trim() || 'gemini-3.8-flash';
+  const requestedModel = payload.model?.trim() || 'gemini-2.5-flash';
   const modelsToTry = [requestedModel];
   if (requestedModel !== 'gemini-2.5-flash') {
     modelsToTry.push('gemini-2.5-flash');
@@ -187,7 +187,7 @@ async function executeGeminiSdkQuery(
 
       // If temporary capacity spike or timeout and we have another model candidate, try next model
       if (isTemporaryCapacityOrTimeout && model !== modelsToTry[modelsToTry.length - 1]) {
-        console.warn(`[llm-service] Model ${model} unavailable (${errMsg.slice(0, 80)}). Falling back to next model...`);
+        console.log(`[llm-service] Model ${model} busy/timed out, automatically failing over to next model...`);
         continue;
       }
       break;
@@ -263,7 +263,7 @@ async function executeProxyQuery(
         task: payload.task || 'custom',
         prompt: payload.prompt,
         systemInstruction: payload.systemInstruction,
-        model: payload.model || 'gemini-3.8-flash',
+        model: payload.model || 'gemini-2.5-flash',
         jsonMode: payload.jsonMode !== false,
       }),
     });

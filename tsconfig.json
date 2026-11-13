@@ -25,6 +25,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["src/**/*.js", "src/**/*.d.ts", "tests/**/*.js", "vite.config.ts"],
+  "include": ["src/**/*.js", "src/**/*.jsx", "src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "tests/**/*.js", "vite.config.ts"],
   "exclude": ["dist", "node_modules"]
 }

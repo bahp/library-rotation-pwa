@@ -120,6 +120,10 @@
  */
 
 /**
+ * @typedef {RotationList} RotationShelf
+ */
+
+/**
  * @typedef {'portrait' | 'square'} CoverAspectRatio
  */
 

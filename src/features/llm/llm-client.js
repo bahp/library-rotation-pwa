@@ -120,7 +120,7 @@ export async function testLlmConnection(settings) {
     prompt: 'Reply ONLY with JSON: {"status":"connected","provider":"ok"}',
     systemInstruction: 'You are a test probe. Respond with compact JSON.',
     provider,
-    model: settings.llmModel || 'gemini-3.8-flash',
+    model: settings.llmModel || 'gemini-2.5-flash',
     endpointUrl:
       provider === 'cloudflare-worker'
         ? settings.llmCloudflareUrl
@@ -188,7 +188,7 @@ async function dispatchLlmQuery(settings, queryParams) {
   const body = {
     ...queryParams,
     provider,
-    model: settings.llmModel || 'gemini-3.8-flash',
+    model: settings.llmModel || 'gemini-2.5-flash',
     endpointUrl,
     apiKey: settings.llmApiKey || '',
     jsonMode: queryParams.jsonMode !== false,

@@ -47,90 +47,127 @@
 
 ---
 
-## Feature-Based Folder Structure
+## React + Vite + Tailwind CSS Component Architecture
 
 ```text
 ├── .github/workflows/deploy.yml      # Automated CI test + lint + GitHub Pages deployment
 ├── index.html                        # App entry HTML, PWA meta tags, zero-FOUC theme & fetch guard
 ├── metadata.json                     # App metadata & camera frame permission
 ├── package.json                      # Scripts (dev, test, test:smoke, lint, build, build:gh-pages, verify)
-├── tsconfig.json                     # Strict JSDoc static type checking (allowJs + checkJs + noEmit)
-├── vite.config.ts                    # Vite + Tailwind v4 + vite-plugin-pwa Workbox config
+├── tsconfig.json                     # TypeScript & JSX configuration (strict types + react-jsx)
+├── vite.config.ts                    # Vite + React plugin + Tailwind CSS + vite-plugin-pwa Workbox config
 ├── public/                           # Generated SVG & PNG PWA icons (192, 512, maskable, apple-touch)
 ├── scripts/generate-icons.mjs        # Deterministic pure-Node PNG/SVG icon generator
 ├── src/
-│   ├── main.js                       # App bootstrap, delegated events, keyboard/modal focus manager
-│   ├── index.css                     # Tailwind CSS v4, custom dark variant, safe-area & scan animations
-│   ├── types/models.js               # JSDoc @typedef domain models, ISBN checksums, HTML escaping
+│   ├── main.tsx                      # React root mount (createRoot -> #app)
+│   ├── App.tsx                       # Main App shell, view router, and modal provider
+│   ├── index.css                     # Tailwind CSS v4, custom theme palette & scan animations
+│   ├── context/
+│   │   └── AppContext.tsx            # Reactive store hook, SPA router, scanner & modal providers
+│   ├── components/
+│   │   ├── common/                   # Shared UI primitives
+│   │   │   ├── BookCover.tsx         # 3:4 or 1:1 book jacket with cloth-bound fallback & 4-corner badges
+│   │   │   ├── ClearableInput.tsx    # Accessible text/search input with clear button
+│   │   │   ├── FieldHelp.tsx         # Accessible toggleable (i) info pill & panel
+│   │   │   ├── Icon.tsx              # Crisp SVG functional icons
+│   │   │   ├── ProviderAttribution.tsx # Upstream metadata source chips
+│   │   │   ├── StarRating.tsx        # 1–5 star interactive book rating
+│   │   │   └── Toast.tsx             # Polite transient notification banner
+│   │   ├── cards/                    # Reusable entity cards
+│   │   │   ├── BookCard.tsx          # Interactive shelf & library grid book cards
+│   │   │   ├── PlayAppCard.tsx       # Storytime Picker & Book Hunt launch cards
+│   │   │   ├── PresetCard.tsx        # Thematic curated collection cards
+│   │   │   └── RotationShelfCard.tsx # Active & saved rotation shelves with post-gen actions
+│   │   ├── navigation/               # Responsive layout & navigation
+│   │   │   ├── AppShell.tsx          # Accessible landmarks, skip link, header & bottom nav
+│   │   │   ├── BottomNav.tsx         # Mobile 5-tab fixed bar with elevated scan button
+│   │   │   ├── Header.tsx            # Desktop navigation & active reader switcher
+│   │   │   └── ProfileSwitcherSheet.tsx # Slide-up sheet to switch between child readers
+│   │   ├── modals/                   # Dialogs & slide-up sheets
+│   │   │   ├── AiCuratorModal.tsx    # Smart shelf rotation assistant
+│   │   │   ├── AiRecommendationsModal.tsx # Book gap discovery & 1-tap wishlist
+│   │   │   ├── AiTaggingModal.tsx    # LLM categorized tag review & approval
+│   │   │   ├── BookInspectorModal.tsx # Full book inspector, star rating & editor
+│   │   │   ├── CoverStudioModal.tsx  # Multi-provider artwork search & upload
+│   │   │   ├── FilterDrawer.tsx      # Comprehensive library filter & sort drawer
+│   │   │   ├── FoundBookSheet.tsx    # Scanner ISBN recognition result sheet
+│   │   │   ├── ProfileFormSheet.tsx  # Add / edit child profile with live DOB calculation
+│   │   │   ├── RotationEditorModal.tsx # Searchable replacement & addition modals
+│   │   │   └── WelcomeSetupModal.tsx # First-run Google Books provider setup guidance
+│   │   └── views/                    # Full page SPA views
+│   │       ├── HomeView.tsx          # Active shelf, recommendations, reading progress
+│   │       ├── LibraryView.tsx       # Full family catalog grid, filter pills & search
+│   │       ├── PlayView.tsx          # Storytime picker & Book Hunt shelf treasure hunt
+│   │       ├── PresetsView.tsx       # Curated seasonal & thematic collections
+│   │       ├── ProfilesView.tsx      # Multi-child profile management & read history
+│   │       ├── RotationsView.tsx     # Rotation generator form & shelf manager
+│   │       ├── ScanView.tsx          # 3-mode optical camera scanner, photo OCR, search & manual intake
+│   │       └── SettingsView.tsx      # Theme, language, catalog providers, AI config, backups
 │   ├── core/
-│   │   ├── router.js                 # Hash router (#/home, #/scan, #/rotations, #/profiles, #/settings)
-│   │   ├── storage.js                # IndexedDB -> localStorage -> memory adapter + migrations
-│   │   └── store.js                  # Reactive state container & domain action orchestrator
-│   ├── data/seed.js                  # Starter family catalog, 2 child profiles, and active shelf
-│   ├── features/
-│   │   ├── catalog/
-│   │   │   ├── catalog-service.js    # Parallel multi-provider lookup/search & candidate deduplication
-│   │   │   ├── normalizer.js         # Provider payload normalization & candidate merging
-│   │   │   └── providers/
-│   │   │       ├── http-client.js    # Timeout, 429/5xx exponential backoff, and 12h TTL cache
-│   │   │       ├── google-books-provider.js
-│   │   │       └── open-library-provider.js
-│   │   ├── home/home-view.js         # Active shelf, recommendations, catalog filter, book/tag modal
-│   │   ├── profiles/profiles-view.js # Multi-child profile management
-│   │   ├── pwa/pwa-manager.js        # Install prompt, iOS guide, online/offline & SW status
-│   │   ├── rotations/
-│   │   │   ├── rotation-engine.js    # Seeded PRNG, objective parser, scoring, swap & add operations
-│   │   │   └── rotations-view.js     # Shelf cards, rule generator form, and searchable picker modal
-│   │   ├── scan/
-│   │   │   ├── barcode-decoder.js    # Native BarcodeDetector + lazy @zxing/library fallback
-│   │   │   ├── frame-processor.js    # Guide ROI crop & contrast-stretched grayscale preprocessing
-│   │   │   ├── isbn-extractor.js     # OCR text noise cleaning & ISBN-10/13 extraction
-│   │   │   ├── ocr-engine.js         # Lazy Tesseract.js WASM worker wrapper
-│   │   │   ├── scanner-controller.js # Camera lifecycle, scan loop, and gallery upload analyzer
-│   │   │   └── scan-shell-view.js    # 3-mode optical guides, search, ISBN lookup, and manual form
-│   │   ├── settings/settings-view.js # PWA install, theme, provider/AI config, JSON backup/restore
-│   │   └── tagging/
-│   │       ├── rule-tagger.js        # Local taxonomy keyword rules & reading-level hint generator
-│   │       ├── ai-tag-adapter.js     # Pluggable keyless AI enrichment registry & URL validator
-│   │       ├── tagging-service.js    # Opt-in gate, timeout enforcement, and local fallback
-│   │       └── recommendations.js    # Profile next-read recommender & topic-gap analyzer
-│   └── ui/
-│       ├── icons.js                  # Crisp inline SVG icon set
-│       └── components/
-│           ├── app-shell.js          # Skip link, 3-zone desktop header, 5-tab mobile bottom bar
-│           └── book-cover.js         # 3:4 lazy/async cover image with cloth-bound fallback
-└── tests/                            # 6 automated test suites (unit, adapter integration, E2E smoke)
+│   │   ├── router.js                 # Hash SPA router (#/home, #/scan, #/rotations, etc.)
+│   │   ├── storage.js                # IndexedDB -> localStorage -> memory adapter
+│   │   └── store.js                  # Observable state store & domain action orchestrator
+│   ├── data/seed.js                  # Starter family catalog & child profiles
+│   ├── features/                     # Domain services (catalog, scanner, rotation, tagging, llm)
+│   └── types/models.js               # Domain models, ISBN checksums & validators
+└── tests/                            # Automated test suites (unit, integration, E2E smoke)
 ```
 
 ---
 
-## Local Setup, Testing & Quality Gates
+## Local Development Setup
 
-### Prerequisites
-- **Node.js 20+** (Node 22 LTS recommended) and **npm**.
+Follow these steps to set up and run the application locally on your machine:
 
-### Commands
-
+### 1. Clone the Repository
 ```bash
-# 1. Install dependencies
+git clone https://github.com/your-username/library-rotation.git
+cd library-rotation
+```
+
+### 2. Install Dependencies
+```bash
 npm install
+```
 
-# 2. Start local dev server on http://localhost:3000
+### 3. Configure Environment Variables
+Copy `.env.example` to `.env` (`.env` is gitignored):
+```bash
+cp .env.example .env
+```
+
+Open `.env` in your editor and optionally configure your API keys:
+```dotenv
+# Dedicated Google Books API Key for server-side volume lookups (optional)
+GOOGLE_BOOKS_API_KEY="your-google-books-api-key"
+
+# Gemini API Key for server-side AI enrichment & smart rotation curation (optional)
+GEMINI_API_KEY="your-gemini-api-key"
+```
+
+> **Security Note**: These secrets are read exclusively server-side in `server.ts` and `/api/*` proxy routes. Never prefix them with `VITE_` to ensure they never leak into client bundles.
+
+### 4. Start the Local Development Server
+```bash
 npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser. The server runs Express with Vite middleware mounted, providing instant hot module reloading and full backend API proxy endpoints.
 
-# 3. Run JSDoc / TypeScript static type check
+### 5. Testing & Verification
+```bash
+# Run TypeScript / static typecheck
 npm run lint
 
-# 4. Run all unit, mocked provider integration, and E2E smoke tests
+# Run all automated test suites
 npm test
 
-# 5. Run only the Phase 6 End-to-End smoke journeys
+# Run End-to-End smoke tests
 npm run test:smoke
 
-# 6. Run the full v1.0 release verification gate (lint + test + GitHub Pages build)
-npm run verify
+# Build production static bundle for GitHub Pages (relative base './')
+npm run build
 
-# 7. Preview the production static build locally
+# Preview production build locally
 npm run preview
 ```
 

@@ -191,7 +191,7 @@ describe('LLM Free / BYOK Features Suite', () => {
   it('AppSettings preserves all LLM configuration fields safely', () => {
     const defaults = createDefaultAppSettings();
     assert.equal(defaults.llmProvider, 'server-gemini');
-    assert.equal(defaults.llmModel, 'gemini-3.8-flash');
+    assert.equal(defaults.llmModel, 'gemini-2.5-flash');
     assert.equal(defaults.llmCloudflareUrl, '');
     assert.equal(defaults.llmBaseUrl, '');
     assert.equal(defaults.llmApiKey, '');

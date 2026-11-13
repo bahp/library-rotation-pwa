@@ -44,7 +44,7 @@ const CLOUDFLARE_WORKER_SAMPLE_SCRIPT = [
   '    try {',
   '      const body = await request.json();',
   "      const apiKey = env.GEMINI_API_KEY || request.headers.get('x-api-key');",
-  "      const model = body.model || 'gemini-3.8-flash';",
+  "      const model = body.model || 'gemini-2.5-flash';",
   "      const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent?key=' + encodeURIComponent(apiKey || '');",
   '',
   '      const res = await fetch(url, {',
@@ -1541,9 +1541,9 @@ export function renderSettingsView({
                       name="llmModel"
                       class="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
                     >
-                      <option value="gemini-3.8-flash" ${settings.llmModel === 'gemini-3.8-flash' || !settings.llmModel ? 'selected' : ''}>gemini-3.8-flash (Recommended · Fast &amp; Free)</option>
-                      <option value="gemini-2.5-flash" ${settings.llmModel === 'gemini-2.5-flash' ? 'selected' : ''}>gemini-2.5-flash</option>
+                      <option value="gemini-2.5-flash" ${settings.llmModel === 'gemini-2.5-flash' || !settings.llmModel ? 'selected' : ''}>gemini-2.5-flash (Recommended · Fast &amp; Reliable)</option>
                       <option value="gemini-3.1-flash-lite" ${settings.llmModel === 'gemini-3.1-flash-lite' ? 'selected' : ''}>gemini-3.1-flash-lite (Ultra low latency)</option>
+                      <option value="gemini-3.8-flash" ${settings.llmModel === 'gemini-3.8-flash' ? 'selected' : ''}>gemini-3.8-flash (Gemini 3)</option>
                     </select>
                   </div>
                 `

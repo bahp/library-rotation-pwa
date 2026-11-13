@@ -8,6 +8,7 @@ if (typeof leakedDirname === 'string' && !path.isAbsolute(leakedDirname)) {
 }
 
 import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -58,7 +59,7 @@ export function createSuppressDisabledHmrWebSocketPlugin(enableHmr: boolean): Pl
 }
 
 export default defineConfig(() => {
-  const base = process.env.BASE_URL || '/';
+  const base = process.env.BASE_URL || './';
   const enableHmr = process.env.ENABLE_HMR === 'true';
   const localeYamlBundle = loadLocaleYamlBundle();
 
@@ -69,6 +70,7 @@ export default defineConfig(() => {
     },
     plugins: [
       createSuppressDisabledHmrWebSocketPlugin(enableHmr),
+      react(),
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',

@@ -198,7 +198,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       llmModel:
         typeof overrides.llmModel === 'string' && overrides.llmModel.trim()
           ? overrides.llmModel.trim()
-          : 'gemini-3.8-flash',
+          : 'gemini-2.5-flash',
       llmCloudflareUrl:
         typeof overrides.llmCloudflareUrl === 'string' ? overrides.llmCloudflareUrl.trim() : '',
       llmBaseUrl: typeof overrides.llmBaseUrl === 'string' ? overrides.llmBaseUrl.trim() : '',
