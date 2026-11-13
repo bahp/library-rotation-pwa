@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { RotationShelfCard } from '../cards/RotationShelfCard.js';
 import { RotationEditorModal } from '../modals/RotationEditorModal.js';
@@ -14,10 +14,18 @@ export const RotationsView: React.FC = () => {
     activeProfile,
     activeRotation,
     navigate,
+    routeParams,
     rotationEditor,
     setRotationEditor,
     setAiCuratorModal,
   } = useApp();
+
+  const editParamId = routeParams.get('edit');
+  const [editingShelfId, setEditingShelfId] = useState<string | null>(() => editParamId);
+
+  useEffect(() => {
+    setEditingShelfId(editParamId || null);
+  }, [editParamId]);
 
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
   const [title, setTitle] = useState('');
@@ -309,6 +317,14 @@ export const RotationsView: React.FC = () => {
                 rotation={rot}
                 books={state.books}
                 isActive={isActive}
+                isEditorOpen={editingShelfId === rot.id}
+                onOpenEditor={() => setEditingShelfId(rot.id)}
+                onCloseEditor={() => {
+                  setEditingShelfId(null);
+                  if (routeParams.get('edit')) {
+                    navigate('rotations');
+                  }
+                }}
                 onActivate={isActive ? undefined : () => handleActivateRotation(rot.id)}
                 onDelete={() => handleDeleteRotation(rot.id)}
                 onSwapBook={(bookId) => handleSwapBook(rot.id, bookId)}

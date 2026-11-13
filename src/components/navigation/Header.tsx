@@ -28,18 +28,21 @@ export const Header: React.FC = () => {
   ];
 
   return (
-    <header className="sticky top-0 z-30 bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-b border-linen-200/80 dark:border-night-700/80 transition-colors">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-4">
+    <header
+      data-top-header="true"
+      className="fixed top-0 left-0 right-0 z-30 w-full bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-b border-linen-200/80 dark:border-night-700/80 pt-safe px-safe shadow-2xs transition-colors"
+    >
+      <div className="max-w-6xl mx-auto px-3.5 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
         {/* Brand */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0 shrink-0">
           <a
             href="#/home"
-            className="flex items-center gap-2.5 text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700 rounded-lg"
+            className="flex items-center gap-2.5 text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700 rounded-lg whitespace-nowrap"
           >
-            <span className="w-8 h-8 rounded-xl bg-forest-900 dark:bg-[#5ED3DA] text-linen-50 dark:text-night-950 flex items-center justify-center font-bold shadow-xs">
+            <span className="w-8 h-8 rounded-xl bg-forest-900 dark:bg-[#5ED3DA] text-linen-50 dark:text-night-950 flex items-center justify-center font-bold shadow-xs shrink-0">
               <Icon name="book" className="w-4 h-4" />
             </span>
-            <span className="font-display text-lg font-bold tracking-tight">
+            <span className="font-display text-base sm:text-lg font-bold tracking-tight whitespace-nowrap">
               Library Rotation
             </span>
           </a>
@@ -48,7 +51,7 @@ export const Header: React.FC = () => {
         {/* Desktop Navigation Links */}
         <nav
           aria-label="Desktop primary"
-          className="hidden md:flex items-center gap-6"
+          className="hidden md:flex items-center gap-4 lg:gap-6"
         >
           {navItems.map((item) => {
             const isActive =
@@ -72,23 +75,23 @@ export const Header: React.FC = () => {
           })}
         </nav>
 
-        {/* Actions (Child Switcher, Settings, Install) */}
-        <div className="flex items-center gap-2">
+        {/* Actions (Child Switcher & Settings) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Active Reader Avatar Pill */}
           {activeProfile && (
             <button
               type="button"
               onClick={() => setIsProfileSwitcherOpen(true)}
               aria-label={`Switch child reader, current reader is ${activeProfile.name}`}
-              className="flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 transition-colors"
+              className="min-h-[40px] flex items-center gap-2 p-1 pl-1.5 pr-2.5 rounded-full bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 transition-colors cursor-pointer"
             >
               <span
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-2xs ${toneClass}`}
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shadow-2xs shrink-0 ${toneClass}`}
               >
                 {initial}
               </span>
               <div className="text-left hidden sm:block">
-                <span className="text-xs font-bold text-forest-900 dark:text-white leading-none block">
+                <span className="text-xs font-bold text-forest-900 dark:text-white leading-none block max-w-[96px] truncate">
                   {activeProfile.name}
                 </span>
                 {ageLabel && (
@@ -97,21 +100,22 @@ export const Header: React.FC = () => {
                   </span>
                 )}
               </div>
-              <Icon name="chevronDown" className="w-3.5 h-3.5 text-stone-400" />
+              <Icon name="chevronDown" className="w-3.5 h-3.5 text-stone-400 shrink-0" />
             </button>
           )}
 
           {/* Settings Shortcut */}
           <a
             href="#/settings"
-            aria-label="Settings"
-            className={`min-h-[38px] min-w-[38px] rounded-xl flex items-center justify-center transition-colors ${
+            aria-label={t('nav.settings')}
+            aria-current={currentRoute === 'settings' ? 'page' : undefined}
+            className={`min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center transition-colors ${
               currentRoute === 'settings'
                 ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
                 : 'text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800'
             }`}
           >
-            <Icon name="settings" className="w-4 h-4" />
+            <Icon name="settings" className="w-[18px] h-[18px]" />
           </a>
         </div>
       </div>

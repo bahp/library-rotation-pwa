@@ -334,12 +334,49 @@ export function migrateState(state, referenceDate = new Date()) {
     }
   }
 
+  const validOriginSet = new Set(['provider', 'ai', 'rules', 'manual']);
+  const normalizedBooks = Array.isArray(state.books)
+    ? state.books.map((book) => {
+        if (!book || typeof book !== 'object') return book;
+        const nextBook = { ...book };
+        if (book.userRatings && typeof book.userRatings === 'object') {
+          /** @type {Record<string, number>} */
+          const cleanRatings = {};
+          for (const [pid, rawVal] of Object.entries(book.userRatings)) {
+            if (!pid) continue;
+            const num = Math.trunc(Number(rawVal));
+            if (num >= 1 && num <= 5) {
+              cleanRatings[pid] = num;
+            }
+          }
+          nextBook.userRatings = cleanRatings;
+        }
+        if (book.tagOrigins && typeof book.tagOrigins === 'object') {
+          const currentTags = new Set(Array.isArray(book.tags) ? book.tags : []);
+          /** @type {Record<string, import('../types/models.js').TagOrigin>} */
+          const cleanOrigins = {};
+          for (const [tagKey, originVal] of Object.entries(book.tagOrigins)) {
+            if (currentTags.has(tagKey) && validOriginSet.has(originVal)) {
+              cleanOrigins[tagKey] = originVal;
+            }
+          }
+          if (Object.keys(cleanOrigins).length > 0) {
+            nextBook.tagOrigins = cleanOrigins;
+          } else {
+            delete nextBook.tagOrigins;
+          }
+        }
+        return nextBook;
+      })
+    : [];
+
   const activeExists = normalizedProfiles.some((p) => p.id === state.activeProfileId);
   return {
     ...state,
     schemaVersion: CURRENT_SCHEMA_VERSION,
     activeProfileId: activeExists ? state.activeProfileId : normalizedProfiles[0].id,
     profiles: normalizedProfiles,
+    books: normalizedBooks,
     rotations: normalizedRotations,
     customPresets: normalizedCustomPresets,
     presetOverrides: normalizedPresetOverrides,

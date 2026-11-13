@@ -40,6 +40,10 @@
  */
 
 /**
+ * @typedef {'provider' | 'ai' | 'rules' | 'manual'} TagOrigin
+ */
+
+/**
  * @typedef {Object} Book
  * @property {string} id - Stable internal UUID/slug
  * @property {string} isbn13 - Normalized 13-digit ISBN (or empty string if unnumbered vintage book)
@@ -54,6 +58,7 @@
  * @property {ReadingStage} readingStage - Reading stage hint
  * @property {string} [readingLevelHint] - Human-readable reading complexity and read-aloud duration hint
  * @property {string[]} tags - Normalized lowercase topic/theme tags
+ * @property {Record<string, TagOrigin>} [tagOrigins] - Provenance of each tag ('provider' | 'ai' | 'rules' | 'manual')
  * @property {CollectionStatus} [collectionStatus] - Acquisition/shelf status ('owned' default, 'wishlist', 'interested', 'library')
  * @property {BookCondition} [condition] - Physical book condition ('good' default, 'torn', 'broken', 'retired')
  * @property {boolean} [loved] - Whether this book is marked as a family/child favorite
@@ -72,7 +77,8 @@
  * @property {number} [ratingsCount] - Total number of ratings/votes
  * @property {string} [publisher] - Publisher name
  * @property {string} [previewLink] - Preview URL
- * @property {number} [userRating] - User's own rating (1 to 5 stars)
+ * @property {number} [userRating] - Legacy single-user rating (1 to 5 stars)
+ * @property {Record<string, number>} [userRatings] - Per-reader star ratings keyed by ChildProfile ID (1 to 5 stars)
  * @property {boolean} [excludeFromRotations] - Exclude from automated shelf rotations
  * @property {ProviderSource[]} sources - Metadata provenance list
  */
@@ -754,4 +760,60 @@ export function resolveBookOwnerBadges(book, profiles = []) {
     };
   });
 }
+
+/**
+ * Returns the 1..5 star rating for a specific reader profile, falling back to legacy `book.userRating`
+ * only when the book has not yet recorded per-reader `userRatings`.
+ *
+ * @param {Pick<Book, 'userRating' | 'userRatings'> | null | undefined} book
+ * @param {string | null | undefined} profileId
+ * @returns {number}
+ */
+export function getBookUserRating(book, profileId) {
+  if (!book) return 0;
+  if (book.userRatings && typeof book.userRatings === 'object') {
+    if (profileId && typeof book.userRatings[profileId] === 'number') {
+      const val = Math.trunc(book.userRatings[profileId]);
+      return val >= 1 && val <= 5 ? val : 0;
+    }
+    return 0;
+  }
+  if (typeof book.userRating === 'number') {
+    const legacy = Math.trunc(book.userRating);
+    return legacy >= 1 && legacy <= 5 ? legacy : 0;
+  }
+  return 0;
+}
+
+const VALID_TAG_ORIGINS = new Set(['provider', 'ai', 'rules', 'manual']);
+
+/**
+ * Resolves the provenance origin (`'provider' | 'ai' | 'rules' | 'manual'`) for a book's tag,
+ * falling back cleanly for legacy/seed records based on `book.sources`.
+ *
+ * @param {Pick<Book, 'tagOrigins' | 'sources'> | null | undefined} book
+ * @param {string} tag
+ * @returns {TagOrigin}
+ */
+export function resolveBookTagOrigin(book, tag) {
+  const explicit = book?.tagOrigins?.[tag];
+  if (explicit && VALID_TAG_ORIGINS.has(explicit)) {
+    return explicit;
+  }
+  const sources = Array.isArray(book?.sources) ? book.sources : [];
+  const providers = new Set(
+    sources.map((s) => String(s?.provider || '').trim().toLowerCase()).filter(Boolean)
+  );
+  if (providers.has('google-books') || providers.has('open-library')) {
+    return 'provider';
+  }
+  if (Array.from(providers).some((p) => p.startsWith('ai:'))) {
+    return 'ai';
+  }
+  if (providers.has('manual') && !providers.has('seed')) {
+    return 'manual';
+  }
+  return 'rules';
+}
+
 

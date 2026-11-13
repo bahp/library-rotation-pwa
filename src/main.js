@@ -8,6 +8,7 @@ import './index.css';
 import {
   computeAgeFromBirthDate,
   formatProfileAgeLabel,
+  getBookUserRating,
   inferReadingStageFromAge,
   normalizeBookCondition,
   normalizeCollectionStatus,
@@ -2265,10 +2266,14 @@ function bindEvents() {
         const bookId = target.getAttribute('data-book-id') || uiState.inspectedBookId;
         const requestedRating = Number(target.getAttribute('data-rating') || 0);
         if (bookId) {
-          const currentBook = store.getState().books.find((b) => b.id === bookId);
+          const st = store.getState();
+          const currentBook = st.books.find((b) => b.id === bookId);
+          const currentReaderId = st.activeProfileId || st.profiles[0]?.id;
           const finalRating =
-            currentBook && currentBook.userRating === requestedRating ? 0 : requestedRating;
-          await store.setUserRating(bookId, finalRating);
+            currentBook && getBookUserRating(currentBook, currentReaderId) === requestedRating
+              ? 0
+              : requestedRating;
+          await store.setUserRating(bookId, finalRating, currentReaderId);
         }
         break;
       }

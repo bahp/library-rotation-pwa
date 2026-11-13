@@ -197,6 +197,27 @@ export function extractNormalizedTags(rawSubjects, summary = '', title = '', exi
 }
 
 /**
+ * Separates provider-supplied tags (from categories/subjects/language) from rule-inferred tags
+ * (matched only from title/description prose).
+ *
+ * @param {string[]} tags
+ * @param {string[]} rawSubjects
+ * @param {string[]} [existingProviderTags]
+ * @returns {Record<string, import('../../types/models.js').TagOrigin>}
+ */
+function buildCandidateTagOrigins(tags, rawSubjects, existingProviderTags = []) {
+  const providerTags = new Set(
+    extractNormalizedTags(rawSubjects, '', '', existingProviderTags)
+  );
+  /** @type {Record<string, import('../../types/models.js').TagOrigin>} */
+  const origins = {};
+  for (const tag of tags) {
+    origins[tag] = providerTags.has(tag) ? 'provider' : 'rules';
+  }
+  return origins;
+}
+
+/**
  * Builds a canonical deduplication key for a candidate book (diacritic-insensitive).
  * @param {string} isbn13
  * @param {string} title
@@ -291,6 +312,11 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     title,
     langTag ? [langTag] : []
   );
+  const tagOrigins = buildCandidateTagOrigins(
+    tags,
+    categories,
+    langTag ? [langTag] : []
+  );
   const readingLevelHint = inferReadingLevelHint({
     readingStage,
     format,
@@ -329,6 +355,7 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     readingStage,
     readingLevelHint,
     tags,
+    tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
     ...(description ? { summary: description.slice(0, 320) } : {}),
     ...(categories.length ? { subjects: categories.slice(0, 12) } : {}),
@@ -408,6 +435,11 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
 
   const langTag = resolveLanguageTag(record.languages, isbn13);
   const tags = extractNormalizedTags(subjects, '', title, langTag ? [langTag] : []);
+  const tagOrigins = buildCandidateTagOrigins(
+    tags,
+    subjects,
+    langTag ? [langTag] : []
+  );
   const readingLevelHint = inferReadingLevelHint({
     readingStage,
     format,
@@ -441,6 +473,7 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     readingStage,
     readingLevelHint,
     tags,
+    tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
     ...(subjects.length ? { subjects: subjects.slice(0, 12) } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
@@ -513,6 +546,11 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
 
   const langTag = resolveLanguageTag(doc.language, isbn13);
   const tags = extractNormalizedTags(subjects, '', title, langTag ? [langTag] : []);
+  const tagOrigins = buildCandidateTagOrigins(
+    tags,
+    subjects,
+    langTag ? [langTag] : []
+  );
   const readingLevelHint = inferReadingLevelHint({
     readingStage,
     format,
@@ -546,6 +584,7 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     readingStage,
     readingLevelHint,
     tags,
+    tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
     ...(subjects.length ? { subjects: subjects.slice(0, 12) } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
@@ -584,6 +623,19 @@ export function mergeBookCandidates(primary, secondary) {
   const mergedSubjects = Array.from(
     new Set([...(primary.subjects || []), ...(secondary.subjects || [])])
   ).slice(0, 14);
+  /** @type {Record<string, import('../../types/models.js').TagOrigin>} */
+  const mergedTagOrigins = {};
+  for (const tag of mergedTags) {
+    const pOrigin = primary.tagOrigins?.[tag];
+    const sOrigin = secondary.tagOrigins?.[tag];
+    if (pOrigin === 'provider' || sOrigin === 'provider') {
+      mergedTagOrigins[tag] = 'provider';
+    } else if (pOrigin) {
+      mergedTagOrigins[tag] = pOrigin;
+    } else if (sOrigin) {
+      mergedTagOrigins[tag] = sOrigin;
+    }
+  }
 
   return {
     ...primary,
@@ -605,6 +657,7 @@ export function mergeBookCandidates(primary, secondary) {
     ...(previewLink ? { previewLink } : {}),
     format: primary.format !== 'hardcover' ? primary.format : secondary.format,
     tags: mergedTags,
+    ...(Object.keys(mergedTagOrigins).length > 0 ? { tagOrigins: mergedTagOrigins } : {}),
     sources: [...primary.sources, ...secondary.sources],
   };
 }
@@ -622,6 +675,16 @@ export function candidateToBook(candidate, options = {}) {
     const { rawPayload: _omitted, ...cleanSource } = src;
     return cleanSource;
   });
+  const tags = sanitizeTagList(candidate.tags, 8);
+  /** @type {Record<string, import('../../types/models.js').TagOrigin>} */
+  const tagOrigins = {};
+  if (candidate.tagOrigins) {
+    for (const tag of tags) {
+      if (candidate.tagOrigins[tag]) {
+        tagOrigins[tag] = candidate.tagOrigins[tag];
+      }
+    }
+  }
 
   return {
     id: createId('book'),
@@ -636,7 +699,8 @@ export function candidateToBook(candidate, options = {}) {
     ageMax: candidate.ageMax,
     readingStage: candidate.readingStage,
     ...(candidate.readingLevelHint ? { readingLevelHint: candidate.readingLevelHint } : {}),
-    tags: sanitizeTagList(candidate.tags, 8),
+    tags,
+    ...(Object.keys(tagOrigins).length > 0 ? { tagOrigins } : {}),
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),
     ...(candidate.language ? { language: candidate.language } : {}),
     ...(candidate.dimensions ? { dimensions: candidate.dimensions } : {}),

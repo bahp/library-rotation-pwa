@@ -199,7 +199,11 @@ export const HomeView: React.FC = () => {
                 </button>
                 {' · '}
                 <a
-                  href="#/rotations"
+                  href={`#/rotations?edit=${encodeURIComponent(activeRotation.id)}`}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    navigate('rotations', { edit: activeRotation.id });
+                  }}
                   className="font-sans font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline"
                 >
                   Edit

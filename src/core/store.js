@@ -120,6 +120,66 @@ function buildBookUsagePayload(book, currentState) {
   };
 }
 
+const TAG_ORIGIN_PRIORITY = {
+  manual: 4,
+  provider: 3,
+  ai: 2,
+  rules: 1,
+};
+
+/**
+ * Merges tag origin provenance for the surviving `tags` list, preserving higher-trust origins
+ * (`manual` > `provider` > `ai` > `rules`).
+ *
+ * @param {Record<string, import('../types/models.js').TagOrigin> | undefined} existingOrigins
+ * @param {string[]} tags
+ * @param {{
+ *   manual?: string[],
+ *   provider?: string[],
+ *   ai?: string[],
+ *   rules?: string[]
+ * }} [additions]
+ * @returns {Record<string, import('../types/models.js').TagOrigin> | undefined}
+ */
+function mergeTagOrigins(existingOrigins, tags, additions = {}) {
+  const cleanTags = Array.isArray(tags) ? tags : [];
+  if (cleanTags.length === 0) return undefined;
+
+  /** @type {Record<string, import('../types/models.js').TagOrigin>} */
+  const next = {};
+  const tagSet = new Set(cleanTags);
+
+  if (existingOrigins && typeof existingOrigins === 'object') {
+    for (const tag of cleanTags) {
+      const origin = existingOrigins[tag];
+      if (origin && TAG_ORIGIN_PRIORITY[origin]) {
+        next[tag] = origin;
+      }
+    }
+  }
+
+  /** @type {Array<[import('../types/models.js').TagOrigin, string[] | undefined]>} */
+  const layers = [
+    ['rules', additions.rules],
+    ['ai', additions.ai],
+    ['provider', additions.provider],
+    ['manual', additions.manual],
+  ];
+
+  for (const [origin, list] of layers) {
+    if (!Array.isArray(list)) continue;
+    for (const rawTag of list) {
+      if (!tagSet.has(rawTag)) continue;
+      const prev = next[rawTag];
+      if (!prev || TAG_ORIGIN_PRIORITY[origin] > TAG_ORIGIN_PRIORITY[prev]) {
+        next[rawTag] = origin;
+      }
+    }
+  }
+
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
 /**
  * Creates the central Library Rotation store.
  * @param {ReturnType<typeof import('./storage.js').createStorageAdapter>} storage
@@ -441,6 +501,12 @@ export function createAppStore(storage, deps = {}) {
     const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
     const dominantColor = normalizeHexColor(input.dominantColor);
 
+    const tagOrigins = mergeTagOrigins(undefined, enriched.tags, {
+      manual: baseTags,
+      rules: enriched.ruleAddedTags,
+      ai: enriched.aiAddedTags,
+    });
+
     /** @type {import('../types/models.js').Book} */
     const book = {
       id: createId('book'),
@@ -457,6 +523,7 @@ export function createAppStore(storage, deps = {}) {
       readingStage: enriched.readingStage,
       ...(enriched.readingLevelHint ? { readingLevelHint: enriched.readingLevelHint } : {}),
       tags: enriched.tags,
+      ...(tagOrigins ? { tagOrigins } : {}),
       collectionStatus,
       condition,
       loved,
@@ -529,6 +596,11 @@ export function createAppStore(storage, deps = {}) {
     const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
     const dominantColor = normalizeHexColor(intakeOptions.dominantColor);
 
+    const tagOrigins = mergeTagOrigins(baseBook.tagOrigins, enriched.tags, {
+      rules: enriched.ruleAddedTags,
+      ai: enriched.aiAddedTags,
+    });
+
     /** @type {import('../types/models.js').Book} */
     const book = {
       ...baseBook,
@@ -539,6 +611,7 @@ export function createAppStore(storage, deps = {}) {
         ? { readingLevelHint: enriched.readingLevelHint }
         : {}),
       tags: enriched.tags,
+      ...(tagOrigins ? { tagOrigins } : {}),
       collectionStatus,
       condition,
       loved,
@@ -656,6 +729,13 @@ export function createAppStore(storage, deps = {}) {
 
     const nextTags =
       patch.tags !== undefined ? sanitizeTagList(patch.tags, 10) : existing.tags;
+    const newlyAddedPatchTags =
+      patch.tags !== undefined
+        ? nextTags.filter((tag) => !existing.tags.includes(tag))
+        : [];
+    const nextTagOrigins = mergeTagOrigins(existing.tagOrigins, nextTags, {
+      manual: newlyAddedPatchTags,
+    });
 
     const nextReadingLevelHint = inferReadingLevelHint({
       readingStage: nextStage,
@@ -707,6 +787,7 @@ export function createAppStore(storage, deps = {}) {
       readingStage: nextStage,
       ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
       tags: nextTags,
+      ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
       ...(nextCollectionStatus ? { collectionStatus: nextCollectionStatus } : {}),
       ...(nextCondition ? { condition: nextCondition } : {}),
       ...(nextLoved !== undefined ? { loved: nextLoved } : {}),
@@ -715,6 +796,9 @@ export function createAppStore(storage, deps = {}) {
       ...(nextDominantColor ? { dominantColor: nextDominantColor } : {}),
       ...(nextExcludeFromRotations ? { excludeFromRotations: true } : {}),
       ...(typeof existing.userRating === 'number' ? { userRating: existing.userRating } : {}),
+      ...(existing.userRatings && typeof existing.userRatings === 'object'
+        ? { userRatings: { ...existing.userRatings } }
+        : {}),
       ...(typeof existing.averageRating === 'number' ? { averageRating: existing.averageRating } : {}),
       ...(typeof existing.ratingsCount === 'number' ? { ratingsCount: existing.ratingsCount } : {}),
       ...(existing.publisher ? { publisher: existing.publisher } : {}),
@@ -765,23 +849,45 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Sets or updates a book's user rating (1 to 5 stars).
+   * Sets or updates a book's user rating (1 to 5 stars) scoped to the active or given reader profile.
    * @param {string} bookId
    * @param {number} rating
+   * @param {string} [profileId]
    */
-  async function setUserRating(bookId, rating) {
+  async function setUserRating(bookId, rating, profileId) {
     const cleanRating = Math.max(0, Math.min(5, Math.trunc(Number(rating) || 0)));
     const target = state.books.find((b) => b.id === bookId);
     if (!target) return null;
-    const updatedBook = { ...target, userRating: cleanRating > 0 ? cleanRating : undefined };
+
+    const effectiveProfileId =
+      String(profileId || state.activeProfileId || state.profiles[0]?.id || 'shared').trim() ||
+      'shared';
+    const readerProfile = state.profiles.find((p) => p.id === effectiveProfileId);
+
+    const nextRatings =
+      target.userRatings && typeof target.userRatings === 'object'
+        ? { ...target.userRatings }
+        : {};
+    if (cleanRating > 0) {
+      nextRatings[effectiveProfileId] = cleanRating;
+    } else {
+      delete nextRatings[effectiveProfileId];
+    }
+
+    /** @type {import('../types/models.js').Book} */
+    const updatedBook = { ...target, userRatings: nextRatings };
+    delete updatedBook.userRating;
+
     await commit({
       ...state,
       books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
     });
+
+    const readerPrefix = readerProfile?.name ? `${readerProfile.name} rated` : 'Rated';
     notify(
       cleanRating > 0
-        ? `Rated "${target.title}" ${cleanRating} star${cleanRating === 1 ? '' : 's'}.`
-        : `Removed rating from "${target.title}".`,
+        ? `${readerPrefix} "${target.title}" ${cleanRating} star${cleanRating === 1 ? '' : 's'}.`
+        : `Removed${readerProfile?.name ? ` ${readerProfile.name}’s` : ''} rating from "${target.title}".`,
       'info'
     );
     return updatedBook;
@@ -848,7 +954,14 @@ export function createAppStore(storage, deps = {}) {
     }
 
     const updatedTags = sanitizeTagList([clean, ...target.tags], 10);
-    const updatedBook = { ...target, tags: updatedTags };
+    const nextTagOrigins = mergeTagOrigins(target.tagOrigins, updatedTags, {
+      manual: [clean],
+    });
+    const updatedBook = {
+      ...target,
+      tags: updatedTags,
+      ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
+    };
     await commit({
       ...state,
       books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
@@ -866,9 +979,16 @@ export function createAppStore(storage, deps = {}) {
     const target = state.books.find((b) => b.id === bookId);
     if (!target) return;
     const nextTags = target.tags.filter((t) => t !== tagToRemove);
+    const nextTagOrigins = mergeTagOrigins(target.tagOrigins, nextTags);
+    const updatedBook = { ...target, tags: nextTags };
+    if (nextTagOrigins) {
+      updatedBook.tagOrigins = nextTagOrigins;
+    } else {
+      delete updatedBook.tagOrigins;
+    }
     await commit({
       ...state,
-      books: state.books.map((b) => (b.id === bookId ? { ...b, tags: nextTags } : b)),
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
     });
   }
 
@@ -903,9 +1023,15 @@ export function createAppStore(storage, deps = {}) {
         ? [...target.sources, res.aiProvenance]
         : target.sources;
 
+    const nextTagOrigins = mergeTagOrigins(target.tagOrigins, res.tags, {
+      rules: res.ruleAddedTags,
+      ai: res.aiAddedTags,
+    });
+
     const updatedBook = {
       ...target,
       tags: res.tags,
+      ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
       ...(res.readingLevelHint ? { readingLevelHint: res.readingLevelHint } : {}),
       sources: nextSources,
     };
@@ -974,9 +1100,15 @@ export function createAppStore(storage, deps = {}) {
           ? [...book.sources, res.aiProvenance]
           : book.sources;
 
+      const nextTagOrigins = mergeTagOrigins(book.tagOrigins, res.tags, {
+        rules: res.ruleAddedTags,
+        ai: res.aiAddedTags,
+      });
+
       nextBooks.push({
         ...book,
         tags: res.tags,
+        ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
         ...(res.readingLevelHint ? { readingLevelHint: res.readingLevelHint } : {}),
         sources: nextSources,
       });
@@ -1013,18 +1145,29 @@ export function createAppStore(storage, deps = {}) {
     const target = state.books.find((b) => b.id === bookId);
     if (!target) throw new Error('Book not found.');
     const sanitized = sanitizeTagList(patch.tags || target.tags, 16);
+    const aiAdded = sanitized.filter((tag) => !target.tags.includes(tag));
+    const nextTagOrigins = mergeTagOrigins(target.tagOrigins, sanitized, {
+      ai: aiAdded,
+    });
+    const aiProviderKey = `ai:${state.settings.llmProvider || 'gemini'}`;
+    const hasAiProvider = target.sources.some(
+      (s) => String(s?.provider || '').toLowerCase() === aiProviderKey.toLowerCase()
+    );
     const updatedBook = {
       ...target,
       tags: sanitized,
+      ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
       ...(patch.readingStage ? { readingStage: patch.readingStage } : {}),
       ...(patch.readingLevelHint ? { readingLevelHint: patch.readingLevelHint } : {}),
-      sources: [
-        ...target.sources,
-        {
-          provider: `ai:${state.settings.llmProvider || 'gemini'}`,
-          fetchedAt: new Date().toISOString(),
-        },
-      ],
+      sources: hasAiProvider
+        ? target.sources
+        : [
+            ...target.sources,
+            {
+              provider: aiProviderKey,
+              fetchedAt: new Date().toISOString(),
+            },
+          ],
     };
     await commit({
       ...state,
@@ -1204,6 +1347,8 @@ export function createAppStore(storage, deps = {}) {
       6
     );
 
+    const tagOrigins = mergeTagOrigins(undefined, tags, { ai: tags });
+
     const nowIso = new Date().toISOString();
     /** @type {import('../types/models.js').Book} */
     const newBook = {
@@ -1217,6 +1362,7 @@ export function createAppStore(storage, deps = {}) {
       readingStage: stage,
       readingLevelHint: rec.reason ? rec.reason.slice(0, 80) : '',
       tags,
+      ...(tagOrigins ? { tagOrigins } : {}),
       collectionStatus: 'wishlist',
       condition: 'good',
       loved: false,
@@ -1432,6 +1578,17 @@ export function createAppStore(storage, deps = {}) {
         { preserveExplicitAgeAndStage: true }
       );
       const nextTags = sanitizeTagList([...book.tags, ...enriched.tags], 10);
+      const candidateProviderTags = matchedCandidate.tags.filter(
+        (t) => matchedCandidate.tagOrigins?.[t] === 'provider'
+      );
+      const candidateRuleTags = matchedCandidate.tags.filter(
+        (t) => matchedCandidate.tagOrigins?.[t] === 'rules'
+      );
+      const nextTagOrigins = mergeTagOrigins(book.tagOrigins, nextTags, {
+        provider: candidateProviderTags,
+        rules: [...candidateRuleTags, ...(enriched.ruleAddedTags || [])],
+        ai: enriched.aiAddedTags,
+      });
       const nextReadingLevelHint =
         book.readingLevelHint ||
         enriched.readingLevelHint ||
@@ -1492,6 +1649,7 @@ export function createAppStore(storage, deps = {}) {
         ...(coverWasAdded ? {} : book.dominantColor ? { dominantColor: book.dominantColor } : {}),
         ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
         tags: nextTags,
+        ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
         sources: nextSources,
       };
       if (coverWasAdded) {

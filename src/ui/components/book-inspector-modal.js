@@ -19,6 +19,7 @@ import {
   formatBookCondition,
   formatCollectionStatus,
   formatReadingStage,
+  getBookUserRating,
   isBookRotatable,
   normalizeBookCondition,
   normalizeCollectionStatus,
@@ -969,7 +970,12 @@ export function renderBookInspectorModal({
 
               <!-- 5 Stars Underneath the Cover Image with Option A (re-tap active star to clear, zero clutter text) -->
               ${(() => {
-                const userRating = typeof book.userRating === 'number' ? book.userRating : 0;
+                const readerForRating =
+                  activeProfile ||
+                  (targetRotation ? profiles.find((p) => p.id === targetRotation.profileId) : null) ||
+                  profiles[0] ||
+                  null;
+                const userRating = getBookUserRating(book, readerForRating?.id);
                 return `
                   <div class="mt-2 flex flex-col items-center justify-center" data-inspector-cover-stars="true">
                     <div class="inline-flex items-center -space-x-0.5" role="group" aria-label="Rate this book 1 to 5 stars">

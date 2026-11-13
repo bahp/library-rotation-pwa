@@ -269,6 +269,72 @@
   border-color: color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 34%, var(--color-night-700));
 }
 
+/* Settings hierarchical sub-menu slide transitions (compositor-only transform + opacity) */
+@keyframes lr-slide-in-right {
+  from {
+    opacity: 0;
+    transform: translate3d(24px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes lr-slide-in-left {
+  from {
+    opacity: 0;
+    transform: translate3d(-18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-slide-in-right {
+  will-change: transform, opacity;
+  animation: lr-slide-in-right 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-slide-in-left {
+  will-change: transform, opacity;
+  animation: lr-slide-in-left 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Responsive boolean switch differentiating touch mobile devices vs fine-pointer desktop computers */
+.lr-switch-track {
+  width: 52px;
+  height: 32px;
+}
+
+.lr-switch-thumb {
+  width: 26px;
+  height: 26px;
+  transform: translate3d(3px, 0, 0);
+}
+
+.lr-switch-track[data-checked="true"] .lr-switch-thumb {
+  transform: translate3d(23px, 0, 0);
+}
+
+@media (min-width: 768px) and (pointer: fine) {
+  .lr-switch-track {
+    width: 40px;
+    height: 22px;
+  }
+
+  .lr-switch-thumb {
+    width: 18px;
+    height: 18px;
+    transform: translate3d(2px, 0, 0);
+  }
+
+  .lr-switch-track[data-checked="true"] .lr-switch-thumb {
+    transform: translate3d(20px, 0, 0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

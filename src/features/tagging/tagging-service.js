@@ -15,6 +15,8 @@ import {
  * @typedef {Object} BookEnrichmentResult
  * @property {string[]} tags
  * @property {string[]} addedTags
+ * @property {string[]} ruleAddedTags
+ * @property {string[]} aiAddedTags
  * @property {number} ageMin
  * @property {number} ageMax
  * @property {import('../../types/models.js').ReadingStage} readingStage
@@ -102,10 +104,16 @@ export function createTaggingService(config = {}) {
           readingLevelHint: '',
         };
 
+    const localResult = {
+      ...baseLocal,
+      ruleAddedTags: baseLocal.addedTags,
+      aiAddedTags: /** @type {string[]} */ ([]),
+    };
+
     // Strict Privacy & Safe-Default Gate: NEVER invoke AI adapters unless explicitly opted in
     if (!settings.aiEnrichmentOptIn) {
       return {
-        ...baseLocal,
+        ...localResult,
         usedAi: false,
         adapterId: 'local-rules',
         fallbackReason: 'ai-opt-in-disabled',
@@ -117,7 +125,7 @@ export function createTaggingService(config = {}) {
 
     if (!adapter) {
       return {
-        ...baseLocal,
+        ...localResult,
         usedAi: false,
         adapterId: 'local-rules',
         fallbackReason: 'no-adapter-registered',
@@ -127,7 +135,7 @@ export function createTaggingService(config = {}) {
     const availability = adapter.checkAvailability(settings);
     if (!availability.available) {
       return {
-        ...baseLocal,
+        ...localResult,
         usedAi: false,
         adapterId: 'local-rules',
         fallbackReason: availability.reason,
@@ -151,8 +159,10 @@ export function createTaggingService(config = {}) {
       );
 
       const originalSet = new Set(sanitizeTagList(bookInput.tags || [], 8));
+      const baseLocalSet = new Set(baseLocal.tags);
       const mergedTags = sanitizeTagList([...baseLocal.tags, ...aiResult.tags], 8);
       const addedTags = mergedTags.filter((t) => !originalSet.has(t));
+      const aiAddedTags = mergedTags.filter((t) => !baseLocalSet.has(t));
 
       const finalAgeMin =
         !options.preserveExplicitAgeAndStage && aiResult.ageMin !== undefined
@@ -172,6 +182,8 @@ export function createTaggingService(config = {}) {
       return {
         tags: mergedTags,
         addedTags,
+        ruleAddedTags: baseLocal.addedTags,
+        aiAddedTags,
         ageMin: finalAgeMin,
         ageMax: finalAgeMax,
         readingStage: finalStage,
@@ -192,7 +204,7 @@ export function createTaggingService(config = {}) {
             : 'AI adapter failed — used Local Rules.';
 
       return {
-        ...baseLocal,
+        ...localResult,
         usedAi: false,
         adapterId: 'local-rules',
         fallbackReason: reason,

@@ -41,7 +41,7 @@ export const BottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Mobile primary"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-t border-linen-200/80 dark:border-night-700/80 pb-safe shadow-lg"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-ivory/95 dark:bg-night-900/95 backdrop-blur-md border-t border-linen-200/80 dark:border-night-700/80 pb-safe px-safe shadow-lg"
     >
       <div className="flex items-center justify-around h-14 px-1 max-w-md mx-auto">
         {navItems.map((item) => {

@@ -17,13 +17,13 @@ import { parseSimpleYaml } from './yaml-lite.js';
  */
 
 /**
- * Supported interface languages exposed in Settings -> Appearance.
- * @type {ReadonlyArray<{ code: AppLanguage, label: string, nativeLabel: string }>}
+ * Supported interface languages exposed in Settings -> Appearance / Language.
+ * @type {ReadonlyArray<{ code: AppLanguage, label: string, nativeLabel: string, flag: string }>}
  */
 export const SUPPORTED_LANGUAGES = Object.freeze([
-  { code: 'en', label: 'English', nativeLabel: 'English' },
-  { code: 'es', label: 'Spanish', nativeLabel: 'Español' },
-  { code: 'it', label: 'Italian', nativeLabel: 'Italiano' },
+  { code: 'en', label: 'English', nativeLabel: 'English', flag: '🇬🇧' },
+  { code: 'es', label: 'Spanish', nativeLabel: 'Español', flag: '🇪🇸' },
+  { code: 'it', label: 'Italian', nativeLabel: 'Italiano', flag: '🇮🇹' },
 ]);
 
 /**

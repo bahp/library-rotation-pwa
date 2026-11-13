@@ -20,6 +20,9 @@ import { renderProfileFormSheet } from '../src/ui/components/profile-sheets.js';
 import { renderPlayView, createDefaultPlayUiState } from '../src/features/play/play-view.js';
 import { resolvePlayBookPool, pickStorytimeBooks } from '../src/features/play/play-activities.js';
 import { resolveBookCardTintHex } from '../src/features/catalog/cover-color-extractor.js';
+import { getBookUserRating, resolveBookTagOrigin } from '../src/types/models.js';
+import { normalizeGoogleBooksItem } from '../src/features/catalog/normalizer.js';
+import { SUPPORTED_LANGUAGES, t } from '../src/config/i18n.js';
 
 const DEFAULT_PWA_STATUS = {
   isInstallable: false,
@@ -198,5 +201,122 @@ describe('UI & Components Suite', () => {
     });
     assert.match(playHtml, /data-action="open-play-app"/);
     assert.match(playHtml, /data-play-app-id="storytime-picker"/);
+  });
+
+  it('Per-reader star ratings isolate each reader profile while preserving legacy fallback', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+    const p1 = st.profiles[0];
+    const p2 = st.profiles[1];
+    assert.ok(p1 && p2 && p1.id !== p2.id);
+    const book = st.books[0];
+
+    // Legacy single-user rating falls back cleanly when userRatings is absent
+    assert.equal(getBookUserRating({ userRating: 4 }, p1.id), 4);
+    assert.equal(getBookUserRating({ userRating: 4 }, p2.id), 4);
+
+    // Setting p1 rating stores per-profile rating and avoids leaking to p2
+    await store.setUserRating(book.id, 5, p1.id);
+    let updated = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(getBookUserRating(updated, p1.id), 5);
+    assert.equal(getBookUserRating(updated, p2.id), 0);
+
+    // Setting p2 rating keeps p1 intact
+    await store.setUserRating(book.id, 2, p2.id);
+    updated = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(getBookUserRating(updated, p1.id), 5);
+    assert.equal(getBookUserRating(updated, p2.id), 2);
+
+    // Clearing p1 rating returns 0 for p1 without reverting to legacy rating
+    await store.setUserRating(book.id, 0, p1.id);
+    updated = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(getBookUserRating(updated, p1.id), 0);
+    assert.equal(getBookUserRating(updated, p2.id), 2);
+  });
+
+  it('Tag provenance distinguishes provider, ai, rules, and manual origins', async () => {
+    const candidate = normalizeGoogleBooksItem({
+      id: 'vol_123',
+      volumeInfo: {
+        title: 'Moonlight Bedtime Train',
+        authors: ['Jane Doe'],
+        categories: ['Animals'],
+        description: 'A cozy bedtime train journey under the stars.',
+        industryIdentifiers: [{ type: 'ISBN_13', identifier: '9780545010221' }],
+      },
+    });
+    assert.ok(candidate);
+    assert.equal(candidate.tagOrigins?.animals, 'provider');
+    assert.equal(candidate.tagOrigins?.bedtime, 'rules');
+
+    const store = await createTestStore();
+    const book = store.getState().books[0];
+
+    await store.addBookTag(book.id, 'family-favorite');
+    let updated = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(resolveBookTagOrigin(updated, 'family-favorite'), 'manual');
+
+    await store.applyLlmTagsToBook(book.id, {
+      tags: [...(updated?.tags || []), 'lift-the-flap'],
+    });
+    updated = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(resolveBookTagOrigin(updated, 'family-favorite'), 'manual');
+    assert.equal(resolveBookTagOrigin(updated, 'lift-the-flap'), 'ai');
+
+    await store.enrichSingleBook(book.id);
+    updated = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(resolveBookTagOrigin(updated, 'family-favorite'), 'manual');
+    assert.equal(resolveBookTagOrigin(updated, 'lift-the-flap'), 'ai');
+  });
+
+  it('Settings Force Refresh i18n keys resolve in en, es, and it', () => {
+    for (const lang of ['en', 'es', 'it']) {
+      const btn = t(lang, 'settings.forceRefreshBtn');
+      const hint = t(lang, 'settings.forceRefreshHint');
+      assert.ok(btn && btn !== 'settings.forceRefreshBtn');
+      assert.ok(hint && hint !== 'settings.forceRefreshHint');
+    }
+  });
+
+  it('Settings Hub groups, rows, switches, and language flags resolve cleanly in en, es, and it', () => {
+    assert.equal(SUPPORTED_LANGUAGES.length, 3);
+    for (const entry of SUPPORTED_LANGUAGES) {
+      assert.ok(entry.flag && entry.flag.length > 0, `Expected flag for ${entry.code}`);
+      assert.ok(entry.nativeLabel);
+    }
+
+    const keys = [
+      'common.on',
+      'common.off',
+      'settings.groupHousehold',
+      'settings.groupLibraryAi',
+      'settings.groupDataDevice',
+      'settings.groupUpdatesGuides',
+      'settings.groupLegal',
+      'settings.groupOther',
+      'settings.rowLanguageTitle',
+      'settings.rowShelfRulesTitle',
+      'settings.rowCatalogTitle',
+      'settings.rowAiTitle',
+      'settings.rowOfflineStorageTitle',
+      'settings.rowBackupTitle',
+      'settings.rowWhatsNewTitle',
+      'settings.rowGuidesTitle',
+      'settings.rowPrivacyTitle',
+      'settings.rowTermsTitle',
+      'settings.rowImpressumTitle',
+      'settings.rowRateAppTitle',
+      'settings.rowSendFeedbackTitle',
+      'settings.rowDonateTitle',
+      'settings.resetSeedConfirmTitle',
+      'settings.resetSeedConfirmAction',
+    ];
+
+    for (const lang of ['en', 'es', 'it']) {
+      for (const key of keys) {
+        const val = t(lang, key);
+        assert.ok(val && val !== key, `Missing ${lang} translation for ${key}`);
+      }
+    }
   });
 });

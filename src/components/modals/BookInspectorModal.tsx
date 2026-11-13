@@ -17,10 +17,12 @@ import {
   formatBookCondition,
   formatCollectionStatus,
   formatReadingStage,
+  getBookUserRating,
   isBookRotatable,
   normalizeBookCondition,
   normalizeCollectionStatus,
   normalizeOwnersList,
+  resolveBookTagOrigin,
 } from '../../types/models.js';
 import { AVATAR_TONES } from '../../config/index.js';
 import type {
@@ -28,7 +30,34 @@ import type {
   BookFormat,
   CollectionStatus,
   ReadingStage,
+  TagOrigin,
 } from '../../types/models.js';
+
+const TAG_ORIGIN_META: Record<
+  TagOrigin,
+  { icon: string; label: string; badgeTitle: string }
+> = {
+  provider: {
+    icon: 'book',
+    label: 'Provider',
+    badgeTitle: 'From catalog metadata provider',
+  },
+  ai: {
+    icon: 'sparkles',
+    label: 'AI',
+    badgeTitle: 'From AI Tag Assistant',
+  },
+  rules: {
+    icon: 'compass',
+    label: 'Rules',
+    badgeTitle: 'From Quick Rules',
+  },
+  manual: {
+    icon: 'edit',
+    label: 'Manual',
+    badgeTitle: 'Added manually',
+  },
+};
 
 interface BookInspectorModalProps {
   bookId: string | null;
@@ -99,8 +128,17 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
   if (!book) return null;
 
+  const activeRot = state.rotations.find(
+    (r) => r.profileId === activeProfile?.id && r.status === 'active'
+  );
+  const effectiveReader =
+    activeProfile ||
+    (activeRot
+      ? state.profiles.find((p) => p.id === activeRot.profileId) || state.profiles[0] || null
+      : state.profiles[0] || null);
+
   const handleRatingChange = async (rating: number) => {
-    await store.setUserRating(book.id, rating);
+    await store.setUserRating(book.id, rating, effectiveReader?.id);
   };
 
   const handleToggleLoved = async () => {
@@ -313,18 +351,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     ? ({ '--lr-cover-tint': tintHex } as React.CSSProperties)
     : undefined;
 
-  const activeRot = state.rotations.find(
-    (r) => r.profileId === activeProfile?.id && r.status === 'active'
-  );
   const inActiveShelf = Boolean(activeRot && activeRot.bookIds.includes(book.id));
   const isReadInActive = Boolean(activeRot && activeRot.completedBookIds?.includes(book.id));
   const isPickedInActive = Boolean(activeRot && activeRot.pickedBookIds?.includes(book.id));
-
-  const effectiveReader =
-    activeProfile ||
-    (activeRot
-      ? state.profiles.find((p) => p.id === activeRot.profileId) || state.profiles[0] || null
-      : state.profiles[0] || null);
 
   const usageSummary = computeBookUsageSummary(book, {
     profiles: state.profiles,
@@ -395,6 +424,16 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
   const isbnVal = book.isbn13 || book.isbn10;
   const hasRawPayloads = book.sources?.some((s) => Boolean(s.rawPayload));
+  const aiSources = (book.sources || []).filter((s) =>
+    String(s?.provider || '').toLowerCase().startsWith('ai:')
+  );
+  const editionSpecs = [
+    book.pageCount ? `${book.pageCount} pp` : '',
+    book.publishedYear ? String(book.publishedYear) : '',
+    book.language && book.language !== 'english' ? book.language : '',
+    book.publisher || '',
+  ].filter(Boolean);
+  const readerRating = getBookUserRating(book, effectiveReader?.id);
 
   return (
     <div
@@ -416,16 +455,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         {/* Mobile Handle Pill */}
         <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 sm:hidden shrink-0" aria-hidden="true" />
 
-        {/* Top Utility Header: Provider Attribution (left) + Love / Edit / Close (right) */}
+        {/* Top Utility Header: Calm Status Context (left) + Love / Edit / Close (right) */}
         <div className="px-5 pt-3 pb-2.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2 shrink-0">
-          <div className="min-w-0 truncate">
-            {book.sources && book.sources.length > 0 ? (
-              <ProviderAttribution sources={book.sources} />
-            ) : (
-              <span className="text-xs font-semibold text-stone-ink dark:text-slate-400">
-                Manual Entry
-              </span>
-            )}
+          <div className="min-w-0 truncate flex items-center gap-1.5 text-xs text-stone-ink dark:text-slate-400">
+            <span className="font-semibold text-forest-900 dark:text-slate-200">
+              {formatCollectionStatus(currentStatus)}
+            </span>
+            <span aria-hidden="true" className="opacity-50">·</span>
+            <span className="truncate">{formatBookBinding(book.format)}</span>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
@@ -502,18 +539,24 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </span>
               </button>
 
-              {/* 5 Stars Underneath the Cover Image */}
+              {/* Per-Reader 5 Stars Underneath the Cover Image */}
               <div className="mt-2 flex flex-col items-center justify-center" data-inspector-cover-stars="true">
                 <StarRating
-                  rating={book.userRating || 0}
+                  rating={readerRating}
                   onChange={handleRatingChange}
                   size="sm"
+                  compact
                   dataInspectorCoverStars
                 />
+                {effectiveReader && (
+                  <span className="mt-0.5 text-[10px] text-stone-ink/75 dark:text-slate-400 leading-tight">
+                    {effectiveReader.name}’s rating
+                  </span>
+                )}
                 {book.averageRating ? (
                   <span
-                    className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-mono-tabular text-stone-ink/80 dark:text-slate-400"
-                    title="Google Books rating"
+                    className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-mono-tabular text-stone-ink/75 dark:text-slate-400"
+                    title="Catalog community rating"
                   >
                     <span className="text-amber-500">★</span>
                     <span>
@@ -536,124 +579,38 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 {book.authors.join(', ')}
               </p>
 
-              {/* Unified Metadata Block: Bibliographic line, Storytime pacing, and ISBN below */}
-              <div className="mt-2 text-xs leading-snug text-stone-ink dark:text-slate-300 space-y-0.5">
-                <div className="flex flex-wrap items-center">
-                  <span className="inline-flex items-center whitespace-nowrap">
-                    <span className="inline-flex items-center">
-                      <span className="font-bold text-forest-900 dark:text-white">
-                        Ages {book.ageMin}–{book.ageMax}
-                      </span>
-                      <span
-                        className="text-[10px] text-amber-600 dark:text-amber-400 select-none ml-0.5 cursor-help"
-                        title="Computed by local rule / AI (tap Edit to override)"
-                        aria-label="Auto-computed age parameter"
-                      >
-                        ✦
-                      </span>
-                    </span>
-                    <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">·</span>
+              {/* De-crowded 2-Tier Metadata Block: Reading Fit -> Edition Specs -> Storytime Pacing -> ISBN */}
+              <div className="mt-2.5 space-y-1">
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-stone-ink dark:text-slate-300">
+                  <span
+                    className="font-bold text-forest-900 dark:text-white whitespace-nowrap cursor-help"
+                    title="Recommended reading ages (tap Edit to adjust)"
+                  >
+                    Ages {book.ageMin}–{book.ageMax}
                   </span>
-
-                  <span className="inline-flex items-center whitespace-nowrap">
-                    <span>{formatReadingStage(book.readingStage)}</span>
-                    <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">·</span>
-                  </span>
-
-                  <span className="inline-flex items-center whitespace-nowrap">
-                    <span>{formatBookBinding(book.format)}</span>
-                    {(book.pageCount ||
-                      book.publishedYear ||
-                      (book.language && book.language !== 'english') ||
-                      book.publisher ||
-                      book.previewLink) && (
-                      <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">·</span>
-                    )}
-                  </span>
-
-                  {book.pageCount && (
-                    <span className="inline-flex items-center whitespace-nowrap">
-                      <span>{book.pageCount} pp</span>
-                      {(book.publishedYear ||
-                        (book.language && book.language !== 'english') ||
-                        book.publisher ||
-                        book.previewLink) && (
-                        <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">·</span>
-                      )}
-                    </span>
-                  )}
-
-                  {book.publishedYear && (
-                    <span className="inline-flex items-center whitespace-nowrap">
-                      <span>{book.publishedYear}</span>
-                      {((book.language && book.language !== 'english') ||
-                        book.publisher ||
-                        book.previewLink) && (
-                        <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">·</span>
-                      )}
-                    </span>
-                  )}
-
-                  {book.language && book.language !== 'english' && (
-                    <span className="inline-flex items-center whitespace-nowrap">
-                      <span>{book.language}</span>
-                      {(book.publisher || book.previewLink) && (
-                        <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">·</span>
-                      )}
-                    </span>
-                  )}
-
-                  {book.publisher && (
-                    <span className="inline-flex items-center whitespace-nowrap">
-                      <span>{book.publisher}</span>
-                      {book.previewLink && (
-                        <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">·</span>
-                      )}
-                    </span>
-                  )}
-
-                  {book.previewLink && (
-                    <span className="inline-flex items-center whitespace-nowrap">
-                      <a
-                        href={book.previewLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-forest-700 hover:underline dark:text-[#5ED3DA] font-medium inline-flex items-center gap-0.5"
-                      >
-                        Preview &nearr;
-                      </a>
-                    </span>
-                  )}
+                  <span aria-hidden="true" className="text-stone-ink/40 select-none">·</span>
+                  <span className="whitespace-nowrap">{formatReadingStage(book.readingStage)}</span>
                 </div>
 
+                {editionSpecs.length > 0 && (
+                  <p className="text-[11px] text-stone-ink/85 dark:text-slate-400 leading-snug">
+                    {editionSpecs.join(' · ')}
+                  </p>
+                )}
+
                 {hintParts.length > 0 && (
-                  <div className="flex flex-wrap items-center">
-                    <span
-                      className="inline-flex items-center text-[10px] text-emerald-600 dark:text-emerald-400 select-none mr-1 cursor-help"
-                      title="Read-aloud pacing & duration computed by rule / AI"
-                      aria-label="Auto-computed pacing and duration"
-                    >
-                      ✦
-                    </span>
-                    {hintParts.map((part, idx) => (
-                      <span key={`${part}-${idx}`} className="inline-flex items-center whitespace-nowrap">
-                        <span className="text-emerald-700 dark:text-emerald-400 font-medium">
-                          {part}
-                        </span>
-                        {idx < hintParts.length - 1 && (
-                          <span aria-hidden="true" className="mx-1 text-stone-ink/40 select-none">
-                            ·
-                          </span>
-                        )}
-                      </span>
-                    ))}
-                  </div>
+                  <p
+                    className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium leading-snug"
+                    title="Read-aloud pacing & duration"
+                  >
+                    {hintParts.join(' · ')}
+                  </p>
                 )}
 
                 {isbnVal && (
-                  <div className="font-mono-tabular text-stone-ink dark:text-slate-400 flex items-center select-all">
-                    <span>ISBN {isbnVal}</span>
-                  </div>
+                  <p className="text-[11px] font-mono-tabular text-stone-ink/75 dark:text-slate-400 select-all">
+                    ISBN {isbnVal}
+                  </p>
                 )}
               </div>
             </div>
@@ -1313,20 +1270,51 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
             </div>
 
             {book.tags.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-1.5">
-                {book.tags.map((tag) => (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => handleRemoveTag(tag)}
-                    title={`Remove topic ${tag}`}
-                    aria-label={`Remove topic ${tag}`}
-                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-linen-100/90 hover:bg-rose-50 dark:bg-night-800 dark:hover:bg-rose-950/50 text-xs font-medium text-forest-900 hover:text-rose-700 dark:text-slate-200 dark:hover:text-rose-300 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-                  >
-                    <span>{tag}</span>
-                    <span aria-hidden="true" className="opacity-60">×</span>
-                  </button>
-                ))}
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {book.tags.map((tag) => {
+                    const origin = resolveBookTagOrigin(book, tag);
+                    const meta = TAG_ORIGIN_META[origin];
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        data-tag-origin={origin}
+                        onClick={() => handleRemoveTag(tag)}
+                        title={`${meta.badgeTitle} — tap to remove "${tag}"`}
+                        aria-label={`Remove topic ${tag} (${meta.label})`}
+                        className="min-h-[34px] px-2.5 py-1 rounded-lg bg-linen-100/90 hover:bg-rose-50 dark:bg-night-800 dark:hover:bg-rose-950/50 text-xs font-medium text-forest-900 hover:text-rose-700 dark:text-slate-200 dark:hover:text-rose-300 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                      >
+                        <Icon
+                          name={meta.icon}
+                          className="w-3 h-3 opacity-60 shrink-0"
+                        />
+                        <span>{tag}</span>
+                        <span aria-hidden="true" className="opacity-55">×</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Quiet Origin Micro-Legend */}
+                <div
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-stone-ink/75 dark:text-slate-400 pt-0.5"
+                  aria-label="Topic origin legend"
+                >
+                  {(['provider', 'ai', 'rules', 'manual'] as TagOrigin[]).map((originKey) => {
+                    const meta = TAG_ORIGIN_META[originKey];
+                    return (
+                      <span
+                        key={originKey}
+                        className="inline-flex items-center gap-1 whitespace-nowrap"
+                        title={meta.badgeTitle}
+                      >
+                        <Icon name={meta.icon} className="w-2.5 h-2.5 opacity-75" />
+                        <span>{meta.label}</span>
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <p className="text-stone-ink dark:text-slate-400">No topics tagged yet.</p>
@@ -1351,14 +1339,37 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
             </form>
           </section>
 
-          {/* Quiet Footer: Provenance + Raw Payloads + Remove Book */}
+          {/* Quiet Footer: Source Attribution + External IDs + Preview + Raw Payloads + Remove Book */}
           <div className="pt-3 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-stone-ink dark:text-slate-400">
-                  Retrieved from
-                </span>
-                <ProviderAttribution sources={book.sources} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <ProviderAttribution
+                  sources={book.sources}
+                  prefix="Sources:"
+                  includeExternalIds
+                />
+
+                {aiSources.length > 0 && (
+                  <span
+                    className="text-[11px] text-stone-ink/75 dark:text-slate-400 whitespace-nowrap cursor-help"
+                    title={`AI enrichment via ${aiSources
+                      .map((s) => String(s.provider || '').replace(/^ai:/i, ''))
+                      .join(', ')}`}
+                  >
+                    · AI-assisted
+                  </span>
+                )}
+
+                {book.previewLink && (
+                  <a
+                    href={book.previewLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[11px] font-semibold text-forest-700 hover:underline dark:text-[#5ED3DA] inline-flex items-center gap-0.5 whitespace-nowrap"
+                  >
+                    <span>Preview ↗</span>
+                  </a>
+                )}
               </div>
 
               <button

@@ -11,6 +11,9 @@ interface RotationShelfCardProps {
   rotation: RotationShelf;
   books: Book[];
   isActive?: boolean;
+  isEditorOpen?: boolean;
+  onOpenEditor?: () => void;
+  onCloseEditor?: () => void;
   onSwapBook?: (bookId: string) => void;
   onReplaceBook?: (bookId: string) => void;
   onAddRandom?: (count: number) => void;
@@ -25,6 +28,9 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   rotation,
   books,
   isActive = false,
+  isEditorOpen: isEditorOpenProp,
+  onOpenEditor,
+  onCloseEditor,
   onSwapBook,
   onReplaceBook,
   onAddRandom,
@@ -34,8 +40,24 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   onDelete,
 }) => {
   const { state, activeProfile, setInspectedBookId } = useApp();
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [localEditorOpen, setLocalEditorOpen] = useState(false);
   const [isPlacementOpen, setIsPlacementOpen] = useState(false);
+
+  const isEditorOpen = isEditorOpenProp !== undefined ? isEditorOpenProp : localEditorOpen;
+  const openEditor = () => {
+    if (onOpenEditor) {
+      onOpenEditor();
+    } else {
+      setLocalEditorOpen(true);
+    }
+  };
+  const closeEditor = () => {
+    if (onCloseEditor) {
+      onCloseEditor();
+    } else {
+      setLocalEditorOpen(false);
+    }
+  };
 
   const coverAspect = state.settings?.coverAspectRatio || 'portrait';
 
@@ -127,7 +149,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
 
             <button
               type="button"
-              onClick={() => setIsEditorOpen(true)}
+              onClick={openEditor}
               aria-label={`Edit ${rotation.title}`}
               className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
@@ -178,9 +200,9 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
       <RotationShelfEditorModal
         rotation={rotation}
         isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
+        onClose={closeEditor}
         onOpenPlacement={() => {
-          setIsEditorOpen(false);
+          closeEditor();
           setIsPlacementOpen(true);
         }}
         onSwapBook={onSwapBook}
