@@ -34,6 +34,8 @@ import {
   LegalSubView,
   OtherSubView,
 } from './settings/SettingsInfoSections.js';
+import { QueryUsageSubView } from './settings/QueryUsageSubView.js';
+import { queryLogger } from '../../features/telemetry/query-logger.js';
 
 const VALID_SECTIONS = new Set<SettingsSectionId>([
   'profiles',
@@ -42,6 +44,7 @@ const VALID_SECTIONS = new Set<SettingsSectionId>([
   'shelf-rules',
   'catalog',
   'ai',
+  'query-usage',
   'offline-storage',
   'backup',
   'whats-new',
@@ -180,6 +183,12 @@ export const SettingsView: React.FC = () => {
   const toggleHelp = (key: string) => {
     setOpenHelpKeys((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  // Query usage live updates
+  const [, setQueryUsageTick] = useState(0);
+  useEffect(() => {
+    return queryLogger.subscribe(() => setQueryUsageTick((t) => t + 1));
+  }, []);
 
   // Inline confirmation for Reset Sample Data
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
@@ -1474,6 +1483,24 @@ export const SettingsView: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Live Query Usage & Limits Monitor Link */}
+                    <div className="rounded-xl bg-linen-100/70 dark:bg-night-800/60 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-forest-700 dark:bg-[#5ED3DA]" />
+                        <span className="font-semibold text-forest-900 dark:text-white">
+                          Today's Google Books calls: <strong className="font-mono">{queryLogger.getDailyCount('google-books')} / {queryLogger.getServiceQuota('google-books').limit}</strong>
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openSection('query-usage')}
+                        className="text-xs font-bold text-forest-700 dark:text-[#5ED3DA] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>View Query Monitor</span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
                     {/* Collapsible Advanced Device Proxy Disclosure */}
                     <details className="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5">
                       <summary className="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
@@ -2732,6 +2759,14 @@ export const SettingsView: React.FC = () => {
             </>
           );
 
+        case 'query-usage':
+          return (
+            <QueryUsageSubView
+              onBack={goBackToRoot}
+              backLabel={backLabel}
+            />
+          );
+
         default:
           return null;
       }
@@ -2771,6 +2806,29 @@ export const SettingsView: React.FC = () => {
           v{APP_VERSION} · {storageUsage.formatted}
         </p>
       </div>
+
+      {/* Proactive Quota Warning Banner in Settings Root */}
+      {(() => {
+        const alert = queryLogger.getGlobalQuotaAlert();
+        if (!alert.hasAlert) return null;
+        return (
+          <div
+            role="alert"
+            onClick={() => openSection('query-usage')}
+            className={`p-4 rounded-2xl border flex items-center justify-between gap-3 text-xs leading-relaxed cursor-pointer transition-transform hover:scale-[1.01] ${
+              alert.level === 'error'
+                ? 'bg-rose-50 border-rose-300 dark:bg-rose-950/50 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+                : 'bg-amber-50 border-amber-300 dark:bg-amber-950/50 dark:border-amber-800 text-amber-900 dark:text-amber-100'
+            } shadow-xs`}
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg shrink-0">{alert.level === 'error' ? '🛑' : '⚠️'}</span>
+              <p className="font-semibold">{alert.message}</p>
+            </div>
+            <span className="font-bold underline shrink-0 whitespace-nowrap">View Usage →</span>
+          </div>
+        );
+      })()}
 
       {/* Grouped Settings Lists — 1 column on mobile, balanced 2 columns on desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -2836,6 +2894,15 @@ export const SettingsView: React.FC = () => {
               subtitle={t('settings.rowAiSubtitle')}
               value={llmSummary}
               onClick={() => openSection('ai')}
+            />
+            <SettingsMenuRow
+              testId="query-usage"
+              icon="activity"
+              iconTone="amber"
+              title="API & Query Usage Monitor"
+              subtitle="Daily request counts, limits & call logs"
+              value={`Google: ${queryLogger.getDailyCount('google-books')}/${queryLogger.getServiceQuota('google-books').limit}`}
+              onClick={() => openSection('query-usage')}
             />
           </SettingsGroup>
 

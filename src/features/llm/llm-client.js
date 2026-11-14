@@ -8,6 +8,7 @@
 
 import { sanitizeTagList } from '../tagging/rule-tagger.js';
 import { isBookRotatable } from '../../types/models.js';
+import { queryLogger } from '../telemetry/query-logger.js';
 
 export const INTERACTIVE_FORMAT_CATEGORIES = Object.freeze([
   { id: 'lift-the-flap', label: 'Lift-the-Flap' },
@@ -131,6 +132,9 @@ export async function testLlmConnection(settings) {
     jsonMode: true,
   };
 
+  const service = provider === 'byok-openai' ? 'openai' : 'gemini';
+  const startTime = Date.now();
+
   try {
     const res = await fetch('/api/llm/generate', {
       method: 'POST',
@@ -143,12 +147,32 @@ export async function testLlmConnection(settings) {
     try {
       data = JSON.parse(text);
     } catch (_) {
+      try {
+        queryLogger?.recordQuery?.({
+          service,
+          endpoint: `Connection Test (${payload.model})`,
+          status: res.status,
+          statusText: 'Invalid Response',
+          latencyMs: Date.now() - startTime,
+        });
+      } catch (_) {}
       return {
         ok: false,
         error: 'INVALID_SERVER_RESPONSE',
         message: `Server returned non-JSON response (HTTP ${res.status}). If using a custom proxy or worker, verify the endpoint URL.`,
       };
     }
+
+    try {
+      queryLogger?.recordQuery?.({
+        service,
+        endpoint: `Connection Test (${data?.modelUsed || payload.model})`,
+        status: res.ok && data?.ok ? 200 : res.status || 500,
+        statusText: res.ok && data?.ok ? 'OK' : data?.error || 'Connection Failed',
+        latencyMs: Date.now() - startTime,
+        error: !data?.ok ? data?.message : undefined,
+      });
+    } catch (_) {}
 
     if (!res.ok || !data.ok) {
       return {
@@ -163,6 +187,16 @@ export async function testLlmConnection(settings) {
       message: `Successfully connected to ${data.modelUsed || payload.model} via ${data.providerUsed || provider}!`,
     };
   } catch (err) {
+    try {
+      queryLogger?.recordQuery?.({
+        service,
+        endpoint: `Connection Test (${payload.model})`,
+        status: 0,
+        statusText: 'Network Error',
+        latencyMs: Date.now() - startTime,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } catch (_) {}
     return {
       ok: false,
       error: 'NETWORK_ERROR',
@@ -178,6 +212,12 @@ export async function testLlmConnection(settings) {
  */
 async function dispatchLlmQuery(settings, queryParams) {
   const provider = settings.llmProvider || 'server-gemini';
+  const service = provider === 'byok-openai' ? 'openai' : 'gemini';
+  const taskName = String(queryParams.task || 'generate');
+  const modelName = String(settings.llmModel || 'gemini-2.5-flash');
+  const endpointLabel = `${taskName} (${modelName})`;
+  const startTime = Date.now();
+
   const endpointUrl =
     provider === 'cloudflare-worker'
       ? settings.llmCloudflareUrl
@@ -194,17 +234,42 @@ async function dispatchLlmQuery(settings, queryParams) {
     jsonMode: queryParams.jsonMode !== false,
   };
 
-  const res = await fetch('/api/llm/generate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  let res;
+  let text = '';
+  try {
+    res = await fetch('/api/llm/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    text = await res.text();
+  } catch (fetchErr) {
+    try {
+      queryLogger?.recordQuery?.({
+        service,
+        endpoint: endpointLabel,
+        status: 0,
+        statusText: 'Network Error',
+        latencyMs: Date.now() - startTime,
+        error: fetchErr instanceof Error ? fetchErr.message : String(fetchErr),
+      });
+    } catch (_) {}
+    throw fetchErr;
+  }
 
-  const text = await res.text();
   let data;
   try {
     data = JSON.parse(text);
   } catch (_) {
+    try {
+      queryLogger?.recordQuery?.({
+        service,
+        endpoint: endpointLabel,
+        status: res.status,
+        statusText: 'Invalid JSON',
+        latencyMs: Date.now() - startTime,
+      });
+    } catch (_) {}
     const error = new Error(
       `Server returned non-JSON response (HTTP ${res.status}). If using a custom proxy or worker, verify the endpoint URL.`
     );
@@ -214,6 +279,17 @@ async function dispatchLlmQuery(settings, queryParams) {
     error.code = 'INVALID_SERVER_RESPONSE';
     throw error;
   }
+
+  try {
+    queryLogger?.recordQuery?.({
+      service,
+      endpoint: endpointLabel,
+      status: res.ok && data?.ok ? 200 : res.status || 500,
+      statusText: res.ok && data?.ok ? 'OK' : data?.error || 'Failed',
+      latencyMs: Date.now() - startTime,
+      error: !data?.ok ? data?.message : undefined,
+    });
+  } catch (_) {}
 
   if (!res.ok || !data.ok) {
     const error = new Error(data?.message || `LLM query failed (HTTP ${res.status})`);

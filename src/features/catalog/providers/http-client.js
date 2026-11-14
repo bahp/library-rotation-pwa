@@ -4,6 +4,8 @@
  * (failing fast without stalling when daily quota exhaustion is reported without Retry-After).
  */
 
+import { queryLogger } from '../../telemetry/query-logger.js';
+
 const CACHE_STORAGE_KEY = 'lr_provider_cache_v1';
 const DEFAULT_TTL_MS = 1000 * 60 * 60 * 12; // 12 hours
 const MAX_CACHE_ENTRIES = 60;
@@ -122,15 +124,53 @@ export function createHttpClient(config = {}) {
   }
 
   /**
+   * @param {string} urlStr
+   * @returns {import('../../telemetry/query-logger.js').ApiServiceId}
+   */
+  function inferService(urlStr) {
+    const s = String(urlStr || '').toLowerCase();
+    if (s.includes('googleapis.com') || s.includes('/api/books')) return 'google-books';
+    if (s.includes('openlibrary.org')) return 'open-library';
+    return 'other';
+  }
+
+  /**
+   * @param {string} urlStr
+   * @returns {string}
+   */
+  function formatEndpoint(urlStr) {
+    try {
+      const u = new URL(urlStr, 'http://localhost');
+      return u.searchParams.get('q') || u.searchParams.get('bibkeys') || u.pathname || urlStr;
+    } catch (_) {
+      return String(urlStr || '').slice(0, 120);
+    }
+  }
+
+  /**
    * Fetches JSON with cache lookup, timeout, and retry/backoff on transient 429/5xx.
    * @param {string} url
    * @param {{ signal?: AbortSignal, bypassCache?: boolean }} [options]
    * @returns {Promise<any>}
    */
   async function getJson(url, options = {}) {
+    const service = inferService(url);
+    const endpointLabel = formatEndpoint(url);
+    const startTime = Date.now();
+
     if (!options.bypassCache) {
       const hit = memoryCache.get(url);
       if (hit && hit.expiresAt > Date.now()) {
+        try {
+          queryLogger?.recordQuery?.({
+            service,
+            endpoint: endpointLabel,
+            status: 200,
+            statusText: 'Cached',
+            latencyMs: 0,
+            cached: true,
+          });
+        } catch (_) {}
         return hit.value;
       }
       if (hit) memoryCache.delete(url);
@@ -165,6 +205,15 @@ export function createHttpClient(config = {}) {
           }
           const data = await response.json();
           setCached(url, data);
+          try {
+            queryLogger?.recordQuery?.({
+              service,
+              endpoint: endpointLabel,
+              status: response.status,
+              statusText: 'OK',
+              latencyMs: Date.now() - startTime,
+            });
+          } catch (_) {}
           return data;
         }
 
@@ -174,6 +223,17 @@ export function createHttpClient(config = {}) {
           (response.status === 429 || response.status === 403) &&
           !retryAfterHeader &&
           /quota exceeded|queries per day|dailylimitexceeded/i.test(detail);
+
+        try {
+          queryLogger?.recordQuery?.({
+            service,
+            endpoint: endpointLabel,
+            status: response.status,
+            statusText: isHardQuotaExhausted ? 'Quota Exceeded (HTTP 429)' : `HTTP ${response.status}`,
+            latencyMs: Date.now() - startTime,
+            error: detail || undefined,
+          });
+        } catch (_) {}
 
         const retryable =
           !isHardQuotaExhausted && (response.status === 429 || response.status >= 500);
@@ -198,6 +258,16 @@ export function createHttpClient(config = {}) {
         const isNetworkOrTimeout =
           err instanceof TypeError || (err instanceof Error && err.name === 'AbortError');
         if (!isNetworkOrTimeout || attempt >= maxRetries) {
+          try {
+            queryLogger?.recordQuery?.({
+              service,
+              endpoint: endpointLabel,
+              status: 0,
+              statusText: isNetworkOrTimeout ? 'Network/Timeout' : 'Error',
+              latencyMs: Date.now() - startTime,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          } catch (_) {}
           throw err;
         }
         const waitMs = baseDelayMs * Math.pow(2, attempt);

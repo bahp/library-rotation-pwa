@@ -3165,7 +3165,7 @@ function bindEvents() {
       }
       case 'open-play-app': {
         const appId = target.getAttribute('data-play-app-id');
-        if (appId === 'storytime-picker' || appId === 'book-hunt') {
+        if (appId === 'storytime-picker' || appId === 'book-hunt' || appId === 'reading-passport') {
           rememberModalTrigger(target);
           uiState.playUi.activeAppId = appId;
           uiState.playUi.sheetClosedExplicitly = false;

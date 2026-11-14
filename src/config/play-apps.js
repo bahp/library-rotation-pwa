@@ -12,7 +12,7 @@
  */
 
 /**
- * @typedef {'storytime-picker' | 'book-hunt'} PlayAppId
+ * @typedef {'storytime-picker' | 'book-hunt' | 'reading-passport'} PlayAppId
  */
 
 /**
@@ -77,6 +77,22 @@ export const PLAY_APPS_CONFIG = Object.freeze([
     previewImageAlt: 'Book Hunt game preview',
     accentPalette: 'amber',
   }),
+  Object.freeze({
+    id: 'reading-passport',
+    title: 'Reading Passport & Stamp Book',
+    subtitle: 'Printable Activity Book',
+    shortTagline: 'Printable passport booklet & bingo cards for stamps and stickers',
+    description:
+      'Generate a client-side printable passport booklet, reading bingo card, or sticker track populated with book covers from your shelf for physical stamping with young readers.',
+    badgeLabel: 'Printable',
+    ctaLabel: 'Open Passport Studio',
+    logoIcon: 'stamp',
+    logoUrl: 'assets/play/reading-passport-logo.jpg',
+    imageUrl: 'assets/play/reading-passport-preview.jpg',
+    previewImageUrl: 'assets/play/reading-passport-preview.jpg',
+    previewImageAlt: 'Reading Passport & Stamp Book preview',
+    accentPalette: 'indigo',
+  }),
 ]);
 
 /**
@@ -96,7 +112,7 @@ export function getPlayAppsConfig(overrides = null) {
     }
   } else if (overrides && typeof overrides === 'object') {
     for (const [key, value] of Object.entries(overrides)) {
-      if ((key === 'storytime-picker' || key === 'book-hunt') && value && typeof value === 'object') {
+      if ((key === 'storytime-picker' || key === 'book-hunt' || key === 'reading-passport') && value && typeof value === 'object') {
         overrideMap.set(key, value);
       }
     }

@@ -7,6 +7,7 @@ import { Icon } from '../common/Icon.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import { PLAY_APPS_CONFIG, type PlayAppConfig } from '../../config/play-apps.js';
 import { pickStorytimeBooks, createBookHuntChallenge } from '../../features/play/play-activities.js';
+import { ReadingPassportStudio } from '../play/ReadingPassportStudio.js';
 import type { Book } from '../../types/models.js';
 
 export const PlayView: React.FC = () => {
@@ -35,6 +36,7 @@ export const PlayView: React.FC = () => {
   // Logo load error states for sheet headers
   const [storyLogoError, setStoryLogoError] = useState(false);
   const [huntLogoError, setHuntLogoError] = useState(false);
+  const [passportLogoError, setPassportLogoError] = useState(false);
 
   const activeApp = PLAY_APPS_CONFIG.find((a) => a.id === activeAppId) || null;
 
@@ -107,7 +109,7 @@ export const PlayView: React.FC = () => {
       </div>
 
       {/* Showcase Launcher Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {PLAY_APPS_CONFIG.map((app) => (
           <PlayAppCard key={app.id} app={app} onOpen={handleOpenApp} />
         ))}
@@ -128,7 +130,9 @@ export const PlayView: React.FC = () => {
           />
 
           {/* Bottom Sheet Container */}
-          <div className="relative w-full max-h-[92vh] sm:max-h-[88vh] sm:max-w-2xl flex flex-col rounded-t-3xl sm:rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl animate-sheet-up overflow-hidden z-10">
+          <div className={`relative w-full max-h-[92vh] sm:max-h-[88vh] ${
+            activeAppId === 'reading-passport' ? 'sm:max-w-4xl' : 'sm:max-w-2xl'
+          } flex flex-col rounded-t-3xl sm:rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl animate-sheet-up overflow-hidden z-10`}>
             {/* Handle Pill for Mobile Swipe Gesture */}
             <div className="w-12 h-1 rounded-full bg-stone-300 dark:bg-night-700 mx-auto my-2.5 shrink-0" />
 
@@ -139,13 +143,15 @@ export const PlayView: React.FC = () => {
                   <Icon name={activeApp.logoIcon || 'play'} className="w-5 h-5" />
                   {activeApp.logoUrl &&
                     ((activeAppId === 'storytime-picker' && !storyLogoError) ||
-                      (activeAppId === 'book-hunt' && !huntLogoError)) && (
+                      (activeAppId === 'book-hunt' && !huntLogoError) ||
+                      (activeAppId === 'reading-passport' && !passportLogoError)) && (
                       <img
                         src={activeApp.logoUrl}
                         alt={`${activeApp.title} logo`}
                         onError={() => {
                           if (activeAppId === 'storytime-picker') setStoryLogoError(true);
                           if (activeAppId === 'book-hunt') setHuntLogoError(true);
+                          if (activeAppId === 'reading-passport') setPassportLogoError(true);
                         }}
                         className="absolute inset-0 w-full h-full object-cover"
                       />
@@ -460,6 +466,11 @@ export const PlayView: React.FC = () => {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* Activity 3: Reading Passport & Stamp Book Studio */}
+              {activeAppId === 'reading-passport' && (
+                <ReadingPassportStudio onClose={() => setActiveAppId(null)} />
               )}
             </div>
           </div>

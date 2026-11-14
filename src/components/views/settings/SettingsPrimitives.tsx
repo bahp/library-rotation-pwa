@@ -8,6 +8,7 @@ export type SettingsSectionId =
   | 'shelf-rules'
   | 'catalog'
   | 'ai'
+  | 'query-usage'
   | 'offline-storage'
   | 'backup'
   | 'whats-new'

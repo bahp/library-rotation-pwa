@@ -27,7 +27,7 @@ import {
 
 /**
  * @typedef {Object} PlayUiState
- * @property {'storytime-picker' | 'book-hunt' | null} [activeAppId] - Currently open mini-app bottom sheet (`null` shows preview gallery only)
+ * @property {'storytime-picker' | 'book-hunt' | 'reading-passport' | null} [activeAppId] - Currently open mini-app bottom sheet (`null` shows preview gallery only)
  * @property {boolean} [sheetClosedExplicitly] - True after user closes the Play sheet so background session state stays preserved without re-opening automatically
  * @property {number} randomizerCount - Number of books to pick (1+, default 3)
  * @property {'active-shelf' | 'owned-library' | 'rotation'} randomizerScope - Source pool for Storytime Picker
@@ -85,13 +85,14 @@ export function createDefaultPlayUiState() {
  *   when active game state is passed directly without `sheetClosedExplicitly`.
  *
  * @param {Partial<PlayUiState> | null | undefined} playUiState
- * @returns {'storytime-picker' | 'book-hunt' | null}
+ * @returns {'storytime-picker' | 'book-hunt' | 'reading-passport' | null}
  */
 export function resolveActivePlayAppId(playUiState) {
   if (!playUiState) return null;
   if (
     playUiState.activeAppId === 'storytime-picker' ||
-    playUiState.activeAppId === 'book-hunt'
+    playUiState.activeAppId === 'book-hunt' ||
+    playUiState.activeAppId === 'reading-passport'
   ) {
     return playUiState.activeAppId;
   }
@@ -246,13 +247,18 @@ export function renderPlayView({
     .map((app) => {
       const trimmedImageUrl = String(app.imageUrl || '').trim();
       const isPicker = app.id === 'storytime-picker';
+      const isPassport = app.id === 'reading-passport';
       const liveStatusText = isPicker
         ? pickedBooks.length > 0
           ? `${pickedBooks.length} ${pickedBooks.length === 1 ? 'book' : 'books'} picked tonight`
           : `${randomizerPool.pool.length} ${
               randomizerPool.pool.length === 1 ? 'book' : 'books'
             } ready in ${randomizerPool.poolLabel.toLowerCase()}`
-        : huntBook && !playUiState.huntCelebrated
+        : isPassport
+          ? `${randomizerPool.pool.length} ${
+              randomizerPool.pool.length === 1 ? 'book' : 'books'
+            } ready for passports & bingo`
+          : huntBook && !playUiState.huntCelebrated
           ? `Hunt in progress · ${huntPool.pool.length} ${
               huntPool.pool.length === 1 ? 'book' : 'books'
             }`
@@ -264,7 +270,9 @@ export function renderPlayView({
 
       const fallbackToneClasses = isPicker
         ? 'from-linen-100 via-ivory to-linen-200 dark:from-night-800 dark:via-night-900 dark:to-night-800'
-        : 'from-forest-50 via-ivory to-linen-100 dark:from-night-800 dark:via-night-900 dark:to-night-950';
+        : isPassport
+          ? 'from-indigo-50 via-ivory to-linen-100 dark:from-night-800 dark:via-night-900 dark:to-night-950'
+          : 'from-forest-50 via-ivory to-linen-100 dark:from-night-800 dark:via-night-900 dark:to-night-950';
 
       return `
         <article
@@ -910,7 +918,9 @@ export function renderPlayView({
               ${
                 activeAppId === 'storytime-picker'
                   ? storytimePickerInteractiveHtml
-                  : bookHuntInteractiveHtml
+                  : activeAppId === 'reading-passport'
+                    ? `<div class="p-6 text-center space-y-3"><p class="font-display font-bold text-base text-forest-900 dark:text-white">Reading Passport &amp; Stamp Book Studio</p><p class="text-xs text-stone-ink dark:text-slate-400">Generate client-side printable passports, storytime bingo cards, and sticker tracks.</p></div>`
+                    : bookHuntInteractiveHtml
               }
             </div>
           </div>
