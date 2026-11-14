@@ -151,5 +151,70 @@ describe('Reading Passport & Query Usage Logger Suite', () => {
     const fresh = getPlayAppsConfig();
     assert.equal(fresh.find((a) => a.id === 'reading-passport')?.title, 'Reading Passport & Stamp Book');
   });
+
+  it('passport presets include Harry Potter, One Minute to Bed, and support custom persistence', async () => {
+    const { DEFAULT_PASSPORT_PRESETS } = await import('../src/config/passport-presets.js');
+    const {
+      getAllPassportPresets,
+      saveCustomPreset,
+      deleteCustomPreset,
+      generateStandalonePassportHtml,
+    } = await import('../src/features/play/passport-service.js');
+
+    // Built-in presets check
+    assert.ok(DEFAULT_PASSPORT_PRESETS.length >= 4);
+    const hp = DEFAULT_PASSPORT_PRESETS.find((p) => p.id === 'preset-harry-potter');
+    assert.ok(hp, 'Must include Harry Potter series preset');
+    assert.equal(hp.books.length, 7);
+
+    const bed = DEFAULT_PASSPORT_PRESETS.find((p) => p.id === 'preset-one-minute-bed');
+    assert.ok(bed, 'Must include One Minute to Bed series preset');
+    assert.equal(bed.defaultLayout, 'official-certificate');
+
+    // Custom preset lifecycle
+    const custom = saveCustomPreset({
+      id: 'test-custom-set-1',
+      title: 'Summer Reading Challenge',
+      subtitle: 'Beach & Park Reads',
+      seriesName: 'Summer 2026',
+      description: 'Books read during family vacation',
+      category: 'custom',
+      defaultLayout: 'traditional-passport',
+      theme: 'forest',
+      books: [{ id: 'b-1', title: 'Island Adventure', author: 'Test' }],
+      achievementIds: ['series-master'],
+    });
+
+    const all = getAllPassportPresets();
+    const foundCustom = all.find((p) => p.id === 'test-custom-set-1');
+    assert.ok(foundCustom);
+    assert.equal(foundCustom.isCustom, true);
+
+    // Standalone HTML generation with embedded styles
+    const html = generateStandalonePassportHtml({
+      title: 'Test Certificate',
+      readerName: 'Maya',
+      layoutMode: 'official-certificate',
+      innerContentHtml: '<div class="certificate-inner">Honorary Diploma</div>',
+      theme: 'classic',
+      customBgUrl: 'https://example.com/art.jpg',
+      bgBlur: 4,
+      bgOpacity: 80,
+    });
+
+    assert.ok(html.includes('<!DOCTYPE html>'));
+    assert.ok(html.includes('<style>'));
+    assert.ok(html.includes('certificate-filigree-frame'));
+    assert.ok(html.includes('-webkit-print-color-adjust: exact'));
+    assert.ok(html.includes('Honorary Diploma'));
+    assert.ok(html.includes('background-image: url(\'https://example.com/art.jpg\')'));
+    assert.ok(html.includes('filter: blur(4px)'));
+
+    // Clean up
+    deleteCustomPreset('test-custom-set-1');
+    const afterDelete = getAllPassportPresets();
+    assert.equal(afterDelete.some((p) => p.id === 'test-custom-set-1'), false);
+  });
 });
+
 

@@ -343,3 +343,76 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ========================================================================== */
+/* Reading Passport & Certificate High-Fidelity Print & PDF Styles           */
+/* ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html, body {
+    background-color: #ffffff !important;
+    color: #1a2423 !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide app shell chrome and studio configuration toolbar when printing */
+  header,
+  nav,
+  [data-app-shell="nav"],
+  .lr-no-print,
+  .no-print,
+  .sheet-backdrop > div:first-child,
+  button:not(.passport-print-keep),
+  input,
+  select,
+  textarea {
+    display: none !important;
+  }
+
+  /* Reset sheet container modal bounds to take over the printed page */
+  .passport-studio-sheet-root {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #reading-passport-printable-doc {
+    margin: 0 auto !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .passport-print-page {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 0 !important;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+}
+
