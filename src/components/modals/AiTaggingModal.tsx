@@ -6,6 +6,8 @@ import {
   DEVELOPMENTAL_THEME_CATEGORIES,
   CONCEPT_CATEGORIES,
 } from '../../features/llm/llm-client.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+import { AiTagsSkeleton } from '../common/SkeletonLoaders.js';
 
 interface AiTaggingModalProps {
   bookId: string | null;
@@ -39,6 +41,8 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
       setError('');
     }
   }, [isOpen, bookId]);
+
+  useBodyScrollLock(isOpen && Boolean(book));
 
   if (!isOpen || !book) return null;
 
@@ -112,13 +116,14 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-tag-modal-title"
-      className="sheet-backdrop fixed inset-0 z-[70] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="sheet-backdrop fixed inset-0 z-[70] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-lg sm:max-w-xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden"
+        className="animate-sheet-up w-full max-w-lg sm:max-w-2xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
       >
+        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
         {/* Top bar */}
         <div className="px-5 pt-3.5 pb-2.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -139,25 +144,25 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="p-1 rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800"
+            className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center active:scale-95 transition-transform"
           >
-            <Icon name="close" className="w-4 h-4" />
+            <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
         </div>
 
         {/* Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
           {isLoading ? (
-            <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-              <div className="w-10 h-10 rounded-full border-3 border-forest-200 border-t-forest-700 dark:border-night-700 dark:border-t-[#5ED3DA] animate-spin" />
-              <div>
-                <p className="text-sm font-semibold text-forest-900 dark:text-white">
+            <div className="space-y-2 py-2">
+              <div className="px-1">
+                <p className="text-xs font-semibold text-forest-900 dark:text-white">
                   Querying LLM for Categorized Tags…
                 </p>
-                <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
                   Identifying interactive features, developmental themes, and story topics.
                 </p>
               </div>
+              <AiTagsSkeleton />
             </div>
           ) : error ? (
             <div className="rounded-xl bg-rose-50 dark:bg-rose-950/45 border border-rose-300 dark:border-rose-800 p-4 space-y-2">
@@ -246,14 +251,14 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs font-semibold rounded-xl text-stone-600 dark:text-slate-400 hover:bg-linen-100"
+                className="min-h-[48px] sm:min-h-[38px] px-3.5 py-2 text-xs font-semibold rounded-xl text-stone-600 dark:text-slate-400 hover:bg-linen-100 dark:hover:bg-night-800 active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleApplyTags}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs"
+                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 text-xs font-bold rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs active:scale-[0.98] transition-all"
               >
                 Save Selected Tags
               </button>

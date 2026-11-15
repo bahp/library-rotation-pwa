@@ -16,7 +16,16 @@ import {
   normalizeOwnersList,
 } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
-import { createSafeDefaultSettings, isValidAppState, migrateState } from './storage.js';
+import {
+  clearAuxiliaryLocalStorageKeys,
+  clearQaUserSnapshot,
+  createEmptyOnboardingState,
+  createSafeDefaultSettings,
+  isValidAppState,
+  loadQaUserSnapshot,
+  migrateState,
+  saveQaUserSnapshot,
+} from './storage.js';
 import {
   candidateToBook,
   cleanProviderExternalId,
@@ -2118,6 +2127,10 @@ export function createAppStore(storage, deps = {}) {
       state.profiles.find((p) => p.id === (input.profileId || state.activeProfileId)) ||
       state.profiles[0];
 
+    if (!profile) {
+      throw new Error('Create a reader profile before generating a rotation.');
+    }
+
     if (state.books.length === 0) {
       throw new Error('Add at least one book to your catalog before generating a rotation.');
     }
@@ -2896,10 +2909,15 @@ export function createAppStore(storage, deps = {}) {
 
   /**
    * Restores all metadata & AI enrichment settings to safe, privacy-first defaults
-   * while preserving user theme and camera scan-mode preferences.
+   * while preserving household identity, onboarding state, theme, and camera preferences.
    */
   async function resetProviderSettingsToSafeDefaults() {
     const safeDefaults = createSafeDefaultSettings({
+      language: state.settings.language,
+      householdName: state.settings.householdName,
+      onboarding: state.settings.onboarding,
+      devModeUnlocked: state.settings.devModeUnlocked,
+      showMiniWizards: state.settings.showMiniWizards,
       theme: state.settings.theme,
       coverAspectRatio: state.settings.coverAspectRatio,
       dynamicCoverTint: state.settings.dynamicCoverTint,
@@ -2910,6 +2928,345 @@ export function createAppStore(storage, deps = {}) {
       settings: safeDefaults,
     });
     notify('Restored safe privacy-first provider & AI defaults.', 'info');
+  }
+
+  /**
+   * Updates the optional parent or household display name inside `settings.householdName`.
+   * @param {string} rawName
+   * @param {{ silent?: boolean }} [options]
+   */
+  async function setHouseholdName(rawName, options = {}) {
+    const cleanName = String(rawName || '').trim().slice(0, 80);
+    await commit({
+      ...state,
+      settings: createSafeDefaultSettings({
+        ...state.settings,
+        householdName: cleanName,
+      }),
+    });
+    if (!options.silent) {
+      notify(
+        cleanName
+          ? `Saved household name "${cleanName}".`
+          : 'Cleared household display name.',
+        'success'
+      );
+    }
+  }
+
+  /**
+   * Updates guided onboarding wizard progress cleanly without disturbing catalog or profiles.
+   * @param {Partial<import('../types/models.js').OnboardingProgressState>} patch
+   */
+  async function updateOnboarding(patch = {}) {
+    const prev = state.settings.onboarding || {
+      status: 'pending',
+      currentStep: 0,
+      completedSteps: [],
+      skippedSteps: [],
+    };
+    const nextOnboarding = {
+      ...prev,
+      ...patch,
+      completedSteps: Array.isArray(patch.completedSteps)
+        ? patch.completedSteps
+        : prev.completedSteps || [],
+      skippedSteps: Array.isArray(patch.skippedSteps)
+        ? patch.skippedSteps
+        : prev.skippedSteps || [],
+    };
+    await commit({
+      ...state,
+      settings: {
+        ...state.settings,
+        onboarding: nextOnboarding,
+      },
+    });
+  }
+
+  /**
+   * Marks onboarding completed or skipped (or exits QA preview cleanly without losing real data).
+   * @param {{ skipped?: boolean }} [options]
+   */
+  async function completeOnboarding(options = {}) {
+    const prev = state.settings.onboarding;
+    if (prev?.previewMode) {
+      return exitPreviewOnboarding();
+    }
+    const now = new Date().toISOString();
+    const skipped = Boolean(options.skipped);
+    await commit({
+      ...state,
+      settings: {
+        ...state.settings,
+        onboarding: {
+          status: skipped ? 'skipped' : 'completed',
+          currentStep: 5,
+          completedSteps: Array.isArray(prev?.completedSteps) ? prev.completedSteps : [],
+          skippedSteps: Array.isArray(prev?.skippedSteps) ? prev.skippedSteps : [],
+          ...(prev?.startedAt ? { startedAt: prev.startedAt } : {}),
+          completedAt: now,
+        },
+      },
+    });
+  }
+
+  /**
+   * Additively imports the predefined starter sample books into the current family catalog
+   * without overwriting the user's household name, created child profiles, or existing books.
+   * @param {{ assignToProfileId?: string, silent?: boolean }} [options]
+   */
+  async function importSampleCollectionAdditive(options = {}) {
+    const seedBooks = createSeedState().books;
+    const existingIds = new Set(state.books.map((b) => b.id));
+    const existingIsbns = new Set(
+      state.books.map((b) => b.isbn13).filter((isbn) => typeof isbn === 'string' && isbn.length > 0)
+    );
+    const assignProfileId =
+      options.assignToProfileId || state.activeProfileId || state.profiles[0]?.id || '';
+    const owners = assignProfileId ? [assignProfileId, 'shared'] : ['shared'];
+    const now = new Date().toISOString();
+
+    /** @type {import('../types/models.js').Book[]} */
+    const addedBooks = [];
+    let skippedDuplicatesCount = 0;
+
+    for (const sample of seedBooks) {
+      if (existingIds.has(sample.id) || (sample.isbn13 && existingIsbns.has(sample.isbn13))) {
+        skippedDuplicatesCount += 1;
+        continue;
+      }
+      const { lastRotatedAt: _ignoredLastRotated, ...restSample } = sample;
+      addedBooks.push({
+        ...restSample,
+        owners,
+        addedAt: now,
+      });
+    }
+
+    if (addedBooks.length > 0) {
+      await commit({
+        ...state,
+        books: [...addedBooks, ...state.books],
+      });
+    }
+
+    if (!options.silent) {
+      notify(
+        addedBooks.length > 0
+          ? `Added ${addedBooks.length} sample books to your family library.`
+          : 'All sample starter books are already in your library.',
+        addedBooks.length > 0 ? 'success' : 'info'
+      );
+    }
+
+    return { addedBooks, skippedDuplicatesCount };
+  }
+
+  /**
+   * Replaces the workspace with the full predefined sample family (Maya, Leo, 9 sample books, 2 shelves).
+   * Preserves language, theme, and devModeUnlocked.
+   * @param {{ preserveOnboarding?: boolean }} [options]
+   */
+  async function loadFullSampleHousehold(options = {}) {
+    const seeded = createSeedState();
+    const now = new Date().toISOString();
+    await commit({
+      ...seeded,
+      settings: {
+        ...state.settings,
+        ...seeded.settings,
+        language: state.settings.language,
+        theme: state.settings.theme,
+        devModeUnlocked: state.settings.devModeUnlocked,
+        showMiniWizards: state.settings.showMiniWizards,
+        onboarding: options.preserveOnboarding
+          ? state.settings.onboarding
+          : {
+              status: 'completed',
+              currentStep: 5,
+              completedSteps: [0, 1, 2, 3, 4, 5],
+              skippedSteps: [],
+              completedAt: now,
+            },
+      },
+    });
+    notify('Loaded full sample family (Maya, Leo & 9 classic books).', 'success');
+  }
+
+  /**
+   * Enters an ephemeral QA Preview of the first-time onboarding flow after backing up
+   * the user's current library state into the isolated QA snapshot key.
+   */
+  async function previewOnboarding() {
+    if (!state.settings.onboarding?.previewMode) {
+      saveQaUserSnapshot(state);
+    }
+    const now = new Date().toISOString();
+    await commit({
+      ...state,
+      settings: {
+        ...state.settings,
+        onboarding: {
+          status: 'in_progress',
+          currentStep: 0,
+          completedSteps: [],
+          skippedSteps: [],
+          previewMode: true,
+          startedAt: now,
+        },
+      },
+    });
+  }
+
+  /**
+   * Exits Onboarding Preview Mode and restores the backed-up library snapshot safely.
+   */
+  async function exitPreviewOnboarding() {
+    const snapshot = loadQaUserSnapshot();
+    const now = new Date().toISOString();
+    if (snapshot) {
+      await commit({
+        ...snapshot,
+        settings: {
+          ...snapshot.settings,
+          devModeUnlocked: state.settings.devModeUnlocked || snapshot.settings.devModeUnlocked,
+          onboarding: {
+            status: 'completed',
+            currentStep: 5,
+            completedSteps: snapshot.settings.onboarding?.completedSteps || [],
+            skippedSteps: snapshot.settings.onboarding?.skippedSteps || [],
+            completedAt: snapshot.settings.onboarding?.completedAt || now,
+          },
+        },
+      });
+      notify('Exited onboarding preview and restored your library.', 'info');
+      return true;
+    }
+
+    await commit({
+      ...state,
+      settings: {
+        ...state.settings,
+        onboarding: {
+          status: 'completed',
+          currentStep: 5,
+          completedSteps: [],
+          skippedSteps: [],
+          completedAt: now,
+        },
+      },
+    });
+    notify('Exited onboarding preview.', 'info');
+    return true;
+  }
+
+  /**
+   * Restarts the onboarding wizard at Step 0 while keeping existing profiles and books intact.
+   */
+  async function restartOnboarding() {
+    const now = new Date().toISOString();
+    await commit({
+      ...state,
+      settings: {
+        ...state.settings,
+        onboarding: {
+          status: 'in_progress',
+          currentStep: 0,
+          completedSteps: [],
+          skippedSteps: [],
+          startedAt: now,
+        },
+      },
+    });
+  }
+
+  /**
+   * Resets only the onboarding completion flag back to `'pending'` while preserving all user data.
+   */
+  async function resetOnboardingCompletionFlag() {
+    const now = new Date().toISOString();
+    await commit({
+      ...state,
+      settings: {
+        ...state.settings,
+        onboarding: {
+          status: 'pending',
+          currentStep: 0,
+          completedSteps: [],
+          skippedSteps: [],
+          startedAt: now,
+        },
+      },
+    });
+    notify('Onboarding flag reset to pending (data preserved).', 'info');
+  }
+
+  /**
+   * Archives the active user's library into the QA snapshot key (when non-empty) and switches
+   * into a fresh zero-profile clean-slate New User onboarding state.
+   */
+  async function switchToNewUserCleanSlate() {
+    const hasData =
+      state.profiles.length > 0 ||
+      state.books.length > 0 ||
+      state.rotations.length > 0 ||
+      Boolean(state.settings.householdName);
+    if (hasData && !state.settings.onboarding?.previewMode) {
+      saveQaUserSnapshot(state);
+    }
+    clearAuxiliaryLocalStorageKeys();
+    const clean = createEmptyOnboardingState({
+      language: state.settings.language,
+      theme: state.settings.theme,
+      devModeUnlocked: state.settings.devModeUnlocked,
+      showMiniWizards: state.settings.showMiniWizards,
+    });
+    await commit(clean);
+    notify('Switched to a clean-slate New User onboarding state.', 'info');
+  }
+
+  /**
+   * Restores the previously archived Existing User QA snapshot from storage.
+   */
+  async function restoreExistingUserSnapshot() {
+    const snapshot = loadQaUserSnapshot();
+    if (!snapshot) {
+      throw new Error('No saved Existing User snapshot found.');
+    }
+    const now = new Date().toISOString();
+    await commit({
+      ...snapshot,
+      settings: {
+        ...snapshot.settings,
+        devModeUnlocked: state.settings.devModeUnlocked || snapshot.settings.devModeUnlocked,
+        onboarding: {
+          status: 'completed',
+          currentStep: 5,
+          completedSteps: snapshot.settings.onboarding?.completedSteps || [],
+          skippedSteps: snapshot.settings.onboarding?.skippedSteps || [],
+          completedAt: snapshot.settings.onboarding?.completedAt || now,
+        },
+      },
+    });
+    notify('Restored Existing User library snapshot.', 'success');
+    return snapshot;
+  }
+
+  /**
+   * Wipes all local catalog, profile, rotation, and QA snapshot data back to a clean slate.
+   */
+  async function clearAllTestData() {
+    clearQaUserSnapshot();
+    clearAuxiliaryLocalStorageKeys();
+    const clean = createEmptyOnboardingState({
+      language: state.settings.language,
+      theme: state.settings.theme,
+      devModeUnlocked: state.settings.devModeUnlocked,
+      showMiniWizards: state.settings.showMiniWizards,
+    });
+    await commit(clean);
+    notify('Cleared all local test data and reset to fresh onboarding.', 'info');
   }
 
   /**
@@ -2940,9 +3297,19 @@ export function createAppStore(storage, deps = {}) {
    */
   async function resetToSeedData() {
     const seeded = createSeedState();
+    const now = new Date().toISOString();
     await commit({
       ...seeded,
-      settings: state.settings,
+      settings: {
+        ...state.settings,
+        onboarding: {
+          status: 'completed',
+          currentStep: 5,
+          completedSteps: state.settings.onboarding?.completedSteps || [],
+          skippedSteps: state.settings.onboarding?.skippedSteps || [],
+          completedAt: now,
+        },
+      },
     });
     notify('Library reset to sample family seed data.', 'info');
   }
@@ -3008,6 +3375,18 @@ export function createAppStore(storage, deps = {}) {
     deleteRotationPreset,
     generateRotationFromPreset,
     updateSettings,
+    setHouseholdName,
+    updateOnboarding,
+    completeOnboarding,
+    importSampleCollectionAdditive,
+    loadFullSampleHousehold,
+    previewOnboarding,
+    exitPreviewOnboarding,
+    restartOnboarding,
+    resetOnboardingCompletionFlag,
+    switchToNewUserCleanSlate,
+    restoreExistingUserSnapshot,
+    clearAllTestData,
     toggleMetadataProvider,
     resetProviderSettingsToSafeDefaults,
     queryCategorizedTagsForBook,

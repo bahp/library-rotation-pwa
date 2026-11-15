@@ -166,8 +166,27 @@ export function isBookReadInRotation(rotation, bookId) {
  */
 
 /**
+ * @typedef {'pending' | 'in_progress' | 'completed' | 'skipped'} OnboardingStatus
+ */
+
+/**
+ * @typedef {Object} OnboardingProgressState
+ * @property {OnboardingStatus} status - Current onboarding completion status
+ * @property {number} currentStep - Active step index (0 = Welcome, 1..5 = Steps 1..5)
+ * @property {number[]} completedSteps - Completed step indices
+ * @property {number[]} skippedSteps - Skipped step indices
+ * @property {boolean} [previewMode] - Ephemeral QA/Dev preview mode (never overwrites backed-up library)
+ * @property {string} [startedAt] - ISO-8601 timestamp when onboarding started
+ * @property {string} [completedAt] - ISO-8601 timestamp when onboarding completed or was skipped
+ */
+
+/**
  * @typedef {Object} AppSettings
  * @property {'en' | 'es' | 'it'} [language] - Active interface language ('en' default, 'es' Español, 'it' Italiano)
+ * @property {string} [householdName] - Optional parent or household display name
+ * @property {OnboardingProgressState} [onboarding] - Guided first-time user onboarding progress
+ * @property {boolean} [devModeUnlocked] - Unlocks Development & Testing tools in Settings
+ * @property {boolean} [showMiniWizards] - Enable optional guided mini-wizards for new readers and new shelves
  * @property {ThemeMode} theme - UI color mode preference
  * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
  * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)

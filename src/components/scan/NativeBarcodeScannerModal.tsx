@@ -1,0 +1,829 @@
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Icon } from '../common/Icon.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+import { triggerScanSuccessFeedback } from '../../utils/scannerFeedback.js';
+import { createBarcodeDecoder } from '../../features/scan/barcode-decoder.js';
+import {
+  computeModeCropBox,
+  loadUploadedImage,
+  renderCroppedCanvas,
+} from '../../features/scan/frame-processor.js';
+import { createOcrEngine } from '../../features/scan/ocr-engine.js';
+import { validateBarcodeAsIsbn } from '../../features/scan/isbn-extractor.js';
+import type { ScanMode } from '../../types/models.js';
+
+interface NativeBarcodeScannerModalProps {
+  isOpen: boolean;
+  initialMode?: ScanMode;
+  onDetectedIsbn: (isbn13: string, sourceLabel: string) => void;
+  onDetectedTitle?: (titleQuery: string, sourceLabel: string) => void;
+  onClose: () => void;
+}
+
+type CameraStage = 'starting' | 'streaming' | 'locked' | 'fallback';
+
+export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps> = ({
+  isOpen,
+  initialMode = 'barcode',
+  onDetectedIsbn,
+  onDetectedTitle,
+  onClose,
+}) => {
+  useBodyScrollLock(isOpen);
+  const maskId = useId();
+
+  const [mode, setMode] = useState<ScanMode>(initialMode);
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
+  const [stage, setStage] = useState<CameraStage>('starting');
+  const [statusText, setStatusText] = useState('Initializing rear camera…');
+  const [fallbackReason, setFallbackReason] = useState('');
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [lockedLabel, setLockedLabel] = useState('');
+  const [manualInput, setManualInput] = useState('');
+  const [manualError, setManualError] = useState('');
+  const [isAnalyzingUpload, setIsAnalyzingUpload] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  const frameBusyRef = useRef(false);
+  const lockedRef = useRef(false);
+  const mountedRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const decoderRef = useRef<ReturnType<typeof createBarcodeDecoder> | null>(null);
+  const ocrRef = useRef<ReturnType<typeof createOcrEngine> | null>(null);
+
+  const getDecoder = () => {
+    if (!decoderRef.current) decoderRef.current = createBarcodeDecoder();
+    return decoderRef.current;
+  };
+
+  const getOcr = () => {
+    if (!ocrRef.current) ocrRef.current = createOcrEngine();
+    return ocrRef.current;
+  };
+
+  const stopAllMediaTracks = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      window.clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    frameBusyRef.current = false;
+
+    const stream = streamRef.current;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        try {
+          if (typeof track.applyConstraints === 'function') {
+            track
+              .applyConstraints({ advanced: [{ torch: false }] } as unknown as MediaTrackConstraints)
+              .catch(() => {});
+          }
+        } catch {
+          // Ignore torch off errors on teardown
+        }
+        try {
+          track.stop();
+        } catch {
+          // Ignore track stop errors
+        }
+      }
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      try {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+      } catch {
+        // Ignore video teardown errors
+      }
+    }
+    setTorchOn(false);
+    setTorchSupported(false);
+  }, []);
+
+  const handleSuccessfulLock = useCallback(
+    (payload: { kind: 'isbn'; isbn13: string; label: string } | { kind: 'title'; titleQuery: string; label: string }) => {
+      if (lockedRef.current) return;
+      lockedRef.current = true;
+      setStage('locked');
+      setLockedLabel(
+        payload.kind === 'isbn'
+          ? `ISBN ${payload.isbn13}`
+          : `"${payload.titleQuery}"`
+      );
+      setStatusText(`Locked via ${payload.label}`);
+
+      triggerScanSuccessFeedback();
+      stopAllMediaTracks();
+
+      window.setTimeout(() => {
+        if (!mountedRef.current) return;
+        if (payload.kind === 'isbn') {
+          onDetectedIsbn(payload.isbn13, payload.label);
+        } else if (onDetectedTitle) {
+          onDetectedTitle(payload.titleQuery, payload.label);
+        }
+      }, 280);
+    },
+    [onDetectedIsbn, onDetectedTitle, stopAllMediaTracks]
+  );
+
+  const inspectCurrentFrame = useCallback(
+    async (forceCapture = false) => {
+      if (frameBusyRef.current || lockedRef.current) return;
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+
+      frameBusyRef.current = true;
+      try {
+        const rect = video.getBoundingClientRect();
+        const crop = computeModeCropBox({
+          sourceWidth: video.videoWidth,
+          sourceHeight: video.videoHeight,
+          mode,
+          containerWidth: rect.width,
+          containerHeight: rect.height,
+        });
+
+        if (mode === 'barcode') {
+          const frame = renderCroppedCanvas({ source: video, crop, enhanceOcr: false });
+          const decoded = await getDecoder().decodeFrame(frame);
+          if (decoded.matched) {
+            handleSuccessfulLock({
+              kind: 'isbn',
+              isbn13: decoded.isbn13,
+              label:
+                decoded.engine === 'native-barcode-detector'
+                  ? 'Barcode (Native)'
+                  : 'Barcode (ZXing)',
+            });
+          }
+        } else if (mode === 'isbn-ocr') {
+          const frame = renderCroppedCanvas({ source: video, crop, enhanceOcr: true });
+          const ocrOut = await getOcr().recognizeFrame(frame.canvas, { mode: 'isbn-ocr' });
+          if (ocrOut.matchedIsbn) {
+            handleSuccessfulLock({
+              kind: 'isbn',
+              isbn13: ocrOut.isbn13,
+              label: ocrOut.confidence === 'ocr-repaired' ? 'ISBN OCR (Repaired)' : 'ISBN Text OCR',
+            });
+          } else if (forceCapture) {
+            setStatusText('Move slightly closer to the printed ISBN digits and tap again.');
+          }
+        } else if (mode === 'cover') {
+          const passive = renderCroppedCanvas({ source: video, crop, enhanceOcr: false });
+          const bar = await getDecoder().decodeFrame(passive);
+          if (bar.matched) {
+            handleSuccessfulLock({
+              kind: 'isbn',
+              isbn13: bar.isbn13,
+              label: 'Cover Back-Barcode',
+            });
+            return;
+          }
+          if (forceCapture) {
+            setStatusText('Reading cover typography…');
+            const enhanced = renderCroppedCanvas({ source: video, crop, enhanceOcr: true });
+            const ocrOut = await getOcr().recognizeFrame(enhanced.canvas, { mode: 'cover' });
+            if (ocrOut.matchedIsbn) {
+              handleSuccessfulLock({
+                kind: 'isbn',
+                isbn13: ocrOut.isbn13,
+                label: 'Cover ISBN OCR',
+              });
+            } else if (ocrOut.suggestedTitleQuery) {
+              handleSuccessfulLock({
+                kind: 'title',
+                titleQuery: ocrOut.suggestedTitleQuery,
+                label: 'Cover Title OCR',
+              });
+            } else {
+              setStatusText('Could not read title clearly — try reducing glare or upload a photo.');
+            }
+          }
+        }
+      } catch {
+        // Ignore single-frame transient errors
+      } finally {
+        frameBusyRef.current = false;
+      }
+    },
+    [handleSuccessfulLock, mode]
+  );
+
+  // Sync mode prop when opening
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      lockedRef.current = false;
+      setLockedLabel('');
+      setManualError('');
+      setFallbackReason('');
+    }
+  }, [isOpen, initialMode]);
+
+  // Core camera lifecycle: auto-initialize on mount, strict track cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    if (!isOpen) {
+      stopAllMediaTracks();
+      return () => {
+        mountedRef.current = false;
+      };
+    }
+
+    let cancelled = false;
+    lockedRef.current = false;
+    setStage('starting');
+    setStatusText('Requesting camera permission…');
+    setFallbackReason('');
+
+    async function bootCamera() {
+      const secureOk = typeof window === 'undefined' || window.isSecureContext !== false;
+      const hasMedia = Boolean(
+        secureOk &&
+          typeof navigator !== 'undefined' &&
+          navigator.mediaDevices &&
+          typeof navigator.mediaDevices.getUserMedia === 'function'
+      );
+
+      if (!hasMedia) {
+        if (!cancelled) {
+          setStage('fallback');
+          setFallbackReason(
+            secureOk
+              ? 'Camera access is unavailable in this browser. Enter an ISBN below or upload a photo.'
+              : 'Live camera requires HTTPS or localhost. Enter an ISBN below or upload a photo.'
+          );
+        }
+        return;
+      }
+
+      let stream: MediaStream | null = null;
+      try {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { exact: facingMode },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+          });
+        } catch (exactErr) {
+          const errName =
+            exactErr && typeof exactErr === 'object' && 'name' in exactErr
+              ? String((exactErr as { name?: unknown }).name)
+              : '';
+          if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+            throw exactErr;
+          }
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: {
+                facingMode: { ideal: facingMode },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+            });
+          } catch {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: false,
+              video: true,
+            });
+          }
+        }
+
+        if (cancelled) {
+          stream.getTracks().forEach((t) => {
+            try {
+              t.stop();
+            } catch {
+              // Ignore
+            }
+          });
+          return;
+        }
+
+        streamRef.current = stream;
+        const videoTrack = stream.getVideoTracks()[0] || null;
+        const caps =
+          videoTrack && typeof videoTrack.getCapabilities === 'function'
+            ? (videoTrack.getCapabilities() as MediaTrackCapabilities & { torch?: boolean })
+            : null;
+        setTorchSupported(Boolean(caps && 'torch' in caps && caps.torch));
+        setTorchOn(false);
+
+        const video = videoRef.current;
+        if (video) {
+          video.defaultMuted = true;
+          video.muted = true;
+          video.playsInline = true;
+          video.autoplay = true;
+          video.srcObject = stream;
+          video.play().catch(() => {});
+        }
+
+        setStage('streaming');
+        setStatusText(
+          mode === 'barcode'
+            ? 'Align the back-cover ISBN barcode inside the frame'
+            : mode === 'isbn-ocr'
+              ? 'Hold steady over the printed ISBN line'
+              : 'Frame the front cover and tap Capture'
+        );
+      } catch (err) {
+        if (cancelled) return;
+        const name =
+          err && typeof err === 'object' && 'name' in err
+            ? String((err as { name?: unknown }).name)
+            : '';
+        let msg = 'Unable to open camera. Enter an ISBN manually or upload a photo.';
+        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+          msg =
+            'Camera permission was denied. You can allow access in browser settings, upload a photo, or enter the ISBN below.';
+        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+          msg =
+            'No camera hardware was detected on this device. Upload a photo or type the ISBN below.';
+        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+          msg =
+            'Your camera is in use by another app. Close it to retry, upload a photo, or enter the ISBN manually.';
+        }
+        setStage('fallback');
+        setFallbackReason(msg);
+      }
+    }
+
+    bootCamera();
+
+    return () => {
+      cancelled = true;
+      mountedRef.current = false;
+      stopAllMediaTracks();
+    };
+  }, [isOpen, facingMode, stopAllMediaTracks]);
+
+  // Polling loop while streaming
+  useEffect(() => {
+    if (!isOpen || stage !== 'streaming') {
+      if (pollTimerRef.current !== null) {
+        window.clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      return;
+    }
+
+    setStatusText(
+      mode === 'barcode'
+        ? 'Align the back-cover ISBN barcode inside the frame'
+        : mode === 'isbn-ocr'
+          ? 'Hold steady over the printed ISBN line'
+          : 'Frame the front cover and tap Capture'
+    );
+
+    const intervalMs = mode === 'isbn-ocr' ? 1200 : 220;
+    pollTimerRef.current = window.setInterval(() => {
+      inspectCurrentFrame(false);
+    }, intervalMs);
+
+    return () => {
+      if (pollTimerRef.current !== null) {
+        window.clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+    };
+  }, [isOpen, stage, mode, inspectCurrentFrame]);
+
+  // Dismiss on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        stopAllMediaTracks();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose, stopAllMediaTracks]);
+
+  if (!isOpen) return null;
+
+  const handleToggleTorch = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track || typeof track.applyConstraints !== 'function') return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: next }],
+      } as unknown as MediaTrackConstraints);
+      setTorchOn(next);
+    } catch {
+      setTorchSupported(false);
+    }
+  };
+
+  const handleSwitchCamera = () => {
+    stopAllMediaTracks();
+    setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setIsAnalyzingUpload(true);
+    setManualError('');
+    setStatusText('Analyzing uploaded image…');
+    try {
+      const loaded = await loadUploadedImage(file);
+      try {
+        const fullCrop = computeModeCropBox({
+          sourceWidth: loaded.width,
+          sourceHeight: loaded.height,
+          mode,
+          fullImage: true,
+        });
+        const frame = renderCroppedCanvas({ source: loaded.image, crop: fullCrop, enhanceOcr: false });
+        const decoded = await getDecoder().decodeFrame(frame);
+        if (decoded.matched) {
+          handleSuccessfulLock({
+            kind: 'isbn',
+            isbn13: decoded.isbn13,
+            label: 'Photo Barcode',
+          });
+          return;
+        }
+
+        const ocrFrame = renderCroppedCanvas({ source: loaded.image, crop: fullCrop, enhanceOcr: true });
+        const ocrOut = await getOcr().recognizeFrame(ocrFrame.canvas, {
+          mode: mode === 'cover' ? 'cover' : 'isbn-ocr',
+        });
+        if (ocrOut.matchedIsbn) {
+          handleSuccessfulLock({
+            kind: 'isbn',
+            isbn13: ocrOut.isbn13,
+            label: 'Photo ISBN OCR',
+          });
+          return;
+        }
+        if (mode === 'cover' && ocrOut.suggestedTitleQuery) {
+          handleSuccessfulLock({
+            kind: 'title',
+            titleQuery: ocrOut.suggestedTitleQuery,
+            label: 'Photo Cover OCR',
+          });
+          return;
+        }
+        setManualError('No ISBN barcode or readable title detected in that photo. Try cropping closer or entering the ISBN manually.');
+        setStatusText('No match found in photo');
+      } finally {
+        try {
+          URL.revokeObjectURL(loaded.objectUrl);
+        } catch {
+          // Ignore
+        }
+      }
+    } catch (err) {
+      setManualError(err instanceof Error ? err.message : 'Failed to read uploaded image.');
+    } finally {
+      setIsAnalyzingUpload(false);
+    }
+  };
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setManualError('');
+    const trimmed = manualInput.trim();
+    if (!trimmed) {
+      setManualError('Enter a 10- or 13-digit ISBN, or a book title.');
+      return;
+    }
+    const isbnCheck = validateBarcodeAsIsbn(trimmed);
+    if (isbnCheck.valid && isbnCheck.isbn13) {
+      handleSuccessfulLock({
+        kind: 'isbn',
+        isbn13: isbnCheck.isbn13,
+        label: 'Manual ISBN',
+      });
+      return;
+    }
+    if (onDetectedTitle) {
+      handleSuccessfulLock({
+        kind: 'title',
+        titleQuery: trimmed,
+        label: 'Manual Search',
+      });
+      return;
+    }
+    setManualError('Please enter a valid 10- or 13-digit ISBN starting with 978/979 or 10 digits.');
+  };
+
+  // SVG viewfinder dimensions in percentage for clean responsive cutout
+  const cutout =
+    mode === 'barcode'
+      ? { x: '8%', y: '34%', width: '84%', height: '32%', rx: 18 }
+      : mode === 'isbn-ocr'
+        ? { x: '8%', y: '41%', width: '84%', height: '18%', rx: 12 }
+        : { x: '18%', y: '18%', width: '64%', height: '64%', rx: 20 };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Live Barcode and Book Scanner"
+      data-native-scanner-overlay="true"
+      className="fixed inset-0 z-50 bg-black/95 flex flex-col justify-between pt-safe pb-safe select-none overflow-hidden"
+    >
+      {/* Top Bar: Dismiss, Mode Selector, Status */}
+      <div className="relative z-20 px-4 pt-3 pb-2 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => {
+            stopAllMediaTracks();
+            onClose();
+          }}
+          aria-label="Close scanner"
+          className="min-h-[48px] min-w-[48px] rounded-full bg-white/12 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
+        >
+          <Icon name="close" className="w-5 h-5" />
+        </button>
+
+        {/* Compact Mode Pill Strip */}
+        <div className="flex items-center gap-1 p-1 rounded-full bg-white/12 backdrop-blur-md border border-white/10">
+          {(
+            [
+              { id: 'barcode', label: 'Barcode' },
+              { id: 'isbn-ocr', label: 'ISBN Text' },
+              { id: 'cover', label: 'Cover' },
+            ] as const
+          ).map((tab) => {
+            const active = mode === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setMode(tab.id)}
+                className={`min-h-[38px] px-3.5 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  active
+                    ? 'bg-[#5ED3DA] text-night-950 shadow-xs'
+                    : 'text-white/85 hover:text-white active:scale-95'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setStage((s) => (s === 'fallback' ? 'starting' : 'fallback'))}
+          aria-label={stage === 'fallback' ? 'Return to camera' : 'Enter ISBN manually'}
+          title="Manual ISBN entry"
+          className="min-h-[48px] min-w-[48px] rounded-full bg-white/12 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
+        >
+          <Icon name="edit" className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Center Viewport: Live Video + SVG Mask + Laser Line OR Graceful Fallback */}
+      <div className="relative flex-1 flex items-center justify-center overflow-hidden">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+            stage === 'streaming' || stage === 'locked' ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        />
+
+        {stage !== 'fallback' ? (
+          <>
+            {/* Semi-transparent SVG Viewfinder Cutout Mask */}
+            <svg
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full pointer-events-none z-10"
+              preserveAspectRatio="none"
+            >
+              <defs>
+                <mask id={maskId}>
+                  <rect width="100%" height="100%" fill="white" />
+                  <rect
+                    x={cutout.x}
+                    y={cutout.y}
+                    width={cutout.width}
+                    height={cutout.height}
+                    rx={cutout.rx}
+                    fill="black"
+                  />
+                </mask>
+              </defs>
+              <rect width="100%" height="100%" fill="rgba(4, 14, 16, 0.62)" mask={`url(#${maskId})`} />
+            </svg>
+
+            {/* Target Frame Reticle + Animated Scanning Laser */}
+            <div
+              className="relative z-10 pointer-events-none flex items-center justify-center transition-all duration-200"
+              style={{
+                width: cutout.width,
+                height: cutout.height,
+                borderRadius: `${cutout.rx}px`,
+              }}
+            >
+              <div
+                className={`absolute inset-0 rounded-[inherit] border-2 transition-colors ${
+                  stage === 'locked'
+                    ? 'border-emerald-400 shadow-[0_0_24px_rgba(52,211,153,0.55)] bg-emerald-500/15'
+                    : 'border-white/45'
+                }`}
+              />
+
+              {/* Crisp Corner Brackets */}
+              <span
+                className={`absolute -top-0.5 -left-0.5 w-6 h-6 border-t-[3px] border-l-[3px] rounded-tl-xl ${
+                  stage === 'locked' ? 'border-emerald-400' : 'border-[#5ED3DA]'
+                }`}
+              />
+              <span
+                className={`absolute -top-0.5 -right-0.5 w-6 h-6 border-t-[3px] border-r-[3px] rounded-tr-xl ${
+                  stage === 'locked' ? 'border-emerald-400' : 'border-[#5ED3DA]'
+                }`}
+              />
+              <span
+                className={`absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-[3px] border-l-[3px] rounded-bl-xl ${
+                  stage === 'locked' ? 'border-emerald-400' : 'border-[#5ED3DA]'
+                }`}
+              />
+              <span
+                className={`absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-[3px] border-r-[3px] rounded-br-xl ${
+                  stage === 'locked' ? 'border-emerald-400' : 'border-[#5ED3DA]'
+                }`}
+              />
+
+              {/* Animated Scanning Laser Line */}
+              {stage === 'streaming' && (
+                <div className="absolute inset-x-3 top-2 bottom-2 overflow-hidden">
+                  <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#5ED3DA] to-transparent shadow-[0_0_12px_rgba(94,211,218,0.95)] animate-scan-sweep" />
+                </div>
+              )}
+
+              {stage === 'starting' && (
+                <div className="px-4 py-2 rounded-full bg-black/75 border border-white/15 text-xs font-medium text-white flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#5ED3DA] animate-pulse" />
+                  <span>Starting camera…</span>
+                </div>
+              )}
+
+              {stage === 'locked' && (
+                <div className="px-4 py-2 rounded-full bg-emerald-500 text-night-950 text-xs font-bold flex items-center gap-1.5 shadow-lg">
+                  <Icon name="check" className="w-4 h-4" />
+                  <span>{lockedLabel}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Live Status Pill Below Frame */}
+            <div className="absolute bottom-4 inset-x-4 z-20 flex flex-col items-center gap-2 pointer-events-none">
+              <p className="px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-medium text-white/95 text-center max-w-sm">
+                {statusText}
+              </p>
+              {manualError && (
+                <p className="px-4 py-1.5 rounded-full bg-rose-950/90 border border-rose-500/40 text-xs text-rose-200 text-center max-w-sm">
+                  {manualError}
+                </p>
+              )}
+            </div>
+          </>
+        ) : (
+          /* Graceful Inline Camera Fallback Card */
+          <div className="relative z-20 w-full max-w-md mx-4 rounded-3xl bg-night-900/95 border border-white/15 p-6 text-left text-white shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <span className="w-10 h-10 rounded-2xl bg-[#5ED3DA]/15 text-[#5ED3DA] flex items-center justify-center shrink-0">
+                <Icon name="camera" className="w-5 h-5" />
+              </span>
+              <div>
+                <h2 className="font-display text-lg font-bold text-white">
+                  {fallbackReason ? 'Camera Access Needed' : 'Enter ISBN or Upload Photo'}
+                </h2>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  {fallbackReason ||
+                    'Type a 10- or 13-digit ISBN from the back cover, or pick a photo from your library.'}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleManualSubmit} className="space-y-3">
+              <div>
+                <label htmlFor="scanner-fallback-isbn" className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                  ISBN or Book Title
+                </label>
+                <input
+                  id="scanner-fallback-isbn"
+                  type="text"
+                  autoFocus
+                  value={manualInput}
+                  onChange={(e) => setManualInput(e.target.value)}
+                  placeholder="e.g. 9780064431781 or Goodnight Moon"
+                  className="w-full min-h-[48px] px-4 py-2.5 rounded-2xl bg-night-950 border border-white/15 text-base sm:text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#5ED3DA]"
+                />
+              </div>
+
+              {manualError && (
+                <p role="alert" className="text-xs font-medium text-rose-300">
+                  {manualError}
+                </p>
+              )}
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="submit"
+                  className="flex-1 min-h-[48px] px-4 py-2.5 rounded-2xl bg-[#5ED3DA] hover:bg-[#4bc2c9] active:scale-[0.98] text-night-950 font-bold text-sm transition-all cursor-pointer"
+                >
+                  Look Up Book
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isAnalyzingUpload}
+                  className="min-h-[48px] px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/18 active:scale-[0.98] text-white text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer"
+                >
+                  <Icon name="photo" className="w-4 h-4" />
+                  <span>{isAnalyzingUpload ? 'Reading…' : 'Photo'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Thumb-Zone Hardware Controls */}
+      <div className="relative z-20 px-5 pt-3 pb-4 flex items-center justify-around gap-3 max-w-md w-full mx-auto">
+        <button
+          type="button"
+          onClick={handleToggleTorch}
+          disabled={!torchSupported || stage !== 'streaming'}
+          aria-pressed={torchOn}
+          aria-label={torchOn ? 'Turn flashlight off' : 'Turn flashlight on'}
+          className={`min-h-[48px] min-w-[48px] px-4 rounded-2xl flex items-center justify-center gap-2 text-xs font-semibold backdrop-blur-md transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
+            torchOn
+              ? 'bg-amber-400 text-night-950 shadow-lg'
+              : 'bg-white/12 hover:bg-white/20 text-white border border-white/10'
+          }`}
+        >
+          <Icon name={torchOn ? 'flashlightFilled' : 'flashlight'} className="w-5 h-5" />
+          <span className="hidden xs:inline">{torchOn ? 'Light On' : 'Torch'}</span>
+        </button>
+
+        {mode === 'cover' || mode === 'isbn-ocr' ? (
+          <button
+            type="button"
+            disabled={stage !== 'streaming'}
+            onClick={() => inspectCurrentFrame(true)}
+            aria-label="Capture frame for OCR"
+            className="min-h-[56px] px-6 rounded-full bg-[#5ED3DA] hover:bg-[#4bc2c9] active:scale-95 text-night-950 font-bold text-sm inline-flex items-center gap-2 shadow-xl disabled:opacity-40 transition-all cursor-pointer"
+          >
+            <Icon name="camera" className="w-5 h-5" />
+            <span>{mode === 'cover' ? 'Capture Cover' : 'Read ISBN'}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isAnalyzingUpload}
+            aria-label="Scan from photo upload"
+            className="min-h-[48px] px-5 rounded-2xl bg-white/15 hover:bg-white/22 active:scale-95 text-white border border-white/15 text-xs font-semibold inline-flex items-center gap-2 backdrop-blur-md transition-all cursor-pointer"
+          >
+            <Icon name="photo" className="w-4 h-4 text-[#5ED3DA]" />
+            <span>{isAnalyzingUpload ? 'Scanning…' : 'Upload Photo'}</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          onClick={handleSwitchCamera}
+          aria-label="Switch front or rear camera"
+          className="min-h-[48px] min-w-[48px] px-4 rounded-2xl bg-white/12 hover:bg-white/20 active:scale-95 text-white border border-white/10 flex items-center justify-center gap-2 text-xs font-semibold backdrop-blur-md transition-all cursor-pointer"
+        >
+          <Icon name="flip" className="w-5 h-5" />
+          <span className="hidden xs:inline">Flip</span>
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileUpload}
+          className="sr-only"
+        />
+      </div>
+    </div>
+  );
+};

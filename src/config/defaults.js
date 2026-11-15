@@ -60,12 +60,33 @@ export function normalizePositiveBookCount(
 }
 
 /**
+ * Default onboarding progress state helper.
+ * @param {Partial<import('../types/models.js').OnboardingProgressState>} [overrides]
+ * @returns {import('../types/models.js').OnboardingProgressState}
+ */
+export function createDefaultOnboardingState(overrides = {}) {
+  return {
+    status: overrides.status || 'completed',
+    currentStep: typeof overrides.currentStep === 'number' ? overrides.currentStep : 5,
+    completedSteps: Array.isArray(overrides.completedSteps) ? [...overrides.completedSteps] : [],
+    skippedSteps: Array.isArray(overrides.skippedSteps) ? [...overrides.skippedSteps] : [],
+    ...(overrides.previewMode ? { previewMode: true } : {}),
+    ...(overrides.startedAt ? { startedAt: overrides.startedAt } : {}),
+    ...(overrides.completedAt ? { completedAt: overrides.completedAt } : {}),
+  };
+}
+
+/**
  * Default safe settings object used for new installations and settings migrations.
  * @returns {import('../types/models.js').AppSettings}
  */
 export function createDefaultAppSettings() {
   return {
     language: 'en',
+    householdName: '',
+    onboarding: createDefaultOnboardingState({ status: 'completed', currentStep: 5 }),
+    devModeUnlocked: false,
+    showMiniWizards: true,
     theme: 'system',
     coverAspectRatio: 'portrait',
     dynamicCoverTint: true,

@@ -5,7 +5,6 @@ import { HomeView } from './components/views/HomeView.js';
 import { LibraryView } from './components/views/LibraryView.js';
 import { ScanView } from './components/views/ScanView.js';
 import { RotationsView } from './components/views/RotationsView.js';
-import { PresetsView } from './components/views/PresetsView.js';
 import { PlayView } from './components/views/PlayView.js';
 import { ProfilesView } from './components/views/ProfilesView.js';
 import { SettingsView } from './components/views/SettingsView.js';
@@ -16,10 +15,13 @@ import { WelcomeSetupModal } from './components/modals/WelcomeSetupModal.js';
 import { AiTaggingModal } from './components/modals/AiTaggingModal.js';
 import { AiCuratorModal } from './components/modals/AiCuratorModal.js';
 import { AiRecommendationsModal } from './components/modals/AiRecommendationsModal.js';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard.js';
+import { Toast } from './components/common/Toast.js';
 
 const AppContent: React.FC = () => {
   const {
     currentRoute,
+    needsOnboarding,
     inspectedBookId,
     setInspectedBookId,
     isProfileFormOpen,
@@ -44,9 +46,8 @@ const AppContent: React.FC = () => {
       case 'scan':
         return <ScanView />;
       case 'rotations':
-        return <RotationsView />;
       case 'presets':
-        return <PresetsView />;
+        return <RotationsView />;
       case 'play':
         return <PlayView />;
       case 'profiles':
@@ -58,6 +59,30 @@ const AppContent: React.FC = () => {
         return <HomeView />;
     }
   };
+
+  if (needsOnboarding) {
+    return (
+      <>
+        <OnboardingWizard />
+        <Toast />
+        <BookInspectorModal
+          bookId={inspectedBookId}
+          onClose={() => setInspectedBookId(null)}
+          onOpenCoverStudio={() => setIsCoverStudioOpen(true)}
+        />
+        <CoverStudioModal
+          bookId={inspectedBookId}
+          isOpen={isCoverStudioOpen}
+          onClose={() => setIsCoverStudioOpen(false)}
+        />
+        <AiTaggingModal
+          bookId={aiTagModal.bookId}
+          isOpen={aiTagModal.isOpen}
+          onClose={() => setAiTagModal({ isOpen: false, bookId: null })}
+        />
+      </>
+    );
+  }
 
   return (
     <AppShell>

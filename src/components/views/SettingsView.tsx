@@ -47,6 +47,7 @@ const VALID_SECTIONS = new Set<SettingsSectionId>([
   'query-usage',
   'offline-storage',
   'backup',
+  'dev-tools',
   'whats-new',
   'guides',
   'privacy',
@@ -136,6 +137,7 @@ export const SettingsView: React.FC = () => {
     routeParams,
     navigate,
     activeProfile,
+    hasQaSnapshot,
     setIsProfileFormOpen,
     setEditingProfileId,
     setIsWelcomeModalOpen,
@@ -190,8 +192,34 @@ export const SettingsView: React.FC = () => {
     return queryLogger.subscribe(() => setQueryUsageTick((t) => t + 1));
   }, []);
 
-  // Inline confirmation for Reset Sample Data
+  // Inline confirmation for Reset Sample Data & Clear All Test Data
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [confirmClearAllOpen, setConfirmClearAllOpen] = useState(false);
+
+  // Household Display Name & Dev Mode 5-tap unlock
+  const [householdNameInput, setHouseholdNameInput] = useState(
+    state.settings.householdName || ''
+  );
+  useEffect(() => {
+    setHouseholdNameInput(state.settings.householdName || '');
+  }, [state.settings.householdName]);
+
+  const [versionTapCount, setVersionTapCount] = useState(0);
+  const isDevToolsVisible = Boolean(
+    (import.meta as any).env?.DEV || state.settings.devModeUnlocked
+  );
+
+  const handleVersionTap = async () => {
+    if (isDevToolsVisible) return;
+    const next = versionTapCount + 1;
+    if (next >= 5) {
+      setVersionTapCount(0);
+      await store.updateSettings({ devModeUnlocked: true });
+      store.notify(t('devTools.unlockNotice'), 'success');
+    } else {
+      setVersionTapCount(next);
+    }
+  };
 
   // Google Books state
   const [proxyUrl, setProxyUrl] = useState(() => getDeviceBooksProxyUrl());
@@ -734,65 +762,105 @@ export const SettingsView: React.FC = () => {
                 }
               />
 
+              {/* Optional Household / Family Display Name */}
+              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3">
+                <div>
+                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                    Household / Parent Display Name
+                  </h2>
+                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    Optional family name shown on your Home shelf and onboarding summary.
+                  </p>
+                </div>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    await store.setHouseholdName(householdNameInput);
+                  }}
+                  className="flex flex-col sm:flex-row gap-2.5"
+                >
+                  <input
+                    id="settings-household-name-input"
+                    type="text"
+                    value={householdNameInput}
+                    onChange={(e) => setHouseholdNameInput(e.target.value)}
+                    placeholder={t('onboarding.householdNamePlaceholder')}
+                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  />
+                  <button
+                    type="submit"
+                    className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold whitespace-nowrap cursor-pointer"
+                  >
+                    Save Household Name
+                  </button>
+                </form>
+              </section>
+
               <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs">
-                <div className="divide-y divide-linen-200/70 dark:divide-night-800">
-                  {state.profiles.map((profile) => {
-                    const isActive = profile.id === state.activeProfileId;
-                    const ageLabel = formatProfileAgeLabel(profile);
-                    const toneClass = AVATAR_TONES[profile.avatarTone] || AVATAR_TONES.teal;
-                    const initial = (profile.name || '?').slice(0, 1).toUpperCase();
+                {state.profiles.length === 0 ? (
+                  <p className="text-xs text-stone-ink dark:text-slate-400 py-2">
+                    No child reader profiles yet. Tap + above to add your first reader.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-linen-200/70 dark:divide-night-800">
+                    {state.profiles.map((profile) => {
+                      const isActive = profile.id === state.activeProfileId;
+                      const ageLabel = formatProfileAgeLabel(profile);
+                      const toneClass = AVATAR_TONES[profile.avatarTone] || AVATAR_TONES.teal;
+                      const initial = (profile.name || '?').slice(0, 1).toUpperCase();
 
-                    return (
-                      <div key={profile.id} className="py-3 first:pt-1 last:pb-1 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span
-                            className={`inline-flex items-center justify-center font-display font-bold shrink-0 select-none w-10 h-10 rounded-full text-sm ${toneClass}`}
-                          >
-                            {initial}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-forest-900 dark:text-white truncate">
-                              {profile.name}
-                              {isActive && (
-                                <span className="text-xs font-semibold text-espresso-800 dark:text-[#5ED3DA] ml-1.5">
-                                  · {t('settings.activeReader')}
-                                </span>
-                              )}
-                            </p>
-                            <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
-                              {ageLabel}
-                              {profile.birthDate ? ` (DOB ${profile.birthDate})` : ''} ·{' '}
-                              {formatReadingStage(profile.readingStage)}
-                            </p>
+                      return (
+                        <div key={profile.id} className="py-3 first:pt-1 last:pb-1 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              className={`inline-flex items-center justify-center font-display font-bold shrink-0 select-none w-10 h-10 rounded-full text-sm ${toneClass}`}
+                            >
+                              {initial}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-forest-900 dark:text-white truncate">
+                                {profile.name}
+                                {isActive && (
+                                  <span className="text-xs font-semibold text-espresso-800 dark:text-[#5ED3DA] ml-1.5">
+                                    · {t('settings.activeReader')}
+                                  </span>
+                                )}
+                              </p>
+                              <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
+                                {ageLabel}
+                                {profile.birthDate ? ` (DOB ${profile.birthDate})` : ''} ·{' '}
+                                {formatReadingStage(profile.readingStage)}
+                              </p>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {!isActive && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {!isActive && (
+                              <button
+                                type="button"
+                                onClick={() => store.setActiveProfile(profile.id)}
+                                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors cursor-pointer"
+                              >
+                                {t('settings.selectProfile')}
+                              </button>
+                            )}
                             <button
                               type="button"
-                              onClick={() => store.setActiveProfile(profile.id)}
-                              className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors cursor-pointer"
+                              onClick={() => {
+                                setEditingProfileId(profile.id);
+                                setIsProfileFormOpen(true);
+                              }}
+                              aria-label={`Edit ${profile.name}`}
+                              className="min-h-[40px] min-w-[40px] rounded-xl text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:bg-night-800 flex items-center justify-center transition-colors cursor-pointer"
                             >
-                              {t('settings.selectProfile')}
+                              <Icon name="edit" className="w-4 h-4" />
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingProfileId(profile.id);
-                              setIsProfileFormOpen(true);
-                            }}
-                            aria-label={`Edit ${profile.name}`}
-                            className="min-h-[40px] min-w-[40px] rounded-xl text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:bg-night-800 flex items-center justify-center transition-colors cursor-pointer"
-                          >
-                            <Icon name="edit" className="w-4 h-4" />
-                          </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             </>
           );
@@ -1268,6 +1336,32 @@ export const SettingsView: React.FC = () => {
                         <p>{FIELD_HELP_COPY.staleBookDays.body}</p>
                       </div>
                     )}
+                  </div>
+
+                  {/* Guided Creation Mini-Wizards Toggle */}
+                  <div className="pt-3 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p
+                        id="label-mini-wizards"
+                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                      >
+                        Guided Creation Mini-Wizards
+                      </p>
+                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                        Show optional step-by-step guidance when adding new children or building new shelf rotations.
+                      </p>
+                    </div>
+                    <ToggleSwitch
+                      checked={state.settings.showMiniWizards !== false}
+                      onChange={() =>
+                        store.updateSettings({
+                          showMiniWizards: state.settings.showMiniWizards === false,
+                        })
+                      }
+                      ariaLabelledBy="label-mini-wizards"
+                      onLabel={t('common.on')}
+                      offLabel={t('common.off')}
+                    />
                   </div>
                 </div>
               </section>
@@ -2595,6 +2689,158 @@ export const SettingsView: React.FC = () => {
             </>
           );
 
+        case 'dev-tools':
+          return (
+            <>
+              <SettingsSubViewHeader
+                title={t('devTools.heading')}
+                subtitle={t('devTools.subtitle')}
+                backLabel={backLabel}
+                onBack={goBackToRoot}
+              />
+
+              {/* Onboarding Controls */}
+              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+                <div>
+                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                    Onboarding Flow &amp; Preview
+                  </h2>
+                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    Current onboarding status:{' '}
+                    <strong className="font-mono-tabular text-forest-900 dark:text-white">
+                      {state.settings.onboarding?.status || 'pending'}
+                    </strong>{' '}
+                    · Step {state.settings.onboarding?.currentStep ?? 0} of 5
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    data-action="dev-preview-onboarding"
+                    onClick={() => store.previewOnboarding()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold text-left inline-flex items-center justify-between gap-2 cursor-pointer"
+                  >
+                    <span>{t('devTools.previewOnboardingBtn')}</span>
+                    <Icon name="chevronRight" className="w-4 h-4 shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="dev-restart-onboarding"
+                    onClick={() => store.restartOnboarding()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white text-left inline-flex items-center justify-between gap-2 cursor-pointer"
+                  >
+                    <span>{t('devTools.restartOnboardingBtn')}</span>
+                    <Icon name="refresh" className="w-4 h-4 shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="dev-reset-onboarding-flag"
+                    onClick={() => store.resetOnboardingCompletionFlag()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-50 dark:hover:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white text-left sm:col-span-2 cursor-pointer"
+                  >
+                    {t('devTools.resetFlagBtn')}
+                  </button>
+                </div>
+              </section>
+
+              {/* Sample Data & QA User State Switching */}
+              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+                <div>
+                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                    User State Switching &amp; Sample Data
+                  </h2>
+                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    Test brand-new clean-slate onboarding or swap back to your backed-up household snapshot.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    data-action="dev-switch-new-user"
+                    onClick={() => store.switchToNewUserCleanSlate()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100 text-xs font-bold cursor-pointer"
+                  >
+                    {t('devTools.switchNewUserBtn')}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="dev-restore-snapshot"
+                    disabled={!hasQaSnapshot}
+                    onClick={() => store.restoreExistingUserSnapshot()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-45 disabled:cursor-not-allowed dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                  >
+                    {t('devTools.restoreSnapshotBtn')}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="dev-add-sample-books"
+                    onClick={() => store.importSampleCollectionAdditive()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-50 dark:hover:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                  >
+                    {t('devTools.loadSampleAdditiveBtn')}
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="dev-load-sample-household"
+                    onClick={() => store.loadFullSampleHousehold()}
+                    className="min-h-[44px] px-4 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-50 dark:hover:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                  >
+                    {t('devTools.loadSampleHouseholdBtn')}
+                  </button>
+                </div>
+
+                {/* Clear All Test Data with inline confirmation */}
+                <div className="pt-3 border-t border-linen-200/70 dark:border-night-800">
+                  {!confirmClearAllOpen ? (
+                    <button
+                      type="button"
+                      data-action="dev-clear-all-test-data"
+                      onClick={() => setConfirmClearAllOpen(true)}
+                      className="min-h-[44px] px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold cursor-pointer"
+                    >
+                      {t('devTools.clearAllBtn')}
+                    </button>
+                  ) : (
+                    <div
+                      role="alertdialog"
+                      className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 p-4 space-y-2.5"
+                    >
+                      <p className="text-xs font-bold text-rose-950 dark:text-rose-100">
+                        Erase all local books, profiles, rotations, and saved QA snapshots?
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setConfirmClearAllOpen(false);
+                            await store.clearAllTestData();
+                          }}
+                          className="min-h-[40px] px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+                        >
+                          Confirm Clear All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmClearAllOpen(false)}
+                          className="min-h-[40px] px-4 py-1.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </>
+          );
+
         case 'whats-new':
           return (
             <>
@@ -2795,16 +3041,25 @@ export const SettingsView: React.FC = () => {
       {/* Header & Eyebrow */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <p className="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] uppercase tracking-wider">
+          <p className="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] uppercase tracking-[0.08em]">
             {t('settings.eyebrow')}
           </p>
-          <h1 className="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
+          <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
             {t('settings.heading')}
           </h1>
         </div>
-        <p className="text-xs font-mono-tabular text-stone-ink dark:text-slate-400">
+        <button
+          type="button"
+          onClick={handleVersionTap}
+          title={
+            isDevToolsVisible
+              ? 'Developer & Testing Tools unlocked'
+              : 'Tap 5 times to unlock Development & Testing Tools'
+          }
+          className="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white text-left sm:text-right cursor-pointer"
+        >
           v{APP_VERSION} · {storageUsage.formatted}
-        </p>
+        </button>
       </div>
 
       {/* Proactive Quota Warning Banner in Settings Root */}
@@ -2925,6 +3180,16 @@ export const SettingsView: React.FC = () => {
               subtitle={t('settings.rowBackupSubtitle')}
               onClick={() => openSection('backup')}
             />
+            {isDevToolsVisible && (
+              <SettingsMenuRow
+                testId="dev-tools"
+                icon="sliders"
+                iconTone="amber"
+                title={t('devTools.heading')}
+                subtitle={t('devTools.rowSubtitle')}
+                onClick={() => openSection('dev-tools')}
+              />
+            )}
           </SettingsGroup>
         </div>
 

@@ -7,6 +7,8 @@ import { ClearableInput } from '../common/ClearableInput.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import { compressImageFileToDataUrl } from '../../features/catalog/cover-image-utils.js';
 import { resolveBookCardTintHex } from '../../features/catalog/cover-color-extractor.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+import { CoverGridSkeleton } from '../common/SkeletonLoaders.js';
 import {
   computeBookUsageSummary,
   formatShortShelfDate,
@@ -85,6 +87,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const [newTagInput, setNewTagInput] = useState('');
   const [newOwnerInput, setNewOwnerInput] = useState('');
   const [editError, setEditError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Form edit state
   const [editTitle, setEditTitle] = useState(book?.title || '');
@@ -107,6 +110,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     setCoverSearchError('');
     setCoverSearchResults([]);
     setEditError('');
+    setConfirmDelete(false);
     setNewTagInput('');
     setNewOwnerInput('');
     if (book) {
@@ -125,6 +129,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       );
     }
   }, [bookId]);
+
+  useBodyScrollLock(Boolean(book));
 
   if (!book) return null;
 
@@ -310,11 +316,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     }
   };
 
-  const handleDelete = async () => {
-    if (window.confirm(`Are you sure you want to remove "${book.title}" from your family library?`)) {
-      await store.deleteBook(book.id);
-      onClose();
-    }
+  const handleConfirmDelete = async () => {
+    await store.deleteBook(book.id);
+    onClose();
   };
 
   const currentStatus = normalizeCollectionStatus(book.collectionStatus);
@@ -438,7 +442,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   return (
     <div
       data-backdrop-action="close-inspect-book"
-      className="sheet-backdrop fixed inset-0 z-[60] bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="sheet-backdrop fixed inset-0 z-[60] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div
@@ -448,9 +452,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         style={dialogTintStyle}
         data-cover-tint={dynamicCoverTint ? tintHex : undefined}
         onClick={(e) => e.stopPropagation()}
-        className={`animate-sheet-up w-full max-w-lg sm:max-w-xl lg:max-w-2xl max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-2xl ${
+        className={`animate-sheet-up w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-2xl ${
           dynamicCoverTint ? 'lr-tinted-card ' : ''
-        }bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden`}
+        }bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0`}
       >
         {/* Mobile Handle Pill */}
         <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 sm:hidden shrink-0" aria-hidden="true" />
@@ -502,17 +506,17 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               data-action="close-inspect-book"
               onClick={onClose}
               aria-label="Close book details"
-              className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 transition-colors"
+              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 transition-all active:scale-95"
             >
-              <Icon name="close" className="w-4 h-4" />
+              <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
 
         {/* Scrollable Card Body */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4">
-          {/* Hero Identity: Cover + Stars Underneath (left) + Title, Author, Metadata Block & ISBN (right) */}
-          <div className="flex items-start gap-3.5 sm:gap-4 min-w-0">
+        <div className="p-4 sm:p-6 overflow-y-auto md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-6 md:items-start space-y-4 md:space-y-0">
+          {/* Column 1: Cover + Stars + Mobile-Inline Title Block */}
+          <div className="flex items-start gap-3.5 sm:gap-4 md:flex-col md:items-center md:sticky md:top-0 min-w-0">
             <div className="flex flex-col items-center shrink-0">
               <button
                 type="button"
@@ -568,7 +572,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               </div>
             </div>
 
-            <div className="min-w-0 flex-1">
+            {/* Mobile/Compact Title & Meta beside Cover */}
+            <div className="min-w-0 flex-1 md:hidden">
               <h2
                 id="inspect-book-title"
                 className="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white leading-snug text-balance"
@@ -579,19 +584,27 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 {book.authors.join(', ')}
               </p>
 
-              {/* De-crowded 2-Tier Metadata Block: Reading Fit -> Edition Specs -> Storytime Pacing -> ISBN */}
-              <div className="mt-2.5 space-y-1">
-                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-stone-ink dark:text-slate-300">
-                  <span
-                    className="font-bold text-forest-900 dark:text-white whitespace-nowrap cursor-help"
-                    title="Recommended reading ages (tap Edit to adjust)"
-                  >
-                    Ages {book.ageMin}–{book.ageMax}
+              {/* Compact Hairline Edition Metrics */}
+              <div className="mt-2.5 grid grid-cols-2 divide-x divide-linen-200/90 dark:divide-night-800 rounded-xl bg-linen-50/85 dark:bg-night-950/60 border border-linen-200/90 dark:border-night-800 py-1.5 px-1">
+                <div className="px-2">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                    Ages
                   </span>
-                  <span aria-hidden="true" className="text-stone-ink/40 select-none">·</span>
-                  <span className="whitespace-nowrap">{formatReadingStage(book.readingStage)}</span>
+                  <span className="text-xs font-bold text-forest-900 dark:text-white font-mono-tabular">
+                    {book.ageMin}–{book.ageMax}
+                  </span>
                 </div>
+                <div className="px-2 min-w-0">
+                  <span className="block text-[9px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                    Stage
+                  </span>
+                  <span className="block text-xs font-semibold text-forest-900 dark:text-white truncate">
+                    {formatReadingStage(book.readingStage)}
+                  </span>
+                </div>
+              </div>
 
+              <div className="mt-2 space-y-1">
                 {editionSpecs.length > 0 && (
                   <p className="text-[11px] text-stone-ink/85 dark:text-slate-400 leading-snug">
                     {editionSpecs.join(' · ')}
@@ -615,6 +628,83 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Column 2: Desktop Title Block + Actions, Editor, Customize, Tags, Footer */}
+          <div className="min-w-0 space-y-4">
+            <div className="hidden md:block">
+              <h2 className="font-display text-2xl font-bold tracking-tight text-forest-900 dark:text-white leading-snug text-balance">
+                {book.title}
+              </h2>
+              <p className="text-sm font-medium text-stone-ink dark:text-slate-300 mt-0.5">
+                {book.authors.join(', ')}
+              </p>
+
+              {/* Desktop Structured Edition Metrics Strip */}
+              <div className="mt-3 grid grid-cols-4 divide-x divide-linen-200/90 dark:divide-night-800 rounded-xl bg-linen-50/85 dark:bg-night-950/60 border border-linen-200/90 dark:border-night-800 py-2">
+                <div className="px-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                    Ages
+                  </span>
+                  <span
+                    className="text-xs font-bold text-forest-900 dark:text-white font-mono-tabular cursor-help"
+                    title="Recommended reading ages (tap Edit to adjust)"
+                  >
+                    {book.ageMin}–{book.ageMax} yrs
+                  </span>
+                </div>
+                <div className="px-3 min-w-0">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                    Stage
+                  </span>
+                  <span className="block text-xs font-semibold text-forest-900 dark:text-white truncate">
+                    {formatReadingStage(book.readingStage)}
+                  </span>
+                </div>
+                <div className="px-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                    Pages
+                  </span>
+                  <span className="text-xs font-semibold text-forest-900 dark:text-white font-mono-tabular">
+                    {book.pageCount ? `${book.pageCount} pp` : '—'}
+                  </span>
+                </div>
+                <div className="px-3">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                    Published
+                  </span>
+                  <span className="text-xs font-semibold text-forest-900 dark:text-white font-mono-tabular">
+                    {book.publishedYear || '—'}
+                  </span>
+                </div>
+              </div>
+
+              {(editionSpecs.length > 0 || hintParts.length > 0 || isbnVal) && (
+                <div className="mt-2.5 space-y-1">
+                  {(book.publisher || (book.language && book.language !== 'english')) && (
+                    <p className="text-xs text-stone-ink/85 dark:text-slate-400">
+                      {[book.publisher, book.language && book.language !== 'english' ? book.language : '']
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  )}
+
+                  {hintParts.length > 0 && (
+                    <p
+                      className="text-xs text-emerald-700 dark:text-emerald-400 font-medium leading-snug"
+                      title="Read-aloud pacing & duration"
+                    >
+                      {hintParts.join(' · ')}
+                    </p>
+                  )}
+
+                  {isbnVal && (
+                    <p className="text-[11px] font-mono-tabular text-stone-ink/75 dark:text-slate-400 select-all">
+                      ISBN {isbnVal}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
 
           {/* Contextual Drawer 1: Cover Studio (opens when tapping cover) */}
           {isCoverPickerOpen && (
@@ -692,7 +782,11 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </p>
               )}
 
-              {coverSearchResults.length > 0 && (
+              {coverSearchLoading ? (
+                <div className="pt-1">
+                  <CoverGridSkeleton count={4} />
+                </div>
+              ) : coverSearchResults.length > 0 && (
                 <div className="grid grid-cols-4 gap-2 pt-0.5">
                   {coverSearchResults.map((res, i) => (
                     <button
@@ -946,7 +1040,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           )}
 
           {/* Quick Shelf & Read Bar */}
-          <div className="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 space-y-1.5">
+          <div className="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200/90 dark:border-night-800 px-4 py-3 space-y-2 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-medium text-stone-ink dark:text-slate-300">
                 {inActiveShelf
@@ -1078,7 +1172,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           {/* Unified Customize Table: Reader, Shelf, Condition, Rotations */}
           <section
             aria-label="Customize reader, shelf status, and condition"
-            className="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5 text-xs"
+            className="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200/90 dark:border-night-800 px-4 py-3 text-xs shadow-2xs"
           >
             <div className="divide-y divide-linen-200/70 dark:divide-night-800/80">
               {/* Row 1: Reader / Household Owners */}
@@ -1372,16 +1466,39 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 )}
               </div>
 
-              <button
-                type="button"
-                data-action="delete-book"
-                onClick={handleDelete}
-                aria-label={`Remove ${book.title} from catalog`}
-                className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-              >
-                <Icon name="trash" className="w-3.5 h-3.5" />
-                <span>Remove Book</span>
-              </button>
+              {!confirmDelete ? (
+                <button
+                  type="button"
+                  data-action="delete-book"
+                  onClick={() => setConfirmDelete(true)}
+                  aria-label={`Remove ${book.title} from catalog`}
+                  className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Icon name="trash" className="w-3.5 h-3.5" />
+                  <span>Remove Book</span>
+                </button>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-3 py-2">
+                  <span className="text-xs font-semibold text-rose-900 dark:text-rose-200">
+                    Remove from library?
+                  </span>
+                  <button
+                    type="button"
+                    data-action="confirm-delete-book"
+                    onClick={handleConfirmDelete}
+                    className="min-h-[34px] px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors"
+                  >
+                    Yes, Remove
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-ivory dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
 
             {hasRawPayloads && (
@@ -1394,6 +1511,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </pre>
               </details>
             )}
+          </div>
           </div>
         </div>
       </div>

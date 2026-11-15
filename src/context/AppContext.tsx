@@ -1,15 +1,15 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { createAppStore } from '../core/store.js';
-import { createStorageAdapter } from '../core/storage.js';
+import { createStorageAdapter, hasQaUserSnapshot } from '../core/storage.js';
 import { createRouter } from '../core/router.js';
 import { createPwaManager } from '../features/pwa/pwa-manager.js';
 import { createCatalogService } from '../features/catalog/catalog-service.js';
 import { createScannerController } from '../features/scan/scanner-controller.js';
 import { t } from '../config/i18n.js';
-import type { AppState, Book, ChildProfile, RotationShelf, RouteId } from '../types/models.js';
+import type { AppState, ChildProfile, RotationShelf, RouteId } from '../types/models.js';
 
-// Singleton instances
-export const storageAdapter = createStorageAdapter();
+// Singleton instances — browser boots into clean onboarding on brand-new visits
+export const storageAdapter = createStorageAdapter({ seedOnEmpty: false });
 export const store = createAppStore(storageAdapter);
 export const router = createRouter();
 export const pwaManager = createPwaManager();
@@ -27,7 +27,13 @@ export interface AppContextType {
   catalogService: ReturnType<typeof createCatalogService>;
   activeProfile: ChildProfile | null;
   activeRotation: RotationShelf | null;
+  needsOnboarding: boolean;
+  isOnboardingPreview: boolean;
+  hasQaSnapshot: boolean;
   t: (key: string, vars?: Record<string, string | number>) => string;
+  globalSearchQuery: string;
+  setGlobalSearchQuery: React.Dispatch<React.SetStateAction<string>>;
+  submitGlobalSearch: (query: string) => void;
 
   // Global modals and drawers
   inspectedBookId: string | null;
@@ -74,6 +80,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [routeInfo, setRouteInfo] = useState(() => router.getCurrent());
   const [toast, setToast] = useState(() => store.getToast());
   const [pwaStatus, setPwaStatus] = useState(() => pwaManager.getStatus());
+  const [globalSearchQuery, setGlobalSearchQuery] = useState(() => {
+    return router.getCurrent().params.get('q') || '';
+  });
 
   // Modal states
   const [inspectedBookId, setInspectedBookId] = useState<string | null>(null);
@@ -108,7 +117,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       onStateChange: () => {},
       onLock: async (lock) => {
         if (lock.kind === 'isbn' && lock.isbn13) {
-          // Handled inside ScanView
+          // Handled inside ScanView or Onboarding Step 3
         }
       },
     });
@@ -135,6 +144,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubRouter = router.subscribe((current) => {
       setRouteInfo(current);
+      const qParam = current.params.get('q');
+      if (qParam !== null) {
+        setGlobalSearchQuery(qParam);
+      }
       // Close transient sheets on route change
       setIsFilterDrawerOpen(false);
       setIsProfileSwitcherOpen(false);
@@ -159,6 +172,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     router.navigate(route, query);
   }, []);
 
+  const submitGlobalSearch = useCallback((rawQuery: string) => {
+    const trimmed = rawQuery.trim();
+    setGlobalSearchQuery(rawQuery);
+    if (trimmed) {
+      router.navigate('library', { q: trimmed });
+    } else {
+      router.navigate('library');
+    }
+  }, []);
+
   const activeProfile = useMemo(() => {
     return (
       appState.profiles.find((p) => p.id === appState.activeProfileId) ||
@@ -175,6 +198,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ) || null
     );
   }, [appState.rotations, activeProfile]);
+
+  const onboardingState = appState.settings?.onboarding;
+  const isOnboardingPreview = Boolean(onboardingState?.previewMode);
+  const needsOnboarding = Boolean(
+    isOnboardingPreview ||
+      onboardingState?.status === 'pending' ||
+      onboardingState?.status === 'in_progress'
+  );
+  const hasQaSnapshot = useMemo(() => {
+    void appState.updatedAt;
+    return hasQaUserSnapshot();
+  }, [appState.updatedAt]);
 
   const translate = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
@@ -195,7 +230,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     catalogService,
     activeProfile,
     activeRotation,
+    needsOnboarding,
+    isOnboardingPreview,
+    hasQaSnapshot,
     t: translate,
+    globalSearchQuery,
+    setGlobalSearchQuery,
+    submitGlobalSearch,
     inspectedBookId,
     setInspectedBookId,
     isProfileSwitcherOpen,

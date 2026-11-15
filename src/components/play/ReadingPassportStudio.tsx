@@ -20,6 +20,7 @@ import {
   generateStandalonePassportHtml,
   sharePassportDocument,
 } from '../../features/play/passport-service.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 interface ReadingPassportStudioProps {
   onClose: () => void;
@@ -91,6 +92,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useBodyScrollLock(
+    showPresetBrowser || showBookPicker || showCertStylingModal || showSavePresetModal
+  );
 
   // Show transient toast
   const showToast = (msg: string) => {
@@ -1305,8 +1310,15 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* MODAL: SERIES PRESETS & SETS BROWSER                                */}
       {/* ==================================================================== */}
       {showPresetBrowser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          onClick={() => setShowPresetBrowser(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full max-w-2xl rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col max-h-[88vh] pb-safe sm:pb-0"
+          >
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
             <div className="p-5 border-b border-linen-200 dark:border-night-800 flex items-center justify-between">
               <div>
                 <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
@@ -1319,9 +1331,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               <button
                 type="button"
                 onClick={() => setShowPresetBrowser(false)}
-                className="w-8 h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center text-stone-600 dark:text-slate-300"
+                aria-label="Close preset browser"
+                className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center text-stone-600 dark:text-slate-300 active:scale-95 transition-transform"
               >
-                <Icon name="close" className="w-4 h-4" />
+                <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
             </div>
 
@@ -1384,8 +1397,15 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* MODAL: CHOOSE & REORDER BOOKS                                       */}
       {/* ==================================================================== */}
       {showBookPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          onClick={() => setShowBookPicker(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full max-w-2xl rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col max-h-[88vh] pb-safe sm:pb-0"
+          >
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
             <div className="p-5 border-b border-linen-200 dark:border-night-800 flex items-center justify-between">
               <div>
                 <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
@@ -1398,9 +1418,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               <button
                 type="button"
                 onClick={() => setShowBookPicker(false)}
-                className="w-8 h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center text-stone-600 dark:text-slate-300"
+                aria-label="Close book picker"
+                className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center text-stone-600 dark:text-slate-300 active:scale-95 transition-transform"
               >
-                <Icon name="close" className="w-4 h-4" />
+                <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
             </div>
 
@@ -1527,18 +1548,26 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* MODAL: CERTIFICATE CUSTOM STYLING & BACKGROUND                      */}
       {/* ==================================================================== */}
       {showCertStylingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b pb-3">
+        <div
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          onClick={() => setShowCertStylingModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full max-w-lg rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl px-6 pt-3 pb-6 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto pb-safe sm:pb-6"
+          >
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto sm:hidden" aria-hidden="true" />
+            <div className="flex items-center justify-between border-b border-linen-200 dark:border-night-800 pb-3">
               <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
                 Certificate Background &amp; Embellishment
               </h3>
               <button
                 type="button"
                 onClick={() => setShowCertStylingModal(false)}
-                className="w-8 h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center"
+                aria-label="Close certificate styling"
+                className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center active:scale-95 transition-transform"
               >
-                <Icon name="close" className="w-4 h-4" />
+                <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
             </div>
 
@@ -1671,8 +1700,15 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* MODAL: SAVE CURRENT SETUP AS PRESET                                 */}
       {/* ==================================================================== */}
       {showSavePresetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl p-6 space-y-4">
+        <div
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          onClick={() => setShowSavePresetModal(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl px-6 pt-3 pb-6 sm:p-6 space-y-4 pb-safe sm:pb-6"
+          >
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto sm:hidden" aria-hidden="true" />
             <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
               Save Current Passport as Template
             </h3>
@@ -1688,7 +1724,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                   value={newPresetTitle}
                   onChange={(e) => setNewPresetTitle(e.target.value)}
                   placeholder="e.g. Bedtime Chapter Book Challenge"
-                  className="w-full rounded-xl border p-2 bg-linen-50 dark:bg-night-800"
+                  className="w-full rounded-xl border p-2.5 bg-linen-50 dark:bg-night-800"
                 />
               </div>
               <div>
@@ -1698,7 +1734,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                   value={newPresetSeries}
                   onChange={(e) => setNewPresetSeries(e.target.value)}
                   placeholder="e.g. Magic Treehouse Series"
-                  className="w-full rounded-xl border p-2 bg-linen-50 dark:bg-night-800"
+                  className="w-full rounded-xl border p-2.5 bg-linen-50 dark:bg-night-800"
                 />
               </div>
               <div>
@@ -1708,16 +1744,16 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                   onChange={(e) => setNewPresetDesc(e.target.value)}
                   placeholder="Notes about this reading challenge..."
                   rows={2}
-                  className="w-full rounded-xl border p-2 bg-linen-50 dark:bg-night-800"
+                  className="w-full rounded-xl border p-2.5 bg-linen-50 dark:bg-night-800"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t flex justify-end gap-2">
+            <div className="pt-3 border-t border-linen-200 dark:border-night-800 flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowSavePresetModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600"
+                className="min-h-[48px] sm:min-h-[36px] px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-300 hover:bg-linen-100 dark:hover:bg-night-800 active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>
@@ -1725,7 +1761,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 type="button"
                 onClick={handleSaveCurrentAsPreset}
                 disabled={!newPresetTitle.trim()}
-                className="px-5 py-2 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs disabled:opacity-50"
+                className="min-h-[48px] sm:min-h-[36px] px-5 py-2 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs disabled:opacity-50 active:scale-[0.98] transition-all"
               >
                 Save Template
               </button>

@@ -11,6 +11,7 @@ export type SettingsSectionId =
   | 'query-usage'
   | 'offline-storage'
   | 'backup'
+  | 'dev-tools'
   | 'whats-new'
   | 'guides'
   | 'privacy'

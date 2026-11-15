@@ -13,6 +13,7 @@ import {
 } from '../../types/models.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
 import type { BookCondition, CollectionStatus } from '../../types/models.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 interface FoundBookSheetProps {
   candidate: BookCandidate | null;
@@ -41,6 +42,8 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
   const [intakeOwners, setIntakeOwners] = useState<string[]>(() => {
     return activeProfile ? [activeProfile.id, 'shared'] : ['shared'];
   });
+
+  useBodyScrollLock(isOpen && Boolean(candidate));
 
   if (!isOpen || !candidate) return null;
 
@@ -99,7 +102,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
     <div
       data-found-book-sheet="true"
       data-backdrop-action="close-found-book-sheet"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       role="dialog"
       aria-modal="true"
       aria-labelledby="found-book-sheet-title"
@@ -107,9 +110,9 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-lg max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden"
+        className="animate-sheet-up w-full max-w-lg max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
       >
-        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 sm:hidden" aria-hidden="true" />
+        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
 
         {/* Top Bar: Book Found + Re-scan + Close */}
         <div className="px-5 pt-3 pb-3 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
@@ -124,7 +127,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                 type="button"
                 data-action="rescan-book"
                 onClick={onRescan}
-                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                className="min-h-[48px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-1.5 transition-all active:scale-95 whitespace-nowrap"
               >
                 <Icon name="barcode" className="w-4 h-4" />
                 <span>Re-scan</span>
@@ -135,9 +138,9 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
               data-action="close-found-book-sheet"
               onClick={onClose}
               aria-label="Close book details"
-              className="min-h-[40px] min-w-[40px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center transition-colors"
+              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center transition-all active:scale-95"
             >
-              <Icon name="close" className="w-4 h-4" />
+              <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>

@@ -5,6 +5,9 @@ import { ClearableInput } from '../common/ClearableInput.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import { BookCover } from '../common/BookCover.js';
 import { FoundBookSheet } from '../modals/FoundBookSheet.js';
+import { NativeBarcodeScannerModal } from '../scan/NativeBarcodeScannerModal.js';
+import { SearchResultsSkeleton } from '../common/SkeletonLoaders.js';
+import { triggerScanSuccessFeedback } from '../../utils/scannerFeedback.js';
 import {
   parseUnifiedCatalogQuery,
   resolveScanEntryState,
@@ -20,25 +23,28 @@ import { formatBookBinding } from '../../types/models.js';
 
 const SCAN_MODES: Record<
   ScanMode,
-  { label: string; caption: string; frameClass: string; hint: string }
+  { label: string; caption: string; frameClass: string; hint: string; tip: string }
 > = {
   barcode: {
     label: 'Barcode / QR',
     caption: 'EAN-13 / ISBN & Book QR',
     frameClass: 'w-60 sm:w-80 h-24 sm:h-28 rounded-xl',
     hint: 'Center a back-cover ISBN barcode or library/bookstore QR code inside the guide.',
+    tip: 'Hold 15–20 cm away in even light. Use Upload Photo on iOS/desktop if camera focus struggles.',
   },
   'isbn-ocr': {
     label: 'ISBN Text',
     caption: 'Printed ISBN-13 / ISBN-10 OCR',
     frameClass: 'w-60 sm:w-80 h-12 sm:h-14 rounded-lg',
     hint: 'Align the printed "ISBN 978-..." digits inside the narrow strip.',
+    tip: 'Great when a barcode sticker is torn or missing—keep only the digits inside the strip.',
   },
   cover: {
     label: 'Cover',
     caption: '3:4 jacket · OCR title/ISBN handoff',
     frameClass: 'w-36 sm:w-44 h-48 sm:h-56 rounded-2xl',
     hint: 'Frame the book cover and tap Capture Cover to extract title or ISBN.',
+    tip: 'Works best when front-cover title lettering is sharp and well lit, then opens Search with the extracted text.',
   },
 };
 
@@ -80,17 +86,16 @@ export const ScanView: React.FC = () => {
 
   // Found book bottom sheet
   const [foundCandidate, setFoundCandidate] = useState<BookCandidate | null>(null);
+  const [isNativeScannerOpen, setIsNativeScannerOpen] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastHandledLockRef = useRef<string>('');
 
-  // Initialize browser support probe without forcing camera auto-start on mount
   useEffect(() => {
     scanner.initSupport().catch(() => {});
   }, [scanner]);
 
-  // Subscribe to scanner controller state updates
   useEffect(() => {
     const unsub = scanner.subscribe(() => {
       const cur = scanner.getState();
@@ -100,6 +105,7 @@ export const ScanView: React.FC = () => {
         const lockKey = `${cur.lock.lockedAt}:${cur.lock.kind}:${cur.lock.isbn13 || cur.lock.titleQuery || ''}`;
         if (lastHandledLockRef.current !== lockKey) {
           lastHandledLockRef.current = lockKey;
+          triggerScanSuccessFeedback();
           if (cur.lock.kind === 'isbn' && cur.lock.isbn13) {
             executeIsbnLookup(cur.lock.isbn13);
           } else if (cur.lock.kind === 'cover-title' && cur.lock.titleQuery) {
@@ -117,7 +123,6 @@ export const ScanView: React.FC = () => {
     };
   }, [scanner]);
 
-  // Attach MediaStream whenever live video element mounts
   useEffect(() => {
     if (
       activeTab === 'scanner' &&
@@ -127,6 +132,20 @@ export const ScanView: React.FC = () => {
       scanner.attachVideoElement(videoRef.current);
     }
   }, [activeTab, scannerState.phase, scanner]);
+
+  // Honor optional searchWhileTyping setting (non-ISBN text queries >= 3 chars)
+  useEffect(() => {
+    if (!state.settings?.searchWhileTyping || activeTab !== 'search') return;
+    const trimmed = searchQuery.trim();
+    if (trimmed.length < 3) return;
+    const parsed = parseUnifiedCatalogQuery(trimmed, searchAuthor);
+    if (parsed.mode !== 'text') return;
+
+    const timer = window.setTimeout(() => {
+      executeUnifiedSearch(trimmed, searchAuthor);
+    }, 550);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery, searchAuthor, state.settings?.searchWhileTyping, activeTab]);
 
   const handleSelectTab = (tabId: 'scanner' | 'search' | 'manual') => {
     if (tabId !== 'scanner') {
@@ -145,6 +164,11 @@ export const ScanView: React.FC = () => {
   const handleStartCamera = () => {
     setNotFoundIsbn('');
     setSearchError('');
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      scanner.stopCamera();
+      setIsNativeScannerOpen(true);
+      return;
+    }
     scanner.startCamera().catch(() => {});
   };
 
@@ -353,7 +377,6 @@ export const ScanView: React.FC = () => {
     lockReadoutText = 'Starting camera…';
   }
 
-  // Keep the center of the guide unobstructed while live camera video is streaming
   const showCenterBadge = !isStreaming || isLocked || (isSearching && Boolean(pendingIsbn));
 
   const viewportInner = (
@@ -422,575 +445,755 @@ export const ScanView: React.FC = () => {
   );
 
   return (
-    <div className="space-y-4 text-left max-w-2xl mx-auto">
+    <div className="space-y-6 text-left max-w-6xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white">
-          Scan &amp; Add Books
-        </h1>
-        <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-          Scan barcode or cover, search online metadata, or add offline books manually.
-        </p>
-      </div>
-
-      {/* Mode Switcher Tabs */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-800 text-xs font-semibold">
-        {[
-          { id: 'scanner', label: 'Camera', icon: 'scan' },
-          { id: 'search', label: 'Search & ISBN', icon: 'search' },
-          { id: 'manual', label: 'Manual', icon: 'edit' },
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              data-action="select-intake-tab"
-              aria-pressed={isActive}
-              onClick={() => handleSelectTab(tab.id as any)}
-              className={`flex-1 min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors inline-flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                isActive
-                  ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
-                  : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
-              }`}
-            >
-              <Icon name={tab.icon} className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tab 1: Live Optical Scanner & Photo Upload */}
-      {activeTab === 'scanner' && (
-        <section
-          aria-label="Camera and photo scanner"
-          className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3.5 sm:p-4 space-y-3"
-        >
-          {/* Top Optical Guide Selector */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex flex-1 items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-800 max-w-md">
-              {(['barcode', 'isbn-ocr', 'cover'] as ScanMode[]).map((modeKey) => {
-                const selected = scanMode === modeKey;
-                return (
-                  <button
-                    key={modeKey}
-                    type="button"
-                    data-action="select-scan-mode"
-                    data-scan-mode={modeKey}
-                    aria-pressed={selected}
-                    onClick={() => handleSwitchGuide(modeKey)}
-                    className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
-                      selected
-                        ? 'bg-forest-900 text-ivory dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
-                        : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {SCAN_MODES[modeKey].label}
-                  </button>
-                );
-              })}
-            </div>
-            <span className="text-[11px] font-medium text-stone-ink dark:text-slate-400">
-              {activeMode.caption}
-            </span>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex items-start gap-3.5">
+          <span className="hidden sm:inline-flex w-11 h-11 rounded-2xl bg-forest-900/6 dark:bg-[#5ED3DA]/12 border border-linen-200 dark:border-night-700 items-center justify-center text-forest-800 dark:text-[#5ED3DA] shrink-0 mt-0.5">
+            <Icon name="scan" className="w-5 h-5" />
+          </span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-forest-700 dark:text-[#5ED3DA]">
+              Catalog Intake Workbench
+            </p>
+            <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
+              Scan &amp; Add Books
+            </h1>
+            <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1">
+              Scan a barcode or cover, query online metadata catalogs, or log offline editions manually.
+            </p>
           </div>
+        </div>
 
-          {/* Optical Camera / Photo Viewfinder */}
-          {canTapViewportToStart ? (
-            <button
-              type="button"
-              data-action="start-camera-scan"
-              aria-label={`Start camera in ${activeMode.label} mode`}
-              onClick={handleStartCamera}
-              className="group w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
-            >
-              {viewportInner}
-            </button>
-          ) : (
-            <div className="w-full relative h-60 sm:h-72 rounded-2xl bg-night-950 flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-night-800">
-              {viewportInner}
-            </div>
-          )}
-
-          {/* Live Readout & Camera Action Dock */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
-            <div className="min-w-0">
-              <p
-                role="status"
-                aria-live="polite"
-                className={`text-xs font-medium truncate ${
-                  isLocked
-                    ? 'text-emerald-700 dark:text-emerald-400'
-                    : 'text-forest-900 dark:text-slate-300'
+        {/* Mode Switcher Tabs */}
+        <div className="flex items-center gap-1 p-1.5 rounded-2xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-800 text-xs font-semibold w-full md:w-auto">
+          {[
+            { id: 'scanner', label: 'Camera', icon: 'camera' },
+            { id: 'search', label: 'Search & ISBN', icon: 'search' },
+            { id: 'manual', label: 'Manual', icon: 'edit' },
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                data-action="select-intake-tab"
+                aria-pressed={isActive}
+                onClick={() => handleSelectTab(tab.id as any)}
+                className={`flex-1 md:flex-initial min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                  isActive
+                    ? 'bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
+                    : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
                 }`}
               >
-                {isSearching && pendingIsbn
-                  ? `Looking up ISBN ${pendingIsbn}…`
-                  : scannerState.statusMessage}
-              </p>
-              {scannerState.ignoredHint && (
-                <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
-                  {scannerState.ignoredHint}
-                </p>
-              )}
-            </div>
+                <Icon name={tab.icon} className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {isStreaming ? (
-                <>
-                  <button
-                    type="button"
-                    data-action="stop-camera-scan"
-                    onClick={() => scanner.stopCamera()}
-                    className="min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                  >
-                    <Icon name="close" className="w-4 h-4" />
-                    <span>Stop</span>
-                  </button>
+      {/* Desktop 2-Column Workbench / Mobile Single Column */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Primary Column */}
+        <div className="lg:col-span-7 space-y-4 min-w-0">
+          {/* Tab 1: Live Optical Scanner & Photo Upload */}
+          {activeTab === 'scanner' && (
+            <section
+              aria-label="Camera and photo scanner"
+              className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-4 sm:p-6 space-y-4"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex flex-1 items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-800 max-w-md">
+                  {(['barcode', 'isbn-ocr', 'cover'] as ScanMode[]).map((modeKey) => {
+                    const selected = scanMode === modeKey;
+                    return (
+                      <button
+                        key={modeKey}
+                        type="button"
+                        data-action="select-scan-mode"
+                        data-scan-mode={modeKey}
+                        aria-pressed={selected}
+                        onClick={() => handleSwitchGuide(modeKey)}
+                        className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                          selected
+                            ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-[#5ED3DA] shadow-2xs border border-linen-200/80 dark:border-night-700'
+                            : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                        }`}
+                      >
+                        {SCAN_MODES[modeKey].label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="text-[11px] font-medium text-stone-ink dark:text-slate-400">
+                  {activeMode.caption}
+                </span>
+              </div>
 
-                  {(scanMode === 'cover' || scanMode === 'isbn-ocr') && (
-                    <button
-                      type="button"
-                      data-action="capture-live-frame"
-                      onClick={() => scanner.captureCurrentFrame()}
-                      className="min-h-[42px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Icon name="camera" className="w-4 h-4" />
-                      <span>{scanMode === 'cover' ? 'Capture Cover' : 'Read ISBN'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    data-action="toggle-camera-torch"
-                    onClick={handleToggleTorch}
-                    aria-pressed={isTorchOn}
-                    aria-label={isTorchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
-                    title="Toggle rear camera flashlight"
-                    className={`min-h-[42px] px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
-                      isTorchOn
-                        ? 'bg-amber-400 text-night-950 shadow-xs'
-                        : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white'
-                    }`}
-                  >
-                    <Icon
-                      name={isTorchOn ? 'flashlightFilled' : 'flashlight'}
-                      className="w-4 h-4"
-                    />
-                    <span>{isTorchOn ? 'Light On' : 'Flashlight'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    data-action="flip-camera"
-                    onClick={() => scanner.flipCamera()}
-                    className="min-h-[42px] px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                  >
-                    <Icon name="flip" className="w-4 h-4" />
-                    <span>Flip</span>
-                  </button>
-                </>
-              ) : (
+              {canTapViewportToStart ? (
                 <button
                   type="button"
                   data-action="start-camera-scan"
-                  disabled={isStarting || isAnalyzingUpload}
+                  aria-label={`Start camera in ${activeMode.label} mode`}
                   onClick={handleStartCamera}
-                  className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                  className="group w-full relative h-64 sm:h-80 rounded-2xl bg-[#0B2226] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-forest-900/80 dark:border-night-700 shadow-inner cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
                 >
-                  <Icon name="camera" className="w-4 h-4" />
-                  <span>{isStarting ? 'Starting…' : 'Start Camera'}</span>
+                  {viewportInner}
                 </button>
+              ) : (
+                <div className="w-full relative h-64 sm:h-80 rounded-2xl bg-[#0B2226] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-forest-900/80 dark:border-night-700 shadow-inner">
+                  {viewportInner}
+                </div>
               )}
 
-              <label
-                htmlFor="scan-photo-upload-input"
-                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
+                <div className="min-w-0">
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className={`text-xs font-medium truncate ${
+                      isLocked
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : 'text-forest-900 dark:text-slate-300'
+                    }`}
+                  >
+                    {isSearching && pendingIsbn
+                      ? `Looking up ISBN ${pendingIsbn}…`
+                      : scannerState.statusMessage}
+                  </p>
+                  {scannerState.ignoredHint && (
+                    <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
+                      {scannerState.ignoredHint}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {isStreaming ? (
+                    <>
+                      <button
+                        type="button"
+                        data-action="stop-camera-scan"
+                        onClick={() => scanner.stopCamera()}
+                        className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                      >
+                        <Icon name="close" className="w-4 h-4" />
+                        <span>Stop</span>
+                      </button>
+
+                      {(scanMode === 'cover' || scanMode === 'isbn-ocr') && (
+                        <button
+                          type="button"
+                          data-action="capture-live-frame"
+                          onClick={() => scanner.captureCurrentFrame()}
+                          className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 active:scale-[0.98] text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        >
+                          <Icon name="camera" className="w-4 h-4" />
+                          <span>{scanMode === 'cover' ? 'Capture Cover' : 'Read ISBN'}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        data-action="toggle-camera-torch"
+                        onClick={handleToggleTorch}
+                        aria-pressed={isTorchOn}
+                        aria-label={isTorchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
+                        title="Toggle rear camera flashlight"
+                        className={`min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl text-xs font-semibold transition-all active:scale-[0.98] inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                          isTorchOn
+                            ? 'bg-amber-400 text-night-950 shadow-xs'
+                            : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white'
+                        }`}
+                      >
+                        <Icon
+                          name={isTorchOn ? 'flashlightFilled' : 'flashlight'}
+                          className="w-4 h-4"
+                        />
+                        <span>{isTorchOn ? 'Light On' : 'Flashlight'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        data-action="flip-camera"
+                        onClick={() => scanner.flipCamera()}
+                        className="min-h-[48px] sm:min-h-[42px] px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 active:scale-[0.98] dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                      >
+                        <Icon name="flip" className="w-4 h-4" />
+                        <span>Flip</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        data-action="start-camera-scan"
+                        disabled={isStarting || isAnalyzingUpload}
+                        onClick={handleStartCamera}
+                        className="min-h-[48px] sm:min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 active:scale-[0.98] disabled:opacity-60 text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                      >
+                        <Icon name="camera" className="w-4 h-4" />
+                        <span>{isStarting ? 'Starting…' : 'Start Camera'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        data-action="open-fullscreen-scanner"
+                        onClick={() => {
+                          scanner.stopCamera();
+                          setIsNativeScannerOpen(true);
+                        }}
+                        className="hidden lg:inline-flex min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                      >
+                        <Icon name="scan" className="w-4 h-4" />
+                        <span>Full-Screen View</span>
+                      </button>
+                    </>
+                  )}
+
+                  <label
+                    htmlFor="scan-photo-upload-input"
+                    className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 active:scale-[0.98] dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-all inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <Icon name="photo" className="w-4 h-4" />
+                    <span>Upload Photo</span>
+                    <input
+                      id="scan-photo-upload-input"
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="sr-only"
+                    />
+                  </label>
+
+                  {(isLocked || scannerState.uploadedPreviewUrl) && (
+                    <button
+                      type="button"
+                      data-action="reset-scanner"
+                      onClick={handleResetScanner}
+                      className="min-h-[48px] sm:min-h-[42px] px-3 py-2 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white transition-colors whitespace-nowrap cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {!isSearching && notFoundIsbn && (
+                <div className="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-forest-900 dark:text-white">
+                      Scanned ISBN <span className="font-mono-tabular">{notFoundIsbn}</span> wasn’t in
+                      online catalogs
+                    </p>
+                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      Finish adding it manually with the ISBN pre-filled, or tap Re-scan.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleResetScanner}
+                      className="min-h-[42px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white whitespace-nowrap"
+                    >
+                      Re-scan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualIsbn(notFoundIsbn);
+                        setNotFoundIsbn('');
+                        setActiveTab('manual');
+                      }}
+                      className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold whitespace-nowrap"
+                    >
+                      Complete Manually
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {(scannerState.errorMessage || (searchError && !notFoundIsbn)) && (
+                <div
+                  role="alert"
+                  className="rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                >
+                  <p className="text-xs font-medium text-rose-800 dark:text-rose-200">
+                    {scannerState.errorMessage || searchError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTab('search')}
+                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white whitespace-nowrap shrink-0"
+                  >
+                    Search or Type ISBN
+                  </button>
+                </div>
+              )}
+
+              {/* Mobile-only collapsible engine details (shown openly on desktop right rail) */}
+              {scannerState.support && (
+                <details className="lg:hidden text-xs text-stone-ink dark:text-slate-400 pt-0.5">
+                  <summary className="cursor-pointer font-medium hover:text-forest-900 dark:hover:text-white select-none">
+                    Scanner engine · {scannerState.support.barcodeEngineLabel}
+                  </summary>
+                  <div className="mt-2 space-y-1 text-[11px] leading-relaxed">
+                    <p>
+                      Camera API:{' '}
+                      <strong className="text-forest-900 dark:text-white">
+                        {scannerState.support.cameraApi ? 'Available' : 'Fallback to Upload'}
+                      </strong>{' '}
+                      · Barcode:{' '}
+                      <strong className="text-forest-900 dark:text-white">
+                        {scannerState.support.barcodeEngineLabel}
+                      </strong>{' '}
+                      · OCR:{' '}
+                      <strong className="text-forest-900 dark:text-white">
+                        {scannerState.support.webAssembly ? 'Tesseract WASM Ready' : 'Unavailable'}
+                      </strong>
+                    </p>
+                  </div>
+                </details>
+              )}
+            </section>
+          )}
+
+          {/* Tab 2: Unified Search & ISBN */}
+          {activeTab === 'search' && (
+            <div className="space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  executeUnifiedSearch(searchQuery, searchAuthor);
+                }}
+                className="space-y-3 bg-ivory dark:bg-night-900 p-4 sm:p-5 rounded-2xl border border-linen-200 dark:border-night-800 shadow-xs"
               >
-                <Icon name="photo" className="w-4 h-4" />
-                <span>Upload Photo</span>
-                <input
-                  id="scan-photo-upload-input"
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="sr-only"
-                />
-              </label>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                    Book Title or ISBN
+                  </label>
+                  <ClearableInput
+                    id="provider-title-input"
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="e.g. Goodnight Moon, 9780064431781, or Oliver Jeffers"
+                    className="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  />
+                </div>
 
-              {(isLocked || scannerState.uploadedPreviewUrl) && (
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                    Author (Optional)
+                  </label>
+                  <ClearableInput
+                    id="provider-author-input"
+                    value={searchAuthor}
+                    onValueChange={setSearchAuthor}
+                    placeholder="e.g. Maurice Sendak, Dr. Seuss"
+                    className="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  />
+                </div>
+
                 <button
-                  type="button"
-                  data-action="reset-scanner"
-                  onClick={handleResetScanner}
-                  className="min-h-[42px] px-3 py-2 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white transition-colors whitespace-nowrap"
+                  type="submit"
+                  disabled={isSearching}
+                  className="w-full min-h-[44px] py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-colors"
                 >
-                  Clear
+                  <Icon name="search" className="w-4 h-4" />
+                  <span>{isSearching ? 'Searching Providers…' : 'Find Book Online'}</span>
                 </button>
+              </form>
+
+              {searchError && (
+                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                  {searchError}
+                </p>
               )}
-            </div>
-          </div>
-
-          {/* Scanned ISBN Not Found Manual Recovery */}
-          {!isSearching && notFoundIsbn && (
-            <div className="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-forest-900 dark:text-white">
-                  Scanned ISBN <span className="font-mono-tabular">{notFoundIsbn}</span> wasn’t in
-                  online catalogs
-                </p>
-                <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                  Finish adding it manually with the ISBN pre-filled, or tap Re-scan.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleResetScanner}
-                  className="min-h-[42px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white whitespace-nowrap"
-                >
-                  Re-scan
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setManualIsbn(notFoundIsbn);
-                    setNotFoundIsbn('');
-                    setActiveTab('manual');
-                  }}
-                  className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold whitespace-nowrap"
-                >
-                  Complete Manually
-                </button>
-              </div>
             </div>
           )}
 
-          {/* Error Recovery Banner */}
-          {(scannerState.errorMessage || (searchError && !notFoundIsbn)) && (
-            <div
-              role="alert"
-              className="rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+          {/* Tab 3: Offline Manual Entry */}
+          {activeTab === 'manual' && (
+            <form
+              onSubmit={handleManualSubmit}
+              className="space-y-3.5 bg-ivory dark:bg-night-900 p-4 sm:p-5 rounded-2xl border border-linen-200 dark:border-night-800 shadow-xs text-xs"
             >
-              <p className="text-xs font-medium text-rose-800 dark:text-rose-200">
-                {scannerState.errorMessage || searchError}
+              {manualError && (
+                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                  {manualError}
+                </p>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    Book Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={manualTitle}
+                    onChange={(e) => setManualTitle(e.target.value)}
+                    placeholder="Title"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    Authors (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualAuthors}
+                    onChange={(e) => setManualAuthors(e.target.value)}
+                    placeholder="Author name"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    ISBN (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualIsbn}
+                    onChange={(e) => setManualIsbn(e.target.value)}
+                    placeholder="978…"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-mono text-base sm:text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    Format
+                  </label>
+                  <select
+                    value={manualFormat}
+                    onChange={(e) => setManualFormat(e.target.value as BookFormat)}
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs"
+                  >
+                    <option value="hardcover">Hardcover</option>
+                    <option value="board-book">Board Book</option>
+                    <option value="paperback">Paperback</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    Reading Stage
+                  </label>
+                  <select
+                    value={manualStage}
+                    onChange={(e) => setManualStage(e.target.value as ReadingStage)}
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs"
+                  >
+                    <option value="board-toddler">Board Book (0–3)</option>
+                    <option value="picture-book">Picture Book (3–6)</option>
+                    <option value="early-reader">Early Reader (5–8)</option>
+                    <option value="chapter-book">Chapter Book (7–12)</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                      Min Age
+                    </label>
+                    <input
+                      type="number"
+                      value={manualAgeMin}
+                      onChange={(e) => setManualAgeMin(e.target.value)}
+                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                      Max Age
+                    </label>
+                    <input
+                      type="number"
+                      value={manualAgeMax}
+                      onChange={(e) => setManualAgeMax(e.target.value)}
+                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    Published Year
+                  </label>
+                  <input
+                    type="number"
+                    value={manualYear}
+                    onChange={(e) => setManualYear(e.target.value)}
+                    placeholder="e.g. 2021"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    Page Count
+                  </label>
+                  <input
+                    type="number"
+                    value={manualPages}
+                    onChange={(e) => setManualPages(e.target.value)}
+                    placeholder="e.g. 32"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  Tags (comma-separated)
+                </label>
+                <input
+                  type="text"
+                  value={manualTags}
+                  onChange={(e) => setManualTags(e.target.value)}
+                  placeholder="e.g. bedtime, animals, rhyming"
+                  className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full min-h-[44px] py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+              >
+                <Icon name="plus" className="w-4 h-4" />
+                <span>Save Book to Library</span>
+              </button>
+            </form>
+          )}
+        </div>
+
+        {/* Right Contextual Workbench Column */}
+        <aside className="lg:col-span-5 space-y-4 min-w-0">
+          {activeTab === 'scanner' && (
+            <div className="space-y-4">
+              {/* Sage-Tinted Quick Alternative Card */}
+              <div className="rounded-2xl bg-[#E7EEEB] dark:bg-[#13292D] border border-forest-700/15 dark:border-[#5ED3DA]/20 p-5 space-y-3 shadow-2xs">
+                <div className="flex items-center gap-2 text-forest-900 dark:text-white">
+                  <span className="w-7 h-7 rounded-lg bg-ivory/80 dark:bg-night-900/60 flex items-center justify-center text-forest-700 dark:text-[#5ED3DA]">
+                    <Icon name="search" className="w-4 h-4" />
+                  </span>
+                  <h2 className="font-display text-base font-bold">
+                    Prefer Typing or Pasting?
+                  </h2>
+                </div>
+                <p className="text-xs text-forest-900/80 dark:text-slate-300 leading-relaxed">
+                  You can also look up any edition by title, author, or printed ISBN across online metadata providers.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleSelectTab('search')}
+                  className="min-h-[40px] px-4 py-2 rounded-xl bg-ivory hover:bg-linen-50 dark:bg-night-900 dark:hover:bg-night-800 border border-forest-700/20 dark:border-[#5ED3DA]/30 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-2 transition-colors shadow-2xs"
+                >
+                  <span>Search &amp; ISBN</span>
+                  <Icon name="arrowRight" className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-3">
+                <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                  Optical Scan Guide
+                </h2>
+                <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                  {activeMode.tip}
+                </p>
+                <div className="divide-y divide-linen-200/70 dark:divide-night-800 text-xs">
+                  {(['barcode', 'isbn-ocr', 'cover'] as ScanMode[]).map((modeKey) => (
+                    <button
+                      key={modeKey}
+                      type="button"
+                      onClick={() => handleSwitchGuide(modeKey)}
+                      className={`w-full py-2.5 first:pt-1 last:pb-0 text-left flex items-start justify-between gap-2 transition-colors ${
+                        scanMode === modeKey
+                          ? 'text-forest-900 dark:text-[#5ED3DA] font-semibold'
+                          : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                      }`}
+                    >
+                      <span>{SCAN_MODES[modeKey].label}</span>
+                      <span className="text-[11px] opacity-80 text-right">
+                        {SCAN_MODES[modeKey].caption}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {scannerState.support && (
+                <div className="hidden lg:block rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-2 text-xs text-stone-ink dark:text-slate-400">
+                  <p className="font-bold text-forest-900 dark:text-white">
+                    Scanner Engine Diagnostics
+                  </p>
+                  <p>
+                    Camera API:{' '}
+                    <strong className="text-forest-900 dark:text-white">
+                      {scannerState.support.cameraApi ? 'Available' : 'Fallback to Upload'}
+                    </strong>{' '}
+                    · Barcode:{' '}
+                    <strong className="text-forest-900 dark:text-white">
+                      {scannerState.support.barcodeEngineLabel}
+                    </strong>{' '}
+                    · OCR:{' '}
+                    <strong className="text-forest-900 dark:text-white">
+                      {scannerState.support.webAssembly ? 'Tesseract WASM Ready' : 'Unavailable'}
+                    </strong>
+                  </p>
+                  <p className="text-[11px] leading-relaxed">
+                    Chrome/Android use hardware <code>BarcodeDetector</code>; iOS Safari, Firefox,
+                    and desktop browsers fall back to pure-JS ZXing + Tesseract WebAssembly OCR.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'search' && (
+            <div className="space-y-3">
+              {isSearching ? (
+                <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="h-5 w-40 rounded-lg animate-pulse bg-linen-200 dark:bg-night-800" />
+                    <div className="h-4 w-24 rounded-lg animate-pulse bg-linen-200 dark:bg-night-800" />
+                  </div>
+                  <SearchResultsSkeleton rows={4} />
+                </div>
+              ) : searchCandidates.length > 0 ? (
+                <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="font-display font-bold text-base text-forest-900 dark:text-white">
+                      Matching Books ({searchCandidates.length})
+                    </h2>
+                    <span className="text-[11px] text-stone-ink dark:text-slate-400">
+                      Tap Add Book to customize
+                    </span>
+                  </div>
+
+                  <div className="divide-y divide-linen-200/80 dark:divide-night-800 max-h-[60vh] overflow-y-auto pr-1">
+                    {searchCandidates.map((cand, i) => {
+                      const pseudoBook = {
+                        ...cand,
+                        id: `cand_${i}`,
+                        addedAt: '',
+                      };
+                      return (
+                        <article
+                          key={`${cand.isbn13 || cand.title}-${i}`}
+                          className="py-3 first:pt-1 last:pb-1 flex items-center justify-between gap-3"
+                        >
+                          <div className="flex items-start gap-3 min-w-0">
+                            <BookCover
+                              book={pseudoBook as any}
+                              size="sm"
+                              aspectRatio={state.settings?.coverAspectRatio || 'portrait'}
+                            />
+                            <div className="min-w-0">
+                              <h3 className="font-display font-bold text-sm text-forest-900 dark:text-white leading-snug">
+                                {cand.title}
+                              </h3>
+                              <p className="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5">
+                                {cand.authors.join(', ')}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400 mt-1">
+                                <span>Ages {cand.ageMin}–{cand.ageMax}</span>
+                                <span>·</span>
+                                <span>{formatBookBinding(cand.format)}</span>
+                                {cand.publishedYear && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="font-mono-tabular">{cand.publishedYear}</span>
+                                  </>
+                                )}
+                              </div>
+                              {cand.sources && cand.sources.length > 0 && (
+                                <div className="mt-1">
+                                  <ProviderAttribution sources={cand.sources} />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setFoundCandidate(cand)}
+                            className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-semibold text-xs shrink-0 transition-colors"
+                          >
+                            Add Book
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-2.5">
+                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                    Catalog Lookup Tips
+                  </h2>
+                  <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                    Type an exact 10- or 13-digit ISBN to pull the specific edition directly, or search by title and author across Google Books &amp; Open Library.
+                  </p>
+                  <p className="text-[11px] text-stone-ink/80 dark:text-slate-400">
+                    Active providers:{' '}
+                    <span className="font-semibold text-forest-900 dark:text-slate-200">
+                      {(state.settings?.enabledMetadataProviders || ['google-books', 'open-library']).join(' · ')}
+                    </span>
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'manual' && (
+            <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-3">
+              <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                Offline Entry Notes
+              </h2>
+              <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                Great for handmade books, vintage titles, or offline logging. Age range and reading stage automatically default to{' '}
+                <strong className="text-forest-900 dark:text-white">
+                  {activeProfile?.name || 'your active reader'}
+                </strong>
+                .
               </p>
               <button
                 type="button"
                 onClick={() => handleSelectTab('search')}
-                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white whitespace-nowrap shrink-0"
+                className="min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors"
               >
-                Search or Type ISBN
+                Try Online Search Instead
               </button>
             </div>
           )}
+        </aside>
+      </div>
 
-          {/* Scanner Engine Capabilities Summary */}
-          {scannerState.support && (
-            <details className="text-xs text-stone-ink dark:text-slate-400 pt-0.5">
-              <summary className="cursor-pointer font-medium hover:text-forest-900 dark:hover:text-white select-none">
-                Scanner engine · {scannerState.support.barcodeEngineLabel}
-              </summary>
-              <div className="mt-2 space-y-1 text-[11px] leading-relaxed">
-                <p>
-                  Camera API:{' '}
-                  <strong className="text-forest-900 dark:text-white">
-                    {scannerState.support.cameraApi ? 'Available' : 'Fallback to Upload'}
-                  </strong>{' '}
-                  · Barcode:{' '}
-                  <strong className="text-forest-900 dark:text-white">
-                    {scannerState.support.barcodeEngineLabel}
-                  </strong>{' '}
-                  · OCR:{' '}
-                  <strong className="text-forest-900 dark:text-white">
-                    {scannerState.support.webAssembly ? 'Tesseract WASM Ready' : 'Unavailable'}
-                  </strong>
-                </p>
-                <p>
-                  Chrome/Android use hardware <code>BarcodeDetector</code>; iOS Safari, Firefox,
-                  and desktop browsers fall back to pure-JS ZXing + Tesseract WebAssembly OCR.
-                </p>
-              </div>
-            </details>
-          )}
-        </section>
-      )}
-
-      {/* Tab 2: Unified Search & ISBN */}
-      {activeTab === 'search' && (
-        <div className="space-y-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              executeUnifiedSearch(searchQuery, searchAuthor);
-            }}
-            className="space-y-3 bg-white dark:bg-night-900 p-4 rounded-2xl border border-linen-200 dark:border-night-700 shadow-xs"
-          >
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
-                Book Title or ISBN
-              </label>
-              <ClearableInput
-                id="provider-title-input"
-                value={searchQuery}
-                onValueChange={setSearchQuery}
-                placeholder="e.g. Goodnight Moon, 9780064431781, or Oliver Jeffers"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
-                Author (Optional)
-              </label>
-              <ClearableInput
-                id="provider-author-input"
-                value={searchAuthor}
-                onValueChange={setSearchAuthor}
-                placeholder="e.g. Maurice Sendak, Dr. Seuss"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSearching}
-              className="w-full py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-            >
-              <Icon name="search" className="w-4 h-4" />
-              <span>{isSearching ? 'Searching Providers…' : 'Find Book Online'}</span>
-            </button>
-          </form>
-
-          {searchError && (
-            <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{searchError}</p>
-          )}
-
-          {/* Search Result Candidates */}
-          {searchCandidates.length > 0 && (
-            <div className="space-y-2 pt-2">
-              <h3 className="font-display font-bold text-sm text-forest-900 dark:text-white">
-                Matching Books ({searchCandidates.length})
-              </h3>
-
-              <div className="divide-y divide-linen-200/80 dark:divide-night-800">
-                {searchCandidates.map((cand, i) => {
-                  const pseudoBook = {
-                    ...cand,
-                    id: `cand_${i}`,
-                    addedAt: '',
-                  };
-                  return (
-                    <article
-                      key={`${cand.isbn13 || cand.title}-${i}`}
-                      className="py-3.5 first:pt-1 last:pb-1 flex items-center justify-between gap-3"
-                    >
-                      <div className="flex items-start gap-3 min-w-0">
-                        <BookCover
-                          book={pseudoBook as any}
-                          size="sm"
-                          aspectRatio={state.settings?.coverAspectRatio || 'portrait'}
-                        />
-                        <div className="min-w-0">
-                          <h4 className="font-display font-bold text-sm text-forest-900 dark:text-white leading-snug">
-                            {cand.title}
-                          </h4>
-                          <p className="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5">
-                            {cand.authors.join(', ')}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400 mt-1">
-                            <span>Ages {cand.ageMin}–{cand.ageMax}</span>
-                            <span>·</span>
-                            <span>{formatBookBinding(cand.format)}</span>
-                            {cand.publishedYear && (
-                              <>
-                                <span>·</span>
-                                <span className="font-mono-tabular">{cand.publishedYear}</span>
-                              </>
-                            )}
-                          </div>
-                          {cand.sources && cand.sources.length > 0 && (
-                            <div className="mt-1">
-                              <ProviderAttribution sources={cand.sources} />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setFoundCandidate(cand)}
-                        className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-semibold text-xs shrink-0 transition-colors"
-                      >
-                        Add Book
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 3: Offline Manual Entry */}
-      {activeTab === 'manual' && (
-        <form
-          onSubmit={handleManualSubmit}
-          className="space-y-3 bg-white dark:bg-night-900 p-4 sm:p-5 rounded-2xl border border-linen-200 dark:border-night-700 shadow-xs text-xs"
-        >
-          {manualError && (
-            <p className="text-xs text-rose-600 dark:text-rose-400 font-medium">{manualError}</p>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Book Title *
-              </label>
-              <input
-                type="text"
-                required
-                value={manualTitle}
-                onChange={(e) => setManualTitle(e.target.value)}
-                placeholder="Title"
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Authors (comma-separated)
-              </label>
-              <input
-                type="text"
-                value={manualAuthors}
-                onChange={(e) => setManualAuthors(e.target.value)}
-                placeholder="Author name"
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                ISBN (Optional)
-              </label>
-              <input
-                type="text"
-                value={manualIsbn}
-                onChange={(e) => setManualIsbn(e.target.value)}
-                placeholder="978…"
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Format
-              </label>
-              <select
-                value={manualFormat}
-                onChange={(e) => setManualFormat(e.target.value as BookFormat)}
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold"
-              >
-                <option value="hardcover">Hardcover</option>
-                <option value="board-book">Board Book</option>
-                <option value="paperback">Paperback</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Reading Stage
-              </label>
-              <select
-                value={manualStage}
-                onChange={(e) => setManualStage(e.target.value as ReadingStage)}
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold"
-              >
-                <option value="board-toddler">Board Book (0–3)</option>
-                <option value="picture-book">Picture Book (3–6)</option>
-                <option value="early-reader">Early Reader (5–8)</option>
-                <option value="chapter-book">Chapter Book (7–12)</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                  Min Age
-                </label>
-                <input
-                  type="number"
-                  value={manualAgeMin}
-                  onChange={(e) => setManualAgeMin(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                  Max Age
-                </label>
-                <input
-                  type="number"
-                  value={manualAgeMax}
-                  onChange={(e) => setManualAgeMax(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Published Year
-              </label>
-              <input
-                type="number"
-                value={manualYear}
-                onChange={(e) => setManualYear(e.target.value)}
-                placeholder="e.g. 2021"
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Page Count
-              </label>
-              <input
-                type="number"
-                value={manualPages}
-                onChange={(e) => setManualPages(e.target.value)}
-                placeholder="e.g. 32"
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-              Tags (comma-separated)
-            </label>
-            <input
-              type="text"
-              value={manualTags}
-              onChange={(e) => setManualTags(e.target.value)}
-              placeholder="e.g. bedtime, animals, rhyming"
-              className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="w-full py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-          >
-            <Icon name="plus" className="w-4 h-4" />
-            <span>Save Book to Library</span>
-          </button>
-        </form>
-      )}
+      {/* Full-Screen Native Camera Barcode Scanner Overlay */}
+      <NativeBarcodeScannerModal
+        isOpen={isNativeScannerOpen}
+        initialMode={scanMode}
+        onDetectedIsbn={(isbn13) => {
+          setIsNativeScannerOpen(false);
+          executeIsbnLookup(isbn13);
+        }}
+        onDetectedTitle={(titleQuery) => {
+          setIsNativeScannerOpen(false);
+          setSearchQuery(titleQuery);
+          setActiveTab('search');
+          executeUnifiedSearch(titleQuery, '');
+        }}
+        onClose={() => setIsNativeScannerOpen(false)}
+      />
 
       {/* Found Book Bottom Sheet */}
       <FoundBookSheet

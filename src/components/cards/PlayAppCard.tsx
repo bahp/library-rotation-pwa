@@ -24,7 +24,7 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
           onOpen(app.id);
         }
       }}
-      className="group cursor-pointer rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 overflow-hidden shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+      className="group cursor-pointer rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 overflow-hidden shadow-2xs hover:shadow-md hover:border-linen-300 dark:hover:border-night-700 transition-all flex flex-col justify-between"
     >
       {/* Visual Banner */}
       <div className="relative aspect-[16/9] w-full bg-linen-100 dark:bg-night-800 overflow-hidden">
@@ -42,14 +42,14 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
         )}
 
         <div className="absolute top-3 left-3 z-10">
-          <span className="px-3 py-1 rounded-full text-[10px] font-bold bg-white/95 dark:bg-night-900/95 text-forest-900 dark:text-white shadow-xs backdrop-blur-xs">
+          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-ivory/95 dark:bg-night-900/95 text-forest-900 dark:text-white shadow-xs backdrop-blur-xs border border-linen-200/70 dark:border-night-700">
             {app.badgeLabel}
           </span>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-4 sm:p-6 flex-1 flex flex-col justify-between space-y-4">
+      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             {/* App Logo Badge */}
@@ -66,7 +66,7 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
             </span>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] truncate">
+              <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-forest-700 dark:text-[#5ED3DA] truncate">
                 {app.subtitle}
               </p>
               <h3 className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white leading-snug truncate">
@@ -75,13 +75,13 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
             </div>
           </div>
 
-          <p className="text-xs text-stone-600 dark:text-slate-300 leading-relaxed line-clamp-2">
+          <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed line-clamp-2">
             {app.description}
           </p>
         </div>
 
         <div className="pt-3 border-t border-linen-200/70 dark:border-night-800 flex justify-center">
-          <span className="w-full min-h-[42px] px-4 py-2.5 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs inline-flex items-center justify-center gap-2 group-hover:bg-forest-800 dark:group-hover:bg-[#4bc2c9] transition-colors shadow-2xs">
+          <span className="w-full min-h-[42px] px-4 py-2.5 rounded-xl bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs inline-flex items-center justify-center gap-2 group-hover:bg-forest-800 dark:group-hover:bg-[#4bc2c9] transition-colors shadow-2xs">
             <Icon name={app.logoIcon || 'play'} className="w-4 h-4" />
             <span>{app.ctaLabel || 'Launch'}</span>
           </span>

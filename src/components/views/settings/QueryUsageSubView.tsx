@@ -7,6 +7,7 @@ import {
   type QueryLogEntry,
   type ServiceQuotaStatus,
 } from '../../../features/telemetry/query-logger.js';
+import { useBodyScrollLock } from '../../../hooks/useBodyScrollLock.js';
 
 interface QueryUsageSubViewProps {
   onBack: () => void;
@@ -30,6 +31,8 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [copiedExport, setCopiedExport] = useState(false);
+
+  useBodyScrollLock(confirmResetOpen || confirmClearOpen);
 
   // Quotas for all services
   const googleQuota = useMemo(() => queryLogger.getServiceQuota('google-books'), []);
@@ -521,8 +524,15 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
 
       {/* Confirmation Dialog for Reset Counters */}
       {confirmResetOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 p-6 space-y-4 shadow-xl">
+        <div
+          className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setConfirmResetOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 px-6 pt-3 pb-6 sm:p-6 space-y-4 shadow-2xl pb-safe sm:pb-6"
+          >
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto sm:hidden" aria-hidden="true" />
             <h4 className="font-display font-bold text-base text-forest-900 dark:text-white">
               Reset Today’s Counters?
             </h4>
@@ -533,7 +543,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
               <button
                 type="button"
                 onClick={() => setConfirmResetOpen(false)}
-                className="px-3 py-1.5 rounded-xl bg-linen-100 text-stone-700 dark:bg-night-800 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                className="min-h-[48px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-linen-100 text-stone-700 dark:bg-night-800 dark:text-slate-300 text-xs font-semibold cursor-pointer active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>
@@ -543,7 +553,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
                   queryLogger.resetTodayCounts();
                   setConfirmResetOpen(false);
                 }}
-                className="px-4 py-1.5 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold cursor-pointer"
+                className="min-h-[48px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold cursor-pointer active:scale-[0.98] transition-all"
               >
                 Reset Counters
               </button>
@@ -554,8 +564,15 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
 
       {/* Confirmation Dialog for Clear History */}
       {confirmClearOpen && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 p-6 space-y-4 shadow-xl">
+        <div
+          className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+          onClick={() => setConfirmClearOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 px-6 pt-3 pb-6 sm:p-6 space-y-4 shadow-2xl pb-safe sm:pb-6"
+          >
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto sm:hidden" aria-hidden="true" />
             <h4 className="font-display font-bold text-base text-forest-900 dark:text-white">
               Clear Audit Log History?
             </h4>
@@ -566,7 +583,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
               <button
                 type="button"
                 onClick={() => setConfirmClearOpen(false)}
-                className="px-3 py-1.5 rounded-xl bg-linen-100 text-stone-700 dark:bg-night-800 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                className="min-h-[48px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-linen-100 text-stone-700 dark:bg-night-800 dark:text-slate-300 text-xs font-semibold cursor-pointer active:scale-[0.98] transition-all"
               >
                 Cancel
               </button>
@@ -576,7 +593,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
                   queryLogger.clearLogs();
                   setConfirmClearOpen(false);
                 }}
-                className="px-4 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold cursor-pointer"
+                className="min-h-[48px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-rose-600 text-white text-xs font-bold cursor-pointer active:scale-[0.98] transition-all"
               >
                 Clear Log
               </button>

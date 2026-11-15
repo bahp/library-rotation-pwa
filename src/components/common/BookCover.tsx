@@ -187,7 +187,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
         />
       )}
 
-      {/* Top-Left: Catalog status or condition */}
+      {/* Top-Left: Catalog status or physical condition (only shown when non-owned or needs care) */}
       {catalogBadge && (
         <div className="pointer-events-none absolute top-1.5 left-1.5 z-20">
           <span
@@ -201,13 +201,16 @@ export const BookCover: React.FC<BookCoverProps> = ({
       {/* Top-Right: Loved indicator */}
       {showBadges && book.loved && (
         <div className="pointer-events-none absolute top-1.5 right-1.5 z-20">
-          <span className="w-5 h-5 rounded-full bg-rose-600/95 text-white flex items-center justify-center shadow-xs">
+          <span
+            aria-label="Loved favorite"
+            className="w-5 h-5 rounded-full bg-rose-600/95 text-white flex items-center justify-center shadow-xs"
+          >
             <Icon name="heartFilled" className="w-3 h-3 text-white" />
           </span>
         </div>
       )}
 
-      {/* Bottom-Left: Rotation status adorno */}
+      {/* Bottom-Left: Rotation status adorno (only when enabled in settings and not suppressed) */}
       {rotationAdorno && (
         <div className="pointer-events-none absolute bottom-1.5 left-1.5 z-20">
           <span
@@ -219,7 +222,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
         </div>
       )}
 
-      {/* Bottom-Right: Child owner initials */}
+      {/* Bottom-Right: Child owner monograms */}
       {nonSharedOwners.length > 0 && (
         <div className="pointer-events-none absolute bottom-1.5 right-1.5 z-20 flex -space-x-1">
           {nonSharedOwners.slice(0, 2).map((ownerId) => {
@@ -241,3 +244,4 @@ export const BookCover: React.FC<BookCoverProps> = ({
     </div>
   );
 };
+

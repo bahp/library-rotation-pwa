@@ -73,27 +73,36 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   const totalCount = shelfBooks.length;
   const schedule = computeRotationSchedule(rotation, activeProfile || state.profiles[0]);
 
+  const progressPct = totalCount > 0 ? Math.round((readCount / totalCount) * 100) : 0;
+
   return (
     <>
-      <section className="py-4 first:pt-1 border-b border-linen-200/90 dark:border-night-800 last:border-b-0 space-y-3">
+      <section
+        className={`rounded-2xl bg-ivory dark:bg-night-900 border p-4 sm:p-6 shadow-2xs space-y-4 transition-shadow ${
+          isActive
+            ? 'border-forest-700/35 ring-1 ring-forest-700/10 dark:border-[#5ED3DA]/35 dark:ring-[#5ED3DA]/15'
+            : 'border-linen-200/90 dark:border-night-800 hover:shadow-md'
+        }`}
+      >
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-stone-ink dark:text-slate-400">
               {isActive ? (
-                <span className="inline-flex items-center gap-1.5 font-bold text-espresso-800 dark:text-[#5ED3DA]">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 font-bold text-emerald-800 dark:text-emerald-300">
                   <span
-                    className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0"
+                    className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0"
                     aria-hidden="true"
                   />
-                  <span>Active</span>
+                  <span>Active Shelf</span>
                 </span>
               ) : (
-                <span className="font-medium">Saved</span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-linen-100 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-stone-ink dark:text-slate-300">
+                  Saved
+                </span>
               )}
-              <span aria-hidden="true">·</span>
-              <span className="font-mono-tabular">
-                {readCount}/{totalCount} read
+              <span className="font-mono-tabular font-medium">
+                {readCount}/{totalCount} read ({progressPct}%)
               </span>
               <span aria-hidden="true">·</span>
               <span className="font-mono-tabular">
@@ -101,13 +110,13 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               </span>
             </div>
 
-            <h2 className="font-display text-lg font-bold text-forest-900 dark:text-white leading-snug truncate mt-0.5">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white leading-snug truncate mt-1.5">
               {rotation.title}
             </h2>
 
             <p
               data-rotation-schedule={isActive ? 'active' : 'saved'}
-              className={`font-sans text-xs mt-0.5 truncate ${
+              className={`font-sans text-xs mt-1 truncate flex items-center gap-1.5 ${
                 isActive && schedule.isDue
                   ? 'font-semibold text-amber-800 dark:text-amber-300'
                   : isActive && schedule.isDueSoon
@@ -115,23 +124,35 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                     : 'text-stone-ink dark:text-slate-400'
               }`}
             >
-              {isActive ? schedule.activeScheduleLine : schedule.savedScheduleLine}
+              <Icon name="calendar" className="w-3.5 h-3.5 shrink-0 opacity-75" />
+              <span className="truncate">
+                {isActive ? schedule.activeScheduleLine : schedule.savedScheduleLine}
+              </span>
             </p>
 
             {rotation.rules?.objective && (
-              <p className="font-sans text-xs text-stone-ink dark:text-slate-400 mt-0.5 line-clamp-1">
+              <p className="font-sans text-xs text-stone-ink dark:text-slate-400 mt-1 line-clamp-1">
                 {rotation.rules.objective}
               </p>
             )}
+
+            {totalCount > 0 && (
+              <div className="mt-2.5 h-1.5 w-full max-w-xs rounded-full bg-linen-100 dark:bg-night-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-forest-700 dark:bg-[#5ED3DA] transition-all duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Compact Right Actions */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Right Actions */}
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             {!isActive && onActivate && (
               <button
                 type="button"
                 onClick={onActivate}
-                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors whitespace-nowrap"
+                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-semibold transition-colors shadow-2xs whitespace-nowrap"
               >
                 Activate
               </button>
@@ -141,7 +162,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               type="button"
               onClick={() => setIsPlacementOpen(true)}
               aria-label={`Stock shelf checklist for ${rotation.title}`}
-              className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-50 hover:bg-linen-100 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
               <Icon name="checklist" className="w-3.5 h-3.5" />
               <span>Stock</span>
@@ -151,7 +172,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               type="button"
               onClick={openEditor}
               aria-label={`Edit ${rotation.title}`}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-50 hover:bg-linen-100 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
               <Icon name="edit" className="w-3.5 h-3.5" />
               <span>Edit</span>
@@ -159,15 +180,15 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
           </div>
         </div>
 
-        {/* DEFAULT VIEW MODE: Compact Cover-Only Strip */}
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-0.5">
+        {/* Cover Strip */}
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-1">
           {shelfBooks.map((book: Book) => {
             const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
             const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
             const coverRingClass = isBookPicked
-              ? 'ring-2 ring-forest-700 dark:ring-[#5ED3DA] ring-offset-2 ring-offset-linen-50 dark:ring-offset-night-950'
+              ? 'ring-2 ring-forest-700 dark:ring-[#5ED3DA] ring-offset-2 ring-offset-ivory dark:ring-offset-night-900'
               : isBookRead
-                ? 'ring-[1.5px] ring-forest-700/75 dark:ring-[#5ED3DA]/75 ring-offset-2 ring-offset-linen-50 dark:ring-offset-night-950'
+                ? 'ring-[1.5px] ring-forest-700/75 dark:ring-[#5ED3DA]/75 ring-offset-2 ring-offset-ivory dark:ring-offset-night-900'
                 : '';
 
             return (

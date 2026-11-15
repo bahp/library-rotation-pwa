@@ -2,22 +2,23 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-linen-50: #FAF6EE;
-  --color-linen-100: #F2EBDC;
-  --color-linen-200: #E5DDC8;
-  --color-ivory: #FFFDF9;
-  --color-forest-900: #123C42;
-  --color-forest-800: #185158;
-  --color-forest-700: #1F6E75;
-  --color-forest-600: #2C858D;
+  --color-linen-50: #FAF7F2;
+  --color-linen-100: #F2ECE1;
+  --color-linen-200: #E6DFD3;
+  --color-ivory: #FFFFFF;
+  --color-forest-950: #0B2528;
+  --color-forest-900: #0F2F33;
+  --color-forest-800: #16484E;
+  --color-forest-700: #1D646B;
+  --color-forest-600: #2A7D85;
   --color-espresso-900: #3E2716;
   --color-espresso-800: #5C3A21;
   --color-espresso-700: #7B5030;
-  --color-stone-ink: #666055;
-  --color-night-950: #0E1618;
-  --color-night-900: #152226;
-  --color-night-800: #1C2D33;
-  --color-night-700: #253B42;
+  --color-stone-ink: #645E54;
+  --color-night-950: #0B1214;
+  --color-night-900: #121D20;
+  --color-night-800: #1A292E;
+  --color-night-700: #24383E;
 }
 
 @layer base {
@@ -32,20 +33,27 @@
     min-height: 100dvh;
     scrollbar-gutter: stable;
     font-family: var(--font-sans);
-    background-color: var(--color-ivory);
+    background-color: var(--color-linen-50);
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   html.dark {
-    background-color: var(--color-night-900);
+    background-color: var(--color-night-950);
   }
 
   body {
     margin: 0;
     min-height: 100vh;
     min-height: 100dvh;
+    background-color: var(--color-linen-50);
+  }
+
+  html.dark body {
+    background-color: var(--color-night-950);
   }
 
   /* Prevent iOS Safari & Android Chrome auto-zoom when focusing text inputs (<16px triggers zoom) */
@@ -138,6 +146,15 @@
   .mb-safe-nav {
     padding-bottom: 2.5rem;
   }
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Material Design 3 bottom-sheet & scrim transitions (compositor-only transform + opacity) */

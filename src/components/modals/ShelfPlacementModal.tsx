@@ -4,6 +4,7 @@ import { BookCover } from '../common/BookCover.js';
 import { Icon } from '../common/Icon.js';
 import { formatBookBinding } from '../../types/models.js';
 import type { Book, RotationShelf } from '../../types/models.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 interface ShelfPlacementModalProps {
   rotation: RotationShelf | null;
@@ -30,6 +31,8 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
       .map((id: string) => bookMap.get(id))
       .filter((b): b is Book => Boolean(b));
   }, [rotation, state.books]);
+
+  useBodyScrollLock(isOpen && Boolean(rotation));
 
   if (!isOpen || !rotation) return null;
 
@@ -76,7 +79,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="shelf-placement-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
       onClick={onClose}
     >
       <div
@@ -110,7 +113,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Close shelf placement checklist"
-              className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 transition-colors shrink-0"
+              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 transition-all active:scale-95 shrink-0"
             >
               <Icon name="close" className="w-5 h-5" />
             </button>
@@ -234,14 +237,14 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
         </div>
 
         {/* Batch Actions Footer */}
-        <div className="px-4 py-3 border-t border-linen-200 dark:border-night-800 bg-linen-50/70 dark:bg-night-950/60 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="px-4 py-3 pb-safe sm:pb-3 border-t border-linen-200 dark:border-night-800 bg-linen-50/70 dark:bg-night-950/60 flex flex-wrap items-center justify-between gap-2 shrink-0">
           <div className="flex flex-wrap items-center gap-1.5">
             {completedIds.length > 0 && (
               <button
                 type="button"
                 onClick={handleCheckCompleted}
                 disabled={allCompletedChecked}
-                className="min-h-[38px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-colors whitespace-nowrap"
+                className="min-h-[48px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-all active:scale-[0.98] whitespace-nowrap"
               >
                 Check Completed
               </button>
@@ -250,7 +253,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               type="button"
               onClick={handleCheckAll}
               disabled={placedCount === shelfBooks.length || shelfBooks.length === 0}
-              className="min-h-[38px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-colors whitespace-nowrap"
+              className="min-h-[48px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-all active:scale-[0.98] whitespace-nowrap"
             >
               Check All
             </button>
@@ -258,7 +261,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="min-h-[38px] px-2.5 py-1.5 rounded-xl text-xs font-semibold text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-colors whitespace-nowrap"
+                className="min-h-[48px] sm:min-h-[38px] px-2.5 py-1.5 rounded-xl text-xs font-semibold text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-all active:scale-[0.98] whitespace-nowrap"
               >
                 Clear
               </button>
@@ -268,7 +271,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[40px] px-4 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold transition-colors whitespace-nowrap"
+            className="min-h-[48px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold transition-all active:scale-[0.98] whitespace-nowrap"
           >
             Done
           </button>

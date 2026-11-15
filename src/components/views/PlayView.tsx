@@ -5,10 +5,11 @@ import { BookCard } from '../cards/BookCard.js';
 import { BookCover } from '../common/BookCover.js';
 import { Icon } from '../common/Icon.js';
 import { ClearableInput } from '../common/ClearableInput.js';
-import { PLAY_APPS_CONFIG, type PlayAppConfig } from '../../config/play-apps.js';
+import { PLAY_APPS_CONFIG } from '../../config/play-apps.js';
 import { pickStorytimeBooks, createBookHuntChallenge } from '../../features/play/play-activities.js';
 import { ReadingPassportStudio } from '../play/ReadingPassportStudio.js';
 import type { Book } from '../../types/models.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 export const PlayView: React.FC = () => {
   const { state, activeProfile, activeRotation, setInspectedBookId } = useApp();
@@ -39,6 +40,10 @@ export const PlayView: React.FC = () => {
   const [passportLogoError, setPassportLogoError] = useState(false);
 
   const activeApp = PLAY_APPS_CONFIG.find((a) => a.id === activeAppId) || null;
+  useBodyScrollLock(Boolean(activeAppId && activeApp));
+
+  const activeShelfBookCount = activeRotation?.bookIds?.length || 0;
+  const ownedBookCount = state.books.filter((b) => b.collectionStatus !== 'wishlist').length;
 
   const handleOpenApp = (id: string) => {
     setActiveAppId(id);
@@ -64,12 +69,13 @@ export const PlayView: React.FC = () => {
     setPickerHasRun(true);
   };
 
-  const startNextHunt = () => {
+  const startNextHunt = (scopeOverride?: 'active-shelf' | 'owned-library') => {
+    const effectiveScope = scopeOverride ?? huntScope;
     const challenge = createBookHuntChallenge({
       books: state.books,
       activeRotation,
       activeProfile,
-      scope: huntScope,
+      scope: effectiveScope,
       previousBookId: huntBook?.id || null,
     });
 
@@ -94,22 +100,44 @@ export const PlayView: React.FC = () => {
   const quickTopics = ['bedtime', 'trucks', 'animals', 'winter', 'space', 'dinosaurs', 'funny'];
 
   return (
-    <div className="space-y-6 text-left max-w-4xl mx-auto pb-12">
+    <div className="space-y-6 text-left max-w-6xl mx-auto pb-12">
       {/* Header */}
-      <div>
-        <p className="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA] uppercase tracking-wider">
-          Play &amp; Storytime
-        </p>
-        <h1 className="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white leading-tight mt-0.5">
-          Interactive Hub
-        </h1>
-        <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-          Quick bedtime draws, theme pickers, and shelf treasure hunts for {activeProfile?.name || 'the family'}.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] uppercase tracking-[0.08em]">
+            Play &amp; Storytime
+          </p>
+          <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
+            Interactive Hub
+          </h1>
+          <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1">
+            Quick bedtime draws, shelf treasure hunts, and printable reading passports for{' '}
+            <span className="font-semibold text-forest-900 dark:text-white">
+              {activeProfile?.name || 'the family'}
+            </span>
+            .
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 text-xs text-stone-ink dark:text-slate-400 px-3.5 py-2 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs">
+          <span>
+            <strong className="font-mono-tabular text-forest-900 dark:text-white">
+              {activeShelfBookCount}
+            </strong>{' '}
+            on active shelf
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>
+            <strong className="font-mono-tabular text-forest-900 dark:text-white">
+              {ownedBookCount}
+            </strong>{' '}
+            in family library
+          </span>
+        </div>
       </div>
 
       {/* Showcase Launcher Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {PLAY_APPS_CONFIG.map((app) => (
           <PlayAppCard key={app.id} app={app} onOpen={handleOpenApp} />
         ))}
@@ -121,23 +149,27 @@ export const PlayView: React.FC = () => {
           role="dialog"
           aria-modal="true"
           aria-labelledby="play-activity-title"
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
         >
           {/* Backdrop */}
           <div
             onClick={() => setActiveAppId(null)}
-            className="fixed inset-0 bg-stone-900/60 backdrop-blur-xs transition-opacity animate-fade-in"
+            className="fixed inset-0 bg-black/45 backdrop-blur-sm transition-opacity animate-fade-in"
           />
 
           {/* Bottom Sheet Container */}
-          <div className={`relative w-full max-h-[92vh] sm:max-h-[88vh] ${
-            activeAppId === 'reading-passport' ? 'sm:max-w-4xl' : 'sm:max-w-2xl'
-          } flex flex-col rounded-t-3xl sm:rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl animate-sheet-up overflow-hidden z-10`}>
+          <div
+            className={`relative w-full max-h-[92vh] sm:max-h-[90vh] ${
+              activeAppId === 'reading-passport'
+                ? 'sm:max-w-5xl'
+                : 'sm:max-w-2xl lg:max-w-3xl'
+            } flex flex-col rounded-t-3xl sm:rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl animate-sheet-up overflow-hidden z-10 pb-safe sm:pb-0`}
+          >
             {/* Handle Pill for Mobile Swipe Gesture */}
-            <div className="w-12 h-1 rounded-full bg-stone-300 dark:bg-night-700 mx-auto my-2.5 shrink-0" />
+            <div className="w-10 h-1.5 rounded-full bg-linen-200 dark:bg-night-700 mx-auto mt-3 mb-1 sm:hidden shrink-0" />
 
             {/* Header bar inside sheet */}
-            <div className="px-5 py-3 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
+            <div className="px-5 py-3.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-linen-200 dark:border-night-700 bg-linen-100 dark:bg-night-800 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center shadow-2xs">
                   <Icon name={activeApp.logoIcon || 'play'} className="w-5 h-5" />
@@ -174,9 +206,9 @@ export const PlayView: React.FC = () => {
                 type="button"
                 onClick={() => setActiveAppId(null)}
                 aria-label="Close activity sheet"
-                className="w-8 h-8 rounded-full bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-600 dark:text-slate-300 flex items-center justify-center transition-colors"
+                className="min-h-[48px] min-w-[48px] sm:min-h-[36px] sm:min-w-[36px] rounded-full bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-600 dark:text-slate-300 flex items-center justify-center transition-all active:scale-95"
               >
-                <Icon name="close" className="w-4 h-4" />
+                <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
             </div>
 
@@ -185,7 +217,6 @@ export const PlayView: React.FC = () => {
               {/* Activity 1: Storytime & Topic Picker */}
               {activeAppId === 'storytime-picker' && (
                 <div className="space-y-5">
-                  {/* Controls Form */}
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Number of Books Stepper with - and + buttons */}
@@ -224,7 +255,7 @@ export const PlayView: React.FC = () => {
                         </label>
                         <select
                           value={storyScope}
-                          onChange={(e) => setStoryScope(e.target.value as any)}
+                          onChange={(e) => setStoryScope(e.target.value as 'active-shelf' | 'owned-library')}
                           className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
                         >
                           <option value="active-shelf">Active Shelf Rotation</option>
@@ -348,7 +379,7 @@ export const PlayView: React.FC = () => {
               {/* Activity 2: Book Hunt ("Find It!") */}
               {activeAppId === 'book-hunt' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-linen-200/80 dark:border-night-800">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-linen-200/80 dark:border-night-800">
                     <div className="space-y-1">
                       <label className="block text-xs font-bold text-stone-700 dark:text-slate-300">
                         Hunt Book Pool
@@ -358,7 +389,7 @@ export const PlayView: React.FC = () => {
                           type="button"
                           onClick={() => {
                             setHuntScope('active-shelf');
-                            startNextHunt();
+                            startNextHunt('active-shelf');
                           }}
                           className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
                             huntScope === 'active-shelf'
@@ -372,7 +403,7 @@ export const PlayView: React.FC = () => {
                           type="button"
                           onClick={() => {
                             setHuntScope('owned-library');
-                            startNextHunt();
+                            startNextHunt('owned-library');
                           }}
                           className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
                             huntScope === 'owned-library'
@@ -386,18 +417,17 @@ export const PlayView: React.FC = () => {
                     </div>
 
                     {huntStreak > 0 && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 font-bold text-xs shadow-2xs">
-                        <span>Streak: {huntStreak}</span>
-                        <span>🔥</span>
+                      <div className="text-xs font-bold text-amber-800 dark:text-amber-300 font-mono-tabular">
+                        Streak: {huntStreak} found
                       </div>
                     )}
                   </div>
 
                   {/* Treasure Clue Card */}
                   <div className="p-6 sm:p-8 rounded-3xl bg-linear-to-br from-linen-100 to-linen-200 dark:from-night-800 dark:to-night-700 text-center space-y-4 shadow-inner">
-                    <span className="inline-block px-3.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-espresso-800 dark:text-[#5ED3DA]">
                       Book Clue
-                    </span>
+                    </p>
 
                     <h3 className="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white max-w-lg mx-auto leading-relaxed">
                       “{huntPrompt || huntClue}”
@@ -413,7 +443,7 @@ export const PlayView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setHuntPeekRevealed(true)}
-                            className="px-4 py-2 rounded-xl bg-white/80 hover:bg-white dark:bg-night-900/70 text-stone-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-linen-300 dark:border-night-600 shadow-xs"
+                            className="px-4 py-2 rounded-xl bg-white/85 hover:bg-white dark:bg-night-900/75 text-stone-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-linen-300 dark:border-night-600 shadow-xs"
                           >
                             <Icon name="eye" className="w-4 h-4" />
                             <span>Peek Cover Artwork</span>
@@ -426,7 +456,6 @@ export const PlayView: React.FC = () => {
                   {/* Celebration Feedback */}
                   {huntCelebrated && (
                     <div className="p-5 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-center space-y-1 animate-sheet-up shadow-xs">
-                      <span className="text-3xl">🎉 ⭐️ 📚</span>
                       <h4 className="font-display font-bold text-base text-emerald-900 dark:text-emerald-200">
                         You Found It! Great Job!
                       </h4>
@@ -440,7 +469,7 @@ export const PlayView: React.FC = () => {
                   <div className="flex items-center justify-between pt-2">
                     <button
                       type="button"
-                      onClick={startNextHunt}
+                      onClick={() => startNextHunt()}
                       className="px-4 py-2.5 rounded-xl text-stone-600 dark:text-slate-400 hover:bg-linen-100 dark:hover:bg-night-800 text-xs font-semibold transition-colors"
                     >
                       Skip / Next Clue
@@ -453,12 +482,12 @@ export const PlayView: React.FC = () => {
                         className="px-6 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
                       >
                         <Icon name="check" className="w-4 h-4" />
-                        <span>Found It! 🎯</span>
+                        <span>Found It!</span>
                       </button>
                     ) : (
                       <button
                         type="button"
-                        onClick={startNextHunt}
+                        onClick={() => startNextHunt()}
                         className="px-6 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
                       >
                         <span>Play Next Clue →</span>

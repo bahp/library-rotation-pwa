@@ -17,27 +17,118 @@ const DB_VERSION = 1;
 const STORE_NAME = 'app_state';
 const RECORD_KEY = 'primary_v1';
 const LOCAL_STORAGE_KEY = 'library_rotation_state_v1';
+export const QA_SNAPSHOT_STORAGE_KEY = 'lr_qa_existing_user_snapshot_v1';
+
+const AUXILIARY_STORAGE_KEYS = [
+  'lr_theme_pref',
+  'lr_dismissed_swap_reminders_v1',
+  'lr_dismissed_preset_alerts_v1',
+  'lr_dismissed_stale_spotlights_v1',
+  'lr_device_books_proxy_v1',
+  'lr_device_google_books_api_key_v1',
+  'lr_welcome_books_modal_dismissed_v1',
+];
+
+/** @type {string | null} */
+let memoryQaSnapshotJson = null;
 
 /**
  * Validates whether an arbitrary parsed object satisfies the structural AppState contract.
+ * Zero-profile states are accepted only when onboarding is explicitly pending, in progress, or skipped.
  * @param {unknown} candidate
  * @returns {candidate is import('../types/models.js').AppState}
  */
 export function isValidAppState(candidate) {
   if (!candidate || typeof candidate !== 'object') return false;
   const obj = /** @type {Record<string, unknown>} */ (candidate);
+  const settingsObj =
+    obj.settings && typeof obj.settings === 'object'
+      ? /** @type {Record<string, unknown>} */ (obj.settings)
+      : null;
+  const onboardingObj =
+    settingsObj?.onboarding && typeof settingsObj.onboarding === 'object'
+      ? /** @type {Record<string, unknown>} */ (settingsObj.onboarding)
+      : null;
+  const onboardingStatus = onboardingObj?.status;
+  const allowZeroProfiles =
+    onboardingStatus === 'pending' ||
+    onboardingStatus === 'in_progress' ||
+    onboardingStatus === 'skipped';
+
   return (
     typeof obj.schemaVersion === 'number' &&
     typeof obj.activeProfileId === 'string' &&
     Array.isArray(obj.profiles) &&
-    obj.profiles.length > 0 &&
+    (obj.profiles.length > 0 || allowZeroProfiles) &&
     Array.isArray(obj.books) &&
     Array.isArray(obj.rotations) &&
-    Boolean(obj.settings && typeof obj.settings === 'object')
+    Boolean(settingsObj)
   );
 }
 
 export const DEFAULT_METADATA_PROVIDERS = ['google-books', 'open-library'];
+
+/**
+ * Normalizes onboarding progress metadata, preserving existing users as `'completed'`.
+ * @param {unknown} rawOnboarding
+ * @param {{ hasExistingData?: boolean }} [opts]
+ * @returns {import('../types/models.js').OnboardingProgressState}
+ */
+export function normalizeOnboardingState(rawOnboarding, { hasExistingData = false } = {}) {
+  const validStatuses = new Set(['pending', 'in_progress', 'completed', 'skipped']);
+  if (!rawOnboarding || typeof rawOnboarding !== 'object') {
+    return hasExistingData
+      ? {
+          status: 'completed',
+          currentStep: 5,
+          completedSteps: [],
+          skippedSteps: [],
+        }
+      : {
+          status: 'pending',
+          currentStep: 0,
+          completedSteps: [],
+          skippedSteps: [],
+        };
+  }
+
+  const raw = /** @type {Record<string, unknown>} */ (rawOnboarding);
+  const status = validStatuses.has(String(raw.status))
+    ? /** @type {import('../types/models.js').OnboardingStatus} */ (String(raw.status))
+    : hasExistingData
+      ? 'completed'
+      : 'pending';
+
+  const parsedStep = Number(raw.currentStep);
+  const currentStep = Number.isFinite(parsedStep)
+    ? Math.max(0, Math.min(5, Math.trunc(parsedStep)))
+    : status === 'completed'
+      ? 5
+      : 0;
+
+  const sanitizeStepList = (/** @type {unknown} */ input) =>
+    Array.isArray(input)
+      ? Array.from(
+          new Set(
+            input
+              .map((n) => Number(n))
+              .filter((n) => Number.isInteger(n) && n >= 0 && n <= 5)
+          )
+        )
+      : [];
+
+  return {
+    status,
+    currentStep,
+    completedSteps: sanitizeStepList(raw.completedSteps),
+    skippedSteps: sanitizeStepList(raw.skippedSteps),
+    ...(raw.previewMode ? { previewMode: true } : {}),
+    ...(typeof raw.startedAt === 'string' && raw.startedAt ? { startedAt: raw.startedAt } : {}),
+    ...(typeof raw.completedAt === 'string' && raw.completedAt
+      ? { completedAt: raw.completedAt }
+      : {}),
+  };
+}
 
 /**
  * Formats a byte count into a concise human-readable memory string (`840 B`, `42.6 KB`, `1.4 MB`).
@@ -163,8 +254,23 @@ export function createSafeDefaultSettings(overrides = {}) {
         )
       : NUMERIC_BOUNDS.staleBookDaysDefault;
 
+    const cleanHouseholdName =
+      typeof overrides.householdName === 'string'
+        ? overrides.householdName.trim().slice(0, 80)
+        : '';
+
     return {
       language: normalizeLanguage(overrides.language),
+      householdName: cleanHouseholdName,
+      ...(overrides.onboarding
+        ? {
+            onboarding: normalizeOnboardingState(overrides.onboarding, {
+              hasExistingData: false,
+            }),
+          }
+        : {}),
+      devModeUnlocked: Boolean(overrides.devModeUnlocked),
+      showMiniWizards: overrides.showMiniWizards !== false,
       theme: overrides.theme || 'system',
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,
@@ -207,6 +313,37 @@ export function createSafeDefaultSettings(overrides = {}) {
         typeof overrides.llmCustomPromptHint === 'string' ? overrides.llmCustomPromptHint.trim() : '',
     };
   }
+
+/**
+ * Creates a clean-slate initial AppState ready for the guided first-time onboarding wizard.
+ * @param {Partial<import('../types/models.js').AppSettings>} [settingsOverrides]
+ * @returns {import('../types/models.js').AppState}
+ */
+export function createEmptyOnboardingState(settingsOverrides = {}) {
+  const now = new Date().toISOString();
+  return {
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    activeProfileId: '',
+    profiles: [],
+    books: [],
+    rotations: [],
+    customPresets: [],
+    presetOverrides: {},
+    settings: createSafeDefaultSettings({
+      coverAspectRatio: 'portrait',
+      ...settingsOverrides,
+      onboarding: {
+        status: 'pending',
+        currentStep: 0,
+        completedSteps: [],
+        skippedSteps: [],
+        startedAt: now,
+        ...(settingsOverrides.onboarding || {}),
+      },
+    }),
+    updatedAt: now,
+  };
+}
 
 /**
  * Migrates older or partial state snapshots forward to CURRENT_SCHEMA_VERSION,
@@ -371,16 +508,23 @@ export function migrateState(state, referenceDate = new Date()) {
     : [];
 
   const activeExists = normalizedProfiles.some((p) => p.id === state.activeProfileId);
+  const hasExistingData =
+    normalizedProfiles.length > 0 || normalizedBooks.length > 0 || normalizedRotations.length > 0;
+  const safeSettings = createSafeDefaultSettings(state.settings || {});
+  safeSettings.onboarding = normalizeOnboardingState(state.settings?.onboarding, {
+    hasExistingData,
+  });
+
   return {
     ...state,
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    activeProfileId: activeExists ? state.activeProfileId : normalizedProfiles[0].id,
+    activeProfileId: activeExists ? state.activeProfileId : normalizedProfiles[0]?.id || '',
     profiles: normalizedProfiles,
     books: normalizedBooks,
     rotations: normalizedRotations,
     customPresets: normalizedCustomPresets,
     presetOverrides: normalizedPresetOverrides,
-    settings: createSafeDefaultSettings(state.settings || {}),
+    settings: safeSettings,
   };
 }
 
@@ -407,17 +551,88 @@ function openIndexedDb() {
 }
 
 /**
+ * Persists an isolated snapshot of the current library state for QA Dev Tools switching.
+ * @param {import('../types/models.js').AppState} state
+ */
+export function saveQaUserSnapshot(state) {
+  const serialized = JSON.stringify(state);
+  memoryQaSnapshotJson = serialized;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(QA_SNAPSHOT_STORAGE_KEY, serialized);
+    }
+  } catch (_) {}
+}
+
+/**
+ * Reads the saved QA Existing User snapshot if present and structurally valid.
+ * @returns {import('../types/models.js').AppState | null}
+ */
+export function loadQaUserSnapshot() {
+  let raw = memoryQaSnapshotJson;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      raw = localStorage.getItem(QA_SNAPSHOT_STORAGE_KEY) || memoryQaSnapshotJson;
+    }
+  } catch (_) {}
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return isValidAppState(parsed) ? migrateState(parsed) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Returns true if an Existing User QA snapshot is stored.
+ * @returns {boolean}
+ */
+export function hasQaUserSnapshot() {
+  return Boolean(loadQaUserSnapshot());
+}
+
+/**
+ * Deletes the stored QA snapshot.
+ */
+export function clearQaUserSnapshot() {
+  memoryQaSnapshotJson = null;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(QA_SNAPSHOT_STORAGE_KEY);
+    }
+  } catch (_) {}
+}
+
+/**
+ * Removes dismissed banner / device cache flags cleanly without touching QA snapshot.
+ */
+export function clearAuxiliaryLocalStorageKeys() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (const key of AUXILIARY_STORAGE_KEYS) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch (_) {}
+}
+
+/**
  * Creates a storage adapter with IndexedDB -> localStorage -> Memory automatic fallback.
- * @param {{ forceMemory?: boolean }} [options]
+ * @param {{ forceMemory?: boolean, seedOnEmpty?: boolean }} [options]
  */
 export function createStorageAdapter(options = {}) {
+  const seedOnEmpty = options.seedOnEmpty !== false;
   /** @type {import('../types/models.js').AppState | null} */
   let memorySnapshot = null;
   /** @type {'indexeddb' | 'localstorage' | 'memory'} */
   let activeBackend = 'memory';
 
+  const createInitialState = () =>
+    migrateState(seedOnEmpty ? createSeedState() : createEmptyOnboardingState());
+
   /**
-   * Loads persisted state or initializes with seed data on first launch.
+   * Loads persisted state or initializes on first launch.
    * @returns {Promise<import('../types/models.js').AppState>}
    */
   async function load() {
@@ -437,9 +652,9 @@ export function createStorageAdapter(options = {}) {
         if (isValidAppState(stored)) {
           return migrateState(stored);
         }
-        const seeded = createSeedState();
-        await save(seeded);
-        return seeded;
+        const initial = createInitialState();
+        await save(initial);
+        return initial;
       } catch (_) {
         // Fall through to localStorage
       }
@@ -455,9 +670,9 @@ export function createStorageAdapter(options = {}) {
               return migrateState(parsed);
             }
           }
-          const seeded = createSeedState();
-          await save(seeded);
-          return seeded;
+          const initial = createInitialState();
+          await save(initial);
+          return initial;
         }
       } catch (_) {
         // Fall through to memory
@@ -469,7 +684,7 @@ export function createStorageAdapter(options = {}) {
     if (memorySnapshot && isValidAppState(memorySnapshot)) {
       return migrateState(memorySnapshot);
     }
-    memorySnapshot = createSeedState();
+    memorySnapshot = createInitialState();
     return memorySnapshot;
   }
 
