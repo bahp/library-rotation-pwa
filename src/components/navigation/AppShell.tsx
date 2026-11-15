@@ -5,6 +5,7 @@ import { Header } from './Header.js';
 import { BottomNav } from './BottomNav.js';
 import { Toast } from '../common/Toast.js';
 import { ProfileSwitcherSheet } from './ProfileSwitcherSheet.js';
+import { NotificationCenterModal } from './NotificationCenterModal.js';
 import { Icon } from '../common/Icon.js';
 
 interface AppShellProps {
@@ -76,6 +77,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Profile Switcher Sheet */}
       <ProfileSwitcherSheet />
+
+      {/* Notification Center & History Modal */}
+      <NotificationCenterModal />
     </div>
   );
 };

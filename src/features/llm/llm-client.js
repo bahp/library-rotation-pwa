@@ -611,7 +611,7 @@ Return ONLY valid JSON matching this schema:
       "title": "Exact Real Book Title",
       "author": "Author Full Name",
       "ageRange": "e.g. 2–5",
-      "readingStage": "board-toddler | picture-book | early-reader | chapter-book",
+      "readingStage": "board-toddler | picture-book | early-reader | chapter-book | middle-grade | teen-ya | adult",
       "category": "e.g. Interactive / Sensory or Bedtime / SEL or Nature / Science",
       "reason": "1-2 sentences explaining why this book resonates with ${profile.name}",
       "gapFilled": "Short phrase explaining what gap or growth it brings (e.g. 'Adds tactile flap exploration' or 'Expands emotional vocabulary')"
@@ -650,3 +650,73 @@ Return ONLY valid JSON matching this schema:
     modelUsed: response.modelUsed,
   };
 }
+
+/**
+ * Generates a subtle corner watercolor spot illustration for a Collection Preset using Gemini
+ * (`gemini-3.1-flash-lite-image`) via `/api/llm/generate-image`.
+ *
+ * @param {{
+ *   title: string,
+ *   description?: string,
+ *   promptTemplate?: string,
+ *   settings: import('../../types/models.js').AppSettings
+ * }} params
+ * @returns {Promise<{ dataUrl: string, modelUsed?: string, providerUsed?: string }>}
+ */
+export async function generatePresetIllustrationImage(params) {
+  const { title, description = '', promptTemplate = '', settings } = params;
+  const provider = settings?.llmProvider || 'server-gemini';
+
+  if (provider === 'byok-openai') {
+    throw new Error(
+      'Custom OpenAI-compatible endpoints do not support preset corner image generation. Switch to Gemini in Settings > AI Assistant.'
+    );
+  }
+
+  const baseTemplate =
+    promptTemplate.trim() ||
+    'Subtle editorial storybook watercolor spot illustration in the top-right corner on a clean solid #FAF6EE warm cream background for "{title}" ({description}). Delicate hand-painted matte botanical and literary charm, generous empty margin across bottom-left for seamless blending, zero text, zero borders.';
+
+  const builtPrompt = baseTemplate
+    .replace(/\{title\}/gi, title.trim())
+    .replace(/\{description\}/gi, description.trim() || title.trim());
+
+  const startTime = Date.now();
+  const res = await fetch('/api/llm/generate-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      prompt: builtPrompt,
+      apiKey: settings?.llmApiKey || '',
+      aspectRatio: '1:1',
+    }),
+  });
+
+  let data;
+  try {
+    data = await res.json();
+  } catch (_) {
+    throw new Error('Unexpected response from illustration generation server.');
+  }
+
+  try {
+    queryLogger?.recordQuery?.({
+      service: 'gemini',
+      endpoint: 'Preset Illustration (gemini-3.1-flash-lite-image)',
+      status: data?.ok ? 200 : data?.status || res.status,
+      statusText: data?.ok ? 'OK' : data?.error || 'Error',
+      latencyMs: Date.now() - startTime,
+    });
+  } catch (_) {}
+
+  if (!data?.ok || !data?.dataUrl) {
+    throw new Error(data?.message || data?.error || 'Failed to generate illustration image.');
+  }
+
+  return {
+    dataUrl: data.dataUrl,
+    modelUsed: data.modelUsed,
+    providerUsed: data.providerUsed,
+  };
+}
+

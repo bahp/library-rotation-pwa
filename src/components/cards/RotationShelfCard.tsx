@@ -114,9 +114,15 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               {rotation.title}
             </h2>
 
+            {rotation.rules?.objective && (
+              <p className="font-sans text-xs text-stone-ink dark:text-slate-300 mt-1 line-clamp-2 leading-relaxed">
+                {rotation.rules.objective}
+              </p>
+            )}
+
             <p
               data-rotation-schedule={isActive ? 'active' : 'saved'}
-              className={`font-sans text-xs mt-1 truncate flex items-center gap-1.5 ${
+              className={`font-sans text-xs mt-1.5 truncate flex items-center gap-1.5 ${
                 isActive && schedule.isDue
                   ? 'font-semibold text-amber-800 dark:text-amber-300'
                   : isActive && schedule.isDueSoon
@@ -130,14 +136,8 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               </span>
             </p>
 
-            {rotation.rules?.objective && (
-              <p className="font-sans text-xs text-stone-ink dark:text-slate-400 mt-1 line-clamp-1">
-                {rotation.rules.objective}
-              </p>
-            )}
-
             {totalCount > 0 && (
-              <div className="mt-2.5 h-1.5 w-full max-w-xs rounded-full bg-linen-100 dark:bg-night-800 overflow-hidden">
+              <div className="mt-2.5 h-2 w-full rounded-full bg-linen-100 dark:bg-night-800 overflow-hidden">
                 <div
                   className="h-full rounded-full bg-forest-700 dark:bg-[#5ED3DA] transition-all duration-300"
                   style={{ width: `${progressPct}%` }}

@@ -921,6 +921,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     <option value="picture-book">Picture Book</option>
                     <option value="early-reader">Early Reader</option>
                     <option value="chapter-book">Chapter Book</option>
+                    <option value="middle-grade">Middle Grade</option>
+                    <option value="teen-ya">Teen / YA</option>
+                    <option value="adult">Adult Reader</option>
                   </select>
                 </div>
 
@@ -936,7 +939,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                       id="edit-book-age-min"
                       type="number"
                       min={0}
-                      max={16}
+                      max={120}
                       value={editAgeMin}
                       onChange={(e) => setEditAgeMin(e.target.value)}
                       className="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
@@ -953,7 +956,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                       id="edit-book-age-max"
                       type="number"
                       min={0}
-                      max={18}
+                      max={120}
                       value={editAgeMax}
                       onChange={(e) => setEditAgeMax(e.target.value)}
                       className="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"

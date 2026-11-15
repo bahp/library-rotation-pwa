@@ -76,6 +76,9 @@ export function createDefaultOnboardingState(overrides = {}) {
   };
 }
 
+export const DEFAULT_PRESET_ILLUSTRATION_PROMPT =
+  'Subtle editorial storybook watercolor spot illustration in the top-right corner on a clean solid #FAF6EE warm cream background for "{title}" ({description}). Delicate hand-painted matte botanical and literary charm, generous empty margin across bottom-left for seamless blending, zero text, zero borders.';
+
 /**
  * Default safe settings object used for new installations and settings migrations.
  * @returns {import('../types/models.js').AppSettings}
@@ -87,10 +90,11 @@ export function createDefaultAppSettings() {
     onboarding: createDefaultOnboardingState({ status: 'completed', currentStep: 5 }),
     devModeUnlocked: false,
     showMiniWizards: true,
-    theme: 'system',
+    theme: 'light',
     coverAspectRatio: 'portrait',
     dynamicCoverTint: true,
     showPresetDecorations: true,
+    presetIllustrationPromptTemplate: DEFAULT_PRESET_ILLUSTRATION_PROMPT,
     presetAlertDaysBefore: NUMERIC_BOUNDS.presetAlertDaysBeforeDefault,
     presetAlertDaysAfter: NUMERIC_BOUNDS.presetAlertDaysAfterDefault,
     enableRotationHistoryInsights: true,

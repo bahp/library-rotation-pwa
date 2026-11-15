@@ -21,7 +21,7 @@ if (typeof globalScope.__dirname === 'string' && !path.isAbsolute(globalScope.__
 
 import { createServer as createViteServer } from 'vite';
 import { proxyGoogleBooksVolumes } from './src/server/books-proxy.js';
-import { executeLlmQuery } from './src/server/llm-service.js';
+import { executeLlmQuery, generateImageWithGemini } from './src/server/llm-service.js';
 
 // Dev server must run strictly on port 3000 in the AI Studio environment.
 const PORT = 3000;
@@ -52,6 +52,29 @@ async function startServer() {
       res.setHeader('Cache-Control', 'no-store');
       // Note: Nginx intercepts 403, 502, 503, and 504 and replaces the body with HTML error pages (warmup.html/forbidden.html).
       // To ensure the client always receives structured JSON with user-facing messages, map status codes to 200 (or 400/429).
+      const httpStatus = result.status === 429 ? 429 : result.status === 400 ? 400 : 200;
+      res.status(httpStatus).json(result);
+    } catch (err: unknown) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json({
+        ok: false,
+        error: 'INTERNAL_ERROR',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
+  // Preset corner illustration image generation endpoint via Gemini Image model
+  app.post('/api/llm/generate-image', async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const result = await generateImageWithGemini({
+        prompt: typeof payload.prompt === 'string' ? payload.prompt : '',
+        apiKey: typeof payload.apiKey === 'string' ? payload.apiKey : '',
+        model: typeof payload.model === 'string' ? payload.model : undefined,
+        aspectRatio: payload.aspectRatio === '1:1' ? '1:1' : '1:1',
+      });
+      res.setHeader('Cache-Control', 'no-store');
       const httpStatus = result.status === 429 ? 429 : result.status === 400 ? 400 : 200;
       res.status(httpStatus).json(result);
     } catch (err: unknown) {

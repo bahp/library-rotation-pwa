@@ -38,7 +38,20 @@ const QUICK_AGES = [
   { label: '4 yrs', yearsAgo: 4 },
   { label: '6 yrs', yearsAgo: 6 },
   { label: '8 yrs', yearsAgo: 8 },
+  { label: '11 yrs', yearsAgo: 11 },
+  { label: 'Adult', yearsAgo: 28 },
 ];
+
+const READER_TOPIC_PILL_TONES: Record<string, string> = {
+  teal: 'bg-[#1F6E75] text-white border-[#1F6E75] dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA] shadow-2xs',
+  amber:
+    'bg-[#9A5B25] text-white border-[#9A5B25] dark:bg-amber-400 dark:text-night-950 dark:border-amber-400 shadow-2xs',
+  indigo:
+    'bg-[#2C4257] text-white border-[#2C4257] dark:bg-indigo-400 dark:text-night-950 dark:border-indigo-400 shadow-2xs',
+  rose: 'bg-[#963E47] text-white border-[#963E47] dark:bg-rose-400 dark:text-night-950 dark:border-rose-400 shadow-2xs',
+  emerald:
+    'bg-[#2E6B4E] text-white border-[#2E6B4E] dark:bg-emerald-400 dark:text-night-950 dark:border-emerald-400 shadow-2xs',
+};
 
 function computeBirthDateForAgeYears(years: number): string {
   const d = new Date();
@@ -465,9 +478,9 @@ export const OnboardingWizard: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
             {currentStep > 0 && (
-              <span className="text-xs font-mono-tabular font-semibold text-stone-ink dark:text-slate-400">
+              <span className="text-xs font-mono-tabular font-semibold text-stone-ink dark:text-slate-300 whitespace-nowrap shrink-0">
                 {t('onboarding.stepProgress', { current: currentStep, total: 5 })}
               </span>
             )}
@@ -481,7 +494,7 @@ export const OnboardingWizard: React.FC = () => {
                     dispatch({ type: 'SET_FIELD', field: 'confirmSkipOpen', value: true });
                   }
                 }}
-                className="min-h-[40px] px-2.5 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 hover:bg-linen-100/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-800 cursor-pointer transition-colors"
+                className="min-h-[40px] px-2.5 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 hover:bg-linen-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 whitespace-nowrap shrink-0 cursor-pointer transition-colors"
               >
                 {isOnboardingPreview ? t('onboarding.exitPreview') : t('onboarding.skipSetup')}
               </button>
@@ -493,7 +506,7 @@ export const OnboardingWizard: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSkipAllConfirmed}
-                  className="min-h-[38px] px-3 py-1 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold cursor-pointer"
+                  className="min-h-[38px] px-3 py-1 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold whitespace-nowrap cursor-pointer"
                 >
                   Confirm Skip
                 </button>
@@ -502,7 +515,7 @@ export const OnboardingWizard: React.FC = () => {
                   onClick={() =>
                     dispatch({ type: 'SET_FIELD', field: 'confirmSkipOpen', value: false })
                   }
-                  className="min-h-[38px] px-2.5 py-1 rounded-xl text-xs font-semibold text-stone-ink dark:text-slate-400 cursor-pointer"
+                  className="min-h-[38px] px-2.5 py-1 rounded-xl text-xs font-semibold text-stone-ink dark:text-slate-300 cursor-pointer"
                 >
                   Stay
                 </button>
@@ -537,9 +550,9 @@ export const OnboardingWizard: React.FC = () => {
               animate="center"
               exit="exit"
               transition={{ duration: 0.22, ease: 'easeOut' }}
-              className="my-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center"
+              className="my-auto grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-12 items-center"
             >
-              <div className="lg:col-span-7 space-y-6 text-left">
+              <div className="lg:col-span-7 space-y-5 sm:space-y-6 text-left">
                 <div className="space-y-3">
                   <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-forest-700 dark:text-[#5ED3DA]">
                     {t('onboarding.welcomeEyebrow')}
@@ -552,8 +565,27 @@ export const OnboardingWizard: React.FC = () => {
                   </p>
                 </div>
 
-                {/* 3 Centered Editorial Illustration Pillars */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-2">
+                {/* Compact Mobile Highlights Strip (fits comfortably above the fold on < sm screens) */}
+                <ul className="sm:hidden grid grid-cols-1 gap-2 rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3.5 shadow-2xs">
+                  {[
+                    { icon: 'scan', title: t('onboarding.pillarCatalogTitle') },
+                    { icon: 'rotations', title: t('onboarding.pillarRotateTitle') },
+                    { icon: 'play', title: t('onboarding.pillarPlayTitle') },
+                  ].map((item) => (
+                    <li
+                      key={item.icon}
+                      className="flex items-center gap-2.5 text-xs font-semibold text-forest-900 dark:text-slate-100"
+                    >
+                      <span className="w-7 h-7 rounded-lg bg-forest-700/10 dark:bg-[#5ED3DA]/15 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center shrink-0">
+                        <Icon name={item.icon} className="w-3.5 h-3.5" />
+                      </span>
+                      <span>{item.title}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                {/* 3 Centered Editorial Illustration Pillars (Tablet & Desktop) */}
+                <div className="hidden sm:grid sm:grid-cols-3 gap-3.5 pt-2">
                   {[
                     {
                       id: 'catalog',
@@ -610,7 +642,7 @@ export const OnboardingWizard: React.FC = () => {
                   ))}
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-1 sm:pt-2">
                   <button
                     type="button"
                     data-action="onboarding-begin"
@@ -636,8 +668,8 @@ export const OnboardingWizard: React.FC = () => {
                 </div>
               </div>
 
-              {/* Editorial Shelf Preview Artwork Card */}
-              <div className="lg:col-span-5">
+              {/* Editorial Shelf Preview Artwork Card (Tablet & Desktop) */}
+              <div className="hidden sm:block lg:col-span-5">
                 <div className="rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 overflow-hidden shadow-md">
                   <div className="bg-forest-900 dark:bg-[#0B1518] px-6 py-4 flex items-center justify-between text-white">
                     <div>
@@ -868,7 +900,7 @@ export const OnboardingWizard: React.FC = () => {
                             htmlFor="onboarding-child-name"
                             className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1"
                           >
-                            Child’s Name *
+                            Reader’s Name *
                           </label>
                           <input
                             id="onboarding-child-name"
@@ -881,8 +913,8 @@ export const OnboardingWizard: React.FC = () => {
                                 value: e.target.value,
                               })
                             }
-                            placeholder="e.g. Maya or Leo"
-                            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                            placeholder="e.g. Maya, Leo, or Alex"
+                            className="w-full min-h-[48px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-forest-700"
                           />
                         </div>
 
@@ -967,6 +999,9 @@ export const OnboardingWizard: React.FC = () => {
                             <option value="picture-book">Picture Book (Ages 3–6)</option>
                             <option value="early-reader">Early Reader (Ages 5–8)</option>
                             <option value="chapter-book">Chapter Book (Ages 7–12)</option>
+                            <option value="middle-grade">Middle Grade (Ages 9–12)</option>
+                            <option value="teen-ya">Teen / YA (Ages 13–17)</option>
+                            <option value="adult">Adult Reader (Ages 18+)</option>
                           </select>
                         </div>
 
@@ -992,7 +1027,7 @@ export const OnboardingWizard: React.FC = () => {
                                   aria-label={`Select ${opt.label} color`}
                                   className={`w-11 h-11 rounded-full flex items-center justify-center transition-transform active:scale-95 cursor-pointer ${cls} ${
                                     selected
-                                      ? 'ring-2 ring-offset-2 ring-forest-700 dark:ring-[#5ED3DA] scale-105'
+                                      ? 'ring-2 ring-offset-2 ring-forest-700 dark:ring-[#5ED3DA] dark:ring-offset-night-900 scale-105'
                                       : 'opacity-80 hover:opacity-100'
                                   }`}
                                 >
@@ -1045,6 +1080,7 @@ export const OnboardingWizard: React.FC = () => {
                       <div className="flex flex-wrap gap-2">
                         {state.profiles.map((p) => {
                           const selected = step2Profile?.id === p.id;
+                          const tone = AVATAR_TONES[p.avatarTone || 'teal'] || AVATAR_TONES.teal;
                           return (
                             <button
                               key={p.id}
@@ -1056,13 +1092,18 @@ export const OnboardingWizard: React.FC = () => {
                                   value: p.id,
                                 })
                               }
-                              className={`min-h-[44px] px-4 py-2 rounded-full text-xs font-bold border cursor-pointer transition-all active:scale-95 ${
+                              className={`min-h-[44px] px-3.5 py-2 rounded-full text-xs font-bold border inline-flex items-center gap-2 cursor-pointer transition-all active:scale-95 ${
                                 selected
                                   ? 'bg-forest-900 text-white border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA]'
                                   : 'bg-white dark:bg-night-900 border-linen-200 dark:border-night-700 text-forest-900 dark:text-white'
                               }`}
                             >
-                              {p.name}
+                              <span
+                                className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${tone}`}
+                              >
+                                {p.name.slice(0, 1).toUpperCase()}
+                              </span>
+                              <span>{p.name}</span>
                             </button>
                           );
                         })}
@@ -1071,13 +1112,22 @@ export const OnboardingWizard: React.FC = () => {
 
                     {step2Profile && (
                       <div className="space-y-4">
-                        {/* Interactive Multi-Select Tag Badge Pills + + Custom Tag */}
+                        {/* Interactive Multi-Select Tag Badge Pills + Reader Identity Badge */}
                         <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-3.5">
-                          <div className="flex items-center justify-between">
-                            <h2 className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400">
-                              Favorite Topics for {step2Profile.name}
-                            </h2>
-                            <span className="text-xs font-mono-tabular text-forest-700 dark:text-[#5ED3DA] font-semibold">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span
+                                className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${
+                                  AVATAR_TONES[step2Profile.avatarTone || 'teal'] || AVATAR_TONES.teal
+                                }`}
+                              >
+                                {step2Profile.name.slice(0, 1).toUpperCase()}
+                              </span>
+                              <h2 className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-300 truncate">
+                                Favorite Topics for {step2Profile.name}
+                              </h2>
+                            </div>
+                            <span className="text-xs font-mono-tabular text-forest-700 dark:text-[#5ED3DA] font-semibold shrink-0">
                               {step2Profile.favoriteTopics.length} selected
                             </span>
                           </div>
@@ -1085,6 +1135,9 @@ export const OnboardingWizard: React.FC = () => {
                           <div className="flex flex-wrap gap-2">
                             {allStep2Topics.map((topic) => {
                               const selected = step2Profile.favoriteTopics.includes(topic.id);
+                              const activePillCls =
+                                READER_TOPIC_PILL_TONES[step2Profile.avatarTone || 'teal'] ||
+                                READER_TOPIC_PILL_TONES.teal;
                               return (
                                 <button
                                   key={topic.id}
@@ -1093,7 +1146,7 @@ export const OnboardingWizard: React.FC = () => {
                                   onClick={() => handleToggleStep2Topic(topic.id)}
                                   className={`px-4 py-2 rounded-full border text-sm font-medium transition-all duration-200 cursor-pointer active:scale-95 inline-flex items-center gap-1.5 ${
                                     selected
-                                      ? 'bg-forest-900 text-white border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA] shadow-2xs'
+                                      ? activePillCls
                                       : 'bg-linen-50/80 dark:bg-night-800/80 border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 hover:border-forest-700/50'
                                   }`}
                                 >
@@ -1398,7 +1451,7 @@ export const OnboardingWizard: React.FC = () => {
                                   })
                                 }
                                 placeholder="e.g. Cozy Bedtime Shelf"
-                                className="w-full min-h-[48px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
+                                className="w-full min-h-[48px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500"
                               />
                             </div>
 
@@ -1493,7 +1546,7 @@ export const OnboardingWizard: React.FC = () => {
                               data-action="onboarding-create-rotation"
                               disabled={wizard.creatingRotation}
                               onClick={handleCreateFirstRotation}
-                              className="min-h-[48px] sm:min-h-[44px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 active:scale-[0.98] text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all"
+                              className="min-h-[48px] sm:min-h-[44px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:hover:bg-[#7DE0E6] dark:text-night-950 active:scale-[0.98] text-white text-xs sm:text-sm font-bold inline-flex items-center justify-center gap-1.5 cursor-pointer shadow-xs transition-all"
                             >
                               <Icon name="sparkles" className="w-4 h-4" />
                               <span>

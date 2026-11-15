@@ -20,7 +20,7 @@
  */
 
 /**
- * @typedef {'board-toddler' | 'picture-book' | 'early-reader' | 'chapter-book'} ReadingStage
+ * @typedef {'board-toddler' | 'picture-book' | 'early-reader' | 'chapter-book' | 'middle-grade' | 'teen-ya' | 'adult'} ReadingStage
  */
 
 /**
@@ -201,6 +201,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {number} [presetAlertDaysBefore] - Days before an annual MM-DD preset start date to surface reminder (0-30, default: 2)
  * @property {number} [presetAlertDaysAfter] - Days after an annual MM-DD preset start date to keep showing unactioned reminder (0-30, default: 5)
  * @property {boolean} [showPresetDecorations] - Show subtle top-right motif corner decorations on preset cards (default: true)
+ * @property {string} [presetIllustrationPromptTemplate] - Reusable AI image generation prompt template for preset corner artwork
  * @property {boolean} [enableRotationHistoryInsights] - Show per-book cooldown/rotation history badges & filters (default: true)
  * @property {boolean} [showCoverUsageAdornos] - Show compact icon+code usage/cooldown/read adornos over Library book covers (default: true)
  * @property {boolean} [enableStaleBookSpotlight] - Show gentle Stale Book Spotlight banner for long-unopened active shelf books (default: true)
@@ -237,9 +238,32 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {string} seed - Pre-defined deterministic PRNG seed
  * @property {string} [suggestedStartMonthDay] - Optional annual start date in 'MM-DD' format (omitted when anytime)
  * @property {string} [motif] - Optional top-right corner decorative motif key
+ * @property {boolean} [isActive] - Whether this preset participates in seasonal reminder notifications (default: true)
+ * @property {string} [illustrationUrl] - Optional custom corner illustration image URL or data URL
+ * @property {string} [illustrationPrompt] - Prompt used to generate custom corner illustration art
  * @property {boolean} [isCustom] - True when created locally by the user
  * @property {boolean} [isBuiltInOverride] - True when a built-in default preset has been customized in place
  * @property {string} [createdAt] - Optional ISO-8601 creation timestamp
+ */
+
+/**
+ * @typedef {'preset-upcoming' | 'swap-due' | 'system'} NotificationKind
+ */
+
+/**
+ * @typedef {Object} AppNotification
+ * @property {string} id - Unique notification ID
+ * @property {NotificationKind} kind - Notification category
+ * @property {string} title - Short headline
+ * @property {string} message - Descriptive notification summary
+ * @property {string} [alertKey] - Deduplication key (e.g. `preset-start::<id>::<year>-<MM-DD>` or `swap::<rotId>::<startedAt>`)
+ * @property {string} [presetId] - Optional linked preset ID
+ * @property {string} [rotationId] - Optional linked rotation shelf ID
+ * @property {string} [profileId] - Optional linked reader profile ID
+ * @property {number} [daysRemaining] - Days remaining until start/swap when relevant
+ * @property {string} createdAt - ISO-8601 creation timestamp
+ * @property {string} [readAt] - ISO-8601 timestamp when read in Notification Center
+ * @property {boolean} [dismissed] - True if hidden from active banner reminders while preserved in history
  */
 
 /**
@@ -251,6 +275,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {RotationList[]} rotations - Saved and active rotation lists
  * @property {RotationPreset[]} [customPresets] - User-defined rotation collection presets
  * @property {Record<string, RotationPreset>} [presetOverrides] - In-place edits to built-in default presets keyed by preset ID
+ * @property {AppNotification[]} [notifications] - Persistent notification alerts and history log
  * @property {Array<any>} [aiRecommendations] - Curated AI book recommendations for active reader
  * @property {string} [aiRecommendationsPrompt] - Active custom prompt/mood query for AI recommendations
  * @property {string} [aiRecommendationsGoal] - Selected recommendation goal ('gaps' | 'similar-favorites' | 'next-stage' | 'custom')
@@ -379,7 +404,7 @@ export function computeAgeFromBirthDate(birthDate, referenceDate = new Date()) {
     years -= 1;
   }
   if (years < 0) return null;
-  return Math.min(18, years);
+  return Math.min(120, years);
 }
 
 /**
@@ -412,7 +437,7 @@ export function getEffectiveProfileAge(profile, referenceDate = new Date()) {
     const computed = computeAgeFromBirthDate(profile.birthDate, referenceDate);
     if (computed !== null) return computed;
   }
-  return Math.max(0, Math.min(18, Math.trunc(Number(profile.age) || 0)));
+  return Math.max(0, Math.min(120, Math.trunc(Number(profile.age) || 0)));
 }
 
 /**
@@ -433,7 +458,7 @@ export function formatProfileAgeLabel(profile, referenceDate = new Date()) {
 }
 
 /**
- * Suggests an initial reading stage based on a child's age in years.
+ * Suggests an initial reading stage based on a reader's age in years.
  * @param {number} ageYears
  * @returns {ReadingStage}
  */
@@ -441,7 +466,10 @@ export function inferReadingStageFromAge(ageYears) {
   if (ageYears < 2) return 'board-toddler';
   if (ageYears <= 4) return 'picture-book';
   if (ageYears <= 7) return 'early-reader';
-  return 'chapter-book';
+  if (ageYears <= 9) return 'chapter-book';
+  if (ageYears <= 12) return 'middle-grade';
+  if (ageYears <= 17) return 'teen-ya';
+  return 'adult';
 }
 
 /**
@@ -582,6 +610,12 @@ export function formatReadingStage(stage) {
       return 'Early Reader';
     case 'chapter-book':
       return 'Chapter Book';
+    case 'middle-grade':
+      return 'Middle Grade';
+    case 'teen-ya':
+      return 'Teen / YA';
+    case 'adult':
+      return 'Adult Reader';
     default:
       return 'Picture Book';
   }

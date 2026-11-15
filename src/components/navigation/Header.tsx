@@ -14,6 +14,8 @@ export const Header: React.FC = () => {
     setIsProfileSwitcherOpen,
     setIsProfileFormOpen,
     setEditingProfileId,
+    setIsNotificationCenterOpen,
+    unreadNotificationCount,
     globalSearchQuery,
     setGlobalSearchQuery,
     submitGlobalSearch,
@@ -54,7 +56,7 @@ export const Header: React.FC = () => {
     { id: 'play', label: t('nav.play') },
   ];
 
-  const currentTheme: ThemeMode = state.settings?.theme || 'system';
+  const currentTheme: ThemeMode = state.settings?.theme || 'light';
   const nextTheme: ThemeMode =
     currentTheme === 'light' ? 'dark' : currentTheme === 'dark' ? 'system' : 'light';
 
@@ -188,24 +190,45 @@ export const Header: React.FC = () => {
             <Icon name={currentTheme === 'dark' ? 'moon' : 'sun'} className="w-4 h-4" />
           </button>
 
+          <button
+            type="button"
+            onClick={() => setIsNotificationCenterOpen(true)}
+            aria-label={
+              unreadNotificationCount > 0
+                ? `Notifications (${unreadNotificationCount} unread)`
+                : 'Notifications'
+            }
+            className="lg:hidden relative min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+          >
+            <Icon name="bell" className="w-[18px] h-[18px]" />
+            {unreadNotificationCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-night-950 text-[9px] font-bold font-mono-tabular flex items-center justify-center ring-2 ring-white dark:ring-night-900"
+              >
+                {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+              </span>
+            )}
+          </button>
+
           {activeProfile ? (
             <button
               type="button"
               onClick={() => setIsProfileSwitcherOpen(true)}
-              aria-label={`Switch child reader, current reader is ${activeProfile.name}`}
-              className="min-h-[48px] sm:min-h-[38px] flex items-center gap-2 px-2.5 sm:pl-1.5 sm:pr-2.5 rounded-xl bg-linen-50 hover:bg-linen-100 active:scale-[0.97] dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200/90 dark:border-night-700 transition-all cursor-pointer shrink-0 whitespace-nowrap"
+              aria-label={`Switch reader profile, current reader is ${activeProfile.name}`}
+              className="min-h-[44px] sm:min-h-[38px] max-w-[190px] sm:max-w-[230px] flex items-center gap-1.5 px-2 sm:pl-1.5 sm:pr-2.5 rounded-xl bg-linen-50 hover:bg-linen-100 active:scale-[0.97] dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200/90 dark:border-night-700 transition-all cursor-pointer shrink-0 overflow-hidden"
             >
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${toneClass}`}
               >
                 {initial}
               </span>
-              <span className="text-left hidden sm:block">
-                <span className="text-xs font-bold text-forest-900 dark:text-white leading-none block max-w-[96px] truncate">
+              <span className="hidden sm:flex items-baseline gap-1 min-w-0 text-left">
+                <span className="text-xs font-bold text-forest-900 dark:text-white leading-tight truncate max-w-[100px]">
                   {activeProfile.name}
                 </span>
                 {ageLabel && (
-                  <span className="text-[10px] text-stone-ink dark:text-slate-400 leading-none">
+                  <span className="hidden xl:inline text-[10px] font-medium text-stone-ink/80 dark:text-slate-400 leading-tight shrink-0 whitespace-nowrap">
                     {ageLabel}
                   </span>
                 )}
@@ -219,7 +242,7 @@ export const Header: React.FC = () => {
                 setEditingProfileId(null);
                 setIsProfileFormOpen(true);
               }}
-              className="min-h-[48px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 active:scale-[0.97] dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0"
+              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 active:scale-[0.97] dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0"
             >
               <Icon name="plus" className="w-3.5 h-3.5" />
               <span>{t('profiles.newReader')}</span>
@@ -231,7 +254,7 @@ export const Header: React.FC = () => {
             href="#/settings"
             aria-label={t('nav.settings')}
             aria-current={currentRoute === 'settings' ? 'page' : undefined}
-            className={`lg:hidden min-h-[48px] min-w-[48px] sm:min-h-[42px] sm:min-w-[42px] rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0 ${
+            className={`lg:hidden min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0 ${
               currentRoute === 'settings'
                 ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
                 : 'text-stone-ink hover:text-forest-900 hover:bg-linen-100 active:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 dark:active:bg-night-800'

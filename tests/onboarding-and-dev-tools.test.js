@@ -3,11 +3,18 @@ import assert from 'node:assert/strict';
 import {
   clearQaUserSnapshot,
   createEmptyOnboardingState,
+  createSafeDefaultSettings,
   createStorageAdapter,
   hasQaUserSnapshot,
   isValidAppState,
   migrateState,
 } from '../src/core/storage.js';
+import { createDefaultAppSettings } from '../src/config/defaults.js';
+import {
+  computeAgeFromBirthDate,
+  formatReadingStage,
+  inferReadingStageFromAge,
+} from '../src/types/models.js';
 import { createAppStore } from '../src/core/store.js';
 import { createSeedState } from '../src/data/seed.js';
 
@@ -262,6 +269,53 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
         `Forbidden browser dialog call found in ${file}`
       );
     }
+  });
+
+  it('defaults theme to light and supports extended ages (0-120) and teen/adult reading stages', async () => {
+    assert.equal(createDefaultAppSettings().theme, 'light');
+    assert.equal(createSafeDefaultSettings().theme, 'light');
+    assert.equal(createEmptyOnboardingState().settings.theme, 'light');
+    assert.equal(createSeedState().settings.theme, 'light');
+
+    assert.equal(inferReadingStageFromAge(10), 'middle-grade');
+    assert.equal(inferReadingStageFromAge(15), 'teen-ya');
+    assert.equal(inferReadingStageFromAge(42), 'adult');
+    assert.equal(formatReadingStage('middle-grade'), 'Middle Grade');
+    assert.equal(formatReadingStage('teen-ya'), 'Teen / YA');
+    assert.equal(formatReadingStage('adult'), 'Adult Reader');
+
+    const adultBirthYear = new Date().getUTCFullYear() - 35;
+    const computedAdultAge = computeAgeFromBirthDate(`${adultBirthYear}-01-15`);
+    assert.ok(computedAdultAge !== null && computedAdultAge >= 34 && computedAdultAge <= 35);
+
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const adultProfile = await store.addProfile({
+      name: 'Parent Alex',
+      age: 38,
+      readingStage: 'adult',
+      favoriteTopics: ['fiction', 'history'],
+      defaultRotationSize: 5,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+    });
+    assert.equal(adultProfile.age, 38);
+    assert.equal(adultProfile.readingStage, 'adult');
+
+    const updatedAdult = await store.updateProfile(adultProfile.id, { age: 95 });
+    assert.equal(updatedAdult?.age, 95);
+
+    const sampleBook = store.getState().books[0];
+    const updatedBook = await store.updateBook(sampleBook.id, {
+      readingStage: 'teen-ya',
+      ageMin: 13,
+      ageMax: 99,
+    });
+    assert.equal(updatedBook?.readingStage, 'teen-ya');
+    assert.equal(updatedBook?.ageMin, 13);
+    assert.equal(updatedBook?.ageMax, 99);
   });
 });
 

@@ -10,7 +10,11 @@ import {
 } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 import { normalizeRotationPresetInput } from '../features/rotations/rotation-presets.js';
-import { NUMERIC_BOUNDS, normalizeLanguage } from '../config/index.js';
+import {
+  DEFAULT_PRESET_ILLUSTRATION_PROMPT,
+  NUMERIC_BOUNDS,
+  normalizeLanguage,
+} from '../config/index.js';
 
 const DB_NAME = 'library_rotation_db';
 const DB_VERSION = 1;
@@ -259,6 +263,12 @@ export function createSafeDefaultSettings(overrides = {}) {
         ? overrides.householdName.trim().slice(0, 80)
         : '';
 
+    const cleanPromptTemplate =
+      typeof overrides.presetIllustrationPromptTemplate === 'string' &&
+      overrides.presetIllustrationPromptTemplate.trim()
+        ? overrides.presetIllustrationPromptTemplate.trim().slice(0, 600)
+        : DEFAULT_PRESET_ILLUSTRATION_PROMPT;
+
     return {
       language: normalizeLanguage(overrides.language),
       householdName: cleanHouseholdName,
@@ -271,7 +281,7 @@ export function createSafeDefaultSettings(overrides = {}) {
         : {}),
       devModeUnlocked: Boolean(overrides.devModeUnlocked),
       showMiniWizards: overrides.showMiniWizards !== false,
-      theme: overrides.theme || 'system',
+      theme: overrides.theme || 'light',
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,
       retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
@@ -291,6 +301,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       presetAlertDaysBefore: clampedBefore,
       presetAlertDaysAfter: clampedAfter,
       showPresetDecorations: overrides.showPresetDecorations !== false,
+      presetIllustrationPromptTemplate: cleanPromptTemplate,
       enableRotationHistoryInsights: overrides.enableRotationHistoryInsights !== false,
       showCoverUsageAdornos: overrides.showCoverUsageAdornos !== false,
       enableStaleBookSpotlight: overrides.enableStaleBookSpotlight !== false,
@@ -329,6 +340,7 @@ export function createEmptyOnboardingState(settingsOverrides = {}) {
     rotations: [],
     customPresets: [],
     presetOverrides: {},
+    notifications: [],
     settings: createSafeDefaultSettings({
       coverAspectRatio: 'portrait',
       ...settingsOverrides,
@@ -515,6 +527,45 @@ export function migrateState(state, referenceDate = new Date()) {
     hasExistingData,
   });
 
+  const validNotifKinds = new Set(['preset-upcoming', 'swap-due', 'system']);
+  /** @type {import('../types/models.js').AppNotification[]} */
+  const normalizedNotifications = [];
+  if (Array.isArray(state.notifications)) {
+    const seenIds = new Set();
+    for (const item of state.notifications) {
+      if (!item || typeof item !== 'object') continue;
+      const id = String(item.id || '').trim();
+      const title = String(item.title || '').trim();
+      const message = String(item.message || '').trim();
+      if (!id || !title || seenIds.has(id)) continue;
+      seenIds.add(id);
+      normalizedNotifications.push({
+        id,
+        kind: validNotifKinds.has(item.kind) ? item.kind : 'system',
+        title,
+        message,
+        ...(typeof item.alertKey === 'string' && item.alertKey ? { alertKey: item.alertKey } : {}),
+        ...(typeof item.presetId === 'string' && item.presetId ? { presetId: item.presetId } : {}),
+        ...(typeof item.rotationId === 'string' && item.rotationId
+          ? { rotationId: item.rotationId }
+          : {}),
+        ...(typeof item.profileId === 'string' && item.profileId
+          ? { profileId: item.profileId }
+          : {}),
+        ...(typeof item.daysRemaining === 'number' && Number.isFinite(item.daysRemaining)
+          ? { daysRemaining: item.daysRemaining }
+          : {}),
+        createdAt:
+          typeof item.createdAt === 'string' && item.createdAt
+            ? item.createdAt
+            : new Date().toISOString(),
+        ...(typeof item.readAt === 'string' && item.readAt ? { readAt: item.readAt } : {}),
+        ...(item.dismissed ? { dismissed: true } : {}),
+      });
+      if (normalizedNotifications.length >= 80) break;
+    }
+  }
+
   return {
     ...state,
     schemaVersion: CURRENT_SCHEMA_VERSION,
@@ -524,6 +575,7 @@ export function migrateState(state, referenceDate = new Date()) {
     rotations: normalizedRotations,
     customPresets: normalizedCustomPresets,
     presetOverrides: normalizedPresetOverrides,
+    notifications: normalizedNotifications,
     settings: safeSettings,
   };
 }

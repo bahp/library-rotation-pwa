@@ -1,0 +1,3 @@
+[install]
+# Limit concurrent registry downloads so cold-start `bun install` does not stall on socket limits.
+networkConcurrency = 16

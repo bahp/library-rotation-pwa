@@ -528,7 +528,7 @@ export const LibraryView: React.FC = () => {
                 value={searchQuery}
                 onValueChange={handleSearchChange}
                 placeholder="Search title, author, ISBN, owner, or topic…"
-                className="w-full h-12 pl-9 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 shadow-2xs focus:outline-2 focus:outline-forest-700"
+                className="w-full h-12 pl-9 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 dark:placeholder:text-slate-400 shadow-2xs focus:outline-2 focus:outline-forest-700"
               />
             </div>
 

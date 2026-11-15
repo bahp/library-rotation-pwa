@@ -838,7 +838,7 @@ export const ScanView: React.FC = () => {
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
                     placeholder="Title"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                   />
                 </div>
 
@@ -851,7 +851,7 @@ export const ScanView: React.FC = () => {
                     value={manualAuthors}
                     onChange={(e) => setManualAuthors(e.target.value)}
                     placeholder="Author name"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                   />
                 </div>
 
@@ -864,7 +864,7 @@ export const ScanView: React.FC = () => {
                     value={manualIsbn}
                     onChange={(e) => setManualIsbn(e.target.value)}
                     placeholder="978…"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-mono text-base sm:text-xs"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-mono text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                   />
                 </div>
 
@@ -875,7 +875,7 @@ export const ScanView: React.FC = () => {
                   <select
                     value={manualFormat}
                     onChange={(e) => setManualFormat(e.target.value as BookFormat)}
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs text-forest-900 dark:text-white"
                   >
                     <option value="hardcover">Hardcover</option>
                     <option value="board-book">Board Book</option>
@@ -890,12 +890,15 @@ export const ScanView: React.FC = () => {
                   <select
                     value={manualStage}
                     onChange={(e) => setManualStage(e.target.value as ReadingStage)}
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs text-forest-900 dark:text-white"
                   >
                     <option value="board-toddler">Board Book (0–3)</option>
                     <option value="picture-book">Picture Book (3–6)</option>
                     <option value="early-reader">Early Reader (5–8)</option>
                     <option value="chapter-book">Chapter Book (7–12)</option>
+                    <option value="middle-grade">Middle Grade (9–12)</option>
+                    <option value="teen-ya">Teen / YA (13–17)</option>
+                    <option value="adult">Adult Reader (18+)</option>
                   </select>
                 </div>
 
@@ -906,9 +909,11 @@ export const ScanView: React.FC = () => {
                     </label>
                     <input
                       type="number"
+                      min={0}
+                      max={120}
                       value={manualAgeMin}
                       onChange={(e) => setManualAgeMin(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white"
                     />
                   </div>
                   <div>
@@ -917,9 +922,11 @@ export const ScanView: React.FC = () => {
                     </label>
                     <input
                       type="number"
+                      min={0}
+                      max={120}
                       value={manualAgeMax}
                       onChange={(e) => setManualAgeMax(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -933,7 +940,7 @@ export const ScanView: React.FC = () => {
                     value={manualYear}
                     onChange={(e) => setManualYear(e.target.value)}
                     placeholder="e.g. 2021"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                   />
                 </div>
 
@@ -946,7 +953,7 @@ export const ScanView: React.FC = () => {
                     value={manualPages}
                     onChange={(e) => setManualPages(e.target.value)}
                     placeholder="e.g. 32"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                   />
                 </div>
               </div>
@@ -960,7 +967,7 @@ export const ScanView: React.FC = () => {
                   value={manualTags}
                   onChange={(e) => setManualTags(e.target.value)}
                   placeholder="e.g. bedtime, animals, rhyming"
-                  className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs"
+                  className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                 />
               </div>
 

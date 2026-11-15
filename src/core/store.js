@@ -46,9 +46,11 @@ import {
 } from '../features/rotations/usage-insights.js';
 import { DEFAULT_ROTATION_PRESETS } from '../data/rotation-presets-config.js';
 import {
+  findMatchingStartDatePresets,
   getAllRotationPresets,
   normalizeRotationPresetInput,
 } from '../features/rotations/rotation-presets.js';
+import { computeRotationSchedule } from '../features/rotations/rotation-schedule.js';
 import {
   inferReadingLevelHint,
   sanitizeTag,
@@ -302,7 +304,7 @@ export function createAppStore(storage, deps = {}) {
     const effectiveAge =
       computedAge !== null
         ? computedAge
-        : Math.max(0, Math.min(18, Number.isFinite(Number(input.age)) ? Number(input.age) : 4));
+        : Math.max(0, Math.min(120, Number.isFinite(Number(input.age)) ? Number(input.age) : 4));
 
     /** @type {import('../types/models.js').ChildProfile} */
     const profile = {
@@ -362,7 +364,7 @@ export function createAppStore(storage, deps = {}) {
       computedAge !== null
         ? computedAge
         : patch.age !== undefined
-          ? Math.max(0, Math.min(18, Number(patch.age) || 0))
+          ? Math.max(0, Math.min(120, Number(patch.age) || 0))
           : existing.age;
 
     /** @type {import('../types/models.js').ChildProfile} */
@@ -729,11 +731,11 @@ export function createAppStore(storage, deps = {}) {
     const nextStage = patch.readingStage || existing.readingStage;
     const nextAgeMin =
       patch.ageMin !== undefined
-        ? Math.max(0, Math.min(16, Math.trunc(Number(patch.ageMin) || 0)))
+        ? Math.max(0, Math.min(120, Math.trunc(Number(patch.ageMin) || 0)))
         : existing.ageMin;
     const nextAgeMax =
       patch.ageMax !== undefined
-        ? Math.max(nextAgeMin, Math.min(18, Math.trunc(Number(patch.ageMax) || nextAgeMin)))
+        ? Math.max(nextAgeMin, Math.min(120, Math.trunc(Number(patch.ageMax) || nextAgeMin)))
         : Math.max(nextAgeMin, existing.ageMax);
 
     const nextTags =
@@ -2112,6 +2114,7 @@ export function createAppStore(storage, deps = {}) {
    * @param {{
    *   title?: string,
    *   objective?: string,
+   *   status?: 'active' | 'saved',
    *   count?: number,
    *   preferredTags?: string[],
    *   cooldownDays?: number,
@@ -2189,6 +2192,7 @@ export function createAppStore(storage, deps = {}) {
       throw new Error('No eligible books matched those rotation rules.');
     }
 
+    const targetStatus = input.status === 'saved' ? 'saved' : 'active';
     const newRotId = createId('rot');
     /** @type {import('../types/models.js').RotationList} */
     const newRotation = {
@@ -2200,26 +2204,32 @@ export function createAppStore(storage, deps = {}) {
       completedBookIds: [],
       pickedBookIds: [],
       placedBookIds: [],
-      status: 'active',
+      status: targetStatus,
       createdAt: now,
       updatedAt: now,
-      activatedAt: now,
+      ...(targetStatus === 'active' ? { activatedAt: now } : {}),
       slotAddedAt: syncRotationSlotAddedAt(undefined, engineOut.selectedBookIds, now, {
         resetAll: true,
       }),
     };
 
-    const updatedExisting = state.rotations.map((r) =>
-      r.profileId === profile.id && r.status === 'active'
-        ? { ...r, status: /** @type {const} */ ('saved') }
-        : r
-    );
+    const updatedExisting =
+      targetStatus === 'active'
+        ? state.rotations.map((r) =>
+            r.profileId === profile.id && r.status === 'active'
+              ? { ...r, status: /** @type {const} */ ('saved') }
+              : r
+          )
+        : state.rotations;
 
-    const updatedBooks = recordBooksRotated(state.books, engineOut.selectedBookIds, {
-      rotatedAt: now,
-      rotationId: newRotId,
-      profileId: profile.id,
-    });
+    const updatedBooks =
+      targetStatus === 'active'
+        ? recordBooksRotated(state.books, engineOut.selectedBookIds, {
+            rotatedAt: now,
+            rotationId: newRotId,
+            profileId: profile.id,
+          })
+        : state.books;
 
     await commit({
       ...state,
@@ -2231,7 +2241,8 @@ export function createAppStore(storage, deps = {}) {
       engineOut.relaxedCooldownCount > 0
         ? ` (${engineOut.relaxedCooldownCount} included from cooldown due to small catalog)`
         : '';
-    notify(`Generated "${newRotation.title}" for ${profile.name}${cooldownNote}.`, 'success');
+    const savedHint = targetStatus === 'saved' ? ' as Saved shelf' : '';
+    notify(`Generated "${newRotation.title}"${savedHint} for ${profile.name}${cooldownNote}.`, 'success');
     return newRotation;
   }
 
@@ -2605,6 +2616,7 @@ export function createAppStore(storage, deps = {}) {
    *   title?: string,
    *   description?: string,
    *   objective?: string,
+   *   status?: 'active' | 'saved',
    *   count?: number,
    *   swapDays?: number,
    *   cooldownDays?: number,
@@ -2678,6 +2690,9 @@ export function createAppStore(storage, deps = {}) {
       patch.seed !== undefined ? String(patch.seed || '').trim() : existing.rules.seed || '';
     const nextSeed = rawSeed || undefined;
 
+    const nextStatus =
+      patch.status === 'active' || patch.status === 'saved' ? patch.status : existing.status;
+
     /** @type {import('../types/models.js').RotationRuleConfig} */
     const nextRules = {
       count: nextCount,
@@ -2692,6 +2707,7 @@ export function createAppStore(storage, deps = {}) {
 
     const rulesUnchanged =
       existing.title === nextTitle &&
+      existing.status === nextStatus &&
       existing.rules.count === nextRules.count &&
       (existing.rules.objective || '') === nextRules.objective &&
       JSON.stringify(existing.rules.preferredTags || []) ===
@@ -2707,17 +2723,38 @@ export function createAppStore(storage, deps = {}) {
     }
 
     const now = new Date().toISOString();
+    const activatingNow = nextStatus === 'active' && existing.status !== 'active';
+
     /** @type {import('../types/models.js').RotationList} */
     const updatedRotation = {
       ...existing,
       title: nextTitle,
+      status: nextStatus,
       rules: nextRules,
       updatedAt: now,
+      ...(activatingNow ? { activatedAt: now } : {}),
     };
+
+    const nextRotations = state.rotations.map((r) => {
+      if (r.id === rotationId) return updatedRotation;
+      if (activatingNow && r.profileId === existing.profileId && r.status === 'active') {
+        return { ...r, status: /** @type {const} */ ('saved') };
+      }
+      return r;
+    });
+
+    const nextBooks = activatingNow
+      ? recordBooksRotated(state.books, existing.bookIds, {
+          rotatedAt: now,
+          rotationId: existing.id,
+          profileId: existing.profileId,
+        })
+      : state.books;
 
     await commit({
       ...state,
-      rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
+      books: nextBooks,
+      rotations: nextRotations,
     });
     if (!options.silent) {
       notify(`Updated "${updatedRotation.title}".`, 'success');
@@ -2845,12 +2882,26 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
+   * Toggles whether a preset is Active (participates in notifications) or Paused.
+   * @param {string} presetId
+   */
+  async function togglePresetActive(presetId) {
+    const all = getAllRotationPresets(state);
+    const target = all.find((p) => p.id === presetId);
+    if (!target) {
+      throw new Error('Collection preset not found.');
+    }
+    const nextIsActive = target.isActive === false;
+    return updateRotationPreset(presetId, { isActive: nextIsActive });
+  }
+
+  /**
    * Generates a curated rotation shelf from any built-in or custom `RotationPreset` using the
    * user's library books and the preset's title, description, topic preferences, book count,
    * swap cycle, cooldown, binding preference, and deterministic seed.
    *
    * @param {string} presetId
-   * @param {{ profileId?: string }} [options]
+   * @param {{ profileId?: string, status?: 'active' | 'saved' }} [options]
    */
   async function generateRotationFromPreset(presetId, options = {}) {
     const allPresets = getAllRotationPresets(state);
@@ -2862,6 +2913,7 @@ export function createAppStore(storage, deps = {}) {
     return generateRotation({
       title: preset.title,
       objective: preset.description,
+      status: options.status,
       count: preset.count,
       preferredTags: preset.preferredTags,
       cooldownDays: preset.cooldownDays,
@@ -2871,6 +2923,186 @@ export function createAppStore(storage, deps = {}) {
       seed: preset.seed,
       profileId: options.profileId,
     });
+  }
+
+  /**
+   * Scans active presets within `presetAlertDaysBefore` / `presetAlertDaysAfter` and active shelf Swap Day
+   * reminders, appending persistent unread `AppNotification` records without duplicating existing `alertKey`s.
+   *
+   * @param {Date | string | number} [referenceDate]
+   */
+  async function syncNotifications(referenceDate = new Date()) {
+    const activeProfile =
+      state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0] || null;
+    if (!activeProfile) return state.notifications || [];
+
+    const activeRotation =
+      state.rotations.find((r) => r.profileId === activeProfile.id && r.status === 'active') || null;
+    const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
+
+    const existingList = Array.isArray(state.notifications) ? state.notifications : [];
+    const byAlertKey = new Map(
+      existingList.filter((n) => n.alertKey).map((n) => [n.alertKey, n])
+    );
+
+    const nowIso = new Date().toISOString();
+    let changed = false;
+    /** @type {import('../types/models.js').AppNotification[]} */
+    const added = [];
+    /** @type {Map<string, Partial<import('../types/models.js').AppNotification>>} */
+    const patchById = new Map();
+
+    // 1. Seasonal / Tradition Preset Reminders (skipping paused presets via findMatchingStartDatePresets)
+    const allPresets = getAllRotationPresets(state);
+    const presetMatches = findMatchingStartDatePresets(allPresets, referenceDate, {
+      activeRotation,
+      profileRotations,
+      daysBefore: state.settings.presetAlertDaysBefore ?? 2,
+      daysAfter: state.settings.presetAlertDaysAfter ?? 5,
+    });
+
+    for (const { preset, schedule } of presetMatches) {
+      if (!schedule.alertKey) continue;
+      const scopedAlertKey = `${schedule.alertKey}::${activeProfile.id}`;
+      const signed = schedule.signedDaysFromStart || 0;
+      const daysRemaining = signed < 0 ? Math.abs(signed) : 0;
+      const timingHeadline =
+        signed < 0
+          ? `Available in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} (${schedule.formattedDateLabel})`
+          : signed === 0
+            ? `Suggested today (${schedule.formattedDateLabel})`
+            : `Suggested ${signed} ${signed === 1 ? 'day' : 'days'} ago (${schedule.formattedDateLabel})`;
+
+      const title = `${preset.title} · ${timingHeadline}`;
+      const message = `${preset.description} (${preset.count} books · ${preset.swapDays}d cycle for ${activeProfile.name})`;
+
+      const existing = byAlertKey.get(scopedAlertKey);
+      if (!existing) {
+        added.push({
+          id: createId('notif'),
+          kind: 'preset-upcoming',
+          title,
+          message,
+          alertKey: scopedAlertKey,
+          presetId: preset.id,
+          profileId: activeProfile.id,
+          daysRemaining,
+          createdAt: nowIso,
+        });
+        changed = true;
+      } else if (
+        !existing.dismissed &&
+        (existing.title !== title || existing.daysRemaining !== daysRemaining)
+      ) {
+        patchById.set(existing.id, { title, message, daysRemaining });
+        changed = true;
+      }
+    }
+
+    // 2. Active Shelf Swap Day Reminder
+    if (activeRotation) {
+      const swapSched = computeRotationSchedule(activeRotation, activeProfile, referenceDate);
+      if (swapSched.isDue) {
+        const swapKey = `swap::${swapSched.reminderKey}`;
+        const timing =
+          swapSched.daysOverdue > 0
+            ? `${swapSched.daysOverdue}d overdue (${swapSched.dueDateLabel})`
+            : `due today (${swapSched.dueDateLabel})`;
+        const title = `Swap Day ${timing}: ${activeRotation.title}`;
+        const message = `${activeProfile.name}’s ${swapSched.cycleDays}-day shelf cycle is ready for a fresh rotation.`;
+
+        const existing = byAlertKey.get(swapKey);
+        if (!existing) {
+          added.push({
+            id: createId('notif'),
+            kind: 'swap-due',
+            title,
+            message,
+            alertKey: swapKey,
+            rotationId: activeRotation.id,
+            profileId: activeProfile.id,
+            daysRemaining: 0,
+            createdAt: nowIso,
+          });
+          changed = true;
+        } else if (!existing.dismissed && existing.title !== title) {
+          patchById.set(existing.id, { title, message });
+          changed = true;
+        }
+      }
+    }
+
+    if (!changed) return existingList;
+
+    const updatedExisting = existingList.map((n) =>
+      patchById.has(n.id) ? { ...n, ...patchById.get(n.id) } : n
+    );
+    const nextList = [...added, ...updatedExisting].slice(0, 80);
+    await commit({
+      ...state,
+      notifications: nextList,
+    });
+    return nextList;
+  }
+
+  /**
+   * Marks a single notification as read in persistent history.
+   * @param {string} notificationId
+   */
+  async function markNotificationRead(notificationId) {
+    const existingList = Array.isArray(state.notifications) ? state.notifications : [];
+    const target = existingList.find((n) => n.id === notificationId);
+    if (!target || target.readAt) return;
+    const nowIso = new Date().toISOString();
+    await commit({
+      ...state,
+      notifications: existingList.map((n) =>
+        n.id === notificationId ? { ...n, readAt: nowIso } : n
+      ),
+    });
+  }
+
+  /**
+   * Marks all notifications in history as read.
+   */
+  async function markAllNotificationsRead() {
+    const existingList = Array.isArray(state.notifications) ? state.notifications : [];
+    if (!existingList.some((n) => !n.readAt)) return;
+    const nowIso = new Date().toISOString();
+    await commit({
+      ...state,
+      notifications: existingList.map((n) => (n.readAt ? n : { ...n, readAt: nowIso })),
+    });
+  }
+
+  /**
+   * Dismisses an active notification alert (marking it read & dismissed while keeping it in history).
+   * @param {string} notificationId
+   */
+  async function dismissNotificationAlert(notificationId) {
+    const existingList = Array.isArray(state.notifications) ? state.notifications : [];
+    const target = existingList.find((n) => n.id === notificationId);
+    if (!target || target.dismissed) return;
+    const nowIso = new Date().toISOString();
+    await commit({
+      ...state,
+      notifications: existingList.map((n) =>
+        n.id === notificationId ? { ...n, dismissed: true, readAt: n.readAt || nowIso } : n
+      ),
+    });
+  }
+
+  /**
+   * Clears all notification history entries.
+   */
+  async function clearNotificationHistory() {
+    const existingList = Array.isArray(state.notifications) ? state.notifications : [];
+    if (existingList.length === 0) return;
+    await commit({
+      ...state,
+      notifications: [],
+    });
+    notify('Cleared notification history.', 'info');
   }
 
   /**
@@ -3371,9 +3603,15 @@ export function createAppStore(storage, deps = {}) {
     updateRotationDetails,
     addRotationPreset,
     updateRotationPreset,
+    togglePresetActive,
     resetBuiltInPreset,
     deleteRotationPreset,
     generateRotationFromPreset,
+    syncNotifications,
+    markNotificationRead,
+    markAllNotificationsRead,
+    dismissNotificationAlert,
+    clearNotificationHistory,
     updateSettings,
     setHouseholdName,
     updateOnboarding,

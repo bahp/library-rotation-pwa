@@ -388,35 +388,26 @@ export const HomeView: React.FC = () => {
               >
                 {activeRotation.title}
               </h1>
-              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs sm:text-[13px] pt-0.5">
-                {activeSchedule && (
-                  <span
-                    data-rotation-schedule="active"
-                    className={`inline-flex items-center gap-1.5 ${
-                      activeSchedule.isDue
-                        ? 'font-semibold text-amber-800 dark:text-amber-300'
-                        : activeSchedule.isDueSoon
-                          ? 'font-semibold text-forest-700 dark:text-[#5ED3DA]'
-                          : 'text-stone-ink dark:text-slate-300 font-medium'
-                    }`}
-                  >
-                    <Icon name="calendar" className="w-3.5 h-3.5 opacity-75" />
-                    <span>{activeSchedule.activeScheduleLine}</span>
-                  </span>
-                )}
-                {activeRotation.rules?.objective && (
-                  <>
-                    {activeSchedule && (
-                      <span aria-hidden="true" className="text-stone-ink/35">
-                        ·
-                      </span>
-                    )}
-                    <span className="text-stone-ink dark:text-slate-400 line-clamp-1">
-                      {activeRotation.rules.objective}
-                    </span>
-                  </>
-                )}
-              </div>
+              {activeRotation.rules?.objective && (
+                <p className="text-sm text-stone-ink dark:text-slate-300 leading-relaxed line-clamp-2 max-w-2xl">
+                  {activeRotation.rules.objective}
+                </p>
+              )}
+              {activeSchedule && (
+                <p
+                  data-rotation-schedule="active"
+                  className={`flex items-center gap-1.5 text-xs sm:text-[13px] pt-0.5 ${
+                    activeSchedule.isDue
+                      ? 'font-semibold text-amber-800 dark:text-amber-300'
+                      : activeSchedule.isDueSoon
+                        ? 'font-semibold text-forest-700 dark:text-[#5ED3DA]'
+                        : 'text-stone-ink dark:text-slate-400 font-medium'
+                  }`}
+                >
+                  <Icon name="calendar" className="w-3.5 h-3.5 shrink-0 opacity-75" />
+                  <span>{activeSchedule.activeScheduleLine}</span>
+                </p>
+              )}
             </div>
 
             {/* Elevated Circular Progress Ring Widget */}

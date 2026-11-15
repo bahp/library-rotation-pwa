@@ -417,3 +417,111 @@ async function executeOpenAiCompatibleQuery(
     };
   }
 }
+
+export interface LlmImagePayload {
+  prompt: string;
+  apiKey?: string;
+  model?: string;
+  aspectRatio?: '1:1' | '3:4' | '4:3' | '16:9';
+}
+
+export interface LlmImageResult {
+  ok: boolean;
+  dataUrl?: string;
+  modelUsed?: string;
+  providerUsed?: string;
+  status?: number;
+  error?: string;
+  message?: string;
+}
+
+/**
+ * Generates a subtle corner watercolor spot illustration using Gemini Image Generation (`@google/genai`).
+ */
+export async function generateImageWithGemini(payload: LlmImagePayload): Promise<LlmImageResult> {
+  const prompt = String(payload?.prompt || '').trim();
+  if (!prompt) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'INVALID_PROMPT',
+      message: 'An illustration prompt is required.',
+    };
+  }
+
+  const customKey = (payload.apiKey || '').trim();
+  const apiKey = customKey || process.env.GEMINI_API_KEY || '';
+  if (!apiKey) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'MISSING_API_KEY',
+      message:
+        'No Gemini API key found. Configure GEMINI_API_KEY on the server or enter a personal Gemini key in Settings > AI Assistant.',
+    };
+  }
+
+  const model = payload.model?.trim() || 'gemini-3.1-flash-lite-image';
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      apiVersion: 'v1beta',
+      timeout: 35000,
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  try {
+    const response = await ai.models.generateContent({
+      model,
+      contents: {
+        parts: [{ text: prompt }],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: payload.aspectRatio || '1:1',
+        },
+      },
+    });
+
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        const mimeType = part.inlineData.mimeType || 'image/png';
+        return {
+          ok: true,
+          dataUrl: `data:${mimeType};base64,${part.inlineData.data}`,
+          modelUsed: model,
+          providerUsed: customKey ? 'byok-gemini' : 'server-gemini',
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      status: 500,
+      error: 'NO_IMAGE_RETURNED',
+      message: 'Gemini image model did not return image data. Please try adjusting the prompt.',
+    };
+  } catch (err: unknown) {
+    const errorObj = err as { status?: number; message?: string };
+    const errMsg = String(errorObj?.message || err);
+    if (errorObj?.status === 429 || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
+      return {
+        ok: false,
+        status: 429,
+        error: 'RESOURCE_EXHAUSTED',
+        message: 'Gemini image quota exceeded. Please wait a minute before trying again.',
+      };
+    }
+    return {
+      ok: false,
+      status: errorObj?.status || 500,
+      error: 'GEMINI_IMAGE_ERROR',
+      message: errMsg || 'Failed to generate illustration.',
+    };
+  }
+}
+

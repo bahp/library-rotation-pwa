@@ -336,7 +336,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         </div>
 
         {state.books.length > 0 && (
-          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="mt-3 flex items-center gap-3 overflow-x-auto pb-1">
             {state.books.slice(0, 10).map((b) => (
               <button
                 key={b.id}
@@ -717,6 +717,9 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 <option value="picture-book">Picture Book (Ages 3–6)</option>
                 <option value="early-reader">Early Reader (Ages 5–8)</option>
                 <option value="chapter-book">Chapter Book (Ages 7–12)</option>
+                <option value="middle-grade">Middle Grade (Ages 9–12)</option>
+                <option value="teen-ya">Teen / YA (Ages 13–17)</option>
+                <option value="adult">Adult Reader (Ages 18+)</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -727,7 +730,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 <input
                   type="number"
                   min={0}
-                  max={14}
+                  max={120}
                   value={manualAgeMin}
                   onChange={(e) => setManualAgeMin(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
@@ -740,7 +743,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 <input
                   type="number"
                   min={1}
-                  max={18}
+                  max={120}
                   value={manualAgeMax}
                   onChange={(e) => setManualAgeMax(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
@@ -756,7 +759,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 value={manualTags}
                 onChange={(e) => setManualTags(e.target.value)}
                 placeholder="bedtime, animals, seasons"
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
+                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500"
               />
             </div>
           </div>

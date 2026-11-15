@@ -166,7 +166,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
       {/* Name */}
       <div>
         <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
-          Child Name
+          Reader Name
         </label>
         <input
           type="text"
@@ -174,7 +174,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Maya, Lucas, Leo"
-          className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700 text-forest-900 dark:text-white"
+          className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
         />
       </div>
 
@@ -218,6 +218,9 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
             <option value="picture-book">Picture Book (Ages 3–6)</option>
             <option value="early-reader">Early Reader (Ages 5–8)</option>
             <option value="chapter-book">Chapter Book (Ages 7–12)</option>
+            <option value="middle-grade">Middle Grade (Ages 9–12)</option>
+            <option value="teen-ya">Teen / YA (Ages 13–17)</option>
+            <option value="adult">Adult Reader (Ages 18+)</option>
           </select>
         </div>
       </div>
@@ -292,7 +295,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
               }
             }}
             placeholder="Add custom interest (e.g. ocean, cooking)…"
-            className="flex-1 px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-forest-700"
+            className="flex-1 px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-forest-700"
           />
           <button
             type="button"
@@ -360,7 +363,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
                 id="profile-form-title"
                 className="font-display text-lg font-bold text-forest-900 dark:text-white truncate"
               >
-                {existingProfile ? `Edit ${existingProfile.name}’s Profile` : 'Add Child Reader'}
+                {existingProfile ? `Edit ${existingProfile.name}’s Profile` : 'Add Reader Profile'}
               </h2>
               {isGuidedSteps && (
                 <p className="text-[11px] font-medium text-stone-ink dark:text-slate-400">

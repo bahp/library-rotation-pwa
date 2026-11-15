@@ -48,6 +48,9 @@ export interface AppContextType {
   setIsWelcomeModalOpen: (open: boolean) => void;
   isFilterDrawerOpen: boolean;
   setIsFilterDrawerOpen: (open: boolean) => void;
+  isNotificationCenterOpen: boolean;
+  setIsNotificationCenterOpen: (open: boolean) => void;
+  unreadNotificationCount: number;
 
   // AI Modals
   aiTagModal: { isOpen: boolean; bookId: string | null };
@@ -91,6 +94,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
   // AI modals
   const [aiTagModal, setAiTagModal] = useState<{ isOpen: boolean; bookId: string | null }>({
@@ -168,6 +172,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  useEffect(() => {
+    if (!isReady) return;
+    void store.syncNotifications();
+  }, [
+    isReady,
+    appState.activeProfileId,
+    appState.rotations.length,
+    appState.customPresets?.length,
+    appState.presetOverrides?.length,
+    appState.settings?.presetAlertDaysBefore,
+    appState.settings?.presetAlertDaysAfter,
+  ]);
+
   const navigate = useCallback((route: RouteId, query?: Record<string, string>) => {
     router.navigate(route, query);
   }, []);
@@ -218,6 +235,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [appState.settings.language]
   );
 
+  const unreadNotificationCount = useMemo(() => {
+    const list = Array.isArray(appState.notifications) ? appState.notifications : [];
+    return list.filter((n) => !n.readAt && !n.dismissed).length;
+  }, [appState.notifications]);
+
   const contextValue: AppContextType = {
     state: appState,
     store,
@@ -249,6 +271,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsWelcomeModalOpen,
     isFilterDrawerOpen,
     setIsFilterDrawerOpen,
+    isNotificationCenterOpen,
+    setIsNotificationCenterOpen,
+    unreadNotificationCount,
     aiTagModal,
     setAiTagModal,
     aiCuratorModal,

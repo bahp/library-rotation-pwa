@@ -189,7 +189,7 @@
         // 2. Apply saved or system color theme AND exact top-bar theme-color before first paint (zero FOUC / status-bar seam)
         var isDark = false;
         try {
-          var saved = localStorage.getItem('lr_theme_pref') || 'system';
+          var saved = localStorage.getItem('lr_theme_pref') || 'light';
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           isDark = saved === 'dark' || (saved === 'system' && prefersDark);
           if (isDark) {

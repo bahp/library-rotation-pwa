@@ -222,6 +222,9 @@ export function createDeterministicPresetSeed(title) {
  *   seed?: string,
  *   suggestedStartMonthDay?: string,
  *   motif?: string,
+ *   isActive?: boolean,
+ *   illustrationUrl?: string,
+ *   illustrationPrompt?: string,
  *   createdAt?: string
  * }} input
  * @param {{ isCustom?: boolean, isBuiltInOverride?: boolean }} [flags]
@@ -280,6 +283,23 @@ export function normalizeRotationPresetInput(input, flags = {}) {
   const rawSeed = String(input?.seed || '').trim();
   const seed = rawSeed || createDeterministicPresetSeed(title);
   const rawMotif = typeof input?.motif === 'string' ? input.motif.trim() : '';
+  const isActive = input?.isActive !== false;
+
+  const rawIllustrationUrl =
+    typeof input?.illustrationUrl === 'string' ? input.illustrationUrl.trim() : '';
+  const safeIllustrationUrl =
+    rawIllustrationUrl &&
+    (rawIllustrationUrl.startsWith('https://') ||
+      rawIllustrationUrl.startsWith('http://') ||
+      rawIllustrationUrl.startsWith('data:image/') ||
+      rawIllustrationUrl.startsWith('/'))
+      ? rawIllustrationUrl.slice(0, 600_000)
+      : '';
+
+  const rawIllustrationPrompt =
+    typeof input?.illustrationPrompt === 'string'
+      ? input.illustrationPrompt.trim().slice(0, 600)
+      : '';
 
   const isCustom = flags.isCustom !== undefined ? Boolean(flags.isCustom) : true;
   const isBuiltInOverride = Boolean(flags.isBuiltInOverride);
@@ -296,8 +316,11 @@ export function normalizeRotationPresetInput(input, flags = {}) {
     requiredFormat,
     varietyMix: input?.varietyMix !== false,
     seed,
+    isActive,
     ...(monthDayCheck.monthDay ? { suggestedStartMonthDay: monthDayCheck.monthDay } : {}),
     ...(rawMotif ? { motif: rawMotif } : {}),
+    ...(safeIllustrationUrl ? { illustrationUrl: safeIllustrationUrl } : {}),
+    ...(rawIllustrationPrompt ? { illustrationPrompt: rawIllustrationPrompt } : {}),
     isCustom,
     ...(isBuiltInOverride ? { isBuiltInOverride: true } : {}),
     createdAt: input?.createdAt || new Date().toISOString(),
@@ -321,6 +344,7 @@ export function getAllRotationPresets(state) {
     if (!override) {
       return {
         ...basePreset,
+        isActive: basePreset.isActive !== false,
         isCustom: false,
         isBuiltInOverride: false,
       };
@@ -329,13 +353,16 @@ export function getAllRotationPresets(state) {
       ...basePreset,
       ...override,
       id: basePreset.id,
+      isActive: override.isActive !== false,
       isCustom: false,
       isBuiltInOverride: true,
       suggestedStartMonthDay: override.suggestedStartMonthDay,
     };
   });
 
-  const custom = Array.isArray(state?.customPresets) ? state.customPresets : [];
+  const custom = Array.isArray(state?.customPresets)
+    ? state.customPresets.map((p) => ({ ...p, isActive: p.isActive !== false }))
+    : [];
   return [...builtIns, ...custom];
 }
 
@@ -495,6 +522,7 @@ export function findMatchingStartDatePresets(presets, referenceDate = new Date()
   const matches = [];
 
   for (const preset of presets) {
+    if (preset?.isActive === false) continue;
     const parsed = normalizeMonthDay(preset?.suggestedStartMonthDay);
     if (!parsed.valid || !parsed.monthDay || !parsed.month || !parsed.day) continue;
 

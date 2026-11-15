@@ -25,6 +25,10 @@ import { createStorageAdapter, migrateState } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import { createSeedState } from '../src/data/seed.js';
 import { isBookPickedInRotation, isBookReadInRotation } from '../src/types/models.js';
+import {
+  findMatchingStartDatePresets,
+  getAllRotationPresets,
+} from '../src/features/rotations/rotation-presets.js';
 
 describe('Rotation Engine & Shelf Management Suite', () => {
   it('seeded PRNG produces 100% repeatable selections regardless of catalog order', () => {
@@ -301,5 +305,102 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     );
     assert.equal(replaced.placedBookIds?.includes(firstId), false);
     assert.equal(replaced.pickedBookIds?.includes(firstId), false);
+  });
+
+  it('supports creating/editing rotations as saved vs active, pausing presets, and notification lifecycle', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const initialActive = store
+      .getState()
+      .rotations.find((r) => r.profileId === store.getState().activeProfileId && r.status === 'active');
+    assert.ok(initialActive);
+
+    // 1. Generate rotation directly in saved state without displacing current active shelf
+    const savedShelf = await store.generateRotation({
+      title: 'Saved Spring Draft',
+      status: 'saved',
+      count: 3,
+      cooldownDays: 0,
+    });
+    assert.equal(savedShelf.status, 'saved');
+    const stillActive = store.getState().rotations.find((r) => r.id === initialActive.id);
+    assert.equal(stillActive?.status, 'active');
+
+    // Promote saved shelf to active via updateRotationDetails
+    await store.updateRotationDetails(savedShelf.id, { status: 'active' });
+    assert.equal(
+      store.getState().rotations.find((r) => r.id === savedShelf.id)?.status,
+      'active'
+    );
+    assert.equal(
+      store.getState().rotations.find((r) => r.id === initialActive.id)?.status,
+      'saved'
+    );
+
+    // 2. Preset isActive toggle, illustration fields & schedule matching
+    const customPreset = await store.addRotationPreset({
+      title: 'December Reading Spark',
+      description: 'Festive winter read-alouds',
+      category: 'seasonal-holidays',
+      preferredTags: ['winter'],
+      suggestedStartMonthDay: '12-10',
+      count: 4,
+      swapDays: 14,
+      cooldownDays: 14,
+      varietyMix: true,
+      isActive: true,
+      illustrationUrl: 'data:image/png;base64,iVBORw0KGgo=',
+      illustrationPrompt: 'Watercolor pine branch in top right corner',
+    });
+    assert.equal(customPreset.isActive, true);
+    assert.equal(customPreset.illustrationUrl, 'data:image/png;base64,iVBORw0KGgo=');
+    assert.equal(customPreset.illustrationPrompt, 'Watercolor pine branch in top right corner');
+
+    const refDate = new Date(2026, 11, 8, 12, 0, 0); // Dec 8 -> 2 days before Dec 10
+    let matches = findMatchingStartDatePresets(getAllRotationPresets(store.getState()), refDate, {
+      daysBefore: 3,
+      daysAfter: 5,
+    });
+    assert.ok(matches.some((m) => m.preset.id === customPreset.id));
+
+    // Pause preset -> excluded from matching alerts
+    await store.togglePresetActive(customPreset.id);
+    matches = findMatchingStartDatePresets(getAllRotationPresets(store.getState()), refDate, {
+      daysBefore: 3,
+      daysAfter: 5,
+    });
+    assert.equal(matches.some((m) => m.preset.id === customPreset.id), false);
+
+    // Resume preset -> included again & notification sync generates persistent reminder
+    await store.togglePresetActive(customPreset.id);
+    const synced = await store.syncNotifications(refDate);
+    const presetNotif = synced.find((n) => n.presetId === customPreset.id);
+    assert.ok(presetNotif);
+    assert.equal(presetNotif.daysRemaining, 2);
+    assert.ok(presetNotif.title.includes('Available in 2 days'));
+
+    // Re-syncing does not duplicate the notification
+    const resynced = await store.syncNotifications(refDate);
+    assert.equal(
+      resynced.filter((n) => n.presetId === customPreset.id).length,
+      1
+    );
+
+    // Mark read, dismiss to history, and clear history
+    await store.markNotificationRead(presetNotif.id);
+    assert.ok(
+      (store.getState().notifications || []).find((n) => n.id === presetNotif.id)?.readAt
+    );
+
+    await store.dismissNotificationAlert(presetNotif.id);
+    assert.equal(
+      (store.getState().notifications || []).find((n) => n.id === presetNotif.id)?.dismissed,
+      true
+    );
+
+    await store.clearNotificationHistory();
+    assert.equal((store.getState().notifications || []).length, 0);
   });
 });

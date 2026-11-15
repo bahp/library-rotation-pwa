@@ -12,6 +12,7 @@ import {
   AVATAR_TONES,
   normalizeLanguage,
 } from '../../config/index.js';
+import { DEFAULT_PRESET_ILLUSTRATION_PROMPT } from '../../config/defaults.js';
 import {
   formatProfileAgeLabel,
   formatReadingStage,
@@ -310,10 +311,34 @@ export const SettingsView: React.FC = () => {
     await store.updateSettings({ dynamicCoverTint: state.settings.dynamicCoverTint === false });
   };
 
+  const [presetPromptDraft, setPresetPromptDraft] = useState(
+    state.settings.presetIllustrationPromptTemplate || DEFAULT_PRESET_ILLUSTRATION_PROMPT
+  );
+  useEffect(() => {
+    setPresetPromptDraft(
+      state.settings.presetIllustrationPromptTemplate || DEFAULT_PRESET_ILLUSTRATION_PROMPT
+    );
+  }, [state.settings.presetIllustrationPromptTemplate]);
+
   const handleTogglePresetDecorations = async () => {
     await store.updateSettings({
       showPresetDecorations: state.settings.showPresetDecorations === false,
     });
+  };
+
+  const handleSavePresetPrompt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = presetPromptDraft.trim() || DEFAULT_PRESET_ILLUSTRATION_PROMPT;
+    await store.updateSettings({ presetIllustrationPromptTemplate: trimmed });
+    store.notify('Saved preset illustration prompt template.', 'success');
+  };
+
+  const handleResetPresetPrompt = async () => {
+    setPresetPromptDraft(DEFAULT_PRESET_ILLUSTRATION_PROMPT);
+    await store.updateSettings({
+      presetIllustrationPromptTemplate: DEFAULT_PRESET_ILLUSTRATION_PROMPT,
+    });
+    store.notify('Restored default preset illustration prompt.', 'info');
   };
 
   // Presets & freshness handlers
@@ -883,8 +908,8 @@ export const SettingsView: React.FC = () => {
                   </p>
                   <div className="mt-2.5 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
                     {[
-                      { id: 'system' as const, label: t('settings.themeSystem') },
                       { id: 'light' as const, label: t('settings.themeLight') },
+                      { id: 'system' as const, label: t('settings.themeSystem') },
                       { id: 'dark' as const, label: t('settings.themeDark') },
                     ].map((item) => {
                       const active = state.settings.theme === item.id;
@@ -961,25 +986,73 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 {/* Corner Decorations Switch */}
-                <div className="pt-4 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p
-                      id="label-corner-decorations"
-                      className="text-sm font-semibold text-forest-900 dark:text-white"
-                    >
-                      {t('settings.cornerDecorationsLabel')}
-                    </p>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                      {t('settings.cornerDecorationsHint')}
-                    </p>
+                <div className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p
+                        id="label-corner-decorations"
+                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                      >
+                        Preset Corner Illustrations
+                      </p>
+                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                        Show soft watercolor corner artwork on rotation preset cards, or fall back to
+                        clean vector icons when off.
+                      </p>
+                    </div>
+                    <ToggleSwitch
+                      checked={state.settings.showPresetDecorations !== false}
+                      onChange={handleTogglePresetDecorations}
+                      ariaLabelledBy="label-corner-decorations"
+                      onLabel={t('common.on')}
+                      offLabel={t('common.off')}
+                    />
                   </div>
-                  <ToggleSwitch
-                    checked={state.settings.showPresetDecorations !== false}
-                    onChange={handleTogglePresetDecorations}
-                    ariaLabelledBy="label-corner-decorations"
-                    onLabel={t('common.on')}
-                    offLabel={t('common.off')}
-                  />
+
+                  {/* Reusable AI Preset Illustration Prompt Template */}
+                  <form
+                    onSubmit={handleSavePresetPrompt}
+                    className="rounded-xl bg-linen-50/85 dark:bg-night-950/75 border border-linen-200 dark:border-night-800 p-3.5 space-y-2.5"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <label
+                        htmlFor="setting-preset-prompt-template"
+                        className="text-xs font-bold uppercase tracking-wider text-forest-900 dark:text-slate-200"
+                      >
+                        Preset Illustration AI Prompt Template
+                      </label>
+                      <span className="text-[10px] font-mono-tabular text-stone-ink dark:text-slate-400">
+                        Reusable style guide
+                      </span>
+                    </div>
+                    <textarea
+                      id="setting-preset-prompt-template"
+                      rows={3}
+                      value={presetPromptDraft}
+                      onChange={(e) => setPresetPromptDraft(e.target.value)}
+                      placeholder={DEFAULT_PRESET_ILLUSTRATION_PROMPT}
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500 leading-relaxed focus:outline-2 focus:outline-forest-700"
+                    />
+                    <p className="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
+                      Prefilled automatically when creating or customizing preset corner art, or passed to
+                      Gemini when generating illustrations.
+                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={handleResetPresetPrompt}
+                        className="min-h-[38px] px-3 py-1.5 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800 text-xs font-semibold text-stone-ink dark:text-slate-300 cursor-pointer"
+                      >
+                        Reset Default Prompt
+                      </button>
+                      <button
+                        type="submit"
+                        className="min-h-[38px] px-4 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-bold cursor-pointer"
+                      >
+                        Save Prompt Template
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </section>
 
@@ -3056,9 +3129,14 @@ export const SettingsView: React.FC = () => {
               ? 'Developer & Testing Tools unlocked'
               : 'Tap 5 times to unlock Development & Testing Tools'
           }
-          className="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white text-left sm:text-right cursor-pointer"
+          className="min-h-[44px] inline-flex items-center px-2.5 py-1.5 -mx-2.5 sm:mx-0 rounded-xl text-xs font-mono-tabular text-stone-ink dark:text-slate-300 hover:text-forest-900 hover:bg-linen-100/70 dark:hover:text-white dark:hover:bg-night-800/70 text-left sm:text-right cursor-pointer transition-colors"
         >
-          v{APP_VERSION} · {storageUsage.formatted}
+          <span>
+            v{APP_VERSION} · {storageUsage.formatted}
+            {!isDevToolsVisible && versionTapCount > 0
+              ? ` · Tap ${5 - versionTapCount} more`
+              : ''}
+          </span>
         </button>
       </div>
 

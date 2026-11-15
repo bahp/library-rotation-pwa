@@ -7,6 +7,7 @@ import { Icon } from '../common/Icon.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import { formatProfileAgeLabel, isBookRotatable } from '../../types/models.js';
 import type { BookFormat } from '../../types/models.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
 export const RotationsView: React.FC = () => {
   const {
@@ -33,11 +34,15 @@ export const RotationsView: React.FC = () => {
 
   const showMiniWizards = state.settings?.showMiniWizards !== false;
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 640
+  );
   const [wizardMode, setWizardMode] = useState<boolean>(showMiniWizards);
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
 
   const [title, setTitle] = useState('');
   const [objective, setObjective] = useState('');
+  const [targetStatus, setTargetStatus] = useState<'active' | 'saved'>('active');
   const [bookCount, setBookCount] = useState(activeProfile?.defaultRotationSize || 5);
   const [swapDays, setSwapDays] = useState(14);
   const [format, setFormat] = useState<BookFormat | 'any'>('any');
@@ -46,6 +51,14 @@ export const RotationsView: React.FC = () => {
   const [varietyMix, setVarietyMix] = useState(true);
   const [seed, setSeed] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    const onResize = () => setIsMobileViewport(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useBodyScrollLock(isGeneratorOpen && isMobileViewport);
 
   const savedRotations = state.rotations.filter(
     (r) => r.profileId === activeProfile?.id && r.status !== 'active'
@@ -95,6 +108,7 @@ export const RotationsView: React.FC = () => {
   const openGenerator = () => {
     setWizardMode(state.settings?.showMiniWizards !== false);
     setWizardStep(1);
+    setTargetStatus('active');
     setIsGeneratorOpen((prev) => !prev);
   };
 
@@ -112,6 +126,7 @@ export const RotationsView: React.FC = () => {
       await store.generateRotation({
         title: title.trim() || `${activeProfile.name}’s Shelf Rotation`,
         objective: objective.trim() || undefined,
+        status: targetStatus,
         count: Number(bookCount),
         swapDays: Number(swapDays),
         requiredFormat: format,
@@ -123,6 +138,7 @@ export const RotationsView: React.FC = () => {
 
       setIsGeneratorOpen(false);
       setWizardStep(1);
+      setTargetStatus('active');
       setTitle('');
       setObjective('');
       setPreferredTags('');
@@ -197,9 +213,9 @@ export const RotationsView: React.FC = () => {
               role="tab"
               aria-selected={!isPresetsTab}
               onClick={() => navigate('rotations')}
-              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                 !isPresetsTab
-                  ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                  ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
                   : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
               }`}
             >
@@ -210,9 +226,9 @@ export const RotationsView: React.FC = () => {
               role="tab"
               aria-selected={isPresetsTab}
               onClick={() => navigate('presets')}
-              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                 isPresetsTab
-                  ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                  ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
                   : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
               }`}
             >
@@ -225,7 +241,7 @@ export const RotationsView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setAiCuratorModal({ isOpen: true })}
-                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-[#5ED3DA] font-semibold text-xs inline-flex items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap"
+                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-white hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-[#5ED3DA] font-semibold text-xs inline-flex items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
               >
                 <Icon name="sparkles" className="w-3.5 h-3.5 text-forest-700 dark:text-[#5ED3DA]" />
                 <span>AI Curator</span>
@@ -234,7 +250,7 @@ export const RotationsView: React.FC = () => {
               <button
                 type="button"
                 onClick={openGenerator}
-                className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap"
+                className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
               >
                 <Icon name={isGeneratorOpen ? 'close' : 'plus'} className="w-4 h-4" />
                 <span>{isGeneratorOpen ? 'Close' : 'New Shelf'}</span>
@@ -248,130 +264,376 @@ export const RotationsView: React.FC = () => {
         <PresetsView embedded />
       ) : (
         <>
-          {/* New Shelf Generator: Guided Mini-Wizard (default) OR Full Form */}
+          {/* New Shelf Generator: Slide-up Bottom Sheet on Mobile (< sm), Inline Card on Tablet/Desktop */}
           {isGeneratorOpen && (
-            <div className="p-4 sm:p-5 rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-md space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-linen-200/80 dark:border-night-800 pb-3">
-                <div>
-                  <h2 className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
-                    {wizardMode
-                      ? `Create Shelf · Step ${wizardStep} of 3`
-                      : 'Generate Shelf Rotation'}
-                  </h2>
-                  <p className="text-xs text-stone-ink dark:text-slate-400">
-                    Reader: <strong>{activeProfile?.name || 'Reader'}</strong> ·{' '}
-                    {rotatableLibraryCount} rotatable books available
-                  </p>
+            <div
+              role={isMobileViewport ? 'dialog' : undefined}
+              aria-modal={isMobileViewport ? 'true' : undefined}
+              aria-labelledby="new-shelf-generator-title"
+              onClick={() => {
+                if (isMobileViewport) setIsGeneratorOpen(false);
+              }}
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end justify-center p-0 overflow-hidden sm:static sm:inset-auto sm:z-auto sm:bg-transparent sm:backdrop-blur-none sm:block"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="animate-sheet-up sm:animate-none w-full max-h-[90dvh] sm:max-h-none flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl sm:shadow-md overflow-hidden pb-safe sm:pb-0"
+              >
+                <div
+                  className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden"
+                  aria-hidden="true"
+                />
+                <div className="px-4 sm:px-5 py-3.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2 shrink-0">
+                  <div className="min-w-0">
+                    <h2
+                      id="new-shelf-generator-title"
+                      className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white truncate"
+                    >
+                      {wizardMode
+                        ? `Create Shelf · Step ${wizardStep} of 3`
+                        : 'Generate Shelf Rotation'}
+                    </h2>
+                    <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
+                      Reader: <strong>{activeProfile?.name || 'Reader'}</strong> ·{' '}
+                      {rotatableLibraryCount} rotatable books available
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setWizardMode((prev) => !prev)}
+                      className="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline whitespace-nowrap cursor-pointer"
+                    >
+                      {wizardMode ? 'Full Form' : 'Guided Wizard'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsGeneratorOpen(false)}
+                      aria-label="Close new shelf panel"
+                      className="min-h-[44px] min-w-[44px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center sm:hidden cursor-pointer"
+                    >
+                      <Icon name="close" className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setWizardMode((prev) => !prev)}
-                  className="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline"
-                >
-                  {wizardMode ? 'Switch to Full Form' : 'Use Guided Wizard'}
-                </button>
-              </div>
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+                  {wizardMode ? (
+                    <div className="space-y-4">
+                      {/* Step 1: Theme & Focus */}
+                      {wizardStep === 1 && (
+                        <div className="space-y-3.5 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                                Shelf Title
+                              </label>
+                              <input
+                                type="text"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder={`e.g. ${activeProfile?.name || 'Reader'}’s Cozy Bedtime Shelf`}
+                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                                Objective / Mood (Optional)
+                              </label>
+                              <ClearableInput
+                                value={objective}
+                                onValueChange={setObjective}
+                                placeholder="e.g. hardcover + bedtime & winter stories"
+                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                              />
+                            </div>
+                          </div>
 
-              {wizardMode ? (
-                <div className="space-y-4">
-                  {/* Step 1: Theme & Focus */}
-                  {wizardStep === 1 && (
-                    <div className="space-y-3.5 text-xs">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {topLibraryTags.length > 0 && (
+                            <div>
+                              <p className="font-bold text-forest-900 dark:text-slate-200 mb-1.5">
+                                Pick Topics from Your Library
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {topLibraryTags.map((tag) => {
+                                  const active = selectedTagList.includes(tag);
+                                  return (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      onClick={() => toggleSuggestedTag(tag)}
+                                      aria-pressed={active}
+                                      className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                                        active
+                                          ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                                          : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
+                                      }`}
+                                    >
+                                      #{tag}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
+                              Or Enter Custom Topics (comma-separated)
+                            </label>
+                            <input
+                              type="text"
+                              value={preferredTags}
+                              onChange={(e) => setPreferredTags(e.target.value)}
+                              placeholder="animals, space, seasons"
+                              className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setIsGeneratorOpen(false)}
+                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-xl text-xs font-semibold text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setWizardStep(2)}
+                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Next: Rules &amp; Pacing</span>
+                              <Icon name="chevronRight" className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 2: Rules & Pacing */}
+                      {wizardStep === 2 && (
+                        <div className="space-y-3.5 text-xs">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div>
+                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                                Books on Shelf
+                              </label>
+                              <input
+                                type="number"
+                                min={2}
+                                max={20}
+                                value={bookCount}
+                                onChange={(e) => setBookCount(Number(e.target.value))}
+                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular text-forest-900 dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                                Swap Cycle (Days)
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                max={90}
+                                value={swapDays}
+                                onChange={(e) => setSwapDays(Number(e.target.value))}
+                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular text-forest-900 dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                                Cooldown (Days)
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                max={90}
+                                value={cooldownDays}
+                                onChange={(e) => setCooldownDays(Number(e.target.value))}
+                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular text-forest-900 dark:text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                                Binding Format
+                              </label>
+                              <select
+                                value={format}
+                                onChange={(e) => setFormat(e.target.value as any)}
+                                className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                              >
+                                <option value="any">Any Format</option>
+                                <option value="hardcover">Hardcover Only</option>
+                                <option value="board-book">Board Book Only</option>
+                                <option value="paperback">Paperback Only</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                            <div>
+                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                                Deterministic Seed (Optional)
+                              </label>
+                              <input
+                                type="text"
+                                value={seed}
+                                onChange={(e) => setSeed(e.target.value)}
+                                placeholder="Repeatable PRNG seed string"
+                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                              />
+                            </div>
+                            <div className="pt-2 sm:pt-4">
+                              <label className="inline-flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={varietyMix}
+                                  onChange={(e) => setVarietyMix(e.target.checked)}
+                                  className="w-4 h-4 rounded accent-[#1F6E75]"
+                                />
+                                <span className="font-semibold text-forest-900 dark:text-slate-200">
+                                  Enforce author &amp; topic variety mix
+                                </span>
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setWizardStep(1)}
+                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 cursor-pointer"
+                            >
+                              ← Back
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setWizardStep(3)}
+                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Review &amp; Generate</span>
+                              <Icon name="chevronRight" className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 3: Review & Generate */}
+                      {wizardStep === 3 && (
+                        <div className="space-y-4 text-xs">
+                          <div className="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 space-y-1.5">
+                            <p className="text-sm font-bold text-forest-900 dark:text-white">
+                              {title.trim() || `${activeProfile?.name || 'Reader'}’s Shelf Rotation`}
+                            </p>
+                            {objective.trim() && (
+                              <p className="text-stone-ink dark:text-slate-300">{objective.trim()}</p>
+                            )}
+                            <p className="font-mono-tabular text-stone-ink dark:text-slate-400">
+                              {bookCount} books · {swapDays}d cycle · {cooldownDays}d cooldown ·{' '}
+                              {format === 'any' ? 'Any format' : format}
+                            </p>
+                            {selectedTagList.length > 0 && (
+                              <p className="text-forest-700 dark:text-[#5ED3DA]">
+                                Topics: {selectedTagList.map((t) => `#${t}`).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="font-bold text-forest-900 dark:text-slate-200 mb-1.5">
+                              Create as Active or Saved Shelf
+                            </p>
+                            <div
+                              role="radiogroup"
+                              aria-label="New shelf initial state"
+                              className="grid grid-cols-2 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-800"
+                            >
+                              <button
+                                type="button"
+                                role="radio"
+                                aria-checked={targetStatus === 'active'}
+                                onClick={() => setTargetStatus('active')}
+                                className={`min-h-[38px] rounded-lg font-bold transition-colors cursor-pointer ${
+                                  targetStatus === 'active'
+                                    ? 'bg-emerald-600 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
+                                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                                }`}
+                              >
+                                Active Shelf Now
+                              </button>
+                              <button
+                                type="button"
+                                role="radio"
+                                aria-checked={targetStatus === 'saved'}
+                                onClick={() => setTargetStatus('saved')}
+                                className={`min-h-[38px] rounded-lg font-bold transition-colors cursor-pointer ${
+                                  targetStatus === 'saved'
+                                    ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                                }`}
+                              >
+                                Saved (Inactive)
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => setWizardStep(2)}
+                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-slate-200 cursor-pointer"
+                            >
+                              ← Back
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isGenerating}
+                              onClick={() => handleGenerate()}
+                              className="min-h-[44px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs cursor-pointer"
+                            >
+                              {isGenerating
+                                ? 'Generating Shelf…'
+                                : targetStatus === 'active'
+                                  ? 'Generate & Activate Shelf'
+                                  : 'Generate & Save Shelf'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* Full Classic Power-User Form */
+                    <form onSubmit={handleGenerate} className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div>
-                          <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
                             Shelf Title
                           </label>
                           <input
                             type="text"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
-                            placeholder={`e.g. ${activeProfile?.name || 'Reader'}’s Cozy Bedtime Shelf`}
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
+                            placeholder={`e.g. ${activeProfile?.name || 'Reader'}’s Winter Shelf`}
+                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                           />
                         </div>
+
                         <div>
-                          <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
-                            Objective / Mood (Optional)
+                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                            Objective / Natural Language Rules
                           </label>
                           <ClearableInput
                             value={objective}
                             onValueChange={setObjective}
                             placeholder="e.g. hardcover + bedtime & winter stories"
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
+                            className="h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                           />
                         </div>
-                      </div>
 
-                      {topLibraryTags.length > 0 && (
                         <div>
-                          <p className="font-bold text-forest-900 dark:text-slate-200 mb-1.5">
-                            Pick Topics from Your Library
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {topLibraryTags.map((tag) => {
-                              const active = selectedTagList.includes(tag);
-                              return (
-                                <button
-                                  key={tag}
-                                  type="button"
-                                  onClick={() => toggleSuggestedTag(tag)}
-                                  aria-pressed={active}
-                                  className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors ${
-                                    active
-                                      ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
-                                  }`}
-                                >
-                                  #{tag}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block font-semibold text-stone-ink dark:text-slate-400 mb-1">
-                          Or Enter Custom Topics (comma-separated)
-                        </label>
-                        <input
-                          type="text"
-                          value={preferredTags}
-                          onChange={(e) => setPreferredTags(e.target.value)}
-                          placeholder="animals, space, seasons"
-                          className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setIsGeneratorOpen(false)}
-                          className="min-h-[40px] px-4 py-1.5 rounded-xl text-xs font-semibold text-stone-ink hover:bg-linen-100 dark:text-slate-400 dark:hover:bg-night-800"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setWizardStep(2)}
-                          className="min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-bold inline-flex items-center gap-1"
-                        >
-                          <span>Next: Rules &amp; Pacing</span>
-                          <Icon name="chevronRight" className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step 2: Rules & Pacing */}
-                  {wizardStep === 2 && (
-                    <div className="space-y-3.5 text-xs">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                            Books on Shelf
+                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                            Number of Books
                           </label>
                           <input
                             type="number"
@@ -379,55 +641,70 @@ export const RotationsView: React.FC = () => {
                             max={20}
                             value={bookCount}
                             onChange={(e) => setBookCount(Number(e.target.value))}
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular"
+                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
                           />
                         </div>
+
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                            Swap Cycle (Days)
-                          </label>
-                          <input
-                            type="number"
-                            min={1}
-                            max={90}
-                            value={swapDays}
-                            onChange={(e) => setSwapDays(Number(e.target.value))}
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular"
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                            Cooldown (Days)
-                          </label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={90}
-                            value={cooldownDays}
-                            onChange={(e) => setCooldownDays(Number(e.target.value))}
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular"
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                            Binding Format
+                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                            Binding Format Filter
                           </label>
                           <select
                             value={format}
                             onChange={(e) => setFormat(e.target.value as any)}
-                            className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold"
+                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
                           >
-                            <option value="any">Any Format</option>
+                            <option value="any">Any Binding Format</option>
                             <option value="hardcover">Hardcover Only</option>
                             <option value="board-book">Board Book Only</option>
                             <option value="paperback">Paperback Only</option>
                           </select>
                         </div>
-                      </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                            Preferred Topics (comma-separated)
+                          </label>
+                          <input
+                            type="text"
+                            value={preferredTags}
+                            onChange={(e) => setPreferredTags(e.target.value)}
+                            placeholder="e.g. animals, bedtime, space"
+                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <div>
+                            <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                              Swap Cycle (d)
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={90}
+                              value={swapDays}
+                              onChange={(e) => setSwapDays(Number(e.target.value))}
+                              className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                              Cooldown (d)
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              max={90}
+                              value={cooldownDays}
+                              onChange={(e) => setCooldownDays(Number(e.target.value))}
+                              className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
                             Deterministic Seed (Optional)
                           </label>
                           <input
@@ -435,10 +712,49 @@ export const RotationsView: React.FC = () => {
                             value={seed}
                             onChange={(e) => setSeed(e.target.value)}
                             placeholder="Repeatable PRNG seed string"
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-mono"
+                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                           />
                         </div>
-                        <div className="pt-4">
+
+                        <div>
+                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                            Initial Shelf State
+                          </label>
+                          <div
+                            role="radiogroup"
+                            aria-label="New shelf initial state"
+                            className="grid grid-cols-2 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 h-11"
+                          >
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={targetStatus === 'active'}
+                              onClick={() => setTargetStatus('active')}
+                              className={`rounded-lg font-bold transition-colors cursor-pointer ${
+                                targetStatus === 'active'
+                                  ? 'bg-emerald-600 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
+                                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                              }`}
+                            >
+                              Active Shelf
+                            </button>
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={targetStatus === 'saved'}
+                              onClick={() => setTargetStatus('saved')}
+                              className={`rounded-lg font-bold transition-colors cursor-pointer ${
+                                targetStatus === 'saved'
+                                  ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                              }`}
+                            >
+                              Saved (Inactive)
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="sm:col-span-2 pt-1">
                           <label className="inline-flex items-center gap-2 cursor-pointer">
                             <input
                               type="checkbox"
@@ -453,214 +769,30 @@ export const RotationsView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between pt-1">
+                      <div className="pt-2 flex justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => setWizardStep(1)}
-                          className="min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-slate-200"
+                          onClick={() => setIsGeneratorOpen(false)}
+                          className="min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl text-stone-ink dark:text-slate-300 hover:bg-linen-100 dark:hover:bg-night-800 text-xs font-semibold cursor-pointer"
                         >
-                          ← Back
+                          Cancel
                         </button>
                         <button
-                          type="button"
-                          onClick={() => setWizardStep(3)}
-                          className="min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-bold inline-flex items-center gap-1"
-                        >
-                          <span>Review &amp; Generate</span>
-                          <Icon name="chevronRight" className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Step 3: Review & Generate */}
-                  {wizardStep === 3 && (
-                    <div className="space-y-4 text-xs">
-                      <div className="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 space-y-1.5">
-                        <p className="text-sm font-bold text-forest-900 dark:text-white">
-                          {title.trim() || `${activeProfile?.name || 'Reader'}’s Shelf Rotation`}
-                        </p>
-                        {objective.trim() && (
-                          <p className="text-stone-ink dark:text-slate-300">{objective.trim()}</p>
-                        )}
-                        <p className="font-mono-tabular text-stone-ink dark:text-slate-400">
-                          {bookCount} books · {swapDays}d cycle · {cooldownDays}d cooldown ·{' '}
-                          {format === 'any' ? 'Any format' : format}
-                        </p>
-                        {selectedTagList.length > 0 && (
-                          <p className="text-forest-700 dark:text-[#5ED3DA]">
-                            Topics: {selectedTagList.map((t) => `#${t}`).join(' · ')}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <button
-                          type="button"
-                          onClick={() => setWizardStep(2)}
-                          className="min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-slate-200"
-                        >
-                          ← Back
-                        </button>
-                        <button
-                          type="button"
+                          type="submit"
                           disabled={isGenerating}
-                          onClick={() => handleGenerate()}
-                          className="min-h-[42px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-xs shadow-xs"
+                          className="min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs cursor-pointer"
                         >
-                          {isGenerating ? 'Generating Shelf…' : 'Generate & Activate Shelf'}
+                          {isGenerating
+                            ? 'Generating Shelf…'
+                            : targetStatus === 'active'
+                              ? 'Generate & Activate Shelf'
+                              : 'Generate & Save Shelf'}
                         </button>
                       </div>
-                    </div>
+                    </form>
                   )}
                 </div>
-              ) : (
-                /* Full Classic Power-User Form */
-                <form onSubmit={handleGenerate} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                        Shelf Title
-                      </label>
-                      <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        placeholder={`e.g. ${activeProfile?.name || 'Reader'}’s Winter Shelf`}
-                        className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                        Objective / Natural Language Rules
-                      </label>
-                      <ClearableInput
-                        value={objective}
-                        onValueChange={setObjective}
-                        placeholder="e.g. hardcover + bedtime & winter stories"
-                        className="h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                        Number of Books
-                      </label>
-                      <input
-                        type="number"
-                        min={2}
-                        max={20}
-                        value={bookCount}
-                        onChange={(e) => setBookCount(Number(e.target.value))}
-                        className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                        Binding Format Filter
-                      </label>
-                      <select
-                        value={format}
-                        onChange={(e) => setFormat(e.target.value as any)}
-                        className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold"
-                      >
-                        <option value="any">Any Binding Format</option>
-                        <option value="hardcover">Hardcover Only</option>
-                        <option value="board-book">Board Book Only</option>
-                        <option value="paperback">Paperback Only</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                        Preferred Topics (comma-separated)
-                      </label>
-                      <input
-                        type="text"
-                        value={preferredTags}
-                        onChange={(e) => setPreferredTags(e.target.value)}
-                        placeholder="e.g. animals, bedtime, space"
-                        className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                          Swap Cycle (d)
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={90}
-                          value={swapDays}
-                          onChange={(e) => setSwapDays(Number(e.target.value))}
-                          className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                          Cooldown (d)
-                        </label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={90}
-                          value={cooldownDays}
-                          onChange={(e) => setCooldownDays(Number(e.target.value))}
-                          className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                        Deterministic Seed (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={seed}
-                        onChange={(e) => setSeed(e.target.value)}
-                        placeholder="Repeatable PRNG seed string"
-                        className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-mono"
-                      />
-                    </div>
-
-                    <div className="flex items-center pt-5">
-                      <label className="inline-flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={varietyMix}
-                          onChange={(e) => setVarietyMix(e.target.checked)}
-                          className="w-4 h-4 rounded accent-[#1F6E75]"
-                        />
-                        <span className="font-semibold text-stone-700 dark:text-slate-300">
-                          Enforce author &amp; topic variety mix
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsGeneratorOpen(false)}
-                      className="min-h-[40px] px-4 py-2 rounded-xl text-stone-600 dark:text-slate-400 hover:bg-linen-100 text-xs font-semibold"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isGenerating}
-                      className="min-h-[40px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-xs shadow-xs"
-                    >
-                      {isGenerating ? 'Generating Shelf…' : 'Generate & Activate Shelf'}
-                    </button>
-                  </div>
-                </form>
-              )}
+              </div>
             </div>
           )}
 
@@ -695,7 +827,7 @@ export const RotationsView: React.FC = () => {
               })}
             </div>
           ) : (
-            <div className="p-8 text-center rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 space-y-3">
+            <div className="p-8 text-center rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 space-y-3">
               <p className="text-sm font-semibold text-forest-900 dark:text-white">
                 No shelf rotations yet for {activeProfile?.name || 'this reader'}.
               </p>
@@ -706,14 +838,14 @@ export const RotationsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={openGenerator}
-                  className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-xs"
+                  className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs cursor-pointer"
                 >
                   New Shelf
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('presets')}
-                  className="min-h-[42px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-forest-900 dark:text-white font-semibold text-xs"
+                  className="min-h-[42px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-forest-900 dark:text-white font-semibold text-xs cursor-pointer"
                 >
                   Browse Presets
                 </button>

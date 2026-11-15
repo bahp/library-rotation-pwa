@@ -266,7 +266,7 @@ export function createSeedState() {
     books,
     rotations,
     settings: {
-      theme: 'system',
+      theme: 'light',
       coverAspectRatio: 'square',
       dynamicCoverTint: true,
       retainRawProviderPayloads: false,

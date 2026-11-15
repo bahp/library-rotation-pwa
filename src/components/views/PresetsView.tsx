@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { PresetCard } from '../cards/PresetCard.js';
 import { Icon } from '../common/Icon.js';
@@ -12,6 +12,12 @@ import {
   normalizeMonthDay,
 } from '../../features/rotations/rotation-presets.js';
 import { PRESET_MOTIF_OPTIONS, resolvePresetMotifKey } from '../../ui/preset-motifs.js';
+import { PRESET_ARTWORK_LIBRARY, resolvePresetArtworkUrl } from '../../ui/preset-artwork.js';
+import {
+  checkServerLlmStatus,
+  generatePresetIllustrationImage,
+} from '../../features/llm/llm-client.js';
+import { DEFAULT_PRESET_ILLUSTRATION_PROMPT } from '../../config/defaults.js';
 import type { BookFormat, PresetCategory, RotationPreset } from '../../types/models.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 
@@ -27,6 +33,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [serverKeyConfigured, setServerKeyConfigured] = useState(false);
 
   // Custom / Built-in override Preset Form Sheet
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -40,13 +47,52 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
   const [formCooldownDays, setFormCooldownDays] = useState(21);
   const [formFormat, setFormFormat] = useState<BookFormat | 'any'>('any');
   const [formVarietyMix, setFormVarietyMix] = useState(true);
+  const [formIsActive, setFormIsActive] = useState(true);
   const [formMonth, setFormMonth] = useState('');
   const [formDay, setFormDay] = useState('');
   const [formMotif, setFormMotif] = useState('sparkles');
+  const [formIllustrationUrl, setFormIllustrationUrl] = useState('');
+  const [formIllustrationPrompt, setFormIllustrationPrompt] = useState('');
   const [formSeed, setFormSeed] = useState('');
   const [formError, setFormError] = useState('');
+  const [isGeneratingArt, setIsGeneratingArt] = useState(false);
+  const [artError, setArtError] = useState('');
+  const artFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useBodyScrollLock(isFormOpen);
+
+  useEffect(() => {
+    let mounted = true;
+    checkServerLlmStatus()
+      .then((res) => {
+        if (mounted) {
+          setServerKeyConfigured(Boolean(res?.serverKeyConfigured));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const hasLlmKey = useMemo(() => {
+    const provider = state.settings?.llmProvider || 'server-gemini';
+    if (provider === 'cloudflare-worker') {
+      return Boolean(state.settings?.llmCloudflareUrl?.trim());
+    }
+    if (provider === 'byok-openai') {
+      return Boolean(state.settings?.llmApiKey?.trim());
+    }
+    return Boolean(state.settings?.llmApiKey?.trim()) || serverKeyConfigured;
+  }, [
+    serverKeyConfigured,
+    state.settings?.llmApiKey,
+    state.settings?.llmCloudflareUrl,
+    state.settings?.llmProvider,
+  ]);
+
+  const defaultPromptTemplate =
+    state.settings?.presetIllustrationPromptTemplate?.trim() || DEFAULT_PRESET_ILLUSTRATION_PROMPT;
 
   const allPresets = useMemo(() => getAllRotationPresets(state), [state]);
   const showDecorations = state.settings?.showPresetDecorations !== false;
@@ -75,7 +121,14 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
       daysAfter: state.settings?.presetAlertDaysAfter ?? 5,
     });
     return new Set(matches.map((m) => m.preset.id));
-  }, [allPresets, activeProfile, state.rotations, activeRotation, state.settings?.presetAlertDaysBefore, state.settings?.presetAlertDaysAfter]);
+  }, [
+    allPresets,
+    activeProfile,
+    state.rotations,
+    activeRotation,
+    state.settings?.presetAlertDaysBefore,
+    state.settings?.presetAlertDaysAfter,
+  ]);
 
   const filteredPresets = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -83,11 +136,14 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
     return allPresets.filter((preset) => {
       if (selectedCategory === 'upcoming' && !upcomingMatchIds.has(preset.id)) {
         return false;
+      } else if (selectedCategory === 'paused' && preset.isActive !== false) {
+        return false;
       } else if (selectedCategory === 'custom' && !preset.isCustom && !preset.isBuiltInOverride) {
         return false;
       } else if (
         selectedCategory !== 'all' &&
         selectedCategory !== 'upcoming' &&
+        selectedCategory !== 'paused' &&
         selectedCategory !== 'custom' &&
         preset.category !== selectedCategory
       ) {
@@ -131,11 +187,15 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
     setFormCooldownDays(21);
     setFormFormat('any');
     setFormVarietyMix(true);
+    setFormIsActive(true);
     setFormMonth('');
     setFormDay('');
     setFormMotif('sparkles');
+    setFormIllustrationUrl('');
+    setFormIllustrationPrompt(defaultPromptTemplate);
     setFormSeed('');
     setFormError('');
+    setArtError('');
     setIsFormOpen(true);
   };
 
@@ -151,6 +211,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
     setFormCooldownDays(preset.cooldownDays ?? 21);
     setFormFormat(preset.requiredFormat || 'any');
     setFormVarietyMix(preset.varietyMix !== false);
+    setFormIsActive(preset.isActive !== false);
     setFormMonth(parsedMd.valid && parsedMd.month ? String(parsedMd.month).padStart(2, '0') : '');
     setFormDay(parsedMd.valid && parsedMd.day ? String(parsedMd.day) : '');
     setFormMotif(
@@ -161,9 +222,65 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
         preferredTags: preset.preferredTags,
       })
     );
+    setFormIllustrationUrl(preset.illustrationUrl || '');
+    setFormIllustrationPrompt(preset.illustrationPrompt || defaultPromptTemplate);
     setFormSeed(asClone ? '' : preset.seed || '');
     setFormError('');
+    setArtError('');
     setIsFormOpen(true);
+  };
+
+  const handleIllustrationUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setArtError('');
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 512;
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          setFormIllustrationUrl(String(reader.result || ''));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        setFormIllustrationUrl(canvas.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => setArtError('Could not read selected image file.');
+      img.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleGenerateAiIllustration = async () => {
+    setArtError('');
+    if (!formTitle.trim()) {
+      setArtError('Enter a collection title first so AI can tailor the corner illustration.');
+      return;
+    }
+    setIsGeneratingArt(true);
+    try {
+      const result = await generatePresetIllustrationImage({
+        title: formTitle.trim(),
+        description: formDescription.trim(),
+        promptTemplate: formIllustrationPrompt.trim() || defaultPromptTemplate,
+        settings: state.settings,
+      });
+      setFormIllustrationUrl(result.dataUrl);
+      store.notify('Generated corner illustration!', 'success');
+    } catch (err) {
+      setArtError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsGeneratingArt(false);
+    }
   };
 
   const handleSavePresetForm = async (e: React.FormEvent) => {
@@ -182,15 +299,18 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
         category: formCategory,
         preferredTags: formTags
           .split(',')
-          .map((t) => t.trim())
+          .map((tag) => tag.trim())
           .filter(Boolean),
         count: Number(formCount),
         swapDays: Number(formSwapDays),
         cooldownDays: Number(formCooldownDays),
         requiredFormat: formFormat,
         varietyMix: formVarietyMix,
+        isActive: formIsActive,
         suggestedStartMonthDay: mdRes.monthDay,
         motif: formMotif,
+        illustrationUrl: formIllustrationUrl.trim() || undefined,
+        illustrationPrompt: formIllustrationPrompt.trim() || undefined,
         seed: formSeed.trim() || undefined,
       };
 
@@ -205,6 +325,26 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
     }
   };
 
+  const previewArtworkUrl = useMemo(
+    () =>
+      resolvePresetArtworkUrl({
+        illustrationUrl: formIllustrationUrl.trim() || undefined,
+        motif: formMotif,
+        category: formCategory,
+        title: formTitle,
+        preferredTags: formTags
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      }),
+    [formIllustrationUrl, formMotif, formCategory, formTitle, formTags]
+  );
+
+  const pausedCount = useMemo(
+    () => allPresets.filter((p) => p.isActive === false).length,
+    [allPresets]
+  );
+
   const categoryChoices = [
     { id: 'all', label: 'All Collections' },
     ...(upcomingMatchIds.size > 0
@@ -215,6 +355,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
     { id: 'calendar-events', label: t('presetCategories.calendarEvents') },
     { id: 'evergreen', label: t('presetCategories.evergreen') },
     { id: 'custom', label: 'Custom & Edited' },
+    ...(pausedCount > 0 ? [{ id: 'paused', label: `Paused (${pausedCount})` }] : []),
   ];
 
   return (
@@ -225,7 +366,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
             <button
               type="button"
               onClick={() => navigate('rotations')}
-              className="text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white inline-flex items-center gap-1 mb-1.5"
+              className="text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white inline-flex items-center gap-1 mb-1.5 cursor-pointer"
             >
               <span>← Back to Shelves</span>
             </button>
@@ -239,7 +380,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
           <button
             type="button"
             onClick={openNewPresetForm}
-            className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors"
+            className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 dark:hover:bg-[#4bc2c9] text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
           >
             <Icon name="plus" className="w-4 h-4" />
             <span>New Preset</span>
@@ -248,7 +389,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
       )}
 
       {/* Search + Category + New Preset Toolbar */}
-      <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-4 sm:p-5 space-y-3">
+      <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-4 sm:p-5 space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
           <div className="relative flex-1 min-w-0">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-ink dark:text-slate-400">
@@ -259,7 +400,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
               value={searchQuery}
               onValueChange={setSearchQuery}
               placeholder="Search presets by theme, tag, or objective…"
-              className="w-full h-11 pl-9 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+              className="w-full h-11 pl-9 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400 focus:outline-2 focus:outline-forest-700"
             />
           </div>
 
@@ -280,7 +421,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
             <button
               type="button"
               onClick={openNewPresetForm}
-              className="min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0"
+              className="min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 dark:hover:bg-[#4bc2c9] text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Icon name="plus" className="w-4 h-4" />
               <span>New Preset</span>
@@ -294,7 +435,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
             type="button"
             onClick={() => setSelectedMonth(null)}
             aria-pressed={selectedMonth === null}
-            className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-colors ${
+            className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
               selectedMonth === null
                 ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
                 : 'bg-linen-100/80 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-ink dark:text-slate-300'
@@ -313,15 +454,19 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                 type="button"
                 onClick={() => setSelectedMonth(active ? null : monthNum)}
                 aria-pressed={active}
-                title={count > 0 ? `${PRESET_MONTH_NAMES[idx]} (${count} seasonal presets)` : PRESET_MONTH_NAMES[idx]}
-                className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-colors inline-flex items-center gap-1 ${
+                title={
+                  count > 0
+                    ? `${PRESET_MONTH_NAMES[idx]} (${count} seasonal presets)`
+                    : PRESET_MONTH_NAMES[idx]
+                }
+                className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-colors inline-flex items-center gap-1 cursor-pointer ${
                   active
                     ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
                     : isNow
-                      ? 'bg-forest-50 border border-forest-700/35 text-forest-900 dark:bg-forest-950/60 dark:border-[#5ED3DA]/40 dark:text-[#5ED3DA]'
+                      ? 'bg-forest-50 border border-forest-700/35 text-forest-900 dark:bg-night-800 dark:border-[#5ED3DA]/45 dark:text-[#5ED3DA]'
                       : count > 0
                         ? 'bg-linen-100/80 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
-                        : 'bg-transparent hover:bg-linen-100/70 dark:hover:bg-night-800 text-stone-ink/60 dark:text-slate-500'
+                        : 'bg-transparent hover:bg-linen-100/70 dark:hover:bg-night-800 text-stone-ink/60 dark:text-slate-400'
                 }`}
               >
                 <span>{label}</span>
@@ -346,6 +491,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
               showCornerDecoration={showDecorations}
               isUpcomingAlert={upcomingMatchIds.has(preset.id)}
               onApply={handleApplyPreset}
+              onToggleActive={(p) => store.togglePresetActive(p.id)}
               onEdit={(p) => openEditPresetForm(p, false)}
               onClone={(p) => openEditPresetForm(p, true)}
               onResetDefault={(p) => store.resetBuiltInPreset(p.id)}
@@ -354,7 +500,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-8 text-center space-y-2.5">
+        <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-8 text-center space-y-2.5">
           <p className="text-sm font-semibold text-forest-900 dark:text-white">
             No collection presets match those filters
           </p>
@@ -365,7 +511,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
               setSelectedMonth(null);
               setSearchQuery('');
             }}
-            className="min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white"
+            className="min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
           >
             Reset Filters
           </button>
@@ -378,14 +524,17 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
           role="dialog"
           aria-modal="true"
           aria-labelledby="preset-form-sheet-title"
-          className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+          className="sheet-backdrop fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
           onClick={() => setIsFormOpen(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-up w-full max-w-xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
+            className="animate-sheet-up w-full max-w-xl max-h-[92vh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
           >
-            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
+            <div
+              className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden"
+              aria-hidden="true"
+            />
             <div className="px-5 py-4 border-b border-linen-200 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
               <div>
                 <h2
@@ -395,20 +544,23 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                   {editingPresetId ? 'Edit Collection Preset' : 'New Collection Preset'}
                 </h2>
                 <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                  Save reusable rules, deterministic seed, corner motif, and optional annual start date.
+                  Save reusable rules, active reminder status, corner art, and seasonal schedule.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsFormOpen(false)}
                 aria-label="Close preset form"
-                className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center active:scale-95 transition-all"
+                className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center active:scale-95 transition-all cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSavePresetForm} className="flex-1 overflow-y-auto p-5 space-y-3.5 text-xs">
+            <form
+              onSubmit={handleSavePresetForm}
+              className="flex-1 overflow-y-auto p-5 space-y-4 text-xs"
+            >
               {formError && (
                 <p
                   role="alert"
@@ -418,18 +570,58 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                 </p>
               )}
 
-              <div>
-                <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
-                  Collection Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  placeholder="e.g. Lunar New Year & Lanterns"
-                  className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                    Collection Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    placeholder="e.g. Lunar New Year & Lanterns"
+                    className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                    Preset Status
+                  </label>
+                  <div
+                    role="radiogroup"
+                    aria-label="Preset alert active status"
+                    className="grid grid-cols-2 p-0.5 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 h-11"
+                  >
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={formIsActive}
+                      onClick={() => setFormIsActive(true)}
+                      className={`rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                        formIsActive
+                          ? 'bg-emerald-600 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
+                          : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Active
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!formIsActive}
+                      onClick={() => setFormIsActive(false)}
+                      className={`rounded-lg text-[11px] font-bold transition-colors cursor-pointer ${
+                        !formIsActive
+                          ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
+                          : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Paused
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -442,7 +634,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Books celebrating lanterns, family feasts, and new beginnings."
-                  className="w-full px-3.5 py-2 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white"
+                  className="w-full px-3.5 py-2 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                 />
               </div>
 
@@ -454,7 +646,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                   <select
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value as PresetCategory)}
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
                   >
                     <option value="seasonal-holidays">{t('presetCategories.seasonalHolidays')}</option>
                     <option value="cultural-traditions">{t('presetCategories.culturalTraditions')}</option>
@@ -465,12 +657,12 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
 
                 <div>
                   <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
-                    Corner Motif
+                    Fallback Motif
                   </label>
                   <select
                     value={formMotif}
                     onChange={(e) => setFormMotif(e.target.value)}
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold"
+                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
                   >
                     {PRESET_MOTIF_OPTIONS.map((m) => (
                       <option key={m.id} value={m.id}>
@@ -490,13 +682,13 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                   value={formTags}
                   onChange={(e) => setFormTags(e.target.value)}
                   placeholder="winter, bedtime, snow, lanterns"
-                  className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700"
+                  className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                 />
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div>
-                  <label className="block font-semibold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
                     Books
                   </label>
                   <input
@@ -505,11 +697,11 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                     max={25}
                     value={formCount}
                     onChange={(e) => setFormCount(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono-tabular"
+                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono-tabular text-forest-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
                     Swap (d)
                   </label>
                   <input
@@ -518,11 +710,11 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                     max={90}
                     value={formSwapDays}
                     onChange={(e) => setFormSwapDays(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono-tabular"
+                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono-tabular text-forest-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
                     Cooldown (d)
                   </label>
                   <input
@@ -531,17 +723,17 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                     max={90}
                     value={formCooldownDays}
                     onChange={(e) => setFormCooldownDays(Number(e.target.value))}
-                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono-tabular"
+                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono-tabular text-forest-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
                     Binding
                   </label>
                   <select
                     value={formFormat}
                     onChange={(e) => setFormFormat(e.target.value as any)}
-                    className="w-full h-10 px-2.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700"
+                    className="w-full h-10 px-2.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white"
                   >
                     <option value="any">Any</option>
                     <option value="hardcover">Hardcover</option>
@@ -553,7 +745,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div className="sm:col-span-2">
-                  <label className="block font-semibold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
                     Suggested Annual Start Month
                   </label>
                   <select
@@ -562,7 +754,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                       setFormMonth(e.target.value);
                       if (!e.target.value) setFormDay('');
                     }}
-                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700"
+                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white"
                   >
                     <option value="">Anytime (No fixed date)</option>
                     {PRESET_MONTH_NAMES.map((name, idx) => (
@@ -573,7 +765,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
                     Day of Month
                   </label>
                   <input
@@ -584,9 +776,130 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                     value={formDay}
                     onChange={(e) => setFormDay(e.target.value)}
                     placeholder={formMonth ? '1–31' : '—'}
-                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 disabled:opacity-50 font-mono-tabular"
+                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white disabled:opacity-50 font-mono-tabular"
                   />
                 </div>
+              </div>
+
+              {/* Corner Illustration Selector, Upload & AI Generator */}
+              <div className="rounded-2xl bg-linen-50/85 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-3.5 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-forest-900 dark:text-white">
+                      Corner Illustration Artwork
+                    </p>
+                    <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                      Pick a built-in watercolor theme, paste/upload an image, or generate custom art with AI.
+                    </p>
+                  </div>
+                  <div
+                    className="relative w-14 h-14 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 overflow-hidden shrink-0"
+                    title="Corner artwork preview"
+                  >
+                    <img
+                      src={previewArtworkUrl}
+                      alt="Corner illustration preview"
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+
+                {/* Built-in Watercolor Art Swatches */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                  {PRESET_ARTWORK_LIBRARY.map((art) => {
+                    const selected = formIllustrationUrl === art.src;
+                    return (
+                      <button
+                        key={art.id}
+                        type="button"
+                        onClick={() => setFormIllustrationUrl(art.src)}
+                        title={art.label}
+                        className={`flex items-center gap-1.5 pr-2.5 pl-1 py-1 rounded-xl border text-[11px] font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                          selected
+                            ? 'bg-forest-700 text-white border-forest-700 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA]'
+                            : 'bg-white hover:bg-linen-100 text-forest-900 border-linen-200 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-200 dark:border-night-700'
+                        }`}
+                      >
+                        <img
+                          src={art.src}
+                          alt=""
+                          className="w-6 h-6 rounded-lg object-cover"
+                        />
+                        <span>{art.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    value={formIllustrationUrl}
+                    onChange={(e) => setFormIllustrationUrl(e.target.value)}
+                    placeholder="Custom image URL or leave blank for automatic motif artwork"
+                    className="flex-1 h-10 px-3 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                  />
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      ref={artFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleIllustrationUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => artFileInputRef.current?.click()}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-white hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-[11px] font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <Icon name="image" className="w-3.5 h-3.5" />
+                      <span>Upload</span>
+                    </button>
+                    {formIllustrationUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setFormIllustrationUrl('')}
+                        className="min-h-[40px] px-2.5 py-1.5 rounded-xl bg-white hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-[11px] font-semibold text-stone-ink dark:text-slate-400 cursor-pointer"
+                      >
+                        Auto
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {hasLlmKey && (
+                  <div className="space-y-2 pt-1 border-t border-linen-200/80 dark:border-night-800">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="font-semibold text-forest-900 dark:text-slate-200">
+                        AI Generation Prompt
+                      </label>
+                      <button
+                        type="button"
+                        disabled={isGeneratingArt}
+                        onClick={handleGenerateAiIllustration}
+                        className="min-h-[36px] px-3 py-1 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-50 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-[11px] font-bold inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Icon name="sparkles" className="w-3.5 h-3.5" />
+                        <span>
+                          {isGeneratingArt ? 'Generating Artwork…' : 'Generate Illustration with AI'}
+                        </span>
+                      </button>
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={formIllustrationPrompt}
+                      onChange={(e) => setFormIllustrationPrompt(e.target.value)}
+                      placeholder="Subtle delicate storybook watercolor vignette for {title} ({description})..."
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-[11px] text-forest-900 dark:text-slate-200 placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    />
+                    {artError && (
+                      <p className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                        {artError}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
@@ -606,13 +919,13 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                   <button
                     type="button"
                     onClick={() => setIsFormOpen(false)}
-                    className="min-h-[48px] sm:min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-slate-200 active:scale-[0.98] transition-all"
+                    className="min-h-[48px] sm:min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-slate-200 active:scale-[0.98] transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="min-h-[48px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-bold active:scale-[0.98] transition-all"
+                    className="min-h-[48px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold active:scale-[0.98] transition-all cursor-pointer"
                   >
                     {editingPresetId ? 'Save Changes' : 'Create Preset'}
                   </button>

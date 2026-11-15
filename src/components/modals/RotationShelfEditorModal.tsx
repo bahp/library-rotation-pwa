@@ -50,6 +50,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
   const [editTags, setEditTags] = useState('');
   const [editSeed, setEditSeed] = useState('');
   const [editVarietyMix, setEditVarietyMix] = useState(true);
+  const [editStatus, setEditStatus] = useState<'active' | 'saved'>('active');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       );
       setEditSeed(rotation.rules?.seed || '');
       setEditVarietyMix(rotation.rules?.varietyMix !== false);
+      setEditStatus(rotation.status === 'active' ? 'active' : 'saved');
     }
   }, [rotation]);
 
@@ -96,6 +98,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       await store.updateRotationDetails(rotation.id, {
         title: editTitle.trim() || rotation.title,
         objective: editObjective.trim() || undefined,
+        status: editStatus,
         count: Number(editCount),
         swapDays: Number(editSwapDays),
         cooldownDays: Number(editCooldownDays),
@@ -175,16 +178,56 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
           {/* Section 1: Compact Shelf Details Form */}
           <section className="space-y-2.5">
             <div className="space-y-2 text-xs">
-              <div>
-                <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
-                  Shelf Title
-                </label>
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-bold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                    Shelf Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-bold text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400 focus:outline-2 focus:outline-forest-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                    Shelf Status
+                  </label>
+                  <div
+                    role="radiogroup"
+                    aria-label="Rotation shelf status"
+                    className="grid grid-cols-2 p-0.5 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 h-10"
+                  >
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={editStatus === 'active'}
+                      onClick={() => setEditStatus('active')}
+                      className={`rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                        editStatus === 'active'
+                          ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
+                          : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Active
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={editStatus === 'saved'}
+                      onClick={() => setEditStatus('saved')}
+                      className={`rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                        editStatus === 'saved'
+                          ? 'bg-forest-900 text-white dark:bg-slate-200 dark:text-night-950 shadow-2xs'
+                          : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Saved
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -196,7 +239,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                   value={editObjective}
                   onChange={(e) => setEditObjective(e.target.value)}
                   placeholder="Description or theme note (optional)…"
-                  className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400 focus:outline-2 focus:outline-forest-700"
                 />
               </div>
 
@@ -270,7 +313,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     value={editTags}
                     onChange={(e) => setEditTags(e.target.value)}
                     placeholder="bedtime, animals, winter"
-                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200"
+                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200 placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                   />
                 </div>
 
@@ -283,7 +326,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     value={editSeed}
                     onChange={(e) => setEditSeed(e.target.value)}
                     placeholder="Auto"
-                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200"
+                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
                   />
                 </div>
               </div>

@@ -14,6 +14,8 @@ export const Sidebar: React.FC = () => {
     setIsProfileSwitcherOpen,
     setIsProfileFormOpen,
     setEditingProfileId,
+    setIsNotificationCenterOpen,
+    unreadNotificationCount,
     t,
   } = useApp();
   const [artFailed, setArtFailed] = useState(false);
@@ -139,6 +141,30 @@ export const Sidebar: React.FC = () => {
               Household
             </p>
             {householdNav.map(renderNavLink)}
+            <button
+              type="button"
+              onClick={() => setIsNotificationCenterOpen(true)}
+              aria-label={
+                unreadNotificationCount > 0
+                  ? `Notifications (${unreadNotificationCount} unread)`
+                  : 'Notifications'
+              }
+              className="w-full group flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl text-[13.5px] font-medium text-[#C8D8D7] hover:text-white hover:bg-white/8 transition-all focus-visible:outline-2 focus-visible:outline-[#5ED3DA] cursor-pointer"
+            >
+              <span className="flex items-center gap-3 min-w-0">
+                <Icon
+                  name="bell"
+                  className="w-[18px] h-[18px] shrink-0 text-[#9BB5B6] group-hover:text-white transition-colors"
+                  strokeWidth={1.85}
+                />
+                <span className="truncate">Notifications</span>
+              </span>
+              {unreadNotificationCount > 0 && (
+                <span className="text-[11px] font-bold font-mono-tabular px-1.5 py-0.5 rounded-md bg-amber-400 text-night-950">
+                  {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                </span>
+              )}
+            </button>
           </nav>
         </div>
 
