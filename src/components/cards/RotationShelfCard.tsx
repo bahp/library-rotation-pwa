@@ -135,15 +135,6 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                 {isActive ? schedule.activeScheduleLine : schedule.savedScheduleLine}
               </span>
             </p>
-
-            {totalCount > 0 && (
-              <div className="mt-2.5 h-2 w-full rounded-full bg-linen-100 dark:bg-night-800 overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-forest-700 dark:bg-[#5ED3DA] transition-all duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            )}
           </div>
 
           {/* Right Actions */}
@@ -179,6 +170,16 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Progress Bar */}
+        {totalCount > 0 && (
+          <div className="mt-2.5 h-2 w-full rounded-full bg-linen-100 dark:bg-night-800 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-forest-700 dark:bg-[#5ED3DA] transition-all duration-300"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        )}
 
         {/* Cover Strip */}
         <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-1">
