@@ -250,7 +250,7 @@ export const RotationsView: React.FC = () => {
               <button
                 type="button"
                 onClick={openGenerator}
-                className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
+                className="min-h-[42px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
               >
                 <Icon name={isGeneratorOpen ? 'close' : 'plus'} className="w-4 h-4" />
                 <span>{isGeneratorOpen ? 'Close' : 'New Shelf'}</span>
@@ -402,7 +402,7 @@ export const RotationsView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setWizardStep(2)}
-                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <span>Next: Rules &amp; Pacing</span>
                               <Icon name="chevronRight" className="w-4 h-4" />
@@ -510,7 +510,7 @@ export const RotationsView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setWizardStep(3)}
-                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <span>Review &amp; Generate</span>
                               <Icon name="chevronRight" className="w-4 h-4" />
@@ -590,7 +590,7 @@ export const RotationsView: React.FC = () => {
                               type="button"
                               disabled={isGenerating}
                               onClick={() => handleGenerate()}
-                              className="min-h-[44px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs cursor-pointer"
+                              className="min-h-[44px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
                             >
                               {isGenerating
                                 ? 'Generating Shelf…'
@@ -780,7 +780,7 @@ export const RotationsView: React.FC = () => {
                         <button
                           type="submit"
                           disabled={isGenerating}
-                          className="min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs cursor-pointer"
+                          className="min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
                         >
                           {isGenerating
                             ? 'Generating Shelf…'
@@ -838,7 +838,7 @@ export const RotationsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={openGenerator}
-                  className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs cursor-pointer"
+                  className="min-h-[42px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs transition-colors cursor-pointer"
                 >
                   New Shelf
                 </button>

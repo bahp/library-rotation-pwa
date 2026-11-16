@@ -157,7 +157,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
             <button
               type="button"
               onClick={handleSaveAndClose}
-              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
+              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
             >
               <Icon name="check" className="w-4 h-4" />
               <span>Done</span>
@@ -220,7 +220,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                       onClick={() => setEditStatus('saved')}
                       className={`rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
                         editStatus === 'saved'
-                          ? 'bg-forest-900 text-white dark:bg-slate-200 dark:text-night-950 shadow-2xs'
+                          ? 'bg-brand text-white dark:bg-slate-200 dark:text-night-950 shadow-2xs'
                           : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
                       }`}
                     >
@@ -585,7 +585,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     type="button"
                     onClick={onOpenAddModal}
                     disabled={!hasOffShelfBooks}
-                    className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-45 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-45 text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Icon name="plus" className="w-3.5 h-3.5" />
                     <span>Add Books</span>

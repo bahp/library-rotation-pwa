@@ -3,31 +3,46 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
 import { OnboardingLibraryStep } from './OnboardingLibraryStep.js';
-import { AVATAR_TONES, PROFILE_AVATAR_TONE_OPTIONS } from '../../config/index.js';
+import {
+  AVATAR_TONES,
+  AVATAR_TONE_PILL_STYLES,
+  AVATAR_TONE_BORDER_STYLES,
+  PROFILE_AVATAR_TONE_OPTIONS,
+} from '../../config/index.js';
 import {
   getEffectiveProfileAge,
   type BookFormat,
   type ReadingStage,
 } from '../../types/models.js';
-import catalogArt from '../../assets/images/onboarding_catalog_art_1794694074032.jpg';
-import rotateArt from '../../assets/images/onboarding_rotate_art_1794694074815.jpg';
-import readArt from '../../assets/images/onboarding_read_art_1794694074713.jpg';
+import sidebarReadingArt from '../../assets/images/sidebar_reading_artwork_1794694074246.jpg';
 
-const ONBOARDING_TOPICS: Array<{ id: string; label: string; emoji: string }> = [
-  { id: 'animals', label: 'Animals', emoji: '🐾' },
-  { id: 'space', label: 'Space', emoji: '🚀' },
-  { id: 'bedtime', label: 'Bedtime', emoji: '🌙' },
-  { id: 'nature', label: 'Nature', emoji: '🌿' },
-  { id: 'vehicles', label: 'Vehicles', emoji: '🚂' },
-  { id: 'fairy-tales', label: 'Fairy Tales', emoji: '🏰' },
-  { id: 'history', label: 'History', emoji: '🏛️' },
-  { id: 'science', label: 'Science', emoji: '🔬' },
-  { id: 'humor', label: 'Humor', emoji: '😂' },
-  { id: 'art', label: 'Art', emoji: '🎨' },
-  { id: 'dinosaurs', label: 'Dinosaurs', emoji: '🦕' },
-  { id: 'ocean', label: 'Ocean', emoji: '🌊' },
-  { id: 'adventure', label: 'Adventure', emoji: '🧭' },
+const READER_TOPIC_OPTIONS: Array<{ id: string; label: string; icon: string }> = [
+  { id: 'bedtime', label: 'Bedtime', icon: 'moon' },
+  { id: 'animals', label: 'Animals', icon: 'paw' },
+  { id: 'dinosaurs', label: 'Dinosaurs', icon: 'footprints' },
+  { id: 'vehicles', label: 'Vehicles', icon: 'truck' },
+  { id: 'space', label: 'Space', icon: 'rocket' },
+  { id: 'nature', label: 'Nature', icon: 'leaf' },
+  { id: 'stem', label: 'STEM', icon: 'flask' },
+  { id: 'adventure', label: 'Adventure', icon: 'compass' },
+  { id: 'feelings', label: 'Feelings', icon: 'heart' },
+  { id: 'humor', label: 'Humor', icon: 'smile' },
+  { id: 'friendship', label: 'Friendship', icon: 'profiles' },
+  { id: 'fairy-tales', label: 'Fairy Tales', icon: 'castle' },
 ];
+
+const TOPIC_LABEL_MAP: Record<string, { label: string; icon: string }> = Object.fromEntries(
+  READER_TOPIC_OPTIONS.map((item) => [item.id, { label: item.label, icon: item.icon }])
+);
+
+function formatTopicLabel(topicId: string): string {
+  if (TOPIC_LABEL_MAP[topicId]) return TOPIC_LABEL_MAP[topicId].label;
+  return topicId
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
 const AGE_GROUPS: Array<{
   id: string;
@@ -47,18 +62,25 @@ const BOOK_TYPE_OPTIONS: Array<{
   id: string;
   label: string;
   hint: string;
+  icon: string;
   fullWidth?: boolean;
 }> = [
-  { id: 'picture-books', label: 'Picture Books', hint: 'Illustrated read-alouds' },
-  { id: 'board-books', label: 'Board Books', hint: 'Sturdy toddler pages' },
-  { id: 'early-readers', label: 'Early Readers', hint: 'First solo reading' },
-  { id: 'illustrated-non-fiction', label: 'Illustrated Non-Fiction', hint: 'Facts & visual discovery' },
-  { id: 'chapter-books', label: 'Chapter Books', hint: 'Longer nightly stories' },
-  { id: 'graphic-novels', label: 'Graphic Novels', hint: 'Comics & visual panels' },
+  { id: 'picture-books', label: 'Picture Books', hint: 'Illustrated read-alouds', icon: 'image' },
+  { id: 'board-books', label: 'Board Books', hint: 'Sturdy toddler pages', icon: 'book' },
+  { id: 'early-readers', label: 'Early Readers', hint: 'First solo reading', icon: 'bookOpen' },
+  {
+    id: 'illustrated-non-fiction',
+    label: 'Illustrated Non-Fiction',
+    hint: 'Facts & visual discovery',
+    icon: 'compass',
+  },
+  { id: 'chapter-books', label: 'Chapter Books', hint: 'Longer nightly stories', icon: 'layers' },
+  { id: 'graphic-novels', label: 'Graphic Novels', hint: 'Comics & visual panels', icon: 'grid' },
   {
     id: 'bilingual',
     label: 'Bilingual / Foreign Language',
     hint: 'Dual-language & heritage shelves',
+    icon: 'globe',
     fullWidth: true,
   },
 ];
@@ -107,7 +129,9 @@ interface WizardState {
   readerStage: ReadingStage;
   readerTone: string;
   step2Error: string;
-  selectedTopics: string[];
+  activeTopicsReaderId: string;
+  customTopicDraft: string;
+  customTopicsByReaderId: Record<string, string[]>;
   selectedBookTypes: string[];
   finishing: boolean;
   confirmSkipOpen: boolean;
@@ -143,11 +167,6 @@ export const OnboardingWizard: React.FC = () => {
   const householdInputRef = useRef<HTMLInputElement>(null);
   const readerNameInputRef = useRef<HTMLInputElement>(null);
 
-  const initialTopics =
-    state.profiles[0]?.favoriteTopics && state.profiles[0].favoriteTopics.length > 0
-      ? state.profiles[0].favoriteTopics
-      : ['animals', 'bedtime', 'nature'];
-
   const initialBookTypes =
     state.settings.preferredBookTypes && state.settings.preferredBookTypes.length > 0
       ? state.settings.preferredBookTypes
@@ -161,9 +180,13 @@ export const OnboardingWizard: React.FC = () => {
     readerAge: 4,
     readerGroupId: '3-5',
     readerStage: 'picture-book',
-    readerTone: 'teal',
+    readerTone:
+      PROFILE_AVATAR_TONE_OPTIONS[state.profiles.length % PROFILE_AVATAR_TONE_OPTIONS.length]?.id ||
+      'teal',
     step2Error: '',
-    selectedTopics: initialTopics,
+    activeTopicsReaderId: state.profiles[0]?.id || '',
+    customTopicDraft: '',
+    customTopicsByReaderId: {},
     selectedBookTypes: initialBookTypes,
     finishing: false,
     confirmSkipOpen: false,
@@ -176,6 +199,22 @@ export const OnboardingWizard: React.FC = () => {
       value: state.settings.householdName || '',
     });
   }, [state.settings.householdName]);
+
+  useEffect(() => {
+    if (state.profiles.length > 0 && !state.profiles.some((p) => p.id === wizard.activeTopicsReaderId)) {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'activeTopicsReaderId',
+        value: state.profiles[0].id,
+      });
+    } else if (state.profiles.length === 0 && wizard.activeTopicsReaderId !== '') {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'activeTopicsReaderId',
+        value: '',
+      });
+    }
+  }, [state.profiles, wizard.activeTopicsReaderId]);
 
   useEffect(() => {
     if (currentStep === 1) {
@@ -267,16 +306,19 @@ export const OnboardingWizard: React.FC = () => {
         avatarTone: wizard.readerTone,
       });
     } else {
-      await store.addProfile({
+      const created = await store.addProfile({
         name,
         birthDate,
         age: wizard.readerAge,
         readingStage: wizard.readerStage,
         avatarTone: wizard.readerTone,
-        favoriteTopics: wizard.selectedTopics,
+        favoriteTopics: ['bedtime', 'animals'],
         defaultRotationSize: wizard.readerAge <= 3 ? 4 : 5,
         cooldownDays: 14,
       });
+      if (!wizard.activeTopicsReaderId && created?.id) {
+        dispatch({ type: 'SET_FIELD', field: 'activeTopicsReaderId', value: created.id });
+      }
     }
 
     if (clearAfter) {
@@ -327,21 +369,53 @@ export const OnboardingWizard: React.FC = () => {
     await goToStep(3, 2);
   };
 
-  // Step 3: Favourite Topics
-  const handleToggleTopic = (topicId: string) => {
-    const exists = wizard.selectedTopics.includes(topicId);
-    const next = exists
-      ? wizard.selectedTopics.filter((id) => id !== topicId)
-      : [...wizard.selectedTopics, topicId];
-    dispatch({ type: 'SET_FIELD', field: 'selectedTopics', value: next });
+  // Step 3: Favourite Topics (Per Reader)
+  const topicsTargetProfile =
+    state.profiles.find((p) => p.id === wizard.activeTopicsReaderId) || state.profiles[0] || null;
+
+  const handleToggleReaderTopic = async (topicId: string) => {
+    if (!topicsTargetProfile) return;
+    const current = topicsTargetProfile.favoriteTopics || [];
+    const next = current.includes(topicId)
+      ? current.filter((id) => id !== topicId)
+      : [...current, topicId];
+    await store.updateProfile(topicsTargetProfile.id, { favoriteTopics: next });
+  };
+
+  const handleAddCustomReaderTopic = async () => {
+    if (!topicsTargetProfile) return;
+    const rawClean = wizard.customTopicDraft.trim().toLowerCase().replace(/^#+/, '');
+    if (!rawClean) return;
+
+    const matchedDefault = READER_TOPIC_OPTIONS.find(
+      (opt) => opt.id === rawClean || opt.label.toLowerCase() === rawClean
+    );
+    const topicId = matchedDefault ? matchedDefault.id : rawClean.replace(/\s+/g, '-');
+
+    if (!matchedDefault) {
+      const existingPool = wizard.customTopicsByReaderId[topicsTargetProfile.id] || [];
+      if (!existingPool.includes(topicId)) {
+        dispatch({
+          type: 'SET_FIELD',
+          field: 'customTopicsByReaderId',
+          value: {
+            ...wizard.customTopicsByReaderId,
+            [topicsTargetProfile.id]: [...existingPool, topicId],
+          },
+        });
+      }
+    }
+
+    const current = topicsTargetProfile.favoriteTopics || [];
+    if (!current.includes(topicId)) {
+      await store.updateProfile(topicsTargetProfile.id, {
+        favoriteTopics: [...current, topicId],
+      });
+    }
+    dispatch({ type: 'SET_FIELD', field: 'customTopicDraft', value: '' });
   };
 
   const handleStep3Continue = async () => {
-    for (const profile of state.profiles) {
-      await store.updateProfile(profile.id, {
-        favoriteTopics: wizard.selectedTopics,
-      });
-    }
     await goToStep(4, 3);
   };
 
@@ -381,7 +455,7 @@ export const OnboardingWizard: React.FC = () => {
             profileId: primary.id,
             title: `${primary.name}’s Weekly Shelf`,
             count: Math.min(primary.defaultRotationSize || 4, state.books.length),
-            preferredTags: wizard.selectedTopics,
+            preferredTags: primary.favoriteTopics || [],
             cooldownDays: primary.cooldownDays ?? 14,
             swapDays: 7,
             varietyMix: true,
@@ -423,7 +497,7 @@ export const OnboardingWizard: React.FC = () => {
   };
 
   return (
-    <div className="h-[100dvh] lg:h-auto lg:min-h-[100dvh] overflow-hidden lg:overflow-visible bg-linen-50 dark:bg-night-950 text-[#1A2423] dark:text-[#F4EFE6] flex flex-col justify-between">
+    <div className="h-[100dvh] lg:h-auto lg:min-h-[100dvh] overflow-hidden lg:overflow-visible bg-landing-canvas dark:bg-night-950 text-ink dark:text-[#F4EFE6] flex flex-col justify-between">
       {/* Top Preview Mode Banner (only when launched from Dev Tools Preview) */}
       {isOnboardingPreview && (
         <div className="shrink-0 bg-amber-100 dark:bg-amber-950/80 border-b border-amber-300 dark:border-amber-800 px-4 py-1.5 text-xs z-40">
@@ -444,13 +518,13 @@ export const OnboardingWizard: React.FC = () => {
 
       {/* HEADER: Minimal Single-Line Bar */}
       {currentStep === 0 ? (
-        <header className="shrink-0 z-30 border-b border-linen-200/80 dark:border-night-800 bg-ivory/90 dark:bg-night-900/90 backdrop-blur-md pt-safe">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-3">
+        <header className="shrink-0 z-30 border-b border-landing-border dark:border-night-800 bg-landing-canvas/95 dark:bg-night-900/90 backdrop-blur-md pt-safe">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-13 sm:h-16 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
-              <span className="w-8 h-8 rounded-xl bg-forest-900 dark:bg-[#5ED3DA] text-white dark:text-night-950 flex items-center justify-center shrink-0 shadow-xs">
+              <span className="w-8 h-8 rounded-full bg-brand dark:bg-brand-dark text-white dark:text-night-950 flex items-center justify-center shrink-0 shadow-xs">
                 <Icon name="rotations" className="w-4 h-4" />
               </span>
-              <span className="font-display font-bold text-base sm:text-lg text-forest-900 dark:text-white tracking-tight whitespace-nowrap truncate">
+              <span className="font-display font-bold text-base sm:text-lg text-title dark:text-white tracking-tight whitespace-nowrap truncate">
                 Library Rotation
               </span>
             </div>
@@ -475,7 +549,7 @@ export const OnboardingWizard: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSkipAllConfirmed}
-                    className="min-h-[38px] px-3 py-1 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold whitespace-nowrap cursor-pointer"
+                    className="min-h-[38px] px-3 py-1 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 text-xs font-bold whitespace-nowrap cursor-pointer"
                   >
                     Skip Setup
                   </button>
@@ -522,7 +596,7 @@ export const OnboardingWizard: React.FC = () => {
                     key={seg}
                     className={`h-1.5 rounded-full transition-colors duration-300 ${
                       filled
-                        ? 'bg-forest-800 dark:bg-[#5ED3DA]'
+                        ? 'bg-brand dark:bg-brand-dark'
                         : 'bg-linen-200 dark:bg-night-800'
                     }`}
                   />
@@ -554,7 +628,7 @@ export const OnboardingWizard: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleSkipAllConfirmed}
-                    className="min-h-[36px] px-2.5 py-1 rounded-lg bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-[11px] font-bold whitespace-nowrap cursor-pointer"
+                    className="min-h-[36px] px-2.5 py-1 rounded-lg bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 text-[11px] font-bold whitespace-nowrap cursor-pointer"
                   >
                     Confirm
                   </button>
@@ -591,58 +665,45 @@ export const OnboardingWizard: React.FC = () => {
               transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
               className="flex-1 min-h-0 flex flex-col"
             >
-              {/* MOBILE (< sm): Strict 100dvh Above-the-Fold Landing */}
-              <div className="sm:hidden flex-1 min-h-0 flex flex-col justify-between px-5 pt-3 pb-3 pb-safe gap-3">
-                <div className="flex-1 min-h-0 flex flex-col justify-center gap-3.5 overflow-y-auto no-scrollbar">
-                  {/* Compact Stylized Weekly Rotation Preview Card (<= 28vh) */}
-                  <div className="max-h-[28vh] rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 shadow-xs overflow-hidden shrink-0">
-                    <div className="bg-forest-900 dark:bg-[#0B1518] px-3.5 py-2 flex items-center justify-between text-white">
-                      <span className="text-[11px] font-semibold tracking-tight text-white">
-                        Weekly Rotation Shelf
-                      </span>
-                      <span className="text-[11px] font-mono-tabular text-[#5ED3DA]">
-                        Maya · Age 4
-                      </span>
-                    </div>
-                    <div className="p-3 space-y-2">
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { title: 'Wild Things', bg: 'bg-[#1D4E4F]', tag: 'Read' },
-                          { title: 'Snowy Day', bg: 'bg-[#9A4E16]', tag: 'On Shelf' },
-                          { title: 'Goodnight Moon', bg: 'bg-[#1E3A5F]', tag: 'Bedtime' },
-                        ].map((item) => (
-                          <div
-                            key={item.title}
-                            className={`rounded-xl ${item.bg} p-2 text-white flex flex-col justify-between aspect-[4/3] max-h-[82px] shadow-2xs`}
-                          >
-                            <span className="text-[9px] uppercase tracking-wider opacity-80">
-                              {item.tag}
-                            </span>
-                            <p className="font-display text-[11px] font-bold leading-tight line-clamp-2">
-                              {item.title}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-[11px] text-stone-ink dark:text-slate-400">
-                        4 books on display · Next swap in 7 days
-                      </p>
-                    </div>
+              {/* MOBILE (< sm): Strict 100dvh Editorial Top-Illustration Landing */}
+              <div className="sm:hidden flex-1 min-h-0 flex flex-col justify-between px-4 pt-2.5 pb-3 pb-safe gap-2.5">
+                <div className="flex-1 min-h-0 flex flex-col justify-evenly gap-2.5 overflow-y-auto no-scrollbar">
+                  {/* Top Editorial Reading Illustration Banner */}
+                  <div className="relative h-[20vh] min-h-[124px] max-h-[168px] w-full rounded-3xl bg-hero-art-bg border border-sidebar-border/35 overflow-hidden shadow-xs shrink-0 flex items-center justify-center">
+                    {!failedArtIds.hero ? (
+                      <img
+                        src={sidebarReadingArt}
+                        alt="Open book, reading lamp, stacked books, and botanical leaves"
+                        referrerPolicy="no-referrer"
+                        onError={() => setFailedArtIds((prev) => ({ ...prev, hero: true }))}
+                        className="h-full w-auto max-w-full object-contain scale-[1.06]"
+                      />
+                    ) : (
+                      <Icon name="book" className="w-12 h-12 text-brand-dark/50" />
+                    )}
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 bg-gradient-to-t from-hero-art-bg/45 via-transparent to-hero-art-bg/15"
+                    />
                   </div>
 
-                  {/* Punchy Headline + 1-Sentence Subtitle */}
-                  <div className="space-y-1.5">
-                    <h1 className="font-display text-[26px] leading-[1.12] font-bold tracking-tight text-forest-900 dark:text-white">
+                  {/* Centered Editorial Headline + Subtitle + Subtle Divider */}
+                  <div className="text-center space-y-1.5 px-1">
+                    <h1 className="font-display text-[24px] leading-[1.12] font-bold tracking-tight text-title dark:text-white text-balance">
                       Your family’s personal library, rotated weekly.
                     </h1>
-                    <p className="text-[13px] leading-snug text-stone-ink dark:text-slate-300">
+                    <p className="text-[12.5px] leading-snug text-subtitle dark:text-slate-300 max-w-sm mx-auto">
                       Automatic themed book rotations, kid reading passports, and effortless ISBN
                       scanning in one calm space.
                     </p>
+                    <div
+                      aria-hidden="true"
+                      className="w-12 h-[1.5px] bg-landing-accent-rule dark:bg-brand-dark/35 mx-auto rounded-full pt-0.5"
+                    />
                   </div>
 
-                  {/* Compact 3-Row Feature Strip */}
-                  <div className="divide-y divide-linen-200/80 dark:divide-night-800 rounded-2xl bg-ivory/80 dark:bg-night-900/80 border border-linen-200 dark:border-night-800 px-3.5">
+                  {/* Compact 3-Row Editorial Feature Highlights */}
+                  <div className="space-y-1.5">
                     {[
                       {
                         icon: 'rotations',
@@ -650,7 +711,7 @@ export const OnboardingWizard: React.FC = () => {
                         desc: 'Fresh weekly shelves from books you own',
                       },
                       {
-                        icon: 'stamp',
+                        icon: 'profiles',
                         title: 'Kid Reading Passports',
                         desc: 'Printable keepsakes & reading stamps',
                       },
@@ -660,15 +721,18 @@ export const OnboardingWizard: React.FC = () => {
                         desc: 'Catalog books in seconds with your camera',
                       },
                     ].map((feat) => (
-                      <div key={feat.icon} className="py-2 flex items-center gap-3">
-                        <span className="w-8 h-8 rounded-xl bg-linen-100 dark:bg-night-800 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center shrink-0">
-                          <Icon name={feat.icon} className="w-4 h-4" />
+                      <div
+                        key={feat.icon}
+                        className="rounded-2xl bg-landing-surface dark:bg-night-900 border border-landing-border dark:border-night-800 px-3 py-2 flex items-center gap-3 shadow-2xs"
+                      >
+                        <span className="w-9 h-9 rounded-full bg-landing-icon-bg dark:bg-brand-dark/15 text-brand dark:text-brand-dark flex items-center justify-center shrink-0">
+                          <Icon name={feat.icon} strokeWidth={1.8} className="w-4 h-4" />
                         </span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-forest-900 dark:text-white leading-tight">
+                        <div className="min-w-0 text-left">
+                          <p className="font-display text-[13px] font-bold text-title dark:text-white leading-tight">
                             {feat.title}
                           </p>
-                          <p className="text-[11px] text-stone-ink dark:text-slate-400 truncate">
+                          <p className="text-[11px] text-subtitle dark:text-slate-400 truncate mt-0.5">
                             {feat.desc}
                           </p>
                         </div>
@@ -677,13 +741,13 @@ export const OnboardingWizard: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Immediate Pinned CTAs */}
-                <div className="shrink-0 space-y-2 pt-1">
+                {/* Immediate Pinned Pill CTAs */}
+                <div className="shrink-0 space-y-2 pt-0.5">
                   <button
                     type="button"
                     data-action="onboarding-begin"
                     onClick={() => goToStep(1, 0)}
-                    className="w-full min-h-[50px] px-6 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                    className="w-full min-h-[48px] px-6 py-2.5 rounded-full bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                   >
                     <span>Start Family Setup</span>
                     <Icon name="chevronRight" className="w-4 h-4" />
@@ -696,176 +760,116 @@ export const OnboardingWizard: React.FC = () => {
                       await store.loadFullSampleHousehold();
                       navigate('home');
                     }}
-                    className="w-full min-h-[44px] px-5 py-2.5 rounded-2xl bg-ivory/90 hover:bg-linen-100 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white font-semibold text-sm inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="w-full min-h-[44px] px-5 py-2 rounded-full bg-landing-surface hover:bg-linen-100 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-landing-border dark:border-night-700 text-title dark:text-white font-semibold text-sm inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
-                    <Icon name="book" className="w-4 h-4 text-forest-700 dark:text-[#5ED3DA]" />
+                    <Icon name="book" className="w-4 h-4 text-brand dark:text-brand-dark" />
                     <span>Explore Sample Family</span>
                   </button>
                 </div>
               </div>
 
-              {/* DESKTOP & TABLET (sm+): Preserved Editorial Landing Layout */}
-              <div className="hidden sm:grid sm:grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center my-auto px-6 lg:px-8 py-10">
-                <div className="lg:col-span-7 space-y-6 text-left">
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-forest-700 dark:text-[#5ED3DA]">
-                      {t('onboarding.welcomeEyebrow')}
-                    </p>
-                    <h1 className="font-display text-4xl lg:text-5xl font-bold text-forest-900 dark:text-white leading-[1.08] tracking-tight">
-                      {t('onboarding.welcomeTitle')}
-                    </h1>
-                    <p className="text-base text-stone-ink dark:text-slate-300 leading-relaxed max-w-xl">
-                      {t('onboarding.welcomeSubtitle')}
-                    </p>
-                  </div>
-
-                  {/* 3 Centered Editorial Illustration Pillars */}
-                  <div className="grid grid-cols-3 gap-3.5 pt-2">
-                    {[
-                      {
-                        id: 'catalog',
-                        art: catalogArt,
-                        icon: 'scan',
-                        title: t('onboarding.pillarCatalogTitle'),
-                        desc: t('onboarding.pillarCatalogDesc'),
-                      },
-                      {
-                        id: 'rotate',
-                        art: rotateArt,
-                        icon: 'rotations',
-                        title: t('onboarding.pillarRotateTitle'),
-                        desc: t('onboarding.pillarRotateDesc'),
-                      },
-                      {
-                        id: 'play',
-                        art: readArt,
-                        icon: 'play',
-                        title: t('onboarding.pillarPlayTitle'),
-                        desc: t('onboarding.pillarPlayDesc'),
-                      },
-                    ].map((pillar) => (
-                      <div
-                        key={pillar.id}
-                        className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 p-4 flex flex-col items-center text-center space-y-3 shadow-2xs"
-                      >
-                        <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-linen-100/90 dark:bg-night-800 border border-linen-200/60 dark:border-night-700 flex items-center justify-center">
-                          {!failedArtIds[pillar.id] ? (
-                            <img
-                              src={pillar.art}
-                              alt={pillar.title}
-                              referrerPolicy="no-referrer"
-                              onError={() =>
-                                setFailedArtIds((prev) => ({ ...prev, [pillar.id]: true }))
-                              }
-                              className="w-full h-full object-cover dark:brightness-90 dark:contrast-105"
-                            />
-                          ) : (
-                            <span className="w-12 h-12 rounded-2xl bg-ivory dark:bg-night-900 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center shadow-2xs">
-                              <Icon name={pillar.icon} className="w-6 h-6" />
-                            </span>
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <h2 className="font-display text-sm font-bold text-forest-900 dark:text-white">
-                            {pillar.title}
-                          </h2>
-                          <p className="text-xs text-stone-ink dark:text-slate-400 leading-relaxed">
-                            {pillar.desc}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-row items-center gap-3 pt-2">
-                    <button
-                      type="button"
-                      data-action="onboarding-begin-desktop"
-                      onClick={() => goToStep(1, 0)}
-                      className="min-h-[48px] px-6 py-3 rounded-2xl bg-forest-700 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                    >
-                      <span>Start Family Setup</span>
-                      <Icon name="chevronRight" className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      type="button"
-                      data-action="onboarding-explore-sample-desktop"
-                      onClick={async () => {
-                        await store.loadFullSampleHousehold();
-                        navigate('home');
-                      }}
-                      className="min-h-[48px] px-5 py-3 rounded-2xl bg-ivory hover:bg-linen-100 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer"
-                    >
-                      <Icon name="book" className="w-4 h-4 text-forest-700 dark:text-[#5ED3DA]" />
-                      <span>Explore Sample Family</span>
-                    </button>
-                  </div>
+              {/* DESKTOP & TABLET (sm+): Editorial Top-Illustration Centered Layout */}
+              <div className="hidden sm:flex flex-col justify-center max-w-5xl w-full mx-auto my-auto px-6 lg:px-8 py-6 lg:py-8 gap-6">
+                {/* Top Full-Width Framed Botanical Reading Illustration */}
+                <div className="relative w-full h-48 md:h-56 lg:h-64 rounded-3xl bg-hero-art-bg border border-sidebar-border/35 shadow-sm overflow-hidden flex items-center justify-center">
+                  {!failedArtIds.hero ? (
+                    <img
+                      src={sidebarReadingArt}
+                      alt="Open book, brass reading lamp, stacked books, and botanical leaves"
+                      referrerPolicy="no-referrer"
+                      onError={() => setFailedArtIds((prev) => ({ ...prev, hero: true }))}
+                      className="h-full w-auto max-w-full object-contain scale-[1.04]"
+                    />
+                  ) : (
+                    <Icon name="book" className="w-16 h-16 text-brand-dark/50" />
+                  )}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-r from-hero-art-bg via-transparent to-hero-art-bg opacity-70"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-hero-art-bg/45 via-transparent to-hero-art-bg/20"
+                  />
                 </div>
 
-                {/* Editorial Shelf Preview Artwork Card */}
-                <div className="lg:col-span-5">
-                  <div className="rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 overflow-hidden shadow-md">
-                    <div className="bg-forest-900 dark:bg-[#0B1518] px-6 py-4 flex items-center justify-between text-white">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#5ED3DA]">
-                          14-Day Reading Rhythm
-                        </p>
-                        <p className="font-display text-base font-bold text-white mt-0.5">
-                          Front-Facing Home Shelf
-                        </p>
-                      </div>
-                      <span className="text-xs font-mono-tabular px-2.5 py-1 rounded-lg bg-white/10 text-white/90">
-                        4–6 books
+                {/* Centered Display Title + Subtitle */}
+                <div className="text-center space-y-2.5 max-w-2xl mx-auto">
+                  <h1 className="font-display text-3xl md:text-4xl lg:text-[42px] font-bold text-title dark:text-white leading-[1.1] tracking-tight text-balance">
+                    Your family’s personal library, rotated weekly.
+                  </h1>
+                  <p className="text-sm sm:text-base text-subtitle dark:text-slate-300 leading-relaxed max-w-xl mx-auto">
+                    Automatic themed book rotations, kid reading passports, and effortless ISBN
+                    scanning in one calm space.
+                  </p>
+                  <div
+                    aria-hidden="true"
+                    className="w-14 h-[1.5px] bg-landing-accent-rule dark:bg-brand-dark/35 mx-auto rounded-full pt-0.5"
+                  />
+                </div>
+
+                {/* 3 Feature Highlight Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                  {[
+                    {
+                      icon: 'rotations',
+                      title: 'Smart Rotations',
+                      desc: 'Fresh weekly shelves from books you own',
+                    },
+                    {
+                      icon: 'profiles',
+                      title: 'Kid Reading Passports',
+                      desc: 'Printable keepsakes & reading stamps',
+                    },
+                    {
+                      icon: 'scan',
+                      title: 'Instant Barcode Scan',
+                      desc: 'Catalog books in seconds with your camera',
+                    },
+                  ].map((feat) => (
+                    <div
+                      key={feat.icon}
+                      className="rounded-2xl bg-landing-surface dark:bg-night-900 border border-landing-border dark:border-night-800 px-4 py-3.5 flex items-center gap-3.5 shadow-2xs"
+                    >
+                      <span className="w-10 h-10 rounded-full bg-landing-icon-bg dark:bg-brand-dark/15 text-brand dark:text-brand-dark flex items-center justify-center shrink-0">
+                        <Icon name={feat.icon} strokeWidth={1.8} className="w-5 h-5" />
                       </span>
-                    </div>
-
-                    <div className="p-6 space-y-4">
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          {
-                            title: 'Where the Wild Things Are',
-                            color: 'bg-[#1D4E4F]',
-                            author: 'M. Sendak',
-                          },
-                          {
-                            title: 'The Snowy Day',
-                            color: 'bg-[#9A4E16]',
-                            author: 'E. J. Keats',
-                          },
-                          {
-                            title: 'Goodnight Moon',
-                            color: 'bg-[#1E3A5F]',
-                            author: 'M. W. Brown',
-                          },
-                        ].map((sample) => (
-                          <div
-                            key={sample.title}
-                            className="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200/80 dark:border-night-800 p-2 space-y-2"
-                          >
-                            <div
-                              className={`aspect-[3/4] rounded-xl ${sample.color} p-2.5 flex flex-col justify-between text-white shadow-sm`}
-                            >
-                              <span className="text-[9px] uppercase tracking-wider opacity-75">
-                                On Shelf
-                              </span>
-                              <p className="font-display text-xs font-bold leading-snug">
-                                {sample.title}
-                              </p>
-                            </div>
-                            <p className="text-[11px] font-medium text-stone-ink dark:text-slate-400 truncate px-0.5">
-                              {sample.author}
-                            </p>
-                          </div>
-                        ))}
+                      <div className="min-w-0 text-left">
+                        <h2 className="font-display text-sm font-bold text-title dark:text-white leading-tight">
+                          {feat.title}
+                        </h2>
+                        <p className="text-xs text-subtitle dark:text-slate-400 leading-snug mt-0.5">
+                          {feat.desc}
+                        </p>
                       </div>
-
-                      <p className="text-xs text-stone-ink dark:text-slate-400 leading-relaxed pt-3 border-t border-linen-200/80 dark:border-night-800">
-                        Private by design: books, child ages, and shelves are stored locally on your
-                        device with zero account lock-in.
-                      </p>
                     </div>
-                  </div>
+                  ))}
+                </div>
+
+                {/* Centered Primary + Secondary Pill CTAs */}
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    data-action="onboarding-begin-desktop"
+                    onClick={() => goToStep(1, 0)}
+                    className="min-h-[48px] px-7 py-3 rounded-full bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                  >
+                    <span>Start Family Setup</span>
+                    <Icon name="chevronRight" className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    data-action="onboarding-explore-sample-desktop"
+                    onClick={async () => {
+                      await store.loadFullSampleHousehold();
+                      navigate('home');
+                    }}
+                    className="min-h-[48px] px-6 py-3 rounded-full bg-landing-surface hover:bg-linen-100 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-landing-border dark:border-night-700 text-title dark:text-white font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer"
+                  >
+                    <Icon name="book" className="w-4 h-4 text-brand dark:text-brand-dark" />
+                    <span>Explore Sample Family</span>
+                  </button>
                 </div>
               </div>
             </motion.div>
@@ -904,10 +908,10 @@ export const OnboardingWizard: React.FC = () => {
                             onClick={() => goToStep(m.step)}
                             className={`w-full min-h-[42px] px-3 py-2 rounded-xl flex items-center justify-between gap-2 text-left text-xs font-semibold transition-colors cursor-pointer ${
                               isCurrent
-                                ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                                ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
                                 : isDone
-                                  ? 'bg-linen-100/80 dark:bg-night-800 text-forest-900 dark:text-white'
-                                  : 'text-stone-ink dark:text-slate-400 hover:bg-linen-100/50 dark:hover:bg-night-800/50'
+                                  ? 'bg-linen-100/80 dark:bg-night-800 text-title dark:text-white'
+                                  : 'text-subtitle dark:text-slate-400 hover:bg-linen-100/50 dark:hover:bg-night-800/50'
                             }`}
                           >
                             <span className="flex items-center gap-2.5">
@@ -981,7 +985,7 @@ export const OnboardingWizard: React.FC = () => {
                       <button
                         type="submit"
                         data-action="onboarding-step1-next"
-                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
                         <span>Continue</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
@@ -1015,10 +1019,10 @@ export const OnboardingWizard: React.FC = () => {
                             return (
                               <div
                                 key={p.id}
-                                className={`inline-flex items-center rounded-2xl border transition-all ${
+                                className={`inline-flex items-center rounded-2xl transition-all ${
                                   selected
-                                    ? 'bg-forest-900 text-white border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA]'
-                                    : 'bg-ivory dark:bg-night-900 border-linen-200 dark:border-night-800 text-forest-900 dark:text-white'
+                                    ? `${AVATAR_TONE_BORDER_STYLES[p.avatarTone || 'teal'] || AVATAR_TONE_BORDER_STYLES.teal}`
+                                    : 'bg-landing-surface dark:bg-night-900 border border-landing-border dark:border-night-800 text-title dark:text-white'
                                 }`}
                               >
                                 <button
@@ -1139,11 +1143,52 @@ export const OnboardingWizard: React.FC = () => {
                                   }
                                   className={`min-h-[44px] sm:min-h-[40px] px-2 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer ${
                                     active
-                                      ? 'bg-forest-900 text-white border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA]'
-                                      : 'bg-linen-50 dark:bg-night-800 border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 hover:border-forest-700/50'
+                                      ? 'bg-brand text-white border-brand dark:bg-brand-dark dark:text-night-950 dark:border-brand-dark'
+                                      : 'bg-linen-50 dark:bg-night-800 border-linen-200 dark:border-night-700 text-title dark:text-slate-200 hover:border-brand/50'
                                   }`}
                                 >
                                   {grp.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Avatar Color Swatch Picker */}
+                        <div className="flex items-center justify-between gap-3 pt-0.5">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 shrink-0">
+                            Avatar Color
+                          </span>
+                          <div className="flex items-center gap-2 flex-wrap justify-end">
+                            {PROFILE_AVATAR_TONE_OPTIONS.map((opt) => {
+                              const isSelected = wizard.readerTone === opt.id;
+                              const toneStyle = AVATAR_TONES[opt.id] || AVATAR_TONES.teal;
+                              return (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() =>
+                                    dispatch({
+                                      type: 'SET_FIELD',
+                                      field: 'readerTone',
+                                      value: opt.id,
+                                    })
+                                  }
+                                  aria-label={`Select ${opt.label} avatar color`}
+                                  aria-pressed={isSelected}
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer ${toneStyle} ${
+                                    isSelected
+                                      ? 'ring-2 ring-offset-2 ring-forest-900 dark:ring-[#5ED3DA] dark:ring-offset-night-900 scale-110'
+                                      : 'opacity-75 hover:opacity-100'
+                                  }`}
+                                >
+                                  {isSelected ? (
+                                    <Icon name="check" className="w-3.5 h-3.5 text-white" />
+                                  ) : (
+                                    <span className="text-[10px] font-bold text-white/90">
+                                      {(wizard.readerName.trim() || 'R').slice(0, 1).toUpperCase()}
+                                    </span>
+                                  )}
                                 </button>
                               );
                             })}
@@ -1202,7 +1247,7 @@ export const OnboardingWizard: React.FC = () => {
                         type="button"
                         data-action="onboarding-step2-next"
                         onClick={handleStep2Continue}
-                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
                         <span>Continue</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
@@ -1212,62 +1257,199 @@ export const OnboardingWizard: React.FC = () => {
                 )}
 
                 {/* ---------------------------------------------------------- */}
-                {/* STEP 3: FAVOURITE TOPICS (ZERO-SCROLL CHIP GRID)           */}
+                {/* STEP 3: PER-READER FAVOURITE TOPICS (UNICOLOR ICONS)       */}
                 {/* ---------------------------------------------------------- */}
-                {currentStep === 3 && (
-                  <div className="flex-1 min-h-0 flex flex-col justify-between lg:block lg:space-y-5">
-                    <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 pt-5 pb-2 lg:p-0 space-y-4 text-left">
-                      <div>
-                        <h1 className="font-display text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-forest-900 dark:text-white">
-                          What topics spark curiosity in your home?
-                        </h1>
-                        <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1">
-                          Pick favorite themes to guide your rotations ({wizard.selectedTopics.length}{' '}
-                          selected).
-                        </p>
-                      </div>
+                {currentStep === 3 && (() => {
+                  const selectedTopics = topicsTargetProfile?.favoriteTopics || [];
+                  const knownIds = new Set(READER_TOPIC_OPTIONS.map((o) => o.id));
+                  const rememberedCustom =
+                    (topicsTargetProfile?.id
+                      ? wizard.customTopicsByReaderId[topicsTargetProfile.id]
+                      : undefined) || [];
+                  const extraTopics = Array.from(
+                    new Set([
+                      ...rememberedCustom,
+                      ...selectedTopics.filter((id) => !knownIds.has(id)),
+                    ])
+                  );
+                  const activeToneKey = topicsTargetProfile?.avatarTone || 'teal';
+                  const activeTopicPillClass =
+                    AVATAR_TONE_PILL_STYLES[activeToneKey] || AVATAR_TONE_PILL_STYLES.teal;
 
-                      {/* Zero-Scroll Multi-Select Chip Grid */}
-                      <div className="flex flex-wrap gap-2">
-                        {ONBOARDING_TOPICS.map((topic) => {
-                          const selected = wizard.selectedTopics.includes(topic.id);
-                          return (
+                  return (
+                    <div className="flex-1 min-h-0 flex flex-col justify-between lg:block lg:space-y-5">
+                      <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 pt-4 pb-2 lg:p-0 space-y-3.5 text-left">
+                        <div>
+                          <h1 className="font-display text-2xl sm:text-3xl font-bold leading-tight tracking-tight text-title dark:text-white">
+                            {topicsTargetProfile
+                              ? `What topics does ${topicsTargetProfile.name} love?`
+                              : 'What topics spark curiosity?'}
+                          </h1>
+                          <p className="text-xs sm:text-sm text-subtitle dark:text-slate-400 mt-1">
+                            Topics are saved individually per reader ({selectedTopics.length} selected).
+                          </p>
+                        </div>
+
+                        {state.profiles.length > 0 ? (
+                          <>
+                            {/* Per-Reader Selector Strip */}
+                            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                              {state.profiles.map((p) => {
+                                const isCurrent = topicsTargetProfile?.id === p.id;
+                                const toneKey = p.avatarTone || 'teal';
+                                const tone = AVATAR_TONES[toneKey] || AVATAR_TONES.teal;
+                                const readerSelectedStyle =
+                                  AVATAR_TONE_BORDER_STYLES[toneKey] || AVATAR_TONE_BORDER_STYLES.teal;
+                                const count = (p.favoriteTopics || []).length;
+                                return (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() =>
+                                      dispatch({
+                                        type: 'SET_FIELD',
+                                        field: 'activeTopicsReaderId',
+                                        value: p.id,
+                                      })
+                                    }
+                                    className={`min-h-[40px] pl-2 pr-3 py-1.5 rounded-full inline-flex items-center gap-2 shrink-0 text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                                      isCurrent
+                                        ? readerSelectedStyle
+                                        : 'bg-landing-surface/85 dark:bg-night-900 border border-landing-border dark:border-night-800 text-title dark:text-slate-200 hover:border-brand/50'
+                                    }`}
+                                  >
+                                    <span
+                                      className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${tone}`}
+                                    >
+                                      {p.name.slice(0, 1).toUpperCase()}
+                                    </span>
+                                    <span>{p.name}</span>
+                                    <span className="font-mono-tabular text-[11px] opacity-80">
+                                      {count}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Zero-Scroll Per-Reader Topic Chip Grid (Same Default Set + Manual Topics, Colored by Profile) */}
+                            <div className="flex flex-wrap gap-2">
+                              {READER_TOPIC_OPTIONS.map((topic) => {
+                                const selected = selectedTopics.includes(topic.id);
+                                return (
+                                  <button
+                                    key={topic.id}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    onClick={() => handleToggleReaderTopic(topic.id)}
+                                    className={`min-h-[42px] px-3.5 py-2 rounded-full border text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
+                                      selected
+                                        ? activeTopicPillClass
+                                        : 'bg-ivory dark:bg-night-900 border-linen-200 dark:border-night-800 text-ink dark:text-slate-200 hover:border-brand/50'
+                                    }`}
+                                  >
+                                    <Icon
+                                      name={topic.icon}
+                                      strokeWidth={1.75}
+                                      className={`w-3.5 h-3.5 shrink-0 ${
+                                        selected ? 'text-current' : 'text-brand dark:text-brand-dark'
+                                      }`}
+                                    />
+                                    <span>{topic.label}</span>
+                                    {selected && <Icon name="check" className="w-3.5 h-3.5 shrink-0" />}
+                                  </button>
+                                );
+                              })}
+
+                              {extraTopics.map((topicId) => {
+                                const selected = selectedTopics.includes(topicId);
+                                return (
+                                  <button
+                                    key={topicId}
+                                    type="button"
+                                    aria-pressed={selected}
+                                    onClick={() => handleToggleReaderTopic(topicId)}
+                                    className={`min-h-[42px] px-3.5 py-2 rounded-full border text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
+                                      selected
+                                        ? activeTopicPillClass
+                                        : 'bg-ivory dark:bg-night-900 border-linen-200 dark:border-night-800 text-ink dark:text-slate-200 hover:border-brand/50'
+                                    }`}
+                                  >
+                                    <Icon
+                                      name="tag"
+                                      strokeWidth={1.75}
+                                      className={`w-3.5 h-3.5 shrink-0 ${
+                                        selected ? 'text-current' : 'text-brand dark:text-brand-dark'
+                                      }`}
+                                    />
+                                    <span>{formatTopicLabel(topicId)}</span>
+                                    {selected && <Icon name="check" className="w-3.5 h-3.5 shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Compact Custom Topic Input */}
+                            <div className="flex items-center gap-2 pt-0.5">
+                              <input
+                                type="text"
+                                value={wizard.customTopicDraft}
+                                onChange={(e) =>
+                                  dispatch({
+                                    type: 'SET_FIELD',
+                                    field: 'customTopicDraft',
+                                    value: e.target.value,
+                                  })
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddCustomReaderTopic();
+                                  }
+                                }}
+                                placeholder={`Add custom topic for ${topicsTargetProfile?.name || 'reader'}…`}
+                                className="flex-1 min-h-[42px] px-3.5 py-2 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 text-xs sm:text-sm text-ink dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500 focus:outline-2 focus:outline-brand"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleAddCustomReaderTopic}
+                                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 text-xs font-bold text-title dark:text-white cursor-pointer transition-colors"
+                              >
+                                Add
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-2.5">
+                            <p className="text-xs text-subtitle dark:text-slate-300">
+                              Add a reader first so favorite topics can be saved to their profile.
+                            </p>
                             <button
-                              key={topic.id}
                               type="button"
-                              aria-pressed={selected}
-                              onClick={() => handleToggleTopic(topic.id)}
-                              className={`min-h-[44px] px-3.5 py-2 rounded-full border text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer ${
-                                selected
-                                  ? 'bg-forest-900 text-white border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA] shadow-2xs'
-                                  : 'bg-ivory dark:bg-night-900 border-linen-200 dark:border-night-800 text-forest-900 dark:text-slate-200 hover:border-forest-700/50'
-                              }`}
+                              onClick={() => goToStep(2)}
+                              className="min-h-[42px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-bold text-title dark:text-white cursor-pointer"
                             >
-                              <span aria-hidden="true" className="text-sm leading-none">
-                                {topic.emoji}
-                              </span>
-                              <span>{topic.label}</span>
-                              {selected && <Icon name="check" className="w-3.5 h-3.5 shrink-0" />}
+                              Go to Readers
                             </button>
-                          );
-                        })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sticky Bottom Action Bar */}
+                      <div className="shrink-0 px-5 pt-2 pb-3 pb-safe lg:p-0 lg:pt-2 bg-linen-50/95 dark:bg-night-950/95 lg:bg-transparent">
+                        <button
+                          type="button"
+                          data-action="onboarding-step3-next"
+                          onClick={handleStep3Continue}
+                          className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        >
+                          <span>Continue</span>
+                          <Icon name="chevronRight" className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-
-                    {/* Sticky Bottom Action Bar */}
-                    <div className="shrink-0 px-5 pt-2 pb-3 pb-safe lg:p-0 lg:pt-2 bg-linen-50/95 dark:bg-night-950/95 lg:bg-transparent">
-                      <button
-                        type="button"
-                        data-action="onboarding-step3-next"
-                        onClick={handleStep3Continue}
-                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                      >
-                        <span>Continue</span>
-                        <Icon name="chevronRight" className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* ---------------------------------------------------------- */}
                 {/* STEP 4: PREFERRED BOOK TYPES (ZERO-SCROLL 2-COL GRID)      */}
@@ -1295,28 +1477,39 @@ export const OnboardingWizard: React.FC = () => {
                               onClick={() => handleToggleBookType(opt.id)}
                               className={`${opt.fullWidth ? 'col-span-2' : ''} min-h-[56px] p-3 rounded-2xl border text-left flex items-center justify-between gap-2 transition-all active:scale-[0.98] cursor-pointer ${
                                 selected
-                                  ? 'bg-forest-900 text-white border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA] shadow-2xs'
-                                  : 'bg-ivory dark:bg-night-900 border-linen-200 dark:border-night-800 text-forest-900 dark:text-white hover:border-forest-700/50'
+                                  ? 'bg-brand text-white border-brand dark:bg-brand-dark dark:text-night-950 dark:border-brand-dark shadow-2xs'
+                                  : 'bg-ivory dark:bg-night-900 border-linen-200 dark:border-night-800 text-title dark:text-white hover:border-brand/50'
                               }`}
                             >
-                              <div className="min-w-0">
-                                <p className="text-xs sm:text-sm font-bold leading-tight">
-                                  {opt.label}
-                                </p>
-                                <p
-                                  className={`text-[11px] leading-tight mt-0.5 truncate ${
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span
+                                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
                                     selected
-                                      ? 'text-white/80 dark:text-night-950/75'
-                                      : 'text-stone-ink dark:text-slate-400'
+                                      ? 'bg-white/15 text-white dark:bg-night-950/15 dark:text-night-950'
+                                      : 'bg-linen-100 dark:bg-night-800 text-brand dark:text-brand-dark'
                                   }`}
                                 >
-                                  {opt.hint}
-                                </p>
+                                  <Icon name={opt.icon} strokeWidth={1.75} className="w-3.5 h-3.5" />
+                                </span>
+                                <div className="min-w-0">
+                                  <p className="text-xs sm:text-sm font-bold leading-tight">
+                                    {opt.label}
+                                  </p>
+                                  <p
+                                    className={`text-[11px] leading-tight mt-0.5 truncate ${
+                                      selected
+                                        ? 'text-white/85 dark:text-night-950/75'
+                                        : 'text-subtitle dark:text-slate-400'
+                                    }`}
+                                  >
+                                    {opt.hint}
+                                  </p>
+                                </div>
                               </div>
                               <span
                                 className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border transition-colors ${
                                   selected
-                                    ? 'bg-white text-forest-900 border-white dark:bg-night-950 dark:text-[#5ED3DA] dark:border-night-950'
+                                    ? 'bg-white text-brand border-white dark:bg-night-950 dark:text-brand-dark dark:border-night-950'
                                     : 'border-linen-200 dark:border-night-700'
                                 }`}
                               >
@@ -1334,7 +1527,7 @@ export const OnboardingWizard: React.FC = () => {
                         type="button"
                         data-action="onboarding-step4-next"
                         onClick={handleStep4Continue}
-                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
                         <span>Continue</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
@@ -1370,7 +1563,7 @@ export const OnboardingWizard: React.FC = () => {
                         data-action="onboarding-finish-library"
                         disabled={wizard.finishing}
                         onClick={handleFinishAndOpenLibrary}
-                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] disabled:opacity-60 dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        className="w-full lg:w-auto min-h-[50px] px-7 py-3 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] disabled:opacity-60 dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
                         <span>
                           {wizard.finishing ? 'Opening Library…' : 'Finish & Open Library'}

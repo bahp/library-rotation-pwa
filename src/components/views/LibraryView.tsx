@@ -541,8 +541,8 @@ export const LibraryView: React.FC = () => {
                 onClick={() => setIsFilterDrawerOpen(true)}
                 className={`lg:hidden min-h-[48px] px-3.5 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700 ${
                   activeFilterCount > 0
-                    ? 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
-                    : 'bg-ivory dark:bg-night-900 text-forest-900 dark:text-slate-200 border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800'
+                    ? 'bg-brand text-white dark:bg-linen-100 dark:text-night-950'
+                    : 'bg-ivory dark:bg-night-900 text-title dark:text-slate-200 border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800'
                 }`}
               >
                 <Icon name="filter" className="w-3.5 h-3.5" />
@@ -883,8 +883,8 @@ export const LibraryView: React.FC = () => {
                               usage.inCooldown
                                 ? 'bg-amber-100/95 text-amber-900 border-amber-300 dark:bg-amber-950/90 dark:text-amber-200 dark:border-amber-700'
                                 : usage.isCurrentlyOnActiveShelf
-                                  ? 'bg-forest-900/95 text-white border-forest-700 dark:bg-forest-900/95 dark:text-emerald-300 dark:border-forest-600'
-                                  : 'bg-ivory/95 text-forest-900 border-linen-300 dark:bg-night-900/95 dark:text-slate-200 dark:border-night-700'
+                                  ? 'bg-brand/95 text-white border-brand dark:bg-brand/95 dark:text-emerald-200 dark:border-brand-dark/50'
+                                  : 'bg-ivory/95 text-title border-linen-300 dark:bg-night-900/95 dark:text-slate-200 dark:border-night-700'
                             }`}
                           >
                             {usage.compactRecencyLabel}

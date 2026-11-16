@@ -268,7 +268,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
             <button
               type="button"
               onClick={() => onApply(preset)}
-              className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 dark:hover:bg-[#4bc2c9] text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
+              className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
             >
               <Icon name="sparkles" className="w-3.5 h-3.5" />
               <span>Generate Shelf</span>

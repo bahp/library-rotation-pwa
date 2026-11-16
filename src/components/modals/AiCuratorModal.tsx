@@ -159,7 +159,7 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
               <button
                 type="submit"
                 disabled={isCurating}
-                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
+                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
               >
                 <Icon name="sparkles" className="w-3.5 h-3.5" />
                 <span>{isCurating ? 'Curating Shelf…' : 'Generate Shelf Plan'}</span>
@@ -253,7 +253,7 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
             <button
               type="button"
               onClick={() => handleSaveRotation(true)}
-              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs active:scale-[0.98] transition-all"
+              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shadow-xs active:scale-[0.98] transition-all"
             >
               Activate Shelf Now
             </button>

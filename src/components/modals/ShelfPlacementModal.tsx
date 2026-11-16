@@ -95,7 +95,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
         <div className="px-5 pt-3.5 pb-3 border-b border-linen-200 dark:border-night-800 space-y-2.5 shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-espresso-800 dark:text-[#5ED3DA]">
+              <p className="text-[11px] font-semibold text-brand dark:text-brand-dark">
                 Shelf Placement Helper
               </p>
               <h2
@@ -145,8 +145,8 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
                   aria-pressed={active}
                   className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
                     active
-                      ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-ink dark:text-slate-300'
+                      ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
+                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-subtitle dark:text-slate-300'
                   }`}
                 >
                   {tab.label}

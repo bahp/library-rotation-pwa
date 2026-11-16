@@ -314,8 +314,8 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                             onClick={() => toggleOwner(p.id)}
                             className={`px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
                               active
-                                ? 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
-                                : 'bg-linen-100 hover:bg-linen-200 text-stone-700 dark:bg-night-800 dark:text-slate-300'
+                                ? 'bg-brand text-white dark:bg-linen-100 dark:text-night-950'
+                                : 'bg-linen-100 hover:bg-linen-200 text-subtitle dark:bg-night-800 dark:text-slate-300'
                             }`}
                           >
                             <span
@@ -332,8 +332,8 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                         onClick={() => toggleOwner('shared')}
                         className={`px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
                           intakeOwners.includes('shared')
-                            ? 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
-                            : 'bg-linen-100 hover:bg-linen-200 text-stone-700 dark:bg-night-800 dark:text-slate-300'
+                            ? 'bg-brand text-white dark:bg-linen-100 dark:text-night-950'
+                            : 'bg-linen-100 hover:bg-linen-200 text-subtitle dark:bg-night-800 dark:text-slate-300'
                         }`}
                       >
                         <span className="w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center shrink-0 bg-emerald-600 text-white">
@@ -361,8 +361,8 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                           onClick={() => setIntakeCondition(c.id as BookCondition)}
                           className={`px-3 py-1 rounded-xl text-xs font-semibold transition-colors ${
                             intakeCondition === c.id
-                              ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                              : 'bg-linen-100 hover:bg-linen-200 text-stone-700 dark:bg-night-800 dark:text-slate-300'
+                              ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
+                              : 'bg-linen-100 hover:bg-linen-200 text-subtitle dark:bg-night-800 dark:text-slate-300'
                           }`}
                         >
                           {c.label}

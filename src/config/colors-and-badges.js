@@ -34,11 +34,35 @@
  * @type {Record<string, string>}
  */
 export const AVATAR_TONES = Object.freeze({
-  teal: 'bg-[#1F6E75] text-white',
-  amber: 'bg-[#9A5B25] text-white',
-  indigo: 'bg-[#2C4257] text-white',
-  rose: 'bg-[#963E47] text-white',
-  emerald: 'bg-[#2E6B4E] text-white',
+  teal: 'bg-reader-teal text-white',
+  amber: 'bg-reader-amber text-white',
+  indigo: 'bg-reader-indigo text-white',
+  rose: 'bg-reader-rose text-white',
+  emerald: 'bg-reader-emerald text-white',
+});
+
+/**
+ * Selected topic/chip pill classes keyed by reader avatar tone so per-reader tags reflect their profile color.
+ * @type {Record<string, string>}
+ */
+export const AVATAR_TONE_PILL_STYLES = Object.freeze({
+  teal: 'bg-reader-teal text-white border-reader-teal dark:bg-reader-teal dark:text-white dark:border-reader-teal-dark/70 shadow-2xs',
+  amber: 'bg-reader-amber text-white border-reader-amber dark:bg-reader-amber dark:text-white dark:border-reader-amber-dark/65 shadow-2xs',
+  indigo: 'bg-reader-indigo text-white border-reader-indigo dark:bg-reader-indigo dark:text-white dark:border-reader-indigo-dark/55 shadow-2xs',
+  rose: 'bg-reader-rose text-white border-reader-rose dark:bg-reader-rose dark:text-white dark:border-reader-rose-dark/65 shadow-2xs',
+  emerald: 'bg-reader-emerald text-white border-reader-emerald dark:bg-reader-emerald dark:text-white dark:border-reader-emerald-dark/65 shadow-2xs',
+});
+
+/**
+ * Border-only reader selector pill classes keyed by avatar tone (neutral paper interior + profile-colored border).
+ * @type {Record<string, string>}
+ */
+export const AVATAR_TONE_BORDER_STYLES = Object.freeze({
+  teal: 'bg-landing-surface dark:bg-night-900 text-title dark:text-white border-2 border-reader-teal dark:border-reader-teal-dark shadow-2xs',
+  amber: 'bg-landing-surface dark:bg-night-900 text-title dark:text-white border-2 border-reader-amber dark:border-reader-amber-dark shadow-2xs',
+  indigo: 'bg-landing-surface dark:bg-night-900 text-title dark:text-white border-2 border-reader-indigo dark:border-reader-indigo-dark shadow-2xs',
+  rose: 'bg-landing-surface dark:bg-night-900 text-title dark:text-white border-2 border-reader-rose dark:border-reader-rose-dark shadow-2xs',
+  emerald: 'bg-landing-surface dark:bg-night-900 text-title dark:text-white border-2 border-reader-emerald dark:border-reader-emerald-dark shadow-2xs',
 });
 
 /**

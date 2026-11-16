@@ -16,6 +16,7 @@ import type {
   ReadingStage,
 } from '../../types/models.js';
 import { formatBookBinding, getEffectiveProfileAge } from '../../types/models.js';
+import { acquireCameraStream } from '../../features/scan/camera-access.js';
 
 type ActiveSheet = 'none' | 'search' | 'manual';
 
@@ -118,6 +119,8 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
 
   const [activeSheet, setActiveSheet] = useState<ActiveSheet>('none');
   const [isNativeScannerOpen, setIsNativeScannerOpen] = useState(false);
+  const [prewarmedStreamPromise, setPrewarmedStreamPromise] =
+    useState<Promise<MediaStream> | null>(null);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -395,9 +398,10 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
             setNotFoundIsbn('');
             setSearchError('');
             setLastScanViaModal(true);
+            setPrewarmedStreamPromise(acquireCameraStream('environment'));
             setIsNativeScannerOpen(true);
           }}
-          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:hover:bg-[#77DFE5] text-white dark:text-night-950 text-left flex flex-col justify-between gap-2 shadow-sm transition-all cursor-pointer"
+          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover text-white dark:text-night-950 text-left flex flex-col justify-between gap-2 shadow-sm transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between w-full">
             <span className="w-8 h-8 rounded-xl bg-white/15 dark:bg-night-950/15 flex items-center justify-center">
@@ -504,7 +508,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
               setNotFoundIsbn('');
               setActiveSheet('manual');
             }}
-            className="min-h-[36px] px-3 py-1 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold whitespace-nowrap shrink-0 cursor-pointer"
+            className="min-h-[36px] px-3 py-1 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold whitespace-nowrap shrink-0 cursor-pointer"
           >
             Add Manually
           </button>
@@ -633,7 +637,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                   <button
                     type="submit"
                     disabled={isSearching}
-                    className="min-h-[44px] px-5 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 active:scale-95 disabled:opacity-60 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
+                    className="min-h-[44px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover active:scale-95 disabled:opacity-60 dark:bg-brand-dark dark:text-night-950 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
                   >
                     <Icon name="search" className="w-4 h-4" />
                     <span>{isSearching ? 'Searching…' : 'Find'}</span>
@@ -683,7 +687,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                         <button
                           type="button"
                           onClick={() => setFoundCandidate(cand)}
-                          className="min-h-[44px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 active:scale-95 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold shrink-0 cursor-pointer transition-all"
+                          className="min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover active:scale-95 text-white dark:bg-brand-dark dark:text-night-950 text-xs font-bold shrink-0 cursor-pointer transition-all"
                         >
                           Add
                         </button>
@@ -837,7 +841,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full min-h-[48px] px-5 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="w-full min-h-[48px] px-5 py-3 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <Icon name="plus" className="w-4 h-4" />
                   <span>Add Book to Shelf</span>
@@ -852,17 +856,23 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       <NativeBarcodeScannerModal
         isOpen={isNativeScannerOpen}
         initialMode="barcode"
+        prewarmedStreamPromise={prewarmedStreamPromise}
         onDetectedIsbn={(isbn13) => {
           setIsNativeScannerOpen(false);
+          setPrewarmedStreamPromise(null);
           executeIsbnLookup(isbn13);
         }}
         onDetectedTitle={(titleQuery) => {
           setIsNativeScannerOpen(false);
+          setPrewarmedStreamPromise(null);
           setSearchQuery(titleQuery);
           setActiveSheet('search');
           executeUnifiedSearch(titleQuery, '');
         }}
-        onClose={() => setIsNativeScannerOpen(false)}
+        onClose={() => {
+          setIsNativeScannerOpen(false);
+          setPrewarmedStreamPromise(null);
+        }}
       />
 
       {/* Found Book Bottom Sheet */}
@@ -874,6 +884,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         onRescan={() => {
           setFoundCandidate(null);
           if (lastScanViaModal) {
+            setPrewarmedStreamPromise(acquireCameraStream('environment'));
             setIsNativeScannerOpen(true);
           }
         }}

@@ -338,7 +338,7 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
             setRatingSubmitted(true);
             onNotify(`Thanks for your ${rating}-star rating preview!`, 'success');
           }}
-          className="w-full min-h-[46px] px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+          className="w-full min-h-[46px] px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-sm font-semibold transition-colors shadow-xs cursor-pointer"
         >
           {ratingSubmitted ? 'Rating Preview Saved' : `Submit ${rating}-Star Rating (Placement)`}
         </button>
@@ -408,7 +408,7 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
                 }}
                 className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
                   active
-                    ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                    ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
                     : 'bg-linen-100 text-stone-ink hover:text-forest-900 dark:bg-night-800 dark:text-slate-300'
                 }`}
               >
@@ -449,7 +449,7 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
 
           <button
             type="submit"
-            className="min-h-[44px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors shadow-xs cursor-pointer"
+            className="min-h-[44px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors shadow-xs cursor-pointer"
           >
             <Icon name="mail" className="w-4 h-4" />
             <span>Send Feedback (Placement)</span>
@@ -471,7 +471,7 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
   return (
     <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-5 sm:p-6 shadow-xs space-y-5">
       <div className="flex items-start gap-3.5">
-        <span className="w-11 h-11 rounded-2xl bg-espresso-800/10 text-espresso-800 dark:bg-amber-400/12 dark:text-amber-300 flex items-center justify-center shrink-0">
+        <span className="w-11 h-11 rounded-2xl bg-brand/10 text-brand dark:bg-brand-dark/12 dark:text-brand-dark flex items-center justify-center shrink-0">
           <Icon name="coffee" className="w-5 h-5" />
         </span>
         <div>

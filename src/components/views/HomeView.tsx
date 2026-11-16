@@ -242,7 +242,7 @@ export const HomeView: React.FC = () => {
                   e.preventDefault();
                   navigate('rotations');
                 }}
-                className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-semibold whitespace-nowrap inline-flex items-center"
+                className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white text-xs font-semibold whitespace-nowrap inline-flex items-center transition-colors"
               >
                 Swap Books
               </a>
@@ -287,7 +287,7 @@ export const HomeView: React.FC = () => {
                 onClick={() =>
                   handleGeneratePresetMatch(topPresetMatch.preset.id, topPresetMatch.preset.title)
                 }
-                className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
+                className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
               >
                 Generate Shelf
               </button>
@@ -317,7 +317,7 @@ export const HomeView: React.FC = () => {
             className="rounded-2xl border border-linen-200 dark:border-night-800 bg-white dark:bg-night-900 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
           >
             <div className="flex items-start gap-3 min-w-0">
-              <span className="p-2 rounded-xl bg-amber-500/12 dark:bg-amber-400/15 text-espresso-800 dark:text-amber-300 shrink-0">
+              <span className="p-2 rounded-xl bg-amber-500/12 dark:bg-amber-400/15 text-brand dark:text-amber-300 shrink-0">
                 <Icon name="clock" className="w-4 h-4" />
               </span>
               <div className="min-w-0">
@@ -346,7 +346,7 @@ export const HomeView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => store.replaceRotationBookRandom(activeRotation.id, leadStale.book.id)}
-                  className="min-h-[38px] px-3 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                  className="min-h-[38px] px-3 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
                 >
                   <Icon name="refresh" className="w-3.5 h-3.5" />
                   <span>Swap Fresh</span>
@@ -355,7 +355,7 @@ export const HomeView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('rotations', { edit: activeRotation.id })}
-                  className="min-h-[38px] px-3 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white text-xs font-semibold whitespace-nowrap cursor-pointer"
+                  className="min-h-[38px] px-3 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
                 >
                   Review Shelf
                 </button>
@@ -378,7 +378,7 @@ export const HomeView: React.FC = () => {
         <section aria-labelledby="active-shelf-heading" className="space-y-5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-2">
             <div className="min-w-0 flex-1 space-y-1.5">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-espresso-800 dark:text-[#5ED3DA]">
+              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-brand dark:text-brand-dark">
                 {householdLabel ? `${householdLabel} · ` : ''}
                 {t('home.booksInRotation')}
               </p>
@@ -467,7 +467,7 @@ export const HomeView: React.FC = () => {
                   type="button"
                   onClick={() => navigate('rotations', { edit: activeRotation.id })}
                   aria-label="Edit active rotation"
-                  className="min-h-[48px] sm:min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-semibold inline-flex items-center gap-1 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                  className="min-h-[48px] sm:min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 text-white text-xs font-semibold inline-flex items-center gap-1 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
                 >
                   <span>Edit</span>
                 </button>
@@ -490,7 +490,7 @@ export const HomeView: React.FC = () => {
                   onClick={() => setShelfFilter('all')}
                   className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
                     shelfFilter === 'all'
-                      ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
+                      ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-2xs'
                       : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
                   }`}
                 >
@@ -504,7 +504,7 @@ export const HomeView: React.FC = () => {
                   onClick={() => setShelfFilter('unread')}
                   className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
                     shelfFilter === 'unread'
-                      ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
+                      ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-2xs'
                       : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
                   }`}
                 >
@@ -592,12 +592,12 @@ export const HomeView: React.FC = () => {
                           className="absolute -bottom-1 -left-1 z-20 min-h-[44px] min-w-[44px] flex items-end justify-start p-2.5 focus-visible:outline-2 focus-visible:outline-forest-700 cursor-pointer"
                         >
                           {isRead ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-forest-800/95 text-white border-white/80 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-night-950">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-brand/95 text-white border-white/80 dark:bg-brand-dark dark:text-night-950 dark:border-night-950">
                               <Icon name="check" className="w-2.5 h-2.5" />
                               <span>Read</span>
                             </span>
                           ) : isPicked ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-forest-800/95 text-white border-white/80 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-night-950">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-brand/95 text-white border-white/80 dark:bg-brand-dark dark:text-night-950 dark:border-night-950">
                               <Icon name="bookmarkFilled" className="w-2.5 h-2.5" />
                               <span>Picked</span>
                             </span>
@@ -658,7 +658,7 @@ export const HomeView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate('rotations', { edit: activeRotation.id })}
-                    className="w-full min-h-[40px] px-3.5 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                    className="w-full min-h-[40px] px-3.5 py-2 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                   >
                     <span>Edit Rotation</span>
                     <Icon name="chevronRight" className="w-3.5 h-3.5" />
@@ -691,7 +691,7 @@ export const HomeView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate('scan')}
-                      className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white text-xs font-semibold cursor-pointer"
+                      className="min-h-[42px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Add Books
                     </button>
@@ -707,7 +707,7 @@ export const HomeView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShelfFilter('all')}
-                    className="min-h-[40px] px-4 py-1.5 rounded-xl bg-forest-900 text-white text-xs font-semibold cursor-pointer"
+                    className="min-h-[40px] px-4 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 text-xs font-semibold cursor-pointer"
                   >
                     Show All Shelf Books
                   </button>
@@ -718,14 +718,14 @@ export const HomeView: React.FC = () => {
         </section>
       ) : (
         <section className="rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-6 sm:p-10 text-center space-y-3 shadow-2xs">
-          <p className="text-xs font-bold uppercase tracking-wider text-espresso-800 dark:text-[#5ED3DA]">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand dark:text-brand-dark">
             {householdLabel ? `${householdLabel} · ` : ''}
             {t('home.booksInRotation')}
           </p>
-          <h1 className="font-display text-2xl sm:text-3xl font-bold text-forest-900 dark:text-white">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-title dark:text-white">
             No active shelf rotation for {activeProfile?.name || 'Reader'}
           </h1>
-          <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+          <p className="text-xs sm:text-sm text-subtitle dark:text-slate-400 max-w-md mx-auto leading-relaxed">
             Curate a calm, intentional face-out shelf from your home library so favorite stories stay fresh without clutter.
           </p>
           <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
@@ -733,7 +733,7 @@ export const HomeView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('scan')}
-                className="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
               >
                 <Icon name="scan" className="w-4 h-4" />
                 <span>Add Books First</span>
@@ -742,7 +742,7 @@ export const HomeView: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('rotations')}
-              className="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 text-white text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
             >
               <Icon name="plus" className="w-4 h-4" />
               <span>{t('home.createShelf')}</span>
@@ -922,7 +922,7 @@ export const HomeView: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('library')}
-              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+              className="min-h-[40px] px-4 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
             >
               <span>{t('nav.library')}</span>
               <Icon name="chevronRight" className="w-3.5 h-3.5" />

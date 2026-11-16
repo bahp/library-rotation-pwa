@@ -16,7 +16,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { pwaStatus } = useApp();
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-linen-50 text-[#1A2423] dark:bg-night-950 dark:text-[#F4EFE6] transition-colors selection:bg-[#1D646B] selection:text-white">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-linen-50 text-ink dark:bg-night-950 dark:text-[#F4EFE6] transition-colors selection:bg-brand selection:text-white">
       {/* Fixed iOS/PWA Top Safe-Area Curtain */}
       <div
         aria-hidden="true"
@@ -27,7 +27,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       {/* Skip to Main Content Link */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-forest-900 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none"
       >
         Skip to main content
       </a>

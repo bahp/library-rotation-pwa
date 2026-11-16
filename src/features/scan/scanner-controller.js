@@ -592,8 +592,39 @@ export function createScannerController(options = {}) {
 
       restartPollingLoop();
     } catch (err) {
+      let msg = describeCameraError(err);
+      const name = err && typeof err === 'object' && 'name' in err ? String(err.name) : '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        try {
+          const inIframe = typeof window !== 'undefined' && window.self !== window.top;
+          const docAny = typeof document !== 'undefined' ? /** @type {any} */ (document) : null;
+          const policyAllows =
+            typeof docAny?.permissionsPolicy?.allowsFeature === 'function'
+              ? docAny.permissionsPolicy.allowsFeature('camera')
+              : typeof docAny?.featurePolicy?.allowsFeature === 'function'
+                ? docAny.featurePolicy.allowsFeature('camera')
+                : null;
+          let permState = 'unknown';
+          if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
+            try {
+              const res = await navigator.permissions.query(
+                /** @type {PermissionDescriptor} */ ({ name: 'camera' })
+              );
+              permState = res?.state || 'unknown';
+            } catch (_) {}
+          }
+          if (policyAllows === false) {
+            msg =
+              'Camera access is blocked by this embedded preview frame. Open the app in a dedicated browser tab, or tap "Upload Photo" below.';
+          } else if (permState === 'prompt' || (inIframe && permState === 'unknown')) {
+            msg = inIframe
+              ? 'The browser did not complete the camera prompt inside this embedded preview. Open in a dedicated browser tab, tap Start Camera again, or use "Upload Photo".'
+              : 'Camera permission was not granted yet. Tap Start Camera to trigger the prompt, or use "Upload Photo" below.';
+          }
+        } catch (_) {}
+      }
       state.phase = 'error';
-      state.errorMessage = describeCameraError(err);
+      state.errorMessage = msg;
       state.statusMessage = 'Camera unavailable — Upload Photo fallback ready.';
       emit();
     }

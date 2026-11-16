@@ -132,7 +132,7 @@ export const ProfileSwitcherSheet: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenAddForm}
-            className="min-h-[48px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-xs"
+            className="min-h-[48px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-[0.98] shadow-xs"
           >
             <Icon name="plus" className="w-3.5 h-3.5" />
             <span>Add Child Profile</span>

@@ -437,8 +437,8 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
             aria-pressed={selectedMonth === null}
             className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
               selectedMonth === null
-                ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                : 'bg-linen-100/80 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-ink dark:text-slate-300'
+                ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
+                : 'bg-linen-100/80 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-subtitle dark:text-slate-300'
             }`}
           >
             All Months

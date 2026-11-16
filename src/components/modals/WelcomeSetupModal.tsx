@@ -91,7 +91,7 @@ export const WelcomeSetupModal: React.FC<WelcomeSetupModalProps> = ({ isOpen, on
           <button
             type="button"
             onClick={handleGoToSettings}
-            className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
+            className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
           >
             Configure Providers…
           </button>

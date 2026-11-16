@@ -143,7 +143,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               <button
                 type="button"
                 onClick={onActivate}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-semibold transition-colors shadow-2xs whitespace-nowrap"
+                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold transition-colors shadow-2xs whitespace-nowrap"
               >
                 Activate
               </button>
@@ -175,7 +175,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
         {totalCount > 0 && (
           <div className="mt-2.5 h-2 w-full rounded-full bg-linen-100 dark:bg-night-800 overflow-hidden">
             <div
-              className="h-full rounded-full bg-forest-700 dark:bg-[#5ED3DA] transition-all duration-300"
+              className="h-full rounded-full bg-brand dark:bg-brand-dark transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>

@@ -286,8 +286,8 @@ export const PlayView: React.FC = () => {
                         aria-pressed={!storyTopic.trim()}
                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                           !storyTopic.trim()
-                            ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold shadow-2xs'
-                            : 'bg-linen-100 dark:bg-night-800 text-stone-700 dark:text-slate-300 hover:bg-linen-200 dark:hover:bg-night-700'
+                            ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 font-bold shadow-2xs'
+                            : 'bg-linen-100 dark:bg-night-800 text-subtitle dark:text-slate-300 hover:bg-linen-200 dark:hover:bg-night-700'
                         }`}
                       >
                         Any topic
@@ -302,8 +302,8 @@ export const PlayView: React.FC = () => {
                             aria-pressed={isSelected}
                             className={`px-3 py-1 rounded-lg text-xs font-medium capitalize transition-colors ${
                               isSelected
-                                ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold shadow-2xs'
-                                : 'bg-linen-100 dark:bg-night-800 text-stone-700 dark:text-slate-300 hover:bg-linen-200 dark:hover:bg-night-700'
+                                ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 font-bold shadow-2xs'
+                                : 'bg-linen-100 dark:bg-night-800 text-subtitle dark:text-slate-300 hover:bg-linen-200 dark:hover:bg-night-700'
                             }`}
                           >
                             {topic}
@@ -329,7 +329,7 @@ export const PlayView: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleRunStorytimePicker}
-                        className="px-6 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 dark:hover:bg-[#4bc2c9] font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-colors"
+                        className="px-6 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 dark:hover:bg-brand-dark-hover font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-colors"
                       >
                         <Icon name="dice" className="w-4 h-4" />
                         <span>Draw Storytime Books!</span>
@@ -425,7 +425,7 @@ export const PlayView: React.FC = () => {
 
                   {/* Treasure Clue Card */}
                   <div className="p-6 sm:p-8 rounded-3xl bg-linear-to-br from-linen-100 to-linen-200 dark:from-night-800 dark:to-night-700 text-center space-y-4 shadow-inner">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-espresso-800 dark:text-[#5ED3DA]">
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-brand dark:text-brand-dark">
                       Book Clue
                     </p>
 
@@ -479,7 +479,7 @@ export const PlayView: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleFoundBook}
-                        className="px-6 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
+                        className="px-6 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
                       >
                         <Icon name="check" className="w-4 h-4" />
                         <span>Found It!</span>
@@ -488,7 +488,7 @@ export const PlayView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => startNextHunt()}
-                        className="px-6 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
+                        className="px-6 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
                       >
                         <span>Play Next Clue →</span>
                       </button>

@@ -273,8 +273,8 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
                 onClick={() => handleToggleTopic(topic)}
                 className={`px-3 py-1 rounded-xl text-xs font-semibold transition-colors ${
                   isSelected
-                    ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
-                    : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-700 dark:text-slate-300'
+                    ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-2xs'
+                    : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-subtitle dark:text-slate-300'
                 }`}
               >
                 #{topic}
@@ -443,14 +443,14 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
                 <button
                   type="button"
                   onClick={handleWizardNext}
-                  className="min-h-[48px] sm:min-h-[38px] px-5 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
+                  className="min-h-[48px] sm:min-h-[38px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
                 >
                   Next: Interests →
                 </button>
               ) : (
                 <button
                   type="submit"
-                  className="min-h-[48px] sm:min-h-[38px] px-5 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
+                  className="min-h-[48px] sm:min-h-[38px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
                 >
                   {existingProfile ? 'Save Changes' : 'Create Reader Profile'}
                 </button>

@@ -81,7 +81,7 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
         </div>
 
         <div className="pt-3 border-t border-linen-200/70 dark:border-night-800 flex justify-center">
-          <span className="w-full min-h-[42px] px-4 py-2.5 rounded-xl bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs inline-flex items-center justify-center gap-2 group-hover:bg-forest-800 dark:group-hover:bg-[#4bc2c9] transition-colors shadow-2xs">
+          <span className="w-full min-h-[42px] px-4 py-2.5 rounded-xl bg-brand text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs inline-flex items-center justify-center gap-2 group-hover:bg-brand-hover dark:group-hover:bg-brand-dark-hover transition-colors shadow-2xs">
             <Icon name={app.logoIcon || 'play'} className="w-4 h-4" />
             <span>{app.ctaLabel || 'Launch'}</span>
           </span>

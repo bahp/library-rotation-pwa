@@ -258,7 +258,7 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
               <button
                 type="button"
                 onClick={handleApplyTags}
-                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 text-xs font-bold rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs active:scale-[0.98] transition-all"
+                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 text-xs font-bold rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 shadow-xs active:scale-[0.98] transition-all"
               >
                 Save Selected Tags
               </button>

@@ -113,8 +113,8 @@ export const AiRecommendationsModal: React.FC<AiRecommendationsModalProps> = ({
                   onClick={() => setActiveGoal(opt.id as any)}
                   className={`min-h-[48px] sm:min-h-0 p-2 rounded-xl text-xs font-semibold text-center transition-all active:scale-[0.98] ${
                     activeGoal === opt.id
-                      ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
-                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-stone-700 dark:text-slate-300'
+                      ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-xs'
+                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-subtitle dark:text-slate-300'
                   }`}
                 >
                   {opt.label}
@@ -142,7 +142,7 @@ export const AiRecommendationsModal: React.FC<AiRecommendationsModalProps> = ({
                 type="button"
                 onClick={() => handleGenerate()}
                 disabled={isLoading}
-                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
+                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
               >
                 <Icon name="sparkles" className="w-3.5 h-3.5" />
                 <span>{isLoading ? 'Generating…' : 'Discover Books'}</span>
@@ -219,7 +219,7 @@ export const AiRecommendationsModal: React.FC<AiRecommendationsModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleAddToWishlist(rec)}
-                            className="min-h-[44px] sm:min-h-0 px-3 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-semibold text-xs flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
+                            className="min-h-[44px] sm:min-h-0 px-3 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-semibold text-xs flex items-center gap-1 transition-all active:scale-95 shadow-2xs"
                           >
                             <Icon name="bookmark" className="w-3.5 h-3.5" />
                             <span>Wishlist</span>

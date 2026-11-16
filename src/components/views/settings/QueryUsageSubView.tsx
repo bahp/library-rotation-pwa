@@ -237,7 +237,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
             <button
               type="button"
               onClick={() => handleSaveCustomLimit(quota.service)}
-              className="px-3 h-8 rounded-lg bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold transition-colors cursor-pointer"
+              className="px-3 h-8 rounded-lg bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-bold transition-colors cursor-pointer"
             >
               Save
             </button>
@@ -553,7 +553,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
                   queryLogger.resetTodayCounts();
                   setConfirmResetOpen(false);
                 }}
-                className="min-h-[48px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold cursor-pointer active:scale-[0.98] transition-all"
+                className="min-h-[48px] sm:min-h-[36px] px-4 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-bold cursor-pointer active:scale-[0.98] transition-all"
               >
                 Reset Counters
               </button>

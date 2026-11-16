@@ -11,10 +11,16 @@ import {
 import { createOcrEngine } from '../../features/scan/ocr-engine.js';
 import { validateBarcodeAsIsbn } from '../../features/scan/isbn-extractor.js';
 import type { ScanMode } from '../../types/models.js';
+import {
+  acquireCameraStream,
+  diagnoseCameraAccessError,
+  type CameraErrorDiagnosis,
+} from '../../features/scan/camera-access.js';
 
 interface NativeBarcodeScannerModalProps {
   isOpen: boolean;
   initialMode?: ScanMode;
+  prewarmedStreamPromise?: Promise<MediaStream> | null;
   onDetectedIsbn: (isbn13: string, sourceLabel: string) => void;
   onDetectedTitle?: (titleQuery: string, sourceLabel: string) => void;
   onClose: () => void;
@@ -25,6 +31,7 @@ type CameraStage = 'starting' | 'streaming' | 'locked' | 'fallback';
 export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps> = ({
   isOpen,
   initialMode = 'barcode',
+  prewarmedStreamPromise = null,
   onDetectedIsbn,
   onDetectedTitle,
   onClose,
@@ -36,7 +43,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [stage, setStage] = useState<CameraStage>('starting');
   const [statusText, setStatusText] = useState('Initializing rear camera…');
-  const [fallbackReason, setFallbackReason] = useState('');
+  const [fallbackDiagnosis, setFallbackDiagnosis] = useState<CameraErrorDiagnosis | null>(null);
   const [torchSupported, setTorchSupported] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [lockedLabel, setLockedLabel] = useState('');
@@ -45,6 +52,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
   const [isAnalyzingUpload, setIsAnalyzingUpload] = useState(false);
   const [cameraRetryNonce, setCameraRetryNonce] = useState(0);
 
+  const pendingStreamPromiseRef = useRef<Promise<MediaStream> | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const pollTimerRef = useRef<number | null>(null);
@@ -216,18 +224,23 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
     [handleSuccessfulLock, mode]
   );
 
-  // Sync mode prop when opening
+  // Sync mode & prewarmed stream prop when opening
   useEffect(() => {
     if (isOpen) {
       setMode(initialMode);
       lockedRef.current = false;
       setLockedLabel('');
       setManualError('');
-      setFallbackReason('');
+      setFallbackDiagnosis(null);
+      if (prewarmedStreamPromise && !pendingStreamPromiseRef.current) {
+        pendingStreamPromiseRef.current = prewarmedStreamPromise;
+      }
+    } else {
+      pendingStreamPromiseRef.current = null;
     }
-  }, [isOpen, initialMode]);
+  }, [isOpen, initialMode, prewarmedStreamPromise]);
 
-  // Core camera lifecycle: auto-initialize on mount, strict track cleanup on unmount
+  // Core camera lifecycle: consume synchronous-gesture stream promise or initiate camera, strict cleanup on unmount
   useEffect(() => {
     mountedRef.current = true;
     if (!isOpen) {
@@ -241,64 +254,29 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
     lockedRef.current = false;
     setStage('starting');
     setStatusText('Requesting camera permission…');
-    setFallbackReason('');
+    setFallbackDiagnosis(null);
 
     async function bootCamera() {
-      const secureOk = typeof window === 'undefined' || window.isSecureContext !== false;
-      const hasMedia = Boolean(
-        secureOk &&
-          typeof navigator !== 'undefined' &&
-          navigator.mediaDevices &&
-          typeof navigator.mediaDevices.getUserMedia === 'function'
-      );
+      const gestureStreamPromise = pendingStreamPromiseRef.current;
+      pendingStreamPromiseRef.current = null;
 
-      if (!hasMedia) {
+      const streamPromise = gestureStreamPromise || acquireCameraStream(facingMode);
+      if (!streamPromise) {
         if (!cancelled) {
-          setStage('fallback');
-          setFallbackReason(
-            secureOk
-              ? 'Camera access is unavailable in this browser. Enter an ISBN below or upload a photo.'
-              : 'Live camera requires HTTPS or localhost. Enter an ISBN below or upload a photo.'
+          const diag = await diagnoseCameraAccessError(
+            new Error('Camera API unavailable in this browser.')
           );
+          if (!cancelled) {
+            setStage('fallback');
+            setFallbackDiagnosis(diag);
+          }
         }
         return;
       }
 
       let stream: MediaStream | null = null;
       try {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-              facingMode: { exact: facingMode },
-              width: { ideal: 1920 },
-              height: { ideal: 1080 },
-            },
-          });
-        } catch (exactErr) {
-          const errName =
-            exactErr && typeof exactErr === 'object' && 'name' in exactErr
-              ? String((exactErr as { name?: unknown }).name)
-              : '';
-          if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-            throw exactErr;
-          }
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              audio: false,
-              video: {
-                facingMode: { ideal: facingMode },
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-              },
-            });
-          } catch {
-            stream = await navigator.mediaDevices.getUserMedia({
-              audio: false,
-              video: true,
-            });
-          }
-        }
+        stream = await streamPromise;
 
         if (cancelled) {
           stream.getTracks().forEach((t) => {
@@ -340,23 +318,10 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
         );
       } catch (err) {
         if (cancelled) return;
-        const name =
-          err && typeof err === 'object' && 'name' in err
-            ? String((err as { name?: unknown }).name)
-            : '';
-        let msg = 'Unable to open camera. Enter an ISBN manually or upload a photo.';
-        if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-          msg =
-            'Camera permission was denied. You can allow access in browser settings, upload a photo, or enter the ISBN below.';
-        } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-          msg =
-            'No camera hardware was detected on this device. Upload a photo or type the ISBN below.';
-        } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-          msg =
-            'Your camera is in use by another app. Close it to retry, upload a photo, or enter the ISBN manually.';
-        }
+        const diag = await diagnoseCameraAccessError(err);
+        if (cancelled) return;
         setStage('fallback');
-        setFallbackReason(msg);
+        setFallbackDiagnosis(diag);
       }
     }
 
@@ -429,9 +394,19 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
     }
   };
 
+  const handleRetryCameraFromTap = () => {
+    stopAllMediaTracks();
+    pendingStreamPromiseRef.current = acquireCameraStream(facingMode);
+    setFallbackDiagnosis(null);
+    setStage('starting');
+    setCameraRetryNonce((n) => n + 1);
+  };
+
   const handleSwitchCamera = () => {
     stopAllMediaTracks();
-    setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
+    const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
+    pendingStreamPromiseRef.current = acquireCameraStream(nextFacing);
+    setFacingMode(nextFacing);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -587,10 +562,10 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
           type="button"
           onClick={() => {
             if (stage === 'fallback') {
-              setStage('starting');
-              setCameraRetryNonce((n) => n + 1);
+              handleRetryCameraFromTap();
             } else {
               stopAllMediaTracks();
+              setFallbackDiagnosis(null);
               setStage('fallback');
             }
           }}
@@ -713,21 +688,48 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
           </>
         ) : (
           /* Graceful Inline Camera Fallback Card */
-          <div className="relative z-20 w-full max-w-md mx-4 rounded-3xl bg-night-900/95 border border-white/15 p-6 text-left text-white shadow-2xl space-y-4">
+          <div className="relative z-20 w-full max-w-md mx-4 rounded-3xl bg-night-900/95 border border-white/15 p-5 sm:p-6 text-left text-white shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
               <span className="w-10 h-10 rounded-2xl bg-[#5ED3DA]/15 text-[#5ED3DA] flex items-center justify-center shrink-0">
                 <Icon name="camera" className="w-5 h-5" />
               </span>
-              <div>
-                <h2 className="font-display text-lg font-bold text-white">
-                  {fallbackReason ? 'Camera Access Needed' : 'Enter ISBN or Upload Photo'}
+              <div className="min-w-0">
+                <h2 className="font-display text-lg font-bold text-white leading-snug">
+                  {fallbackDiagnosis?.title || 'Enter ISBN or Upload Photo'}
                 </h2>
                 <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                  {fallbackReason ||
+                  {fallbackDiagnosis?.message ||
                     'Type a 10- or 13-digit ISBN from the back cover, or pick a photo from your library.'}
                 </p>
               </div>
             </div>
+
+            {fallbackDiagnosis && (
+              <div className="flex flex-wrap items-center gap-2">
+                {fallbackDiagnosis.canRetry && (
+                  <button
+                    type="button"
+                    onClick={handleRetryCameraFromTap}
+                    className="min-h-[44px] px-4 py-2 rounded-2xl bg-white/12 hover:bg-white/20 active:scale-[0.98] text-white text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Icon name="refresh" className="w-3.5 h-3.5 text-[#5ED3DA]" />
+                    <span>Retry Camera</span>
+                  </button>
+                )}
+
+                {fallbackDiagnosis.canOpenNewTab && typeof window !== 'undefined' && (
+                  <a
+                    href={window.location.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[44px] px-4 py-2 rounded-2xl bg-[#5ED3DA]/15 hover:bg-[#5ED3DA]/25 border border-[#5ED3DA]/30 text-[#5ED3DA] text-xs font-bold inline-flex items-center gap-1.5 transition-all"
+                  >
+                    <Icon name="externalLink" className="w-3.5 h-3.5" />
+                    <span>Open in New Tab</span>
+                  </a>
+                )}
+              </div>
+            )}
 
             <form onSubmit={handleManualSubmit} className="space-y-3">
               <div>

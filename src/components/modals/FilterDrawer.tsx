@@ -257,7 +257,7 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                 onClick={() => toggleOwner(chip.key)}
                 className={`min-h-[36px] px-2.5 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                   active
-                    ? 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
+                    ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
                     : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 hover:bg-linen-100 dark:hover:bg-night-800'
                 }`}
               >
@@ -504,7 +504,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
             type="button"
             data-action="close-library-filters"
             onClick={onClose}
-            className="flex-1 min-h-[48px] sm:min-h-[44px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] whitespace-nowrap"
+            className="flex-1 min-h-[48px] sm:min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] whitespace-nowrap"
           >
             Show <span className="font-mono-tabular">{filteredCount}</span>{' '}
             {filteredCount === 1 ? 'Book' : 'Books'}

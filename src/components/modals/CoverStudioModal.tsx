@@ -210,7 +210,7 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="min-h-[48px] sm:min-h-0 px-4 py-2.5 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs shrink-0 flex items-center gap-1.5 active:scale-[0.98] transition-all"
+              className="min-h-[48px] sm:min-h-0 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shrink-0 flex items-center gap-1.5 active:scale-[0.98] transition-all"
             >
               <Icon name="search" className="w-3.5 h-3.5" />
               <span>{loading ? 'Searching…' : 'Find'}</span>

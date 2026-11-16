@@ -88,7 +88,7 @@ export const Header: React.FC = () => {
           href="#/home"
           className="flex lg:hidden items-center gap-2.5 text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700 rounded-lg whitespace-nowrap shrink-0"
         >
-          <span className="w-8 h-8 rounded-lg bg-forest-900 dark:bg-[#5ED3DA] text-white dark:text-night-950 flex items-center justify-center shadow-2xs shrink-0">
+          <span className="w-8 h-8 rounded-lg bg-brand dark:bg-brand-dark text-white dark:text-night-950 flex items-center justify-center shadow-2xs shrink-0">
             <Icon name="book" className="w-4 h-4" />
           </span>
           <span className="font-display text-base sm:text-lg font-bold tracking-tight whitespace-nowrap">
@@ -174,7 +174,7 @@ export const Header: React.FC = () => {
               e.preventDefault();
               navigate('scan');
             }}
-            className="hidden lg:inline-flex min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 dark:hover:bg-[#4bc2c9] text-white text-xs font-semibold items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap"
+            className="hidden lg:inline-flex min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 dark:hover:bg-brand-dark-hover text-white text-xs font-semibold items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap"
           >
             <Icon name="plus" className="w-3.5 h-3.5" />
             <span>Add Book</span>
@@ -256,8 +256,8 @@ export const Header: React.FC = () => {
             aria-current={currentRoute === 'settings' ? 'page' : undefined}
             className={`lg:hidden min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0 ${
               currentRoute === 'settings'
-                ? 'bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                : 'text-stone-ink hover:text-forest-900 hover:bg-linen-100 active:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 dark:active:bg-night-800'
+                ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
+                : 'text-subtitle hover:text-title hover:bg-linen-100 active:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 dark:active:bg-night-800'
             }`}
           >
             <Icon name="settings" className="w-[18px] h-[18px]" />

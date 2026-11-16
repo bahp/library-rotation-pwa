@@ -104,7 +104,7 @@ export const Sidebar: React.FC = () => {
   return (
     <aside
       aria-label="Desktop workspace navigation"
-      className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:left-0 z-30 bg-[#0F2F33] dark:bg-[#0B1518] text-white border-r border-[#19444A] dark:border-night-800 select-none overflow-hidden"
+      className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:left-0 z-30 bg-sidebar dark:bg-[#0B1518] text-white border-r border-sidebar-border dark:border-night-800 select-none overflow-hidden"
     >
       {/* Top Brand Identity */}
       <div className="h-16 px-5 flex items-center border-b border-white/10 shrink-0">
@@ -173,7 +173,7 @@ export const Sidebar: React.FC = () => {
           aria-hidden="true"
           className="relative mt-auto pt-2 px-1 pointer-events-none select-none shrink-0"
         >
-          <div className="relative rounded-2xl overflow-hidden bg-[#0D292D] dark:bg-[#0B1518] border border-white/8">
+          <div className="relative rounded-2xl overflow-hidden bg-sidebar-deep dark:bg-[#0B1518] border border-white/8">
             {!artFailed ? (
               <img
                 src={sidebarReadingArt}
@@ -187,13 +187,13 @@ export const Sidebar: React.FC = () => {
                 <Icon name="book" className="w-10 h-10" />
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0F2F33] via-transparent to-[#0F2F33]/55 dark:from-[#0B1518] dark:to-[#0B1518]/55" />
+            <div className="absolute inset-0 bg-gradient-to-t from-sidebar via-transparent to-sidebar/55 dark:from-[#0B1518] dark:to-[#0B1518]/55" />
           </div>
         </div>
       </div>
 
       {/* Bottom Active Reader Card */}
-      <div className="p-3.5 border-t border-white/10 shrink-0 bg-[#0F2F33] dark:bg-[#0B1518]">
+      <div className="p-3.5 border-t border-white/10 shrink-0 bg-sidebar dark:bg-[#0B1518]">
         {activeProfile ? (
           <button
             type="button"

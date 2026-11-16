@@ -186,7 +186,7 @@ export const ProfilesView: React.FC = () => {
                           {profile.name}
                         </h2>
                         {isActive && (
-                          <span className="text-[11px] font-bold text-espresso-800 dark:text-[#5ED3DA]">
+                          <span className="text-[11px] font-bold text-brand dark:text-brand-dark">
                             · Active
                           </span>
                         )}
@@ -304,7 +304,7 @@ export const ProfilesView: React.FC = () => {
                     data-action="switch-profile"
                     data-profile-id={profile.id}
                     onClick={() => handleSwitchProfile(profile.id)}
-                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-semibold text-white transition-colors whitespace-nowrap"
+                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 text-xs font-semibold text-white transition-colors whitespace-nowrap"
                   >
                     Switch to {profile.name}
                   </button>
