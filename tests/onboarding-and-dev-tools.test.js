@@ -317,5 +317,51 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(updatedBook?.ageMin, 13);
     assert.equal(updatedBook?.ageMax, 99);
   });
+
+  it('persists preferredBookTypes and allows deleting the last reader profile during onboarding', async () => {
+    const storage = createStorageAdapter({ forceMemory: true, seedOnEmpty: false });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const reader = await store.addProfile({
+      name: 'Leo',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['animals', 'space'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+    });
+    assert.equal(store.getState().profiles.length, 1);
+
+    // Deleting the sole reader is permitted while onboarding is pending or in_progress
+    await store.deleteProfile(reader.id);
+    assert.equal(store.getState().profiles.length, 0);
+
+    await store.updateSettings({
+      preferredBookTypes: ['picture-books', 'illustrated-non-fiction', 'bilingual'],
+    });
+    assert.deepEqual(store.getState().settings.preferredBookTypes, [
+      'picture-books',
+      'illustrated-non-fiction',
+      'bilingual',
+    ]);
+
+    // Once onboarding is completed, the final profile cannot be deleted
+    const finalReader = await store.addProfile({
+      name: 'Maya',
+      age: 6,
+      readingStage: 'early-reader',
+      favoriteTopics: ['nature'],
+      defaultRotationSize: 5,
+      cooldownDays: 14,
+      avatarTone: 'amber',
+    });
+    await store.completeOnboarding();
+    const deletedAfterComplete = await store.deleteProfile(finalReader.id);
+    assert.equal(deletedAfterComplete, false);
+    assert.equal(store.getState().profiles.length, 1);
+  });
 });
+
 

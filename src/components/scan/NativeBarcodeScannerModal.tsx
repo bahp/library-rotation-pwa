@@ -43,6 +43,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
   const [manualInput, setManualInput] = useState('');
   const [manualError, setManualError] = useState('');
   const [isAnalyzingUpload, setIsAnalyzingUpload] = useState(false);
+  const [cameraRetryNonce, setCameraRetryNonce] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -366,7 +367,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
       mountedRef.current = false;
       stopAllMediaTracks();
     };
-  }, [isOpen, facingMode, stopAllMediaTracks]);
+  }, [isOpen, facingMode, cameraRetryNonce, stopAllMediaTracks]);
 
   // Polling loop while streaming
   useEffect(() => {
@@ -584,12 +585,20 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
 
         <button
           type="button"
-          onClick={() => setStage((s) => (s === 'fallback' ? 'starting' : 'fallback'))}
+          onClick={() => {
+            if (stage === 'fallback') {
+              setStage('starting');
+              setCameraRetryNonce((n) => n + 1);
+            } else {
+              stopAllMediaTracks();
+              setStage('fallback');
+            }
+          }}
           aria-label={stage === 'fallback' ? 'Return to camera' : 'Enter ISBN manually'}
-          title="Manual ISBN entry"
+          title={stage === 'fallback' ? 'Return to camera' : 'Manual ISBN entry'}
           className="min-h-[48px] min-w-[48px] rounded-full bg-white/12 hover:bg-white/20 active:scale-95 text-white flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
         >
-          <Icon name="edit" className="w-4 h-4" />
+          <Icon name={stage === 'fallback' ? 'camera' : 'edit'} className="w-4 h-4" />
         </button>
       </div>
 

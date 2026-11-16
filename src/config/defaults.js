@@ -87,6 +87,7 @@ export function createDefaultAppSettings() {
   return {
     language: 'en',
     householdName: '',
+    preferredBookTypes: [],
     onboarding: createDefaultOnboardingState({ status: 'completed', currentStep: 5 }),
     devModeUnlocked: false,
     showMiniWizards: true,

@@ -184,6 +184,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @typedef {Object} AppSettings
  * @property {'en' | 'es' | 'it'} [language] - Active interface language ('en' default, 'es' Español, 'it' Italiano)
  * @property {string} [householdName] - Optional parent or household display name
+ * @property {string[]} [preferredBookTypes] - Selected book formats/types from onboarding
  * @property {OnboardingProgressState} [onboarding] - Guided first-time user onboarding progress
  * @property {boolean} [devModeUnlocked] - Unlocks Development & Testing tools in Settings
  * @property {boolean} [showMiniWizards] - Enable optional guided mini-wizards for new readers and new shelves

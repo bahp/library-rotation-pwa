@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
 import { ClearableInput } from '../common/ClearableInput.js';
@@ -7,30 +7,117 @@ import { BookCover } from '../common/BookCover.js';
 import { FoundBookSheet } from '../modals/FoundBookSheet.js';
 import { NativeBarcodeScannerModal } from '../scan/NativeBarcodeScannerModal.js';
 import { SearchResultsSkeleton } from '../common/SkeletonLoaders.js';
-import { triggerScanSuccessFeedback } from '../../utils/scannerFeedback.js';
 import { parseUnifiedCatalogQuery } from '../../features/scan/scan-shell-view.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
 import type {
   BookCondition,
   BookFormat,
   ReadingStage,
-  ScanMode,
 } from '../../types/models.js';
-import { formatBookBinding } from '../../types/models.js';
+import { formatBookBinding, getEffectiveProfileAge } from '../../types/models.js';
 
-type LibraryMethodId = 'search' | 'barcode' | 'cover' | 'manual' | 'sample';
+type ActiveSheet = 'none' | 'search' | 'manual';
 
 interface OnboardingLibraryStepProps {
   primaryProfileId?: string;
 }
 
+interface CuratedStarterBook {
+  title: string;
+  authors: string[];
+  isbn: string;
+  publishedYear: number;
+  pageCount: number;
+  format: BookFormat;
+  ageMin: number;
+  ageMax: number;
+  readingStage: ReadingStage;
+  tags: string[];
+}
+
+const OLDER_READER_STARTER_BOOKS: CuratedStarterBook[] = [
+  {
+    title: "Charlotte's Web",
+    authors: ['E. B. White'],
+    isbn: '9780064400558',
+    publishedYear: 1952,
+    pageCount: 192,
+    format: 'paperback',
+    ageMin: 7,
+    ageMax: 12,
+    readingStage: 'chapter-book',
+    tags: ['animals', 'friendship', 'classic'],
+  },
+  {
+    title: 'The Wild Robot',
+    authors: ['Peter Brown'],
+    isbn: '9780316382007',
+    publishedYear: 2016,
+    pageCount: 288,
+    format: 'hardcover',
+    ageMin: 8,
+    ageMax: 13,
+    readingStage: 'middle-grade',
+    tags: ['nature', 'animals', 'science', 'adventure'],
+  },
+  {
+    title: 'The Little Prince',
+    authors: ['Antoine de Saint-Exupéry'],
+    isbn: '9780156012195',
+    publishedYear: 1943,
+    pageCount: 96,
+    format: 'paperback',
+    ageMin: 8,
+    ageMax: 99,
+    readingStage: 'middle-grade',
+    tags: ['space', 'classic', 'wonder', 'art'],
+  },
+  {
+    title: 'A Wrinkle in Time',
+    authors: ['Madeleine L’Engle'],
+    isbn: '9780312367541',
+    publishedYear: 1962,
+    pageCount: 256,
+    format: 'paperback',
+    ageMin: 10,
+    ageMax: 17,
+    readingStage: 'teen-ya',
+    tags: ['space', 'science', 'adventure'],
+  },
+  {
+    title: 'The Hobbit',
+    authors: ['J. R. R. Tolkien'],
+    isbn: '9780547928227',
+    publishedYear: 1937,
+    pageCount: 300,
+    format: 'paperback',
+    ageMin: 11,
+    ageMax: 99,
+    readingStage: 'teen-ya',
+    tags: ['adventure', 'fairy-tales', 'classic'],
+  },
+  {
+    title: 'Braiding Sweetgrass',
+    authors: ['Robin Wall Kimmerer'],
+    isbn: '9781571313560',
+    publishedYear: 2013,
+    pageCount: 408,
+    format: 'paperback',
+    ageMin: 16,
+    ageMax: 99,
+    readingStage: 'adult',
+    tags: ['nature', 'science', 'history'],
+  },
+];
+
 export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
   primaryProfileId,
 }) => {
-  const { state, store, catalogService, scanner, activeProfile, setInspectedBookId } = useApp();
+  const { state, store, catalogService, activeProfile, setInspectedBookId } = useApp();
 
-  const [activeMethod, setActiveMethod] = useState<LibraryMethodId>('search');
-  const [scannerState, setScannerState] = useState(() => ({ ...scanner.getState() }));
+  const [activeSheet, setActiveSheet] = useState<ActiveSheet>('none');
+  const [isNativeScannerOpen, setIsNativeScannerOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,81 +133,59 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
   const [manualAuthors, setManualAuthors] = useState('');
   const [manualIsbn, setManualIsbn] = useState('');
   const [manualFormat, setManualFormat] = useState<BookFormat>('hardcover');
+  const [manualCategory, setManualCategory] = useState('picture-book');
   const [manualStage, setManualStage] = useState<ReadingStage>(
     activeProfile?.readingStage || 'picture-book'
   );
-  const [manualAgeMin, setManualAgeMin] = useState(
-    String(Math.max(1, (activeProfile?.age || 4) - 1))
-  );
-  const [manualAgeMax, setManualAgeMax] = useState(String((activeProfile?.age || 4) + 2));
-  const [manualTags, setManualTags] = useState('');
   const [manualError, setManualError] = useState('');
 
-  // Sample import feedback
+  // Starter collection state
   const [importingSample, setImportingSample] = useState(false);
+  const [starterImported, setStarterImported] = useState(false);
 
-  // Found book sheet & full-screen scanner
+  // Found book sheet
   const [foundCandidate, setFoundCandidate] = useState<BookCandidate | null>(null);
-  const [isNativeScannerOpen, setIsNativeScannerOpen] = useState(false);
+  const [lastScanViaModal, setLastScanViaModal] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const lastHandledLockRef = useRef<string>('');
+  useBodyScrollLock(activeSheet !== 'none');
+
+  const readerAges = useMemo(
+    () => state.profiles.map((p) => getEffectiveProfileAge(p)),
+    [state.profiles]
+  );
+
+  const starterSublabel = useMemo(() => {
+    if (starterImported) return 'Added to shelf';
+    if (readerAges.length === 0) return 'Curated classics';
+    const minAge = Math.min(...readerAges);
+    const maxAge = Math.max(...readerAges);
+    if (maxAge <= 3) return 'Board & toddler picks';
+    if (minAge >= 13) return 'Teen & adult picks';
+    if (minAge >= 9) return 'Chapter & middle grade';
+    return minAge === maxAge
+      ? `Tailored for age ${minAge}`
+      : `Tailored for ages ${minAge}–${maxAge}`;
+  }, [readerAges, starterImported]);
 
   useEffect(() => {
-    scanner.initSupport().catch(() => {});
-  }, [scanner]);
+    if (activeSheet === 'search') {
+      const timer = window.setTimeout(() => {
+        document.getElementById('onboarding-sheet-search-query')?.focus();
+      }, 80);
+      return () => window.clearTimeout(timer);
+    }
+  }, [activeSheet]);
 
   useEffect(() => {
-    const unsub = scanner.subscribe(() => {
-      const cur = scanner.getState();
-      setScannerState({ ...cur });
-
-      if (cur.phase === 'locked' && cur.lock) {
-        const lockKey = `${cur.lock.lockedAt}:${cur.lock.kind}:${cur.lock.isbn13 || cur.lock.titleQuery || ''}`;
-        if (lastHandledLockRef.current !== lockKey) {
-          lastHandledLockRef.current = lockKey;
-          triggerScanSuccessFeedback();
-          if (cur.lock.kind === 'isbn' && cur.lock.isbn13) {
-            executeIsbnLookup(cur.lock.isbn13);
-          } else if (cur.lock.kind === 'cover-title' && cur.lock.titleQuery) {
-            setSearchQuery(cur.lock.titleQuery);
-            setActiveMethod('search');
-            executeUnifiedSearch(cur.lock.titleQuery, '');
-          }
-        }
+    if (activeSheet === 'none') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !foundCandidate) {
+        setActiveSheet('none');
       }
-    });
-
-    return () => {
-      scanner.stopCamera();
-      unsub();
     };
-  }, [scanner]);
-
-  useEffect(() => {
-    const isCameraMethod = activeMethod === 'barcode' || activeMethod === 'cover';
-    if (
-      isCameraMethod &&
-      (scannerState.phase === 'starting-camera' || scannerState.phase === 'streaming') &&
-      videoRef.current
-    ) {
-      scanner.attachVideoElement(videoRef.current);
-    }
-  }, [activeMethod, scannerState.phase, scanner]);
-
-  const handleSelectMethod = (method: LibraryMethodId) => {
-    setActiveMethod(method);
-    setNotFoundIsbn('');
-    setSearchError('');
-    if (method === 'barcode') {
-      scanner.setMode('barcode');
-    } else if (method === 'cover') {
-      scanner.setMode('cover');
-    } else {
-      scanner.stopCamera();
-    }
-  };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeSheet, foundCandidate]);
 
   const executeIsbnLookup = async (isbn: string) => {
     setIsSearching(true);
@@ -138,12 +203,13 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         setFoundCandidate(res.candidate);
       } else {
         setNotFoundIsbn(isbn);
-        setSearchError(`No metadata found for ISBN ${isbn}. You can finish adding it manually.`);
+        setSearchError(`No catalog match found for ISBN ${isbn}. You can add it manually.`);
       }
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsSearching(false);
+      setPendingIsbn('');
     }
   };
 
@@ -171,33 +237,17 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         {
           retainRaw: state.settings?.retainRawProviderPayloads,
           enabledProviderIds: state.settings?.enabledMetadataProviders,
-          limit: 6,
+          limit: 8,
         }
       );
       setSearchCandidates(res.candidates);
       if (res.candidates.length === 0) {
-        setSearchError('No matching titles found. Try fewer words, barcode scan, or manual entry.');
+        setSearchError('No matching titles found. Try fewer words or add manually.');
       }
     } catch (err) {
       setSearchError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsSearching(false);
-    }
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-
-    setNotFoundIsbn('');
-    setSearchError('');
-    const targetMode: ScanMode = activeMethod === 'cover' ? 'cover' : 'barcode';
-    scanner.setMode(targetMode);
-    try {
-      await scanner.scanUploadedFile(file);
-    } catch (err) {
-      store.notify(err instanceof Error ? err.message : String(err), 'error');
     }
   };
 
@@ -210,6 +260,18 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
     }
     try {
       const targetOwner = primaryProfileId || activeProfile?.id || '';
+      const baseAge = activeProfile?.age ?? 4;
+      const stageAgeMap: Record<ReadingStage, [number, number]> = {
+        'board-toddler': [0, 3],
+        'picture-book': [2, 6],
+        'early-reader': [5, 8],
+        'chapter-book': [7, 11],
+        'middle-grade': [9, 13],
+        'teen-ya': [13, 18],
+        adult: [18, 99],
+      };
+      const [ageMin, ageMax] = stageAgeMap[manualStage] || [Math.max(1, baseAge - 1), baseAge + 2];
+
       await store.addManualBook({
         title: manualTitle.trim(),
         authors: manualAuthors
@@ -219,30 +281,80 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         isbn: manualIsbn.trim() || undefined,
         format: manualFormat,
         readingStage: manualStage,
-        ageMin: Number(manualAgeMin) || 1,
-        ageMax: Number(manualAgeMax) || 6,
-        tags: manualTags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
+        ageMin,
+        ageMax,
+        tags: manualCategory ? [manualCategory] : [],
         owners: targetOwner ? [targetOwner, 'shared'] : ['shared'],
       });
       setManualTitle('');
       setManualAuthors('');
       setManualIsbn('');
-      setManualTags('');
-      store.notify('Book added to your family library!', 'success');
+      setActiveSheet('none');
+      store.notify('Book added to your shelf!', 'success');
     } catch (err) {
       setManualError(err instanceof Error ? err.message : String(err));
     }
   };
 
-  const handleImportSampleStarter = async () => {
+  const handleImportStarterCollection = async () => {
+    if (importingSample) return;
     setImportingSample(true);
     try {
-      await store.importSampleCollectionAdditive({
-        assignToProfileId: primaryProfileId || activeProfile?.id || '',
-      });
+      const targetProfileId = primaryProfileId || activeProfile?.id || '';
+      const hasYoungReaders = readerAges.length === 0 || readerAges.some((age) => age <= 8);
+      const hasOlderReaders = readerAges.some((age) => age >= 9);
+      let addedCount = 0;
+
+      if (hasYoungReaders) {
+        const res = await store.importSampleCollectionAdditive({
+          assignToProfileId: targetProfileId,
+          silent: true,
+        });
+        addedCount += res.addedBooks.length;
+      }
+
+      if (hasOlderReaders) {
+        const existingIsbns = new Set(
+          state.books.map((b) => b.isbn13).filter((isbn) => typeof isbn === 'string' && isbn.length > 0)
+        );
+        const existingTitles = new Set(state.books.map((b) => b.title.trim().toLowerCase()));
+        const maxAge = Math.max(...readerAges);
+        const minOlderAge = Math.min(...readerAges.filter((a) => a >= 9));
+
+        const matchedOlder = OLDER_READER_STARTER_BOOKS.filter(
+          (book) => book.ageMax >= minOlderAge && book.ageMin <= maxAge + 2
+        );
+        const booksToImport = matchedOlder.length > 0 ? matchedOlder : OLDER_READER_STARTER_BOOKS.slice(0, 4);
+
+        for (const item of booksToImport) {
+          if (existingIsbns.has(item.isbn) || existingTitles.has(item.title.toLowerCase())) {
+            continue;
+          }
+          await store.addManualBook({
+            title: item.title,
+            authors: item.authors,
+            isbn: item.isbn,
+            publishedYear: item.publishedYear,
+            pageCount: item.pageCount,
+            format: item.format,
+            ageMin: item.ageMin,
+            ageMax: item.ageMax,
+            readingStage: item.readingStage,
+            tags: item.tags,
+            owners: targetProfileId ? [targetProfileId, 'shared'] : ['shared'],
+            sources: [{ provider: 'seed', fetchedAt: new Date().toISOString() }],
+          });
+          addedCount += 1;
+        }
+      }
+
+      setStarterImported(true);
+      store.notify(
+        addedCount > 0
+          ? `Added ${addedCount} age-tailored starter books to your shelf.`
+          : 'Starter collection books are already on your shelf.',
+        addedCount > 0 ? 'success' : 'info'
+      );
     } finally {
       setImportingSample(false);
     }
@@ -264,86 +376,167 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       loved: opts?.loved || false,
     });
     setFoundCandidate(null);
+    setActiveSheet('none');
     store.notify(
       `Added "${candidate.title}" to ${status === 'owned' ? 'Library' : 'Wishlist'}`,
       'success'
     );
   };
 
-  const isStreaming = scannerState.phase === 'streaming';
-  const isStarting = scannerState.phase === 'starting-camera';
-  const isAnalyzing = scannerState.phase === 'analyzing-upload';
-  const isLocked = scannerState.phase === 'locked' && Boolean(scannerState.lock);
-
-  const methodOptions: Array<{
-    id: LibraryMethodId;
-    label: string;
-    desc: string;
-    icon: string;
-  }> = [
-    {
-      id: 'search',
-      label: 'Search Title / ISBN',
-      desc: 'Look up editions online',
-      icon: 'search',
-    },
-    {
-      id: 'barcode',
-      label: 'Scan Barcode',
-      desc: 'Camera EAN / ISBN',
-      icon: 'scan',
-    },
-    {
-      id: 'cover',
-      label: 'Scan Book Cover',
-      desc: 'Photo & OCR lookup',
-      icon: 'photo',
-    },
-    {
-      id: 'manual',
-      label: 'Add Manually',
-      desc: 'Offline or vintage',
-      icon: 'edit',
-    },
-    {
-      id: 'sample',
-      label: 'Starter Collection',
-      desc: '9 curated classics',
-      icon: 'sparkles',
-    },
-  ];
-
   return (
-    <div className="space-y-5">
-      {/* Live Library Counter + Cover Preview Strip */}
-      <div className="rounded-2xl bg-linen-100/70 dark:bg-night-800/70 border border-linen-200 dark:border-night-700 p-3.5 sm:p-4">
-        <div className="flex items-center justify-between gap-3">
+    <div className="space-y-3 sm:space-y-4">
+      {/* 4-Option Equal-Weight Action Grid */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        {/* 1. Scan Barcode (Primary Highlight) */}
+        <button
+          type="button"
+          data-action="onboarding-open-scanner"
+          onClick={() => {
+            setNotFoundIsbn('');
+            setSearchError('');
+            setLastScanViaModal(true);
+            setIsNativeScannerOpen(true);
+          }}
+          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:hover:bg-[#77DFE5] text-white dark:text-night-950 text-left flex flex-col justify-between gap-2 shadow-sm transition-all cursor-pointer"
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="w-8 h-8 rounded-xl bg-white/15 dark:bg-night-950/15 flex items-center justify-center">
+              <Icon name="scan" className="w-4 h-4" />
+            </span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
+              Fastest
+            </span>
+          </div>
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-forest-700 dark:text-[#5ED3DA]">
-              Library Progress
-            </p>
-            <p className="text-sm font-bold text-forest-900 dark:text-white mt-0.5 tabular-nums">
-              {state.books.length === 0
-                ? 'No books added yet — pick any method below'
-                : `${state.books.length} ${state.books.length === 1 ? 'book' : 'books'} in your catalog`}
+            <p className="text-sm font-bold leading-tight">Scan Barcode</p>
+            <p className="text-[11px] opacity-80 mt-0.5 leading-tight">Camera ISBN scan</p>
+          </div>
+        </button>
+
+        {/* 2. Search Title */}
+        <button
+          type="button"
+          data-action="onboarding-open-search"
+          onClick={() => {
+            setLastScanViaModal(false);
+            setSearchError('');
+            setActiveSheet('search');
+          }}
+          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-ivory hover:bg-linen-100/70 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-800 text-forest-900 dark:text-white text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer"
+        >
+          <span className="w-8 h-8 rounded-xl bg-linen-100 dark:bg-night-800 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center">
+            <Icon name="search" className="w-4 h-4" />
+          </span>
+          <div>
+            <p className="text-sm font-bold leading-tight">Search Title</p>
+            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 leading-tight">
+              Title or author
             </p>
           </div>
-          {state.books.length > 0 && (
-            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 shrink-0">
-              Ready for rotation
+        </button>
+
+        {/* 3. Add Manually */}
+        <button
+          type="button"
+          data-action="onboarding-open-manual"
+          onClick={() => {
+            setManualError('');
+            setActiveSheet('manual');
+          }}
+          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-ivory hover:bg-linen-100/70 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-800 text-forest-900 dark:text-white text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer"
+        >
+          <span className="w-8 h-8 rounded-xl bg-linen-100 dark:bg-night-800 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center">
+            <Icon name="edit" className="w-4 h-4" />
+          </span>
+          <div>
+            <p className="text-sm font-bold leading-tight">Add Manually</p>
+            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 leading-tight">
+              Title &amp; category
+            </p>
+          </div>
+        </button>
+
+        {/* 4. Starter Collection */}
+        <button
+          type="button"
+          data-action="onboarding-starter-collection"
+          disabled={importingSample}
+          onClick={handleImportStarterCollection}
+          className={`min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl border text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer active:scale-[0.98] disabled:opacity-60 ${
+            starterImported
+              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-forest-900 dark:text-white'
+              : 'bg-ivory hover:bg-linen-100/70 dark:bg-night-900 dark:hover:bg-night-800 border-linen-200 dark:border-night-800 text-forest-900 dark:text-white'
+          }`}
+        >
+          <div className="flex items-center justify-between w-full">
+            <span className="w-8 h-8 rounded-xl bg-amber-100/80 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 flex items-center justify-center">
+              <Icon name={starterImported ? 'check' : 'sparkles'} className="w-4 h-4" />
             </span>
-          )}
+          </div>
+          <div>
+            <p className="text-sm font-bold leading-tight">
+              {importingSample ? 'Adding…' : 'Starter Collection'}
+            </p>
+            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 leading-tight line-clamp-1">
+              {starterSublabel}
+            </p>
+          </div>
+        </button>
+      </div>
+
+      {/* Live ISBN Lookup Status / Not Found Recovery */}
+      {isSearching && pendingIsbn && (
+        <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 px-4 py-3 flex items-center gap-3 text-xs font-medium text-forest-900 dark:text-white">
+          <span className="w-4 h-4 rounded-full border-2 border-forest-700 border-t-transparent animate-spin shrink-0" />
+          <span>Looking up ISBN {pendingIsbn}…</span>
+        </div>
+      )}
+
+      {notFoundIsbn && !isSearching && (
+        <div className="rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
+          <span className="text-amber-950 dark:text-amber-200 truncate">
+            ISBN {notFoundIsbn} not found in online catalog.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setManualIsbn(notFoundIsbn);
+              setNotFoundIsbn('');
+              setActiveSheet('manual');
+            }}
+            className="min-h-[36px] px-3 py-1 rounded-xl bg-forest-900 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            Add Manually
+          </button>
+        </div>
+      )}
+
+      {/* Live Added-Books Counter & Preview Tray */}
+      <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3.5 space-y-2.5 shadow-2xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400">
+            Added to Shelf
+          </span>
+          <span className="text-xs font-mono-tabular font-bold text-forest-700 dark:text-[#5ED3DA]">
+            {state.books.length} {state.books.length === 1 ? 'book' : 'books'}
+          </span>
         </div>
 
-        {state.books.length > 0 && (
-          <div className="mt-3 flex items-center gap-3 overflow-x-auto pb-1">
-            {state.books.slice(0, 10).map((b) => (
+        {state.books.length === 0 ? (
+          <div className="py-3 text-center">
+            <p className="text-xs text-stone-ink dark:text-slate-400">
+              No books added yet · Scan a barcode or tap Starter Collection above.
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-stretch gap-2.5 overflow-x-auto no-scrollbar pb-0.5">
+            {state.books.slice(0, 12).map((b) => (
               <button
                 key={b.id}
                 type="button"
                 onClick={() => setInspectedBookId(b.id)}
                 title={`Inspect ${b.title}`}
-                className="shrink-0 w-12 text-left group cursor-pointer focus-visible:outline-2 focus-visible:outline-forest-700 rounded-lg"
+                className="shrink-0 w-14 text-left group cursor-pointer focus-visible:outline-2 focus-visible:outline-forest-700 rounded-lg space-y-1 active:scale-95 transition-transform"
               >
                 <BookCover
                   book={b}
@@ -352,458 +545,313 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                   showBadges={false}
                   hideRotationAdorno={true}
                 />
+                <p className="text-[10px] font-medium text-forest-900 dark:text-slate-200 truncate">
+                  {b.title}
+                </p>
               </button>
             ))}
-            {state.books.length > 10 && (
-              <span className="text-xs font-mono-tabular font-semibold text-stone-ink dark:text-slate-400 px-2 shrink-0">
-                +{state.books.length - 10}
-              </span>
+            {state.books.length > 12 && (
+              <div className="shrink-0 flex items-center px-2 text-xs font-mono-tabular font-semibold text-stone-ink dark:text-slate-400">
+                +{state.books.length - 12}
+              </div>
             )}
           </div>
         )}
       </div>
 
-      {/* 5 Intake Method Cards */}
-      <div
-        role="tablist"
-        aria-label="Ways to build your library"
-        className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2"
-      >
-        {methodOptions.map((opt) => {
-          const active = activeMethod === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => handleSelectMethod(opt.id)}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col gap-1.5 ${
-                active
-                  ? 'bg-forest-900 text-white border-forest-900 dark:bg-[#5ED3DA] dark:text-night-950 dark:border-[#5ED3DA] shadow-xs'
-                  : 'bg-white dark:bg-night-900 border-linen-200 dark:border-night-800 text-forest-900 dark:text-white hover:border-forest-700/50'
-              }`}
-            >
-              <Icon
-                name={opt.icon}
-                className={`w-4 h-4 ${
-                  active
-                    ? 'text-white dark:text-night-950'
-                    : 'text-forest-700 dark:text-[#5ED3DA]'
-                }`}
-              />
-              <div>
-                <p className="text-xs font-bold leading-snug">{opt.label}</p>
-                <p
-                  className={`text-[11px] leading-tight mt-0.5 ${
-                    active ? 'text-white/80 dark:text-night-950/75' : 'text-stone-ink dark:text-slate-400'
-                  }`}
-                >
-                  {opt.desc}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Method 1: Search */}
-      {activeMethod === 'search' && (
-        <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-3.5">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              executeUnifiedSearch(searchQuery, searchAuthor);
-            }}
-            className="space-y-3"
+      {/* Modal Sheet: Search Title / Author (Google Books + Open Library) */}
+      {activeSheet === 'search' && (
+        <div
+          className="sheet-backdrop fixed inset-0 z-40 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Search book title or author"
+          onClick={() => setActiveSheet('none')}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full max-w-lg h-[82dvh] sm:h-auto sm:max-h-[82vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              <div className="sm:col-span-7">
-                <label className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                  Title or ISBN
-                </label>
-                <ClearableInput
-                  id="onboarding-search-query"
-                  value={searchQuery}
-                  onValueChange={setSearchQuery}
-                  placeholder="e.g. Where the Wild Things Are or 9780064431781"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                />
-              </div>
-              <div className="sm:col-span-5">
-                <label className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1">
-                  Author (optional)
-                </label>
-                <ClearableInput
-                  id="onboarding-search-author"
-                  value={searchAuthor}
-                  onValueChange={setSearchAuthor}
-                  placeholder="e.g. Maurice Sendak"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                />
-              </div>
-            </div>
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
 
-            <button
-              type="submit"
-              disabled={isSearching}
-              className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Icon name="search" className="w-4 h-4" />
-              <span>{isSearching ? 'Searching Catalogs…' : 'Search Books'}</span>
-            </button>
-          </form>
-
-          {searchError && (
-            <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{searchError}</p>
-          )}
-
-          {isSearching && <SearchResultsSkeleton rows={3} />}
-
-          {!isSearching && searchCandidates.length > 0 && (
-            <div className="divide-y divide-linen-200/70 dark:divide-night-800 pt-1">
-              {searchCandidates.map((cand, idx) => {
-                const pseudo = { ...cand, id: `onb_cand_${idx}`, addedAt: '' };
-                return (
-                  <div
-                    key={`${cand.isbn13 || cand.title}-${idx}`}
-                    className="py-3 first:pt-1 last:pb-1 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <BookCover
-                        book={pseudo as any}
-                        size="sm"
-                        aspectRatio="portrait"
-                        showBadges={false}
-                      />
-                      <div className="min-w-0">
-                        <p className="font-display font-bold text-sm text-forest-900 dark:text-white line-clamp-1">
-                          {cand.title}
-                        </p>
-                        <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
-                          {cand.authors.join(', ')}
-                        </p>
-                        <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
-                          Ages {cand.ageMin}–{cand.ageMax} · {formatBookBinding(cand.format)}
-                          {cand.publishedYear ? ` · ${cand.publishedYear}` : ''}
-                        </p>
-                        {cand.sources && cand.sources.length > 0 && (
-                          <div className="mt-1">
-                            <ProviderAttribution sources={cand.sources} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFoundCandidate(cand)}
-                      className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold shrink-0 cursor-pointer"
-                    >
-                      Add
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Method 2 & 3: Barcode Camera / Book Cover Photo Scan */}
-      {(activeMethod === 'barcode' || activeMethod === 'cover') && (
-        <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-bold text-forest-900 dark:text-white">
-                {activeMethod === 'barcode'
-                  ? 'Scan Back-Cover ISBN Barcode'
-                  : 'Photograph or Upload Book Cover'}
-              </p>
-              <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                {activeMethod === 'barcode'
-                  ? 'Point your camera at an ISBN barcode or upload a photo of the barcode.'
-                  : 'Capture the front jacket or upload a photo to extract the title or ISBN automatically.'}
-              </p>
-            </div>
-          </div>
-
-          <div className="relative h-52 sm:h-60 rounded-2xl bg-night-950 overflow-hidden flex flex-col items-center justify-center p-4 border border-night-800">
-            {(isStreaming || isStarting) && (
-              <video
-                ref={videoRef}
-                autoPlay
-                muted
-                playsInline
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-              />
-            )}
-            {scannerState.uploadedPreviewUrl && (
-              <img
-                src={scannerState.uploadedPreviewUrl}
-                alt="Scanned upload preview"
-                className="absolute inset-0 w-full h-full object-contain bg-night-950"
-              />
-            )}
-            <div
-              className={`relative z-10 border-2 border-dashed rounded-xl flex items-center justify-center px-4 text-center ${
-                activeMethod === 'barcode' ? 'w-56 h-24' : 'w-36 h-44'
-              } ${isLocked ? 'border-emerald-400 bg-emerald-950/30' : 'border-[#5ED3DA]/85 bg-night-950/35'}`}
-            >
-              <span className="text-[11px] font-mono-tabular text-[#FAF6EE]">
-                {isSearching && pendingIsbn
-                  ? `Looking up ${pendingIsbn}…`
-                  : isAnalyzing
-                    ? 'Reading photo…'
-                    : isStarting
-                      ? 'Starting camera…'
-                      : isStreaming
-                        ? activeMethod === 'barcode'
-                          ? 'Align ISBN barcode'
-                          : 'Center front cover'
-                        : 'Camera idle · Start or upload photo'}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
-              {scannerState.errorMessage || searchError || scannerState.statusMessage}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {isStreaming ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => scanner.stopCamera()}
-                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold cursor-pointer"
-                  >
-                    Stop Camera
-                  </button>
-                  {activeMethod === 'cover' && (
-                    <button
-                      type="button"
-                      onClick={() => scanner.captureCurrentFrame()}
-                      className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold cursor-pointer"
-                    >
-                      Capture Cover
-                    </button>
-                  )}
-                </>
-              ) : (
-                <button
-                  type="button"
-                  disabled={isStarting || isAnalyzing}
-                  onClick={() => {
-                    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-                      scanner.stopCamera();
-                      setIsNativeScannerOpen(true);
-                      return;
-                    }
-                    scanner.setMode(activeMethod === 'cover' ? 'cover' : 'barcode');
-                    scanner.startCamera().catch(() => {});
-                  }}
-                  className="min-h-[48px] sm:min-h-[40px] px-4 sm:px-3.5 py-2 sm:py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 active:scale-[0.98] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-all"
-                >
-                  <Icon name="camera" className="w-4 h-4" />
-                  <span>{isStarting ? 'Starting…' : 'Start Camera'}</span>
-                </button>
-              )}
-
+            <div className="px-5 py-3 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
+              <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                Search Books
+              </h2>
               <button
                 type="button"
-                onClick={() => {
-                  scanner.stopCamera();
-                  setIsNativeScannerOpen(true);
-                }}
-                className="hidden lg:inline-flex min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold items-center gap-1.5 cursor-pointer transition-colors"
+                onClick={() => setActiveSheet('none')}
+                aria-label="Close search"
+                className="min-h-[44px] min-w-[44px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center cursor-pointer"
               >
-                <Icon name="scan" className="w-3.5 h-3.5" />
-                <span>Full-Screen View</span>
+                <Icon name="close" className="w-5 h-5" />
               </button>
+            </div>
 
-              <label
-                htmlFor="onboarding-scan-upload"
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  executeUnifiedSearch(searchQuery, searchAuthor);
+                }}
+                className="space-y-2.5"
               >
-                <Icon name="upload" className="w-4 h-4" />
-                <span>Upload Photo</span>
-                <input
-                  id="onboarding-scan-upload"
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileUpload}
-                  className="sr-only"
-                />
-              </label>
+                <div>
+                  <label
+                    htmlFor="onboarding-sheet-search-query"
+                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                  >
+                    Title or ISBN
+                  </label>
+                  <ClearableInput
+                    id="onboarding-sheet-search-query"
+                    autoFocus
+                    value={searchQuery}
+                    onValueChange={setSearchQuery}
+                    placeholder="e.g. Where the Wild Things Are"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  />
+                </div>
 
-              {notFoundIsbn && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setManualIsbn(notFoundIsbn);
-                    setNotFoundIsbn('');
-                    setActiveMethod('manual');
-                  }}
-                  className="min-h-[40px] px-3 py-1.5 rounded-xl border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
-                >
-                  Enter Manually
-                </button>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <label
+                      htmlFor="onboarding-sheet-search-author"
+                      className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                    >
+                      Author (optional)
+                    </label>
+                    <ClearableInput
+                      id="onboarding-sheet-search-author"
+                      value={searchAuthor}
+                      onValueChange={setSearchAuthor}
+                      placeholder="e.g. Maurice Sendak"
+                      className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSearching}
+                    className="min-h-[44px] px-5 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 active:scale-95 disabled:opacity-60 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
+                  >
+                    <Icon name="search" className="w-4 h-4" />
+                    <span>{isSearching ? 'Searching…' : 'Find'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {searchError && (
+                <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{searchError}</p>
+              )}
+
+              {isSearching && <SearchResultsSkeleton rows={3} />}
+
+              {!isSearching && searchCandidates.length > 0 && (
+                <div className="divide-y divide-linen-200/70 dark:divide-night-800">
+                  {searchCandidates.map((cand, idx) => {
+                    const pseudo = { ...cand, id: `onb_cand_${idx}`, addedAt: '' };
+                    return (
+                      <div
+                        key={`${cand.isbn13 || cand.title}-${idx}`}
+                        className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          <BookCover
+                            book={pseudo as any}
+                            size="sm"
+                            aspectRatio="portrait"
+                            showBadges={false}
+                          />
+                          <div className="min-w-0">
+                            <p className="font-display font-bold text-sm text-forest-900 dark:text-white line-clamp-1">
+                              {cand.title}
+                            </p>
+                            <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
+                              {cand.authors.join(', ')}
+                            </p>
+                            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                              Ages {cand.ageMin}–{cand.ageMax} · {formatBookBinding(cand.format)}
+                            </p>
+                            {cand.sources && cand.sources.length > 0 && (
+                              <div className="mt-1">
+                                <ProviderAttribution sources={cand.sources} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setFoundCandidate(cand)}
+                          className="min-h-[44px] px-4 py-2 rounded-xl bg-forest-900 hover:bg-forest-800 active:scale-95 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold shrink-0 cursor-pointer transition-all"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Method 4: Manual Entry */}
-      {activeMethod === 'manual' && (
-        <form
-          onSubmit={handleManualSubmit}
-          className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-3 text-xs"
+      {/* Modal Sheet: Manual Book Entry */}
+      {activeSheet === 'manual' && (
+        <div
+          className="sheet-backdrop fixed inset-0 z-40 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Add book manually"
+          onClick={() => setActiveSheet('none')}
         >
-          {manualError && (
-            <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{manualError}</p>
-          )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Book Title *
-              </label>
-              <input
-                type="text"
-                required
-                value={manualTitle}
-                onChange={(e) => setManualTitle(e.target.value)}
-                placeholder="e.g. Goodnight Moon"
-                className="w-full px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Author(s)
-              </label>
-              <input
-                type="text"
-                value={manualAuthors}
-                onChange={(e) => setManualAuthors(e.target.value)}
-                placeholder="e.g. Margaret Wise Brown"
-                className="w-full px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Format
-              </label>
-              <select
-                value={manualFormat}
-                onChange={(e) => setManualFormat(e.target.value as BookFormat)}
-                className="w-full px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
-              >
-                <option value="hardcover">Hardcover</option>
-                <option value="board-book">Board Book</option>
-                <option value="paperback">Paperback</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Reading Stage
-              </label>
-              <select
-                value={manualStage}
-                onChange={(e) => setManualStage(e.target.value as ReadingStage)}
-                className="w-full px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
-              >
-                <option value="board-toddler">Board Book (Ages 0–3)</option>
-                <option value="picture-book">Picture Book (Ages 3–6)</option>
-                <option value="early-reader">Early Reader (Ages 5–8)</option>
-                <option value="chapter-book">Chapter Book (Ages 7–12)</option>
-                <option value="middle-grade">Middle Grade (Ages 9–12)</option>
-                <option value="teen-ya">Teen / YA (Ages 13–17)</option>
-                <option value="adult">Adult Reader (Ages 18+)</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                  Min Age
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={manualAgeMin}
-                  onChange={(e) => setManualAgeMin(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                  Max Age
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={120}
-                  value={manualAgeMax}
-                  onChange={(e) => setManualAgeMax(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
-                Topics (comma-separated)
-              </label>
-              <input
-                type="text"
-                value={manualTags}
-                onChange={(e) => setManualTags(e.target.value)}
-                placeholder="bedtime, animals, seasons"
-                className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer"
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="animate-sheet-up w-full max-w-lg max-h-[88dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
           >
-            <Icon name="plus" className="w-4 h-4" />
-            <span>Save Book to Library</span>
-          </button>
-        </form>
-      )}
+            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
 
-      {/* Method 5: Start with Predefined Sample Collection (Additive) */}
-      {activeMethod === 'sample' && (
-        <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="font-display text-base font-bold text-forest-900 dark:text-white">
-                Add Predefined Starter Collection (9 Books)
-              </h3>
-              <p className="text-xs text-stone-ink dark:text-slate-400 mt-1 leading-relaxed">
-                Import 9 beloved children’s classics (picture books, board books, and early STEM
-                favorites) right into your household library so you can try rotations immediately.
-                Your household name and child profiles stay untouched.
-              </p>
+            <div className="px-5 py-3 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
+              <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                Add Book Manually
+              </h2>
+              <button
+                type="button"
+                onClick={() => setActiveSheet('none')}
+                aria-label="Close manual entry"
+                className="min-h-[44px] min-w-[44px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center cursor-pointer"
+              >
+                <Icon name="close" className="w-5 h-5" />
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={importingSample}
-              onClick={handleImportSampleStarter}
-              className="min-h-[44px] px-4 py-2.5 rounded-xl bg-forest-900 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              {importingSample ? 'Adding Starter Books…' : 'Add 9 Starter Books'}
-            </button>
+
+            <form onSubmit={handleManualSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5">
+              {manualError && (
+                <p role="alert" className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                  {manualError}
+                </p>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  placeholder="e.g. Goodnight Moon"
+                  className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  Author
+                </label>
+                <input
+                  type="text"
+                  value={manualAuthors}
+                  onChange={(e) => setManualAuthors(e.target.value)}
+                  placeholder="e.g. Margaret Wise Brown"
+                  className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+                  >
+                    <option value="animals">Animals</option>
+                    <option value="bedtime">Bedtime</option>
+                    <option value="nature">Nature</option>
+                    <option value="space">Space</option>
+                    <option value="science">Science</option>
+                    <option value="fairy-tales">Fairy Tales</option>
+                    <option value="history">History</option>
+                    <option value="humor">Humor</option>
+                    <option value="adventure">Adventure</option>
+                    <option value="art">Art</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                    Format
+                  </label>
+                  <select
+                    value={manualFormat}
+                    onChange={(e) => setManualFormat(e.target.value as BookFormat)}
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+                  >
+                    <option value="hardcover">Hardcover</option>
+                    <option value="board-book">Board Book</option>
+                    <option value="paperback">Paperback</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                    Reading Stage
+                  </label>
+                  <select
+                    value={manualStage}
+                    onChange={(e) => setManualStage(e.target.value as ReadingStage)}
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+                  >
+                    <option value="board-toddler">Board Books (0–3)</option>
+                    <option value="picture-book">Picture Books (3–6)</option>
+                    <option value="early-reader">Early Reader (5–8)</option>
+                    <option value="chapter-book">Chapter Books (7–10)</option>
+                    <option value="middle-grade">Middle Grade (9–12)</option>
+                    <option value="teen-ya">Teen / YA (13–17)</option>
+                    <option value="adult">Adult Reader (18+)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                    ISBN (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={manualIsbn}
+                    onChange={(e) => setManualIsbn(e.target.value)}
+                    placeholder="978..."
+                    className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full min-h-[48px] px-5 py-3 rounded-2xl bg-forest-900 hover:bg-forest-800 active:scale-[0.98] dark:bg-[#5ED3DA] dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <Icon name="plus" className="w-4 h-4" />
+                  <span>Add Book to Shelf</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* Full-Screen Native Camera Barcode Scanner Overlay */}
+      {/* Full-Screen Camera ISBN / Barcode Scanner Overlay */}
       <NativeBarcodeScannerModal
         isOpen={isNativeScannerOpen}
-        initialMode={activeMethod === 'cover' ? 'cover' : 'barcode'}
+        initialMode="barcode"
         onDetectedIsbn={(isbn13) => {
           setIsNativeScannerOpen(false);
           executeIsbnLookup(isbn13);
@@ -811,7 +859,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         onDetectedTitle={(titleQuery) => {
           setIsNativeScannerOpen(false);
           setSearchQuery(titleQuery);
-          setActiveMethod('search');
+          setActiveSheet('search');
           executeUnifiedSearch(titleQuery, '');
         }}
         onClose={() => setIsNativeScannerOpen(false)}
@@ -825,17 +873,18 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         onAddWishlist={(cand, opts) => handleAddCandidate(cand, 'wishlist', opts)}
         onRescan={() => {
           setFoundCandidate(null);
-          scanner.resetLock();
+          if (lastScanViaModal) {
+            setIsNativeScannerOpen(true);
+          }
         }}
         onEditManual={(cand) => {
           setManualTitle(cand.title);
           setManualAuthors(cand.authors.join(', '));
           setManualIsbn(cand.isbn13 || cand.isbn10 || '');
           setManualFormat(cand.format || 'hardcover');
-          setManualAgeMin(String(cand.ageMin || 2));
-          setManualAgeMax(String(cand.ageMax || 6));
+          setManualStage(cand.readingStage || 'picture-book');
           setFoundCandidate(null);
-          setActiveMethod('manual');
+          setActiveSheet('manual');
         }}
         onClose={() => setFoundCandidate(null)}
       />

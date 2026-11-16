@@ -272,6 +272,9 @@ export function createSafeDefaultSettings(overrides = {}) {
     return {
       language: normalizeLanguage(overrides.language),
       householdName: cleanHouseholdName,
+      preferredBookTypes: Array.isArray(overrides.preferredBookTypes)
+        ? Array.from(new Set(overrides.preferredBookTypes.map((v) => String(v).trim()).filter(Boolean)))
+        : [],
       ...(overrides.onboarding
         ? {
             onboarding: normalizeOnboardingState(overrides.onboarding, {

@@ -407,13 +407,15 @@ export function createAppStore(storage, deps = {}) {
    * @param {string} profileId
    */
   async function deleteProfile(profileId) {
-    if (state.profiles.length <= 1) {
+    const onboardingStatus = state.settings.onboarding?.status;
+    const isOnboardingActive = onboardingStatus === 'pending' || onboardingStatus === 'in_progress';
+    if (state.profiles.length <= 1 && !isOnboardingActive) {
       notify('At least one reader profile is required.', 'error');
       return false;
     }
     const remaining = state.profiles.filter((p) => p.id !== profileId);
     const nextActive =
-      state.activeProfileId === profileId ? remaining[0].id : state.activeProfileId;
+      state.activeProfileId === profileId ? (remaining[0]?.id || '') : state.activeProfileId;
     const remainingRotations = state.rotations.filter((r) => r.profileId !== profileId);
     await commit({
       ...state,
@@ -421,7 +423,7 @@ export function createAppStore(storage, deps = {}) {
       profiles: remaining,
       rotations: remainingRotations,
     });
-    notify('Removed reader profile and its saved rotations.', 'info');
+    notify('Removed reader profile.', 'info');
     return true;
   }
 
