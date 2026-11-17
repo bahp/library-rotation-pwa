@@ -52,6 +52,14 @@ export {
 
 export { DEFAULT_ROTATION_PRESETS } from './presets.js';
 
+export {
+  COLLECTION_ILLUSTRATIONS,
+  PRESET_ILLUSTRATION_MAP,
+  getIllustrationById,
+  getSuggestedIllustrationForPreset,
+  isLegacyOpaqueArtworkUrl,
+} from './illustrations.js';
+
 export { PLAY_APPS_CONFIG, getPlayAppsConfig } from './play-apps.js';
 
 export { parseSimpleYaml } from './yaml-lite.js';

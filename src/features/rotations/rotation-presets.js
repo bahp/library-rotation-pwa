@@ -223,6 +223,7 @@ export function createDeterministicPresetSeed(title) {
  *   suggestedStartMonthDay?: string,
  *   motif?: string,
  *   isActive?: boolean,
+ *   illustrationId?: string,
  *   illustrationUrl?: string,
  *   illustrationPrompt?: string,
  *   createdAt?: string
@@ -285,6 +286,15 @@ export function normalizeRotationPresetInput(input, flags = {}) {
   const rawMotif = typeof input?.motif === 'string' ? input.motif.trim() : '';
   const isActive = input?.isActive !== false;
 
+  const rawIllustrationId =
+    typeof input?.illustrationId === 'string'
+      ? input.illustrationId
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g, '')
+          .slice(0, 64)
+      : '';
+
   const rawIllustrationUrl =
     typeof input?.illustrationUrl === 'string' ? input.illustrationUrl.trim() : '';
   const safeIllustrationUrl =
@@ -292,7 +302,9 @@ export function normalizeRotationPresetInput(input, flags = {}) {
     (rawIllustrationUrl.startsWith('https://') ||
       rawIllustrationUrl.startsWith('http://') ||
       rawIllustrationUrl.startsWith('data:image/') ||
-      rawIllustrationUrl.startsWith('/'))
+      rawIllustrationUrl.startsWith('/') ||
+      rawIllustrationUrl.startsWith('assets/') ||
+      rawIllustrationUrl.startsWith('./assets/'))
       ? rawIllustrationUrl.slice(0, 600_000)
       : '';
 
@@ -319,6 +331,7 @@ export function normalizeRotationPresetInput(input, flags = {}) {
     isActive,
     ...(monthDayCheck.monthDay ? { suggestedStartMonthDay: monthDayCheck.monthDay } : {}),
     ...(rawMotif ? { motif: rawMotif } : {}),
+    ...(rawIllustrationId ? { illustrationId: rawIllustrationId } : {}),
     ...(safeIllustrationUrl ? { illustrationUrl: safeIllustrationUrl } : {}),
     ...(rawIllustrationPrompt ? { illustrationPrompt: rawIllustrationPrompt } : {}),
     isCustom,

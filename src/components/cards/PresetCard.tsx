@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Icon } from '../common/Icon.js';
 import {
   computePresetStartSchedule,
   countMatchingCatalogBooksForPreset,
 } from '../../features/rotations/rotation-presets.js';
 import { renderPresetCornerDecoration } from '../../ui/preset-motifs.js';
-import { resolvePresetArtworkUrl } from '../../ui/preset-artwork.js';
+import { resolvePresetArtworkInfo } from '../../ui/preset-artwork.js';
 import type { Book, PresetCornerArtSize, RotationPreset } from '../../types/models.js';
 
 interface PresetCardProps {
@@ -40,10 +40,22 @@ export function formatPresetCategoryLabel(
   }
 }
 
-const CORNER_ART_SIZE_CLASS: Record<PresetCornerArtSize, string> = {
+const LEGACY_CORNER_ART_SIZE_CLASS: Record<PresetCornerArtSize, string> = {
   sm: 'w-20 h-20 sm:w-24 sm:h-24',
   md: 'w-28 h-28 sm:w-32 sm:h-32',
   lg: 'w-36 h-36 sm:w-44 sm:h-44',
+};
+
+const TRANSPARENT_CORNER_ART_SIZE_CLASS: Record<PresetCornerArtSize, string> = {
+  sm: 'w-22 aspect-[4/3] sm:w-26',
+  md: 'w-28 aspect-[4/3] sm:w-34',
+  lg: 'w-36 aspect-[4/3] sm:w-42',
+};
+
+const HEADER_RIGHT_CLEARANCE_CLASS: Record<PresetCornerArtSize, string> = {
+  sm: 'pr-20 sm:pr-24',
+  md: 'pr-26 sm:pr-32',
+  lg: 'pr-32 sm:pr-38',
 };
 
 export const PresetCard: React.FC<PresetCardProps> = ({
@@ -61,18 +73,53 @@ export const PresetCard: React.FC<PresetCardProps> = ({
   isUpcomingAlert = false,
 }) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [artFailed, setArtFailed] = useState(false);
+  const [failedStage, setFailedStage] = useState<'none' | 'primary' | 'fallback'>('none');
 
   const schedule = computePresetStartSchedule(preset);
   const matchCounts = countMatchingCatalogBooksForPreset(books, preset);
   const categoryLabel = formatPresetCategoryLabel(preset.category, t);
   const isPaused = preset.isActive === false;
-  const artworkUrl = showCornerDecoration ? resolvePresetArtworkUrl(preset) : '';
+
+  const artworkInfo = resolvePresetArtworkInfo(preset);
+
+  useEffect(() => {
+    setFailedStage('none');
+  }, [artworkInfo.primaryUrl, artworkInfo.fallbackUrl]);
+
+  const hasDistinctFallback =
+    Boolean(artworkInfo.fallbackUrl) && artworkInfo.fallbackUrl !== artworkInfo.primaryUrl;
+
+  let activeArtworkUrl = '';
+  let activeIsLegacyOpaque = artworkInfo.isLegacyOpaque;
+  if (showCornerDecoration) {
+    if (failedStage === 'none' && artworkInfo.primaryUrl) {
+      activeArtworkUrl = artworkInfo.primaryUrl;
+      activeIsLegacyOpaque = artworkInfo.isLegacyOpaque;
+    } else if (failedStage === 'primary' && hasDistinctFallback) {
+      activeArtworkUrl = artworkInfo.fallbackUrl;
+      activeIsLegacyOpaque = true;
+    }
+  }
+
+  const handleArtError = () => {
+    if (failedStage === 'none' && hasDistinctFallback) {
+      setFailedStage('primary');
+    } else {
+      setFailedStage('fallback');
+    }
+  };
+
   const motifFallbackHtml =
-    showCornerDecoration && (artFailed || !artworkUrl)
-      ? renderPresetCornerDecoration(preset)
+    showCornerDecoration && !activeArtworkUrl ? renderPresetCornerDecoration(preset) : '';
+
+  const legacySizeClass =
+    LEGACY_CORNER_ART_SIZE_CLASS[cornerArtSize] || LEGACY_CORNER_ART_SIZE_CLASS.md;
+  const transparentSizeClass =
+    TRANSPARENT_CORNER_ART_SIZE_CLASS[cornerArtSize] || TRANSPARENT_CORNER_ART_SIZE_CLASS.md;
+  const headerClearanceClass =
+    showCornerDecoration && activeArtworkUrl && !activeIsLegacyOpaque
+      ? HEADER_RIGHT_CLEARANCE_CLASS[cornerArtSize] || HEADER_RIGHT_CLEARANCE_CLASS.md
       : '';
-  const artContainerSizeClass = CORNER_ART_SIZE_CLASS[cornerArtSize] || CORNER_ART_SIZE_CLASS.md;
 
   return (
     <article
@@ -85,32 +132,47 @@ export const PresetCard: React.FC<PresetCardProps> = ({
           : 'border-edge hover:border-primary/40'
       }`}
     >
-      {/* Top-right vintage botanical artwork blended softly into card corner */}
-      {showCornerDecoration && artworkUrl && !artFailed && (
-        <div
-          aria-hidden="true"
-          className={`pointer-events-none select-none absolute top-0 right-0 ${artContainerSizeClass} overflow-hidden rounded-tr-xl`}
-        >
-          <img
-            key={artworkUrl}
-            src={artworkUrl}
-            alt=""
-            referrerPolicy="no-referrer"
-            onError={() => setArtFailed(true)}
-            style={{
-              maskImage:
-                'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 42%, transparent 74%)',
-              WebkitMaskImage:
-                'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 42%, transparent 74%)',
-            }}
-            className={`w-full h-full object-cover object-center mix-blend-multiply dark:mix-blend-screen ${
-              cornerArtSize === 'lg' ? 'opacity-55 dark:opacity-15' : 'opacity-65 dark:opacity-18'
-            }`}
-          />
+      {/* Top-right illustration artwork: transparent PNGs render crisply in both light & dark themes;
+          legacy opaque watercolor JPEGs use soft edge masking & blend mode for backwards compatibility. */}
+      {showCornerDecoration && activeArtworkUrl && (
+        activeIsLegacyOpaque ? (
           <div
-            className="absolute inset-0 bg-gradient-to-bl from-transparent via-surface/35 to-surface/85"
-          />
-        </div>
+            aria-hidden="true"
+            className={`pointer-events-none select-none absolute top-0 right-0 ${legacySizeClass} overflow-hidden rounded-tr-xl`}
+          >
+            <img
+              key={activeArtworkUrl}
+              src={activeArtworkUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={handleArtError}
+              style={{
+                maskImage:
+                  'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 42%, transparent 74%)',
+                WebkitMaskImage:
+                  'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 42%, transparent 74%)',
+              }}
+              className={`w-full h-full object-cover object-center mix-blend-multiply dark:mix-blend-screen ${
+                cornerArtSize === 'lg' ? 'opacity-55 dark:opacity-15' : 'opacity-65 dark:opacity-18'
+              }`}
+            />
+            <div className="absolute inset-0 bg-gradient-to-bl from-transparent via-surface/35 to-surface/85" />
+          </div>
+        ) : (
+          <div
+            aria-hidden="true"
+            className={`pointer-events-none select-none absolute top-2.5 right-2.5 ${transparentSizeClass} flex items-start justify-end`}
+          >
+            <img
+              key={activeArtworkUrl}
+              src={activeArtworkUrl}
+              alt=""
+              referrerPolicy="no-referrer"
+              onError={handleArtError}
+              className="w-full h-full object-contain object-right-top opacity-92 dark:opacity-88 drop-shadow-[0_1px_2px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
+            />
+          </div>
+        )
       )}
 
       {motifFallbackHtml && (
@@ -122,7 +184,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
       )}
 
       <div className="relative z-10 space-y-2.5">
-        <div className="flex items-start gap-2.5">
+        <div className={`flex items-start gap-2.5 ${headerClearanceClass}`}>
           {!showCornerDecoration && (
             <span
               aria-hidden="true"
@@ -149,7 +211,15 @@ export const PresetCard: React.FC<PresetCardProps> = ({
           </div>
         </div>
 
-        <p className="text-xs text-ink-secondary leading-relaxed line-clamp-2">
+        <p
+          className={`text-xs text-ink-secondary leading-relaxed line-clamp-2 ${
+            showCornerDecoration && activeArtworkUrl && !activeIsLegacyOpaque && cornerArtSize === 'lg'
+              ? 'pr-24 sm:pr-28'
+              : showCornerDecoration && activeArtworkUrl && !activeIsLegacyOpaque
+                ? 'pr-16 sm:pr-20'
+                : ''
+          }`}
+        >
           {preset.description}
         </p>
 

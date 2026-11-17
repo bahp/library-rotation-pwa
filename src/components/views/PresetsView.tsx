@@ -13,7 +13,12 @@ import {
   normalizeMonthDay,
 } from '../../features/rotations/rotation-presets.js';
 import { PRESET_MOTIF_OPTIONS, resolvePresetMotifKey } from '../../ui/preset-motifs.js';
-import { PRESET_ARTWORK_LIBRARY, resolvePresetArtworkUrl } from '../../ui/preset-artwork.js';
+import {
+  resolvePresetArtworkInfo,
+  type PresetArtworkOption,
+} from '../../ui/preset-artwork.js';
+import { getSuggestedIllustrationForPreset } from '../../config/illustrations.js';
+import { ArtworkPickerModal } from '../presets/ArtworkPickerModal.js';
 import {
   checkServerLlmStatus,
   generatePresetIllustrationImage,
@@ -52,15 +57,20 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
   const [formMonth, setFormMonth] = useState('');
   const [formDay, setFormDay] = useState('');
   const [formMotif, setFormMotif] = useState('sparkles');
+  const [formIllustrationId, setFormIllustrationId] = useState('');
   const [formIllustrationUrl, setFormIllustrationUrl] = useState('');
   const [formIllustrationPrompt, setFormIllustrationPrompt] = useState('');
+  const [autoSuggestArtwork, setAutoSuggestArtwork] = useState(false);
+  const [isArtworkPickerOpen, setIsArtworkPickerOpen] = useState(false);
+  const [showCustomArtTools, setShowCustomArtTools] = useState(false);
+  const [previewSurface, setPreviewSurface] = useState<'light' | 'dark'>('light');
   const [formSeed, setFormSeed] = useState('');
   const [formError, setFormError] = useState('');
   const [isGeneratingArt, setIsGeneratingArt] = useState(false);
   const [artError, setArtError] = useState('');
   const artFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  useBodyScrollLock(isFormOpen);
+  useBodyScrollLock(isFormOpen || isArtworkPickerOpen);
 
   useEffect(() => {
     let mounted = true;
@@ -179,6 +189,9 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
   };
 
   const openNewPresetForm = () => {
+    const defaultSuggested = getSuggestedIllustrationForPreset({
+      category: 'seasonal-holidays',
+    });
     setEditingPresetId(null);
     setFormTitle('');
     setFormDescription('');
@@ -193,8 +206,11 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
     setFormMonth('');
     setFormDay('');
     setFormMotif('sparkles');
+    setFormIllustrationId(defaultSuggested.id);
     setFormIllustrationUrl('');
     setFormIllustrationPrompt(defaultPromptTemplate);
+    setAutoSuggestArtwork(true);
+    setShowCustomArtTools(false);
     setFormSeed('');
     setFormError('');
     setArtError('');
@@ -203,6 +219,8 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
 
   const openEditPresetForm = (preset: RotationPreset, asClone = false) => {
     const parsedMd = normalizeMonthDay(preset.suggestedStartMonthDay);
+    const resolvedArt = resolvePresetArtworkInfo(preset);
+
     setEditingPresetId(asClone ? null : preset.id);
     setFormTitle(asClone ? `${preset.title} (Custom)` : preset.title);
     setFormDescription(preset.description);
@@ -224,18 +242,66 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
         preferredTags: preset.preferredTags,
       })
     );
-    setFormIllustrationUrl(preset.illustrationUrl || '');
+
+    if (asClone) {
+      // Preserve the cloned source preset's effective artwork cleanly
+      if (resolvedArt.isCustomUrl && preset.illustrationUrl) {
+        setFormIllustrationId('');
+        setFormIllustrationUrl(preset.illustrationUrl);
+      } else {
+        setFormIllustrationId(resolvedArt.artworkId || resolvedArt.suggestedId);
+        setFormIllustrationUrl('');
+      }
+    } else {
+      setFormIllustrationId(preset.illustrationId || '');
+      setFormIllustrationUrl(preset.illustrationUrl || '');
+    }
+
     setFormIllustrationPrompt(preset.illustrationPrompt || defaultPromptTemplate);
+    setAutoSuggestArtwork(false);
+    setShowCustomArtTools(Boolean(preset.illustrationUrl));
     setFormSeed(asClone ? '' : preset.seed || '');
     setFormError('');
     setArtError('');
     setIsFormOpen(true);
   };
 
+  // Auto-update suggested illustration for brand-new collections while user hasn't manually picked one
+  useEffect(() => {
+    if (!isFormOpen || editingPresetId || !autoSuggestArtwork || formIllustrationUrl.trim()) {
+      return;
+    }
+    const nextSuggested = getSuggestedIllustrationForPreset({
+      title: formTitle,
+      description: formDescription,
+      category: formCategory,
+      motif: formMotif,
+      preferredTags: formTags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    });
+    if (nextSuggested.id !== formIllustrationId) {
+      setFormIllustrationId(nextSuggested.id);
+    }
+  }, [
+    isFormOpen,
+    editingPresetId,
+    autoSuggestArtwork,
+    formIllustrationUrl,
+    formTitle,
+    formDescription,
+    formCategory,
+    formMotif,
+    formTags,
+    formIllustrationId,
+  ]);
+
   const handleIllustrationUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setArtError('');
+    const preserveAlpha = file.type === 'image/png' || file.type === 'image/webp' || file.type === 'image/svg+xml';
     const reader = new FileReader();
     reader.onload = () => {
       const img = new Image();
@@ -249,11 +315,17 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (!ctx) {
+          setAutoSuggestArtwork(false);
+          setFormIllustrationId('');
           setFormIllustrationUrl(String(reader.result || ''));
           return;
         }
         ctx.drawImage(img, 0, 0, w, h);
-        setFormIllustrationUrl(canvas.toDataURL('image/jpeg', 0.85));
+        setAutoSuggestArtwork(false);
+        setFormIllustrationId('');
+        setFormIllustrationUrl(
+          preserveAlpha ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.85)
+        );
       };
       img.onerror = () => setArtError('Could not read selected image file.');
       img.src = String(reader.result || '');
@@ -276,6 +348,8 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
         promptTemplate: formIllustrationPrompt.trim() || defaultPromptTemplate,
         settings: state.settings,
       });
+      setAutoSuggestArtwork(false);
+      setFormIllustrationId('');
       setFormIllustrationUrl(result.dataUrl);
       store.notify('Generated corner illustration!', 'success');
     } catch (err) {
@@ -311,6 +385,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
         isActive: formIsActive,
         suggestedStartMonthDay: mdRes.monthDay,
         motif: formMotif,
+        illustrationId: formIllustrationId.trim() || undefined,
         illustrationUrl: formIllustrationUrl.trim() || undefined,
         illustrationPrompt: formIllustrationPrompt.trim() || undefined,
         seed: formSeed.trim() || undefined,
@@ -327,20 +402,50 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
     }
   };
 
-  const previewArtworkUrl = useMemo(
-    () =>
-      resolvePresetArtworkUrl({
-        illustrationUrl: formIllustrationUrl.trim() || undefined,
-        motif: formMotif,
-        category: formCategory,
-        title: formTitle,
-        preferredTags: formTags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
-      }),
-    [formIllustrationUrl, formMotif, formCategory, formTitle, formTags]
+  const editingTargetPreset = useMemo(
+    () => (editingPresetId ? allPresets.find((p) => p.id === editingPresetId) || null : null),
+    [editingPresetId, allPresets]
   );
+
+  const previewArtworkInfo = useMemo(() => {
+    const parsedTags = formTags
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    return resolvePresetArtworkInfo({
+      id: editingPresetId || undefined,
+      isCustom: editingPresetId ? Boolean(editingTargetPreset?.isCustom) : true,
+      illustrationId: formIllustrationId.trim() || undefined,
+      illustrationUrl: formIllustrationUrl.trim() || undefined,
+      motif: formMotif,
+      category: formCategory,
+      title: formTitle,
+      description: formDescription,
+      preferredTags: parsedTags,
+    });
+  }, [
+    editingPresetId,
+    editingTargetPreset,
+    formIllustrationId,
+    formIllustrationUrl,
+    formMotif,
+    formCategory,
+    formTitle,
+    formDescription,
+    formTags,
+  ]);
+
+  const handleSelectPickerArtwork = (artwork: PresetArtworkOption) => {
+    setAutoSuggestArtwork(false);
+    setFormIllustrationUrl('');
+    setFormIllustrationId(artwork.id);
+  };
+
+  const handleUseSuggestedArtwork = () => {
+    setAutoSuggestArtwork(!editingPresetId);
+    setFormIllustrationUrl('');
+    setFormIllustrationId(previewArtworkInfo.suggestedId);
+  };
 
   const pausedCount = useMemo(
     () => allPresets.filter((p) => p.isActive === false).length,
@@ -787,125 +892,205 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                 </div>
               </div>
 
-              {/* Corner Illustration Selector, Upload & AI Generator */}
-              <div className="rounded-xl bg-surface-subtle border border-edge p-3.5 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-ink">
-                      Corner Illustration Artwork
-                    </p>
-                    <p className="text-[11px] text-ink-secondary mt-0.5">
-                      Pick a built-in watercolor theme, paste/upload an image, or generate custom art with AI.
-                    </p>
-                  </div>
-                  <div
-                    className="relative w-14 h-14 rounded-lg bg-surface border border-edge overflow-hidden shrink-0"
-                    title="Corner artwork preview"
-                  >
-                    <img
-                      src={previewArtworkUrl}
-                      alt="Corner illustration preview"
-                      referrerPolicy="no-referrer"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-
-                {/* Built-in Watercolor Art Swatches */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-                  {PRESET_ARTWORK_LIBRARY.map((art) => {
-                    const selected = formIllustrationUrl === art.src;
-                    return (
+              {/* Collection Illustration Selector, Visual Picker, Upload & AI Generator */}
+              <div className="rounded-xl bg-surface-subtle border border-edge p-4 space-y-3.5">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  {/* Prominent Illustration Preview Stage */}
+                  <div className="w-full sm:w-44 shrink-0 space-y-1.5">
+                    <div
+                      className={`relative aspect-[4/3] w-full rounded-xl border overflow-hidden flex items-center justify-center p-2 transition-colors ${
+                        previewSurface === 'dark'
+                          ? 'bg-[#101713] border-[#26352C]'
+                          : 'bg-[#FAF7F2] border-[#E3DDD1]'
+                      }`}
+                    >
+                      <img
+                        src={previewArtworkInfo.primaryUrl}
+                        alt={previewArtworkInfo.label}
+                        referrerPolicy="no-referrer"
+                        className={`w-full h-full ${
+                          previewArtworkInfo.isLegacyOpaque
+                            ? 'object-cover rounded-lg'
+                            : 'object-contain'
+                        }`}
+                      />
+                    </div>
+                    <div
+                      role="group"
+                      aria-label="Illustration preview background"
+                      className="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-surface border border-edge"
+                    >
                       <button
-                        key={art.id}
                         type="button"
-                        onClick={() => setFormIllustrationUrl(art.src)}
-                        title={art.label}
-                        className={`flex items-center gap-1.5 pr-2.5 pl-1 py-1 rounded-lg border text-[11px] font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
-                          selected
-                            ? 'bg-primary text-primary-fg border-primary'
-                            : 'bg-surface hover:bg-surface-elevated text-ink border-edge'
+                        onClick={() => setPreviewSurface('light')}
+                        aria-pressed={previewSurface === 'light'}
+                        className={`min-h-[26px] rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                          previewSurface === 'light'
+                            ? 'bg-primary text-primary-fg'
+                            : 'text-ink-secondary hover:text-ink'
                         }`}
                       >
-                        <img
-                          src={art.src}
-                          alt=""
-                          className="w-6 h-6 rounded-md object-cover"
-                        />
-                        <span>{art.label}</span>
+                        Light
                       </button>
-                    );
-                  })}
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={formIllustrationUrl}
-                    onChange={(e) => setFormIllustrationUrl(e.target.value)}
-                    placeholder="Custom image URL or leave blank for automatic motif artwork"
-                    className="flex-1 h-10 px-3 rounded-lg bg-surface border border-edge text-xs text-ink placeholder:text-ink-muted"
-                  />
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      ref={artFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleIllustrationUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => artFileInputRef.current?.click()}
-                      className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <Icon name="image" className="w-3.5 h-3.5" />
-                      <span>Upload</span>
-                    </button>
-                    {formIllustrationUrl && (
                       <button
                         type="button"
-                        onClick={() => setFormIllustrationUrl('')}
-                        className="min-h-[40px] px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink-secondary cursor-pointer"
+                        onClick={() => setPreviewSurface('dark')}
+                        aria-pressed={previewSurface === 'dark'}
+                        className={`min-h-[26px] rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                          previewSurface === 'dark'
+                            ? 'bg-primary text-primary-fg'
+                            : 'text-ink-secondary hover:text-ink'
+                        }`}
                       >
-                        Auto
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {hasLlmKey && (
-                  <div className="space-y-2 pt-1 border-t border-edge-subtle">
-                    <div className="flex items-center justify-between gap-2">
-                      <label className="font-semibold text-ink">
-                        AI Generation Prompt
-                      </label>
-                      <button
-                        type="button"
-                        disabled={isGeneratingArt}
-                        onClick={handleGenerateAiIllustration}
-                        className="min-h-[36px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-fg text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Icon name="sparkles" className="w-3.5 h-3.5" />
-                        <span>
-                          {isGeneratingArt ? 'Generating Artwork…' : 'Generate Illustration with AI'}
-                        </span>
+                        Dark
                       </button>
                     </div>
-                    <textarea
-                      rows={2}
-                      value={formIllustrationPrompt}
-                      onChange={(e) => setFormIllustrationPrompt(e.target.value)}
-                      placeholder="Subtle delicate storybook watercolor vignette for {title} ({description})..."
-                      className="w-full px-3 py-2 rounded-lg bg-surface border border-edge text-[11px] text-ink placeholder:text-ink-muted"
-                    />
-                    {artError && (
-                      <p className="text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
-                        {artError}
-                      </p>
-                    )}
                   </div>
-                )}
+
+                  {/* Artwork Info & Clear Action Buttons */}
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-primary">
+                        Collection Illustration
+                        {previewArtworkInfo.isCustomUrl
+                          ? ' · Custom Image'
+                          : previewArtworkInfo.isLegacyOpaque
+                            ? ' · Classic Watercolor'
+                            : previewArtworkInfo.artworkId === previewArtworkInfo.suggestedId
+                              ? ' · Suggested Match'
+                              : ' · Storybook Library'}
+                      </p>
+                      <p className="font-display text-base font-semibold text-ink mt-0.5 truncate">
+                        {previewArtworkInfo.label}
+                      </p>
+                      <p className="text-[11px] text-ink-secondary mt-0.5 leading-snug">
+                        {previewArtworkInfo.subject}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsArtworkPickerOpen(true)}
+                        className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Icon name="image" className="w-3.5 h-3.5" />
+                        <span>Browse Artwork</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleUseSuggestedArtwork}
+                        disabled={
+                          !formIllustrationUrl.trim() &&
+                          previewArtworkInfo.artworkId === previewArtworkInfo.suggestedId
+                        }
+                        className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-55 border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:cursor-default"
+                      >
+                        <Icon name="sparkles" className="w-3.5 h-3.5 text-primary" />
+                        <span>Use Suggested</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Collapsible Custom Upload, External URL & AI Generation Tools */}
+                <div className="pt-2 border-t border-edge-subtle">
+                  <button
+                    type="button"
+                    aria-expanded={showCustomArtTools}
+                    onClick={() => setShowCustomArtTools((prev) => !prev)}
+                    className="min-h-[34px] text-[11px] font-semibold text-ink-secondary hover:text-ink inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Icon
+                      name={showCustomArtTools ? 'chevronDown' : 'chevronRight'}
+                      className="w-3.5 h-3.5"
+                    />
+                    <span>
+                      Custom upload, image URL{hasLlmKey ? ' or AI artwork' : ''}
+                    </span>
+                  </button>
+
+                  {showCustomArtTools && (
+                    <div className="mt-2.5 space-y-2.5">
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <input
+                          type="text"
+                          value={formIllustrationUrl}
+                          onChange={(e) => {
+                            setAutoSuggestArtwork(false);
+                            setFormIllustrationUrl(e.target.value);
+                          }}
+                          placeholder="Paste custom image URL or upload an image file…"
+                          className="flex-1 h-10 px-3 rounded-lg bg-surface border border-edge text-xs text-ink placeholder:text-ink-muted"
+                        />
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <input
+                            ref={artFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleIllustrationUpload}
+                            className="hidden"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => artFileInputRef.current?.click()}
+                            className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Icon name="upload" className="w-3.5 h-3.5" />
+                            <span>Upload</span>
+                          </button>
+                          {(formIllustrationUrl || formIllustrationId) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAutoSuggestArtwork(false);
+                                setFormIllustrationUrl('');
+                                setFormIllustrationId('');
+                              }}
+                              className="min-h-[40px] px-2.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink-secondary cursor-pointer"
+                            >
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {hasLlmKey && (
+                        <div className="space-y-2 pt-2 border-t border-edge-subtle">
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="font-semibold text-ink">
+                              AI Generation Prompt
+                            </label>
+                            <button
+                              type="button"
+                              disabled={isGeneratingArt}
+                              onClick={handleGenerateAiIllustration}
+                              className="min-h-[36px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-fg text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Icon name="sparkles" className="w-3.5 h-3.5" />
+                              <span>
+                                {isGeneratingArt ? 'Generating Artwork…' : 'Generate Illustration with AI'}
+                              </span>
+                            </button>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={formIllustrationPrompt}
+                            onChange={(e) => setFormIllustrationPrompt(e.target.value)}
+                            placeholder="Subtle delicate storybook watercolor vignette for {title} ({description})..."
+                            className="w-full px-3 py-2 rounded-lg bg-surface border border-edge text-[11px] text-ink placeholder:text-ink-muted"
+                          />
+                          {artError && (
+                            <p className="text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                              {artError}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
@@ -941,6 +1126,16 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
           </div>
         </div>
       )}
+
+      {/* Visual Collection Artwork Browser Modal */}
+      <ArtworkPickerModal
+        isOpen={isArtworkPickerOpen}
+        selectedArtworkId={previewArtworkInfo.artworkId || previewArtworkInfo.suggestedId}
+        suggestedArtworkId={previewArtworkInfo.suggestedId}
+        collectionTitle={formTitle.trim()}
+        onSelect={handleSelectPickerArtwork}
+        onClose={() => setIsArtworkPickerOpen(false)}
+      />
     </div>
   );
 };

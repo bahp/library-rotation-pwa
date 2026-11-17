@@ -11,6 +11,9 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import zlib from 'node:zlib';
 
 import {
   applyBookAdditions,
@@ -28,7 +31,16 @@ import { isBookPickedInRotation, isBookReadInRotation } from '../src/types/model
 import {
   findMatchingStartDatePresets,
   getAllRotationPresets,
+  normalizeRotationPresetInput,
 } from '../src/features/rotations/rotation-presets.js';
+import { DEFAULT_ROTATION_PRESETS } from '../src/config/presets.js';
+import {
+  COLLECTION_ILLUSTRATIONS,
+  PRESET_ILLUSTRATION_MAP,
+  getIllustrationById,
+  getSuggestedIllustrationForPreset,
+  isLegacyOpaqueArtworkUrl,
+} from '../src/config/illustrations.js';
 
 describe('Rotation Engine & Shelf Management Suite', () => {
   it('seeded PRNG produces 100% repeatable selections regardless of catalog order', () => {
@@ -402,5 +414,118 @@ describe('Rotation Engine & Shelf Management Suite', () => {
 
     await store.clearNotificationHistory();
     assert.equal((store.getState().notifications || []).length, 0);
+  });
+
+  it('maps every starter preset to a verified transparent 4:3 PNG and preserves legacy artwork', () => {
+    assert.equal(DEFAULT_ROTATION_PRESETS.length, 42);
+    assert.equal(COLLECTION_ILLUSTRATIONS.length, 42);
+
+    const seenIllustrationIds = new Set();
+    for (const preset of DEFAULT_ROTATION_PRESETS) {
+      const mappedId = PRESET_ILLUSTRATION_MAP[preset.id];
+      assert.ok(mappedId, `Missing PRESET_ILLUSTRATION_MAP entry for ${preset.id}`);
+      assert.equal(
+        seenIllustrationIds.has(mappedId),
+        false,
+        `Duplicate illustration ${mappedId} assigned across built-in presets`
+      );
+      seenIllustrationIds.add(mappedId);
+
+      const meta = getIllustrationById(mappedId);
+      assert.ok(meta, `Missing illustration metadata for ${mappedId}`);
+      assert.equal(isLegacyOpaqueArtworkUrl(meta.path), false);
+
+      const filePath = path.resolve(process.cwd(), 'public', meta.path);
+      assert.ok(fs.existsSync(filePath), `Missing PNG file on disk: ${filePath}`);
+
+      const buf = fs.readFileSync(filePath);
+      assert.equal(buf.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+      const width = buf.readUInt32BE(16);
+      const height = buf.readUInt32BE(20);
+      const colorType = buf.readUInt8(25);
+      assert.equal(width, 640, `${meta.filename} width should be 640`);
+      assert.equal(height, 480, `${meta.filename} height should be 480`);
+      assert.equal(colorType, 6, `${meta.filename} must be RGBA (colorType 6)`);
+
+      // Decompress IDAT chunks and verify top-left pixel (0, 0) has alpha === 0 (transparent)
+      let offset = 8;
+      const idatChunks = [];
+      while (offset < buf.length) {
+        const len = buf.readUInt32BE(offset);
+        const type = buf.subarray(offset + 4, offset + 8).toString('ascii');
+        if (type === 'IDAT') {
+          idatChunks.push(buf.subarray(offset + 8, offset + 8 + len));
+        }
+        offset += 12 + len;
+      }
+      const raw = zlib.inflateSync(Buffer.concat(idatChunks));
+      // Filter type 0 (None) or Sub (1) on row 0: pixel (0,0) RGBA starts at raw[1..4]; alpha is raw[4] when filter 0/1
+      assert.equal(raw[4], 0, `${meta.filename} top-left pixel must be transparent`);
+    }
+
+    // Legacy opaque watercolor assets remain untouched
+    const legacyDir = path.resolve(process.cwd(), 'src/assets/images');
+    const legacyFiles = fs.readdirSync(legacyDir).filter((f) => f.startsWith('preset_corner_'));
+    assert.equal(legacyFiles.length, 6);
+    for (const f of legacyFiles) {
+      assert.equal(isLegacyOpaqueArtworkUrl(`src/assets/images/${f}`), true);
+    }
+  });
+
+  it('supports decoupled illustrationId reuse, topic suggestions, portable paths, and built-in resets', async () => {
+    const oceanSuggestion = getSuggestedIllustrationForPreset({
+      title: 'Sea Creatures & Coral Reefs',
+      preferredTags: ['octopus', 'ocean', 'marine life'],
+      category: 'evergreen',
+    });
+    assert.equal(oceanSuggestion.id, 'underwater-ocean');
+
+    const normalizedPortable = normalizeRotationPresetInput({
+      title: 'Our Favourite Animal Stories',
+      description: 'Woodland foxes and cozy animal tales',
+      illustrationId: 'animals-habitats',
+      illustrationUrl: 'assets/illustrations/presets/animals-habitats.png',
+    });
+    assert.equal(normalizedPortable.illustrationId, 'animals-habitats');
+    assert.equal(
+      normalizedPortable.illustrationUrl,
+      'assets/illustrations/presets/animals-habitats.png'
+    );
+
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    // Custom collection reusing an existing illustrationId cleanly
+    const created = await store.addRotationPreset({
+      title: 'Our Favourite Animal Stories',
+      description: 'Fox, owl, and hedgehog read-alouds',
+      category: 'evergreen',
+      preferredTags: ['animals', 'fox'],
+      illustrationId: 'animals-habitats',
+    });
+    assert.equal(created.illustrationId, 'animals-habitats');
+
+    // Reassigning illustrationId decouples cleanly
+    await store.updateRotationPreset(created.id, { illustrationId: 'calm-bedtime' });
+    const updatedCustom = getAllRotationPresets(store.getState()).find((p) => p.id === created.id);
+    assert.equal(updatedCustom?.illustrationId, 'calm-bedtime');
+
+    // Built-in preset override and reset restores default state
+    await store.updateRotationPreset('preset-winter-cozy', {
+      illustrationId: 'hanukkah-lights',
+    });
+    const overridden = getAllRotationPresets(store.getState()).find(
+      (p) => p.id === 'preset-winter-cozy'
+    );
+    assert.equal(overridden?.illustrationId, 'hanukkah-lights');
+    assert.equal(overridden?.isBuiltInOverride, true);
+
+    await store.resetBuiltInPreset('preset-winter-cozy');
+    const restored = getAllRotationPresets(store.getState()).find(
+      (p) => p.id === 'preset-winter-cozy'
+    );
+    assert.equal(restored?.illustrationId, undefined);
+    assert.equal(restored?.isBuiltInOverride, false);
   });
 });

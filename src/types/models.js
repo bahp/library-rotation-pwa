@@ -294,6 +294,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {string} [suggestedStartMonthDay] - Optional annual start date in 'MM-DD' format (omitted when anytime)
  * @property {string} [motif] - Optional top-right corner decorative motif key
  * @property {boolean} [isActive] - Whether this preset participates in seasonal reminder notifications (default: true)
+ * @property {string} [illustrationId] - Optional built-in illustration library ID (decoupled from preset identity)
  * @property {string} [illustrationUrl] - Optional custom corner illustration image URL or data URL
  * @property {string} [illustrationPrompt] - Prompt used to generate custom corner illustration art
  * @property {boolean} [isCustom] - True when created locally by the user
