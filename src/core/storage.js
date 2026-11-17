@@ -11,9 +11,12 @@ import {
 import { createSeedState } from '../data/seed.js';
 import { normalizeRotationPresetInput } from '../features/rotations/rotation-presets.js';
 import {
+  DEFAULT_DARK_THEME_PRESET,
+  DEFAULT_LIGHT_THEME_PRESET,
   DEFAULT_PRESET_ILLUSTRATION_PROMPT,
   NUMERIC_BOUNDS,
   normalizeLanguage,
+  normalizeThemePresetId,
 } from '../config/index.js';
 
 const DB_NAME = 'library_rotation_db';
@@ -25,6 +28,7 @@ export const QA_SNAPSHOT_STORAGE_KEY = 'lr_qa_existing_user_snapshot_v1';
 
 const AUXILIARY_STORAGE_KEYS = [
   'lr_theme_pref',
+  'lr_theme_preset',
   'lr_dismissed_swap_reminders_v1',
   'lr_dismissed_preset_alerts_v1',
   'lr_dismissed_stale_spotlights_v1',
@@ -84,7 +88,7 @@ export function normalizeOnboardingState(rawOnboarding, { hasExistingData = fals
     return hasExistingData
       ? {
           status: 'completed',
-          currentStep: 5,
+          currentStep: 6,
           completedSteps: [],
           skippedSteps: [],
         }
@@ -105,9 +109,9 @@ export function normalizeOnboardingState(rawOnboarding, { hasExistingData = fals
 
   const parsedStep = Number(raw.currentStep);
   const currentStep = Number.isFinite(parsedStep)
-    ? Math.max(0, Math.min(5, Math.trunc(parsedStep)))
+    ? Math.max(0, Math.min(6, Math.trunc(parsedStep)))
     : status === 'completed'
-      ? 5
+      ? 6
       : 0;
 
   const sanitizeStepList = (/** @type {unknown} */ input) =>
@@ -116,7 +120,7 @@ export function normalizeOnboardingState(rawOnboarding, { hasExistingData = fals
           new Set(
             input
               .map((n) => Number(n))
-              .filter((n) => Number.isInteger(n) && n >= 0 && n <= 5)
+              .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
           )
         )
       : [];
@@ -188,6 +192,7 @@ export function estimateAppStorageUsage(state) {
     if (typeof localStorage !== 'undefined') {
       for (const key of [
         'lr_theme_pref',
+        'lr_theme_preset',
         'lr_dismissed_swap_reminders_v1',
         'lr_dismissed_preset_alerts_v1',
         'lr_dismissed_stale_spotlights_v1',
@@ -285,6 +290,22 @@ export function createSafeDefaultSettings(overrides = {}) {
       devModeUnlocked: Boolean(overrides.devModeUnlocked),
       showMiniWizards: overrides.showMiniWizards !== false,
       theme: overrides.theme || 'light',
+      themePreset:
+        normalizeThemePresetId(overrides.themePreset) ||
+        (overrides.theme === 'dark' ? DEFAULT_DARK_THEME_PRESET : DEFAULT_LIGHT_THEME_PRESET),
+      bookDetailStyle: overrides.bookDetailStyle === 'editorial' ? 'editorial' : 'compact',
+      bookViewMode: overrides.bookViewMode === 'list' ? 'list' : 'grid',
+      bookCardSize:
+        overrides.bookCardSize === 'compact' || overrides.bookCardSize === 'large'
+          ? overrides.bookCardSize
+          : 'regular',
+      sidebarArtworkMode:
+        overrides.sidebarArtworkMode === 'engraving' ||
+        overrides.sidebarArtworkMode === 'illustration'
+          ? overrides.sidebarArtworkMode
+          : 'theme',
+      onboardingLandingMode: overrides.onboardingLandingMode === 'compact' ? 'compact' : 'slideshow',
+      notificationsEnabled: Boolean(overrides.notificationsEnabled),
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,
       retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
@@ -304,6 +325,10 @@ export function createSafeDefaultSettings(overrides = {}) {
       presetAlertDaysBefore: clampedBefore,
       presetAlertDaysAfter: clampedAfter,
       showPresetDecorations: overrides.showPresetDecorations !== false,
+      presetCornerArtSize:
+        overrides.presetCornerArtSize === 'sm' || overrides.presetCornerArtSize === 'lg'
+          ? overrides.presetCornerArtSize
+          : 'md',
       presetIllustrationPromptTemplate: cleanPromptTemplate,
       enableRotationHistoryInsights: overrides.enableRotationHistoryInsights !== false,
       showCoverUsageAdornos: overrides.showCoverUsageAdornos !== false,
@@ -765,6 +790,9 @@ export function createStorageAdapter(options = {}) {
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('lr_theme_pref', stamped.settings.theme);
+        if (stamped.settings.themePreset) {
+          localStorage.setItem('lr_theme_preset', stamped.settings.themePreset);
+        }
       }
     } catch (_) {}
 

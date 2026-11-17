@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext.js';
 import { PlayAppCard } from '../cards/PlayAppCard.js';
 import { BookCard } from '../cards/BookCard.js';
 import { BookCover } from '../common/BookCover.js';
+import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { Icon } from '../common/Icon.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import { PLAY_APPS_CONFIG } from '../../config/play-apps.js';
@@ -104,31 +105,31 @@ export const PlayView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] uppercase tracking-[0.08em]">
+          <p className="text-[11px] font-semibold text-accent uppercase tracking-[0.12em]">
             Play &amp; Storytime
           </p>
-          <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
+          <h1 className="font-display text-3xl sm:text-[34px] font-semibold tracking-tight text-ink leading-tight mt-0.5">
             Interactive Hub
           </h1>
-          <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-ink-secondary mt-1">
             Quick bedtime draws, shelf treasure hunts, and printable reading passports for{' '}
-            <span className="font-semibold text-forest-900 dark:text-white">
+            <span className="font-semibold text-ink">
               {activeProfile?.name || 'the family'}
             </span>
             .
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-stone-ink dark:text-slate-400 px-3.5 py-2 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-ink-secondary px-3.5 py-2 rounded-lg bg-surface border border-edge shadow-2xs">
           <span>
-            <strong className="font-mono-tabular text-forest-900 dark:text-white">
+            <strong className="font-mono-tabular text-ink">
               {activeShelfBookCount}
             </strong>{' '}
             on active shelf
           </span>
           <span aria-hidden="true">·</span>
           <span>
-            <strong className="font-mono-tabular text-forest-900 dark:text-white">
+            <strong className="font-mono-tabular text-ink">
               {ownedBookCount}
             </strong>{' '}
             in family library
@@ -154,7 +155,7 @@ export const PlayView: React.FC = () => {
           {/* Backdrop */}
           <div
             onClick={() => setActiveAppId(null)}
-            className="fixed inset-0 bg-black/45 backdrop-blur-sm transition-opacity animate-fade-in"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity animate-fade-in"
           />
 
           {/* Bottom Sheet Container */}
@@ -163,15 +164,15 @@ export const PlayView: React.FC = () => {
               activeAppId === 'reading-passport'
                 ? 'sm:max-w-5xl'
                 : 'sm:max-w-2xl lg:max-w-3xl'
-            } flex flex-col rounded-t-3xl sm:rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl animate-sheet-up overflow-hidden z-10 pb-safe sm:pb-0`}
+            } flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl animate-sheet-up overflow-hidden z-10 pb-safe sm:pb-0`}
           >
             {/* Handle Pill for Mobile Swipe Gesture */}
-            <div className="w-10 h-1.5 rounded-full bg-linen-200 dark:bg-night-700 mx-auto mt-3 mb-1 sm:hidden shrink-0" />
+            <div className="w-10 h-1 rounded-full bg-edge mx-auto mt-3 mb-1 sm:hidden shrink-0" />
 
             {/* Header bar inside sheet */}
-            <div className="px-5 py-3.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
+            <div className="px-5 py-3.5 border-b border-edge-subtle flex items-center justify-between gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="relative w-10 h-10 rounded-xl overflow-hidden shrink-0 border border-linen-200 dark:border-night-700 bg-linen-100 dark:bg-night-800 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center shadow-2xs">
+                <span className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-edge bg-surface-subtle text-primary flex items-center justify-center shadow-2xs">
                   <Icon name={activeApp.logoIcon || 'play'} className="w-5 h-5" />
                   {activeApp.logoUrl &&
                     ((activeAppId === 'storytime-picker' && !storyLogoError) ||
@@ -192,11 +193,11 @@ export const PlayView: React.FC = () => {
                 <div className="min-w-0">
                   <h2
                     id="play-activity-title"
-                    className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white truncate"
+                    className="font-display text-lg sm:text-xl font-semibold text-ink truncate"
                   >
                     {activeApp.title}
                   </h2>
-                  <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
+                  <p className="text-xs text-ink-secondary truncate">
                     {activeApp.shortTagline}
                   </p>
                 </div>
@@ -206,7 +207,7 @@ export const PlayView: React.FC = () => {
                 type="button"
                 onClick={() => setActiveAppId(null)}
                 aria-label="Close activity sheet"
-                className="min-h-[48px] min-w-[48px] sm:min-h-[36px] sm:min-w-[36px] rounded-full bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-600 dark:text-slate-300 flex items-center justify-center transition-all active:scale-95"
+                className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink-secondary flex items-center justify-center transition-all active:scale-95 cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
@@ -221,27 +222,27 @@ export const PlayView: React.FC = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Number of Books Stepper with - and + buttons */}
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-stone-700 dark:text-slate-300">
+                        <label className="block text-xs font-semibold text-ink">
                           Number of Books
                         </label>
-                        <div className="flex items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 w-fit">
+                        <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge w-fit">
                           <button
                             type="button"
                             onClick={() => setStoryCount((c) => Math.max(1, c - 1))}
                             disabled={storyCount <= 1}
                             aria-label="Decrease book count"
-                            className="h-9 w-9 rounded-lg bg-white dark:bg-night-800 disabled:opacity-40 font-bold text-base flex items-center justify-center transition-colors shadow-2xs hover:bg-linen-50 dark:hover:bg-night-700 text-forest-900 dark:text-white"
+                            className="h-9 w-9 rounded-md bg-surface border border-edge-subtle disabled:opacity-40 font-semibold text-base flex items-center justify-center transition-colors shadow-2xs hover:bg-surface-elevated text-ink cursor-pointer"
                           >
                             −
                           </button>
-                          <span className="min-w-[72px] px-2 text-center text-xs sm:text-sm font-bold font-mono-tabular text-forest-900 dark:text-white">
+                          <span className="min-w-[72px] px-2 text-center text-xs sm:text-sm font-semibold font-mono-tabular text-ink">
                             {storyCount} {storyCount === 1 ? 'Book' : 'Books'}
                           </span>
                           <button
                             type="button"
                             onClick={() => setStoryCount((c) => c + 1)}
                             aria-label="Increase book count"
-                            className="h-9 w-9 rounded-lg bg-white dark:bg-night-800 font-bold text-base flex items-center justify-center transition-colors shadow-2xs hover:bg-linen-50 dark:hover:bg-night-700 text-forest-900 dark:text-white"
+                            className="h-9 w-9 rounded-md bg-surface border border-edge-subtle font-semibold text-base flex items-center justify-center transition-colors shadow-2xs hover:bg-surface-elevated text-ink cursor-pointer"
                           >
                             +
                           </button>
@@ -250,13 +251,13 @@ export const PlayView: React.FC = () => {
 
                       {/* Source Book Pool Selector */}
                       <div className="space-y-1.5">
-                        <label className="block text-xs font-bold text-stone-700 dark:text-slate-300">
+                        <label className="block text-xs font-semibold text-ink">
                           Book Source Pool
                         </label>
                         <select
                           value={storyScope}
                           onChange={(e) => setStoryScope(e.target.value as 'active-shelf' | 'owned-library')}
-                          className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                          className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-xs font-semibold text-ink"
                         >
                           <option value="active-shelf">Active Shelf Rotation</option>
                           <option value="owned-library">Entire Family Library</option>
@@ -266,7 +267,7 @@ export const PlayView: React.FC = () => {
 
                     {/* Topic / Mood Search */}
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-bold text-stone-700 dark:text-slate-300">
+                      <label className="block text-xs font-semibold text-ink">
                         Filter by Mood or Theme (Optional)
                       </label>
                       <ClearableInput
@@ -274,7 +275,7 @@ export const PlayView: React.FC = () => {
                         value={storyTopic}
                         onValueChange={setStoryTopic}
                         placeholder="e.g. bedtime, trucks, animals, space..."
-                        className="px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold"
+                        className="px-3.5 py-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-medium text-ink"
                       />
                     </div>
 
@@ -284,10 +285,10 @@ export const PlayView: React.FC = () => {
                         type="button"
                         onClick={() => setStoryTopic('')}
                         aria-pressed={!storyTopic.trim()}
-                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                           !storyTopic.trim()
-                            ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 font-bold shadow-2xs'
-                            : 'bg-linen-100 dark:bg-night-800 text-subtitle dark:text-slate-300 hover:bg-linen-200 dark:hover:bg-night-700'
+                            ? 'bg-primary text-primary-fg shadow-2xs'
+                            : 'bg-surface-subtle border border-edge text-ink-secondary hover:text-ink'
                         }`}
                       >
                         Any topic
@@ -300,10 +301,10 @@ export const PlayView: React.FC = () => {
                             type="button"
                             onClick={() => setStoryTopic(topic)}
                             aria-pressed={isSelected}
-                            className={`px-3 py-1 rounded-lg text-xs font-medium capitalize transition-colors ${
+                            className={`px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-colors cursor-pointer ${
                               isSelected
-                                ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 font-bold shadow-2xs'
-                                : 'bg-linen-100 dark:bg-night-800 text-subtitle dark:text-slate-300 hover:bg-linen-200 dark:hover:bg-night-700'
+                                ? 'bg-primary text-primary-fg shadow-2xs'
+                                : 'bg-surface-subtle border border-edge text-ink-secondary hover:text-ink'
                             }`}
                           >
                             {topic}
@@ -313,15 +314,15 @@ export const PlayView: React.FC = () => {
                     </div>
 
                     {/* Unread Priority Checkbox & Primary Draw Button */}
-                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-linen-200/80 dark:border-night-800">
+                    <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-edge-subtle">
                       <label className="inline-flex items-center gap-2 cursor-pointer text-xs">
                         <input
                           type="checkbox"
                           checked={storyUnreadFirst}
                           onChange={(e) => setStoryUnreadFirst(e.target.checked)}
-                          className="w-4 h-4 rounded text-forest-700 accent-forest-700"
+                          className="w-4 h-4 rounded accent-[var(--primary)]"
                         />
-                        <span className="font-semibold text-stone-700 dark:text-slate-300">
+                        <span className="font-semibold text-ink-secondary">
                           Prefer unread books first
                         </span>
                       </label>
@@ -329,7 +330,7 @@ export const PlayView: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleRunStorytimePicker}
-                        className="px-6 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 dark:hover:bg-brand-dark-hover font-bold text-xs flex items-center justify-center gap-2 shadow-md transition-colors"
+                        className="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-colors cursor-pointer"
                       >
                         <Icon name="dice" className="w-4 h-4" />
                         <span>Draw Storytime Books!</span>
@@ -339,8 +340,8 @@ export const PlayView: React.FC = () => {
 
                   {/* Draw Results */}
                   {pickerHasRun && (
-                    <div className="pt-4 border-t border-linen-200/80 dark:border-night-800 space-y-3">
-                      <h3 className="font-display font-bold text-base text-forest-900 dark:text-white">
+                    <div className="pt-4 border-t border-edge-subtle space-y-3">
+                      <h3 className="font-display font-semibold text-lg text-ink">
                         Tonight’s Selection ({pickedBooks.length}):
                       </h3>
 
@@ -354,7 +355,7 @@ export const PlayView: React.FC = () => {
                                 onInspect={() => setInspectedBookId(book.id)}
                               />
                               {pickedReasons[book.id] && (
-                                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-medium leading-tight">
+                                <p className="text-[10px] text-primary font-medium leading-tight">
                                   Matched: {pickedReasons[book.id].join(', ')}
                                 </p>
                               )}
@@ -362,11 +363,12 @@ export const PlayView: React.FC = () => {
                           ))}
                         </div>
                       ) : (
-                        <div className="p-6 rounded-2xl bg-linen-50 dark:bg-night-950 text-center space-y-1">
-                          <p className="text-sm font-semibold text-forest-900 dark:text-white">
+                        <div className="p-6 rounded-xl bg-surface-subtle border border-edge text-center space-y-2">
+                          <BotanicalIllustration variant="empty-shelf" className="w-32 h-auto mx-auto" />
+                          <p className="font-display text-lg font-semibold text-ink">
                             No books matched that topic filter.
                           </p>
-                          <p className="text-xs text-stone-ink dark:text-slate-400">
+                          <p className="text-xs text-ink-secondary">
                             Try broadening your theme or switching source to Entire Family Library.
                           </p>
                         </div>
@@ -379,22 +381,22 @@ export const PlayView: React.FC = () => {
               {/* Activity 2: Book Hunt ("Find It!") */}
               {activeAppId === 'book-hunt' && (
                 <div className="space-y-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-linen-200/80 dark:border-night-800">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-edge-subtle">
                     <div className="space-y-1">
-                      <label className="block text-xs font-bold text-stone-700 dark:text-slate-300">
+                      <label className="block text-xs font-semibold text-ink">
                         Hunt Book Pool
                       </label>
-                      <div className="flex items-center gap-1.5 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700">
+                      <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
                         <button
                           type="button"
                           onClick={() => {
                             setHuntScope('active-shelf');
                             startNextHunt('active-shelf');
                           }}
-                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                             huntScope === 'active-shelf'
-                              ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                              : 'text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-white'
+                              ? 'bg-surface text-ink shadow-2xs'
+                              : 'text-ink-secondary hover:text-ink'
                           }`}
                         >
                           Active Shelf
@@ -405,10 +407,10 @@ export const PlayView: React.FC = () => {
                             setHuntScope('owned-library');
                             startNextHunt('owned-library');
                           }}
-                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                          className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
                             huntScope === 'owned-library'
-                              ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                              : 'text-stone-600 dark:text-slate-400 hover:text-stone-900 dark:hover:text-white'
+                              ? 'bg-surface text-ink shadow-2xs'
+                              : 'text-ink-secondary hover:text-ink'
                           }`}
                         >
                           Entire Library
@@ -417,33 +419,33 @@ export const PlayView: React.FC = () => {
                     </div>
 
                     {huntStreak > 0 && (
-                      <div className="text-xs font-bold text-amber-800 dark:text-amber-300 font-mono-tabular">
+                      <div className="text-xs font-semibold text-accent font-mono-tabular">
                         Streak: {huntStreak} found
                       </div>
                     )}
                   </div>
 
                   {/* Treasure Clue Card */}
-                  <div className="p-6 sm:p-8 rounded-3xl bg-linear-to-br from-linen-100 to-linen-200 dark:from-night-800 dark:to-night-700 text-center space-y-4 shadow-inner">
-                    <p className="text-[11px] font-bold uppercase tracking-widest text-brand dark:text-brand-dark">
+                  <div className="p-6 sm:p-8 rounded-xl bg-surface-elevated border border-edge text-center space-y-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
                       Book Clue
                     </p>
 
-                    <h3 className="font-display text-xl sm:text-2xl font-bold text-forest-900 dark:text-white max-w-lg mx-auto leading-relaxed">
+                    <h3 className="font-display text-2xl sm:text-3xl font-semibold text-ink max-w-lg mx-auto leading-snug">
                       “{huntPrompt || huntClue}”
                     </h3>
 
                     {huntBook && (
                       <div className="pt-2 flex flex-col items-center gap-3">
                         {huntPeekRevealed ? (
-                          <div className="w-32 aspect-[3/4] rounded-xl overflow-hidden shadow-xl animate-sheet-up">
+                          <div className="w-32 aspect-[3/4] rounded-lg overflow-hidden shadow-lg animate-sheet-up">
                             <BookCover book={huntBook} size="md" aspectRatio="portrait" />
                           </div>
                         ) : (
                           <button
                             type="button"
                             onClick={() => setHuntPeekRevealed(true)}
-                            className="px-4 py-2 rounded-xl bg-white/85 hover:bg-white dark:bg-night-900/75 text-stone-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-linen-300 dark:border-night-600 shadow-xs"
+                            className="px-4 py-2 rounded-lg bg-surface hover:bg-surface-subtle text-ink text-xs font-semibold flex items-center gap-1.5 transition-colors border border-edge shadow-2xs cursor-pointer"
                           >
                             <Icon name="eye" className="w-4 h-4" />
                             <span>Peek Cover Artwork</span>
@@ -455,11 +457,12 @@ export const PlayView: React.FC = () => {
 
                   {/* Celebration Feedback */}
                   {huntCelebrated && (
-                    <div className="p-5 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-center space-y-1 animate-sheet-up shadow-xs">
-                      <h4 className="font-display font-bold text-base text-emerald-900 dark:text-emerald-200">
+                    <div className="p-5 rounded-xl bg-surface-subtle border border-primary/40 text-center space-y-1.5 animate-sheet-up shadow-xs">
+                      <BotanicalIllustration variant="reading-achievement" className="w-28 h-auto mx-auto" />
+                      <h4 className="font-display font-semibold text-lg text-ink">
                         You Found It! Great Job!
                       </h4>
-                      <p className="text-xs text-emerald-800 dark:text-emerald-300">
+                      <p className="text-xs text-ink-secondary">
                         {huntBook?.title} has been spotted on your shelf.
                       </p>
                     </div>
@@ -470,7 +473,7 @@ export const PlayView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => startNextHunt()}
-                      className="px-4 py-2.5 rounded-xl text-stone-600 dark:text-slate-400 hover:bg-linen-100 dark:hover:bg-night-800 text-xs font-semibold transition-colors"
+                      className="px-4 py-2.5 rounded-lg text-ink-secondary hover:bg-surface-elevated text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Skip / Next Clue
                     </button>
@@ -479,7 +482,7 @@ export const PlayView: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleFoundBook}
-                        className="px-6 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
+                        className="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
                       >
                         <Icon name="check" className="w-4 h-4" />
                         <span>Found It!</span>
@@ -488,7 +491,7 @@ export const PlayView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => startNextHunt()}
-                        className="px-6 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs flex items-center gap-2 shadow-md transition-colors"
+                        className="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
                       >
                         <span>Play Next Clue →</span>
                       </button>

@@ -16,18 +16,18 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { pwaStatus } = useApp();
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-linen-50 text-ink dark:bg-night-950 dark:text-[#F4EFE6] transition-colors selection:bg-brand selection:text-white">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-canvas text-ink transition-colors selection:bg-primary selection:text-primary-fg">
       {/* Fixed iOS/PWA Top Safe-Area Curtain */}
       <div
         aria-hidden="true"
         data-safe-top-cover="true"
-        className="fixed top-0 inset-x-0 lg:left-64 h-safe-top z-40 pointer-events-none bg-white dark:bg-night-900"
+        className="fixed top-0 inset-x-0 lg:left-64 h-safe-top z-40 pointer-events-none bg-surface"
       />
 
       {/* Skip to Main Content Link */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-brand focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-fg focus:rounded-lg focus:shadow-lg focus:outline-none"
       >
         Skip to main content
       </a>
@@ -50,9 +50,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <div
             role="status"
             aria-live="polite"
-            className="bg-amber-600 text-white text-xs font-semibold px-4 py-1.5 text-center flex items-center justify-center gap-2 shadow-xs z-20"
+            className="bg-surface-elevated border-b border-accent/40 text-ink text-xs font-medium px-4 py-1.5 text-center flex items-center justify-center gap-2 z-20"
           >
-            <Icon name="info" className="w-4 h-4 shrink-0" />
+            <Icon name="info" className="w-4 h-4 shrink-0 text-accent" />
             <span>You are currently offline. Local family library &amp; scanner work 100% offline.</span>
           </div>
         )}

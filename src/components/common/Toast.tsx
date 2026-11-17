@@ -8,9 +8,9 @@ export const Toast: React.FC = () => {
   if (!toast) return null;
 
   const toneClasses = {
-    success: 'bg-[#123C42] text-white border border-[#5ED3DA]/30 shadow-lg',
-    error: 'bg-[#963E47] text-white border border-rose-300/30 shadow-lg',
-    info: 'bg-[#1C2D33] text-white border border-slate-600/30 shadow-lg',
+    success: 'bg-primary text-primary-fg border border-accent/40 shadow-lg',
+    error: 'bg-[#8C4A4F] text-[#FFFCF5] border border-[#C48A8E]/40 shadow-lg',
+    info: 'bg-surface-elevated text-ink border border-edge shadow-lg',
   }[toast.tone || 'success'];
 
   const iconName = {
@@ -25,7 +25,7 @@ export const Toast: React.FC = () => {
       className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 max-w-[92vw] sm:max-w-md w-max pointer-events-auto transition-all"
     >
       <div
-        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium ${toneClasses}`}
+        className={`flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-medium ${toneClasses}`}
       >
         <span className="shrink-0 w-4 h-4 flex items-center justify-center">
           <Icon name={iconName} className="w-4 h-4" />
@@ -34,7 +34,7 @@ export const Toast: React.FC = () => {
         <button
           type="button"
           onClick={() => store.dismissToast()}
-          className="ml-1 p-1 hover:bg-white/10 rounded-md transition-colors"
+          className="ml-1 p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors cursor-pointer"
           aria-label="Dismiss message"
         >
           <Icon name="close" className="w-3.5 h-3.5" />

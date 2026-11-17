@@ -38,7 +38,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
 
   const [intakeLoved, setIntakeLoved] = useState(false);
   const [intakeCondition, setIntakeCondition] = useState<BookCondition>('good');
-  const [targetStatus, setTargetStatus] = useState<CollectionStatus>('owned');
+  const [targetStatus] = useState<CollectionStatus>('owned');
   const [intakeOwners, setIntakeOwners] = useState<string[]>(() => {
     return activeProfile ? [activeProfile.id, 'shared'] : ['shared'];
   });
@@ -47,7 +47,6 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
 
   if (!isOpen || !candidate) return null;
 
-  // Check if book already exists in catalog by isbn13 or title
   const existingBook = state.books.find((b) => {
     if (candidate.isbn13 && b.isbn13 === candidate.isbn13) return true;
     if (candidate.isbn10 && b.isbn10 === candidate.isbn10) return true;
@@ -102,7 +101,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
     <div
       data-found-book-sheet="true"
       data-backdrop-action="close-found-book-sheet"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       role="dialog"
       aria-modal="true"
       aria-labelledby="found-book-sheet-title"
@@ -110,13 +109,13 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-lg max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
+        className="animate-sheet-up w-full max-w-lg max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
       >
-        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
+        <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
 
         {/* Top Bar: Book Found + Re-scan + Close */}
-        <div className="px-5 pt-3 pb-3 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-forest-700 dark:text-[#5ED3DA]">
+        <div className="px-5 pt-3 pb-3 border-b border-edge-subtle flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
             <Icon name="check" className="w-4 h-4" />
             <span id="found-book-sheet-title">Book Found</span>
           </span>
@@ -127,7 +126,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                 type="button"
                 data-action="rescan-book"
                 onClick={onRescan}
-                className="min-h-[48px] sm:min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-1.5 transition-all active:scale-95 whitespace-nowrap"
+                className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-all active:scale-95 whitespace-nowrap cursor-pointer"
               >
                 <Icon name="barcode" className="w-4 h-4" />
                 <span>Re-scan</span>
@@ -138,7 +137,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
               data-action="close-found-book-sheet"
               onClick={onClose}
               aria-label="Close book details"
-              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center transition-all active:scale-95"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-subtle flex items-center justify-center transition-all active:scale-95 cursor-pointer"
             >
               <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
@@ -149,7 +148,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {/* Cover & Book Details Header */}
           <div className="flex gap-4 items-start">
-            <div className="w-20 aspect-[3/4] rounded-xl overflow-hidden shrink-0 shadow-md">
+            <div className="w-20 aspect-[3/4] rounded-lg overflow-hidden shrink-0 shadow-md border border-edge-subtle">
               <BookCover
                 book={pseudoBook as any}
                 size="md"
@@ -159,32 +158,31 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
             </div>
 
             <div className="flex-1 min-w-0">
-              <h3 className="font-display text-base font-bold text-forest-900 dark:text-white line-clamp-2 leading-snug">
+              <h3 className="font-display text-lg font-semibold text-ink line-clamp-2 leading-snug">
                 {candidate.title}
               </h3>
-              <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+              <p className="text-xs text-ink-secondary mt-0.5 truncate">
                 by {primaryAuthor}
               </p>
 
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400 mt-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-secondary mt-1">
                 <span>Ages {candidate.ageMin}–{candidate.ageMax}</span>
                 <span>·</span>
                 <span>{formatBookBinding(candidate.format || 'hardcover')}</span>
                 {candidate.publishedYear && (
                   <>
                     <span>·</span>
-                    <span>{candidate.publishedYear}</span>
+                    <span className="font-mono-tabular">{candidate.publishedYear}</span>
                   </>
                 )}
               </div>
 
               {candidate.isbn13 && (
-                <p className="text-[10px] font-mono text-stone-400 mt-1">
+                <p className="text-[10px] font-mono-tabular text-ink-muted mt-1">
                   ISBN {candidate.isbn13}
                 </p>
               )}
 
-              {/* Provider attribution badges */}
               {candidate.sources && candidate.sources.length > 0 && (
                 <div className="mt-2">
                   <ProviderAttribution sources={candidate.sources} />
@@ -193,16 +191,15 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
             </div>
           </div>
 
-          {/* If book already exists in family catalog */}
           {existingBook ? (
-            <div className="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3.5 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="rounded-xl bg-surface-subtle border border-edge p-3.5 flex flex-wrap items-center justify-between gap-2.5">
               <div>
-                <p className="text-xs font-bold text-forest-900 dark:text-white">
+                <p className="text-xs font-semibold text-ink">
                   {existingStatus === 'owned'
                     ? 'Already in your Family Library'
                     : `Currently saved in ${formatCollectionStatus(existingStatus || 'wishlist')}`}
                 </p>
-                <p className="text-[11px] text-stone-ink dark:text-slate-400">
+                <p className="text-[11px] text-ink-secondary">
                   Tap Open Book to view and edit details.
                 </p>
               </div>
@@ -212,7 +209,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                     type="button"
                     data-action="upgrade-existing-owned"
                     onClick={handleSaveLibrary}
-                    className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-xs font-semibold text-white transition-colors whitespace-nowrap"
+                    className="min-h-[42px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-xs font-semibold text-primary-fg transition-colors whitespace-nowrap cursor-pointer"
                   >
                     Mark Owned
                   </button>
@@ -225,7 +222,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                     onClose();
                     setInspectedBookId(existingBook.id);
                   }}
-                  className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors whitespace-nowrap"
+                  className="min-h-[42px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors whitespace-nowrap cursor-pointer"
                 >
                   Open Book
                 </button>
@@ -242,10 +239,10 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                   aria-label={intakeLoved ? 'Remove Loved mark' : 'Mark as Loved favorite'}
                   title="Mark as Loved"
                   onClick={() => setIntakeLoved(!intakeLoved)}
-                  className={`col-span-3 min-h-[48px] px-2.5 py-2 rounded-2xl text-xs font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 transition-colors ${
+                  className={`col-span-3 min-h-[48px] px-2.5 py-2 rounded-lg text-xs font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 transition-colors cursor-pointer ${
                     intakeLoved
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white border border-linen-200 dark:border-night-700'
+                      ? 'bg-[#8C4A4F] text-[#FFFCF5] shadow-xs'
+                      : 'bg-surface-subtle hover:bg-surface-elevated text-ink border border-edge'
                   }`}
                 >
                   <Icon name={intakeLoved ? 'heartFilled' : 'heart'} className="w-4 h-4" />
@@ -258,7 +255,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                   aria-label={`Save ${candidate.title} to Wishlist`}
                   title="Save to Wishlist"
                   onClick={handleSaveWishlist}
-                  className="col-span-4 min-h-[48px] px-3 py-2 rounded-2xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-espresso-800 dark:text-amber-200 flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-colors"
+                  className="col-span-4 min-h-[48px] px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-accent flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Icon name="bookmark" className="w-4 h-4" />
                   <span>Wishlist</span>
@@ -269,7 +266,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                   data-action="save-found-library"
                   aria-label={`Add to Library for ${candidate.title}`}
                   onClick={handleSaveLibrary}
-                  className="col-span-5 min-h-[48px] px-3.5 py-2 rounded-2xl bg-forest-700 hover:bg-forest-800 text-xs sm:text-sm font-semibold text-white flex flex-col sm:flex-row items-center justify-center gap-1.5 shadow-xs transition-colors"
+                  className="col-span-5 min-h-[48px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-xs sm:text-sm font-semibold text-primary-fg flex flex-col sm:flex-row items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <Icon name="plus" className="w-4 h-4" />
                   <span>Add to Library</span>
@@ -277,30 +274,30 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
               </div>
 
               {/* Progressive Disclosure for Reader Owner, Condition & Manual Edit */}
-              <details className="rounded-2xl bg-linen-50/85 dark:bg-night-950/65 border border-linen-200 dark:border-night-800 px-3.5 py-2.5">
+              <details className="rounded-xl bg-surface-subtle border border-edge px-3.5 py-2.5">
                 <summary className="cursor-pointer list-none flex items-center justify-between gap-2 text-xs select-none">
-                  <span className="text-stone-ink dark:text-slate-300">
+                  <span className="text-ink-secondary">
                     Saving for{' '}
-                    <strong className="font-semibold text-forest-900 dark:text-white">
+                    <strong className="font-semibold text-ink">
                       {intakeOwners.map((o) => (o === 'shared' ? 'Shared' : state.profiles.find((p) => p.id === o)?.name || o)).join(', ')}
                     </strong>{' '}
                     ·{' '}
-                    <strong className="font-semibold text-forest-900 dark:text-white">
+                    <strong className="font-semibold text-ink">
                       {formatCollectionStatus(targetStatus)}
                     </strong>
                     {intakeCondition !== 'good' && (
                       <span> · {formatBookCondition(intakeCondition)}</span>
                     )}
                   </span>
-                  <span className="font-semibold text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                  <span className="font-semibold text-primary shrink-0">
                     Customize
                   </span>
                 </summary>
 
-                <div className="mt-3 pt-2.5 border-t border-linen-200/80 dark:border-night-800 space-y-3">
+                <div className="mt-3 pt-2.5 border-t border-edge-subtle space-y-3">
                   {/* Readers selection */}
                   <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1.5">
+                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-1.5">
                       Reader
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -312,10 +309,10 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                             key={p.id}
                             type="button"
                             onClick={() => toggleOwner(p.id)}
-                            className={`px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
                               active
-                                ? 'bg-brand text-white dark:bg-linen-100 dark:text-night-950'
-                                : 'bg-linen-100 hover:bg-linen-200 text-subtitle dark:bg-night-800 dark:text-slate-300'
+                                ? 'bg-primary text-primary-fg'
+                                : 'bg-surface hover:bg-surface-elevated border border-edge text-ink-secondary'
                             }`}
                           >
                             <span
@@ -330,13 +327,13 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                       <button
                         type="button"
                         onClick={() => toggleOwner('shared')}
-                        className={`px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
                           intakeOwners.includes('shared')
-                            ? 'bg-brand text-white dark:bg-linen-100 dark:text-night-950'
-                            : 'bg-linen-100 hover:bg-linen-200 text-subtitle dark:bg-night-800 dark:text-slate-300'
+                            ? 'bg-primary text-primary-fg'
+                            : 'bg-surface hover:bg-surface-elevated border border-edge text-ink-secondary'
                         }`}
                       >
-                        <span className="w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center shrink-0 bg-emerald-600 text-white">
+                        <span className="w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center shrink-0 bg-secondary text-primary-fg">
                           S
                         </span>
                         <span>Shared</span>
@@ -346,7 +343,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
 
                   {/* Physical condition */}
                   <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1.5">
+                    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-1.5">
                       Condition
                     </span>
                     <div className="flex flex-wrap gap-1.5">
@@ -359,10 +356,10 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                           key={c.id}
                           type="button"
                           onClick={() => setIntakeCondition(c.id as BookCondition)}
-                          className={`px-3 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                             intakeCondition === c.id
-                              ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
-                              : 'bg-linen-100 hover:bg-linen-200 text-subtitle dark:bg-night-800 dark:text-slate-300'
+                              ? 'bg-primary text-primary-fg'
+                              : 'bg-surface hover:bg-surface-elevated border border-edge text-ink-secondary'
                           }`}
                         >
                           {c.label}
@@ -371,14 +368,13 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                     </div>
                   </div>
 
-                  {/* Edit details manually trigger */}
                   {onEditManual && (
                     <div className="pt-1 flex items-center justify-end">
                       <button
                         type="button"
                         data-action="edit-found-book-manual"
                         onClick={() => onEditManual(candidate)}
-                        className="min-h-[38px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-1.5 transition-colors"
+                        className="min-h-[38px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <Icon name="edit" className="w-3.5 h-3.5" />
                         <span>Edit Details Manually</span>

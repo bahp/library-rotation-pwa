@@ -286,8 +286,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   if (!isReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linen-50 dark:bg-night-950 p-6">
-        <p className="text-sm font-medium text-stone-ink dark:text-slate-400">Loading family library…</p>
+      <div className="min-h-screen flex items-center justify-center bg-canvas p-6">
+        <p className="text-sm font-medium text-ink-secondary">Loading family library…</p>
       </div>
     );
   }

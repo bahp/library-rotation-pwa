@@ -24,10 +24,10 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
           onOpen(app.id);
         }
       }}
-      className="group cursor-pointer rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 overflow-hidden shadow-2xs hover:shadow-md hover:border-linen-300 dark:hover:border-night-700 transition-all flex flex-col justify-between"
+      className="group cursor-pointer rounded-xl bg-surface border border-edge overflow-hidden shadow-2xs hover:shadow-md hover:border-primary/40 transition-all flex flex-col justify-between"
     >
       {/* Visual Banner */}
-      <div className="relative aspect-[16/9] w-full bg-linen-100 dark:bg-night-800 overflow-hidden">
+      <div className="relative aspect-[16/9] w-full bg-surface-elevated overflow-hidden">
         {app.imageUrl && !bannerError ? (
           <img
             src={app.imageUrl}
@@ -36,13 +36,13 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-linear-to-br from-forest-900/10 to-forest-700/20 dark:from-night-800 dark:to-night-700">
-            <Icon name={app.logoIcon || 'dice'} className="w-14 h-14 text-forest-800/40 dark:text-[#5ED3DA]/40" />
+          <div className="w-full h-full flex items-center justify-center bg-surface-subtle">
+            <Icon name={app.logoIcon || 'dice'} className="w-14 h-14 text-primary/35" />
           </div>
         )}
 
         <div className="absolute top-3 left-3 z-10">
-          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-ivory/95 dark:bg-night-900/95 text-forest-900 dark:text-white shadow-xs backdrop-blur-xs border border-linen-200/70 dark:border-night-700">
+          <span className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider bg-surface/95 text-ink shadow-xs backdrop-blur-xs border border-edge">
             {app.badgeLabel}
           </span>
         </div>
@@ -53,7 +53,7 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             {/* App Logo Badge */}
-            <span className="relative w-11 h-11 rounded-xl overflow-hidden shrink-0 border border-linen-200 dark:border-night-700 bg-linen-100 dark:bg-night-800 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center shadow-2xs">
+            <span className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0 border border-edge bg-surface-subtle text-primary flex items-center justify-center shadow-2xs">
               <Icon name={app.logoIcon || 'play'} className="w-5 h-5" />
               {app.logoUrl && !logoError && (
                 <img
@@ -66,22 +66,22 @@ export const PlayAppCard: React.FC<PlayAppCardProps> = ({ app, onOpen }) => {
             </span>
 
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-forest-700 dark:text-[#5ED3DA] truncate">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-primary truncate">
                 {app.subtitle}
               </p>
-              <h3 className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white leading-snug truncate">
+              <h3 className="font-display text-lg font-semibold text-ink leading-snug truncate">
                 {app.title}
               </h3>
             </div>
           </div>
 
-          <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed line-clamp-2">
+          <p className="text-xs text-ink-secondary leading-relaxed line-clamp-2">
             {app.description}
           </p>
         </div>
 
-        <div className="pt-3 border-t border-linen-200/70 dark:border-night-800 flex justify-center">
-          <span className="w-full min-h-[42px] px-4 py-2.5 rounded-xl bg-brand text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs inline-flex items-center justify-center gap-2 group-hover:bg-brand-hover dark:group-hover:bg-brand-dark-hover transition-colors shadow-2xs">
+        <div className="pt-3 border-t border-edge-subtle flex justify-center">
+          <span className="w-full min-h-[42px] px-4 py-2.5 rounded-lg bg-primary text-primary-fg font-semibold text-xs inline-flex items-center justify-center gap-2 group-hover:bg-primary-hover transition-colors shadow-2xs">
             <Icon name={app.logoIcon || 'play'} className="w-4 h-4" />
             <span>{app.ctaLabel || 'Launch'}</span>
           </span>

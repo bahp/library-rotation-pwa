@@ -47,7 +47,7 @@ export const StarRating: React.FC<StarRatingProps> = ({
           return (
             <span
               key={starIndex}
-              className={`${sizeClasses} ${isFilled ? 'text-amber-500 fill-amber-500' : 'text-stone-300 dark:text-stone-700'}`}
+              className={`${sizeClasses} ${isFilled ? 'text-accent fill-accent' : 'text-edge'}`}
               aria-hidden="true"
             >
               <Icon name={isFilled ? 'starFilled' : 'star'} className={sizeClasses} />
@@ -66,10 +66,10 @@ export const StarRating: React.FC<StarRatingProps> = ({
             onClick={() => onChange?.(targetRating)}
             className={`${
               compact ? 'w-4 sm:w-[18px] h-6 flex items-center justify-center' : 'p-1 rounded-md'
-            } transition-transform hover:scale-110 active:scale-95 focus:outline-none focus-visible:ring-1 focus-visible:ring-forest-700 dark:focus-visible:ring-teal-400 ${
+            } transition-transform hover:scale-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-primary cursor-pointer ${
               isFilled
-                ? 'text-amber-500 hover:text-amber-600'
-                : 'text-stone-300 dark:text-stone-700 hover:text-amber-400'
+                ? 'text-accent hover:text-primary'
+                : 'text-edge hover:text-accent'
             }`}
           >
             <Icon name={isFilled ? 'starFilled' : 'star'} className={sizeClasses} />

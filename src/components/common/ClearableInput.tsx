@@ -44,7 +44,7 @@ export const ClearableInput: React.FC<ClearableInputProps> = ({
           data-action="clear-input"
           data-target-input={id}
           aria-label="Clear input"
-          className="absolute right-2 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 p-1 focus:outline-none transition-colors"
+          className="absolute right-2 text-ink-muted hover:text-ink p-1 focus-visible:outline-2 focus-visible:outline-primary rounded transition-colors cursor-pointer"
         >
           <Icon name="x" className="w-3.5 h-3.5" />
         </button>

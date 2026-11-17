@@ -79,12 +79,12 @@ export const WhatsNewSubView: React.FC = () => {
       {RELEASE_NOTES.map((release) => (
         <article
           key={release.version}
-          className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3"
+          className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3"
         >
-          <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2.5 border-b border-linen-200/70 dark:border-night-800">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 pb-2.5 border-b border-edge-subtle">
             <div>
-              <div className="flex items-center gap-2 text-xs font-mono-tabular text-stone-ink dark:text-slate-400">
-                <span className="font-bold text-forest-700 dark:text-[#5ED3DA]">
+              <div className="flex items-center gap-2 text-xs font-mono-tabular text-ink-secondary">
+                <span className="font-semibold text-primary">
                   v{release.version}
                 </span>
                 <span aria-hidden="true">·</span>
@@ -92,19 +92,19 @@ export const WhatsNewSubView: React.FC = () => {
                 {release.isCurrent && (
                   <>
                     <span aria-hidden="true">·</span>
-                    <span className="font-sans font-semibold text-emerald-700 dark:text-emerald-400">
+                    <span className="font-sans font-semibold text-secondary">
                       Current release
                     </span>
                   </>
                 )}
               </div>
-              <h2 className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white mt-1">
+              <h2 className="font-display text-lg sm:text-xl font-semibold text-ink mt-1">
                 {release.title}
               </h2>
             </div>
           </div>
 
-          <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-ink-secondary leading-relaxed">
             {release.summary}
           </p>
 
@@ -112,11 +112,11 @@ export const WhatsNewSubView: React.FC = () => {
             {release.highlights.map((item, idx) => (
               <li
                 key={idx}
-                className="flex items-start gap-2.5 text-xs sm:text-sm text-forest-900 dark:text-slate-200 leading-relaxed"
+                className="flex items-start gap-2.5 text-xs sm:text-sm text-ink leading-relaxed"
               >
                 <span
                   aria-hidden="true"
-                  className="mt-1.5 w-1.5 h-1.5 rounded-full bg-forest-700 dark:bg-[#5ED3DA] shrink-0"
+                  className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0"
                 />
                 <span>{item}</span>
               </li>
@@ -135,15 +135,15 @@ interface LegalSubViewProps {
 export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
   if (docType === 'privacy') {
     return (
-      <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-6 shadow-xs space-y-5 text-xs sm:text-sm text-stone-ink dark:text-slate-300 leading-relaxed">
+      <div className="rounded-xl bg-surface border border-edge p-4 sm:p-6 shadow-xs space-y-5 text-xs sm:text-sm text-ink-secondary leading-relaxed">
         <div>
-          <p className="font-mono-tabular text-xs text-stone-ink/80 dark:text-slate-400">
+          <p className="font-mono-tabular text-xs text-ink-muted">
             Effective Date: November 2026 · App Version {APP_VERSION}
           </p>
         </div>
 
         <section className="space-y-1.5">
-          <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             1. Local-First Family Data
           </h2>
           <p>
@@ -155,7 +155,7 @@ export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
         </section>
 
         <section className="space-y-1.5">
-          <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             2. Camera &amp; Photo Scanning
           </h2>
           <p>
@@ -166,7 +166,7 @@ export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
         </section>
 
         <section className="space-y-1.5">
-          <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             3. Catalog Metadata &amp; Optional AI Providers
           </h2>
           <p>
@@ -178,7 +178,7 @@ export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
         </section>
 
         <section className="space-y-1.5">
-          <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             4. Your Control &amp; Portability
           </h2>
           <p>
@@ -192,13 +192,13 @@ export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
 
   if (docType === 'terms') {
     return (
-      <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-6 shadow-xs space-y-5 text-xs sm:text-sm text-stone-ink dark:text-slate-300 leading-relaxed">
-        <p className="font-mono-tabular text-xs text-stone-ink/80 dark:text-slate-400">
+      <div className="rounded-xl bg-surface border border-edge p-4 sm:p-6 shadow-xs space-y-5 text-xs sm:text-sm text-ink-secondary leading-relaxed">
+        <p className="font-mono-tabular text-xs text-ink-muted">
           Last Updated: November 2026
         </p>
 
         <section className="space-y-1.5">
-          <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             1. Personal &amp; Household Use
           </h2>
           <p>
@@ -208,7 +208,7 @@ export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
         </section>
 
         <section className="space-y-1.5">
-          <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             2. Third-Party Book Metadata &amp; AI Services
           </h2>
           <p>
@@ -220,7 +220,7 @@ export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
         </section>
 
         <section className="space-y-1.5">
-          <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             3. Backups &amp; Availability
           </h2>
           <p>
@@ -234,36 +234,36 @@ export const LegalSubView: React.FC<LegalSubViewProps> = ({ docType }) => {
   }
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-6 shadow-xs space-y-5 text-xs sm:text-sm text-stone-ink dark:text-slate-300 leading-relaxed">
-      <div className="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-3.5 text-xs">
-        <p className="font-semibold text-forest-900 dark:text-white">
+    <div className="rounded-xl bg-surface border border-edge p-4 sm:p-6 shadow-xs space-y-5 text-xs sm:text-sm text-ink-secondary leading-relaxed">
+      <div className="rounded-lg bg-surface-subtle border border-edge p-3.5 text-xs">
+        <p className="font-semibold text-ink">
           Impressum / Legal Notice Placement
         </p>
-        <p className="mt-1 text-stone-ink dark:text-slate-400">
+        <p className="mt-1 text-ink-secondary">
           Update the publisher details below with your legal entity, physical address, and contact email
           before public distribution.
         </p>
       </div>
 
-      <dl className="divide-y divide-linen-200/70 dark:divide-night-800">
+      <dl className="divide-y divide-edge-subtle">
         <div className="py-3 flex flex-col sm:flex-row sm:justify-between gap-1">
-          <dt className="font-semibold text-forest-900 dark:text-white">Application</dt>
+          <dt className="font-semibold text-ink">Application</dt>
           <dd>Library Rotation (Book Rotation PWA · v{APP_VERSION})</dd>
         </div>
         <div className="py-3 flex flex-col sm:flex-row sm:justify-between gap-1">
-          <dt className="font-semibold text-forest-900 dark:text-white">Maintainer / Publisher</dt>
+          <dt className="font-semibold text-ink">Maintainer / Publisher</dt>
           <dd>[Your Name or Studio Name]</dd>
         </div>
         <div className="py-3 flex flex-col sm:flex-row sm:justify-between gap-1">
-          <dt className="font-semibold text-forest-900 dark:text-white">Address</dt>
+          <dt className="font-semibold text-ink">Address</dt>
           <dd>[Street Address, Postal Code, City, Country]</dd>
         </div>
         <div className="py-3 flex flex-col sm:flex-row sm:justify-between gap-1">
-          <dt className="font-semibold text-forest-900 dark:text-white">Contact Email</dt>
+          <dt className="font-semibold text-ink">Contact Email</dt>
           <dd className="font-mono-tabular">contact@example.com</dd>
         </div>
         <div className="py-3 flex flex-col sm:flex-row sm:justify-between gap-1">
-          <dt className="font-semibold text-forest-900 dark:text-white">Metadata Attribution</dt>
+          <dt className="font-semibold text-ink">Metadata Attribution</dt>
           <dd>Google Books API · Open Library</dd>
         </div>
       </dl>
@@ -289,16 +289,16 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
 
   if (kind === 'rate') {
     return (
-      <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-5 sm:p-6 shadow-xs space-y-5">
+      <div className="rounded-xl bg-surface border border-edge p-5 sm:p-6 shadow-xs space-y-5">
         <div className="flex items-start gap-3.5">
-          <span className="w-11 h-11 rounded-2xl bg-amber-500/12 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+          <span className="w-11 h-11 rounded-xl bg-accent/15 text-accent flex items-center justify-center shrink-0">
             <Icon name="starFilled" className="w-5 h-5" />
           </span>
           <div>
-            <h2 className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
+            <h2 className="font-display text-lg font-semibold text-ink">
               Enjoying Library Rotation?
             </h2>
-            <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1 leading-relaxed">
+            <p className="text-xs sm:text-sm text-ink-secondary mt-1 leading-relaxed">
               This placement connects to your app store or PWA directory listing once published. Tap a
               star rating below to preview the review flow.
             </p>
@@ -319,12 +319,12 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
                   setRating(star);
                   setRatingSubmitted(false);
                 }}
-                className="min-h-[48px] min-w-[48px] rounded-xl flex items-center justify-center hover:bg-linen-100 dark:hover:bg-night-800 transition-transform active:scale-95 cursor-pointer"
+                className="min-h-[48px] min-w-[48px] rounded-lg flex items-center justify-center hover:bg-surface-subtle transition-transform active:scale-95 cursor-pointer"
               >
                 <Icon
                   name={active ? 'starFilled' : 'star'}
                   className={`w-7 h-7 transition-colors ${
-                    active ? 'text-amber-500' : 'text-linen-200 dark:text-night-700'
+                    active ? 'text-accent' : 'text-edge'
                   }`}
                 />
               </button>
@@ -338,13 +338,13 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
             setRatingSubmitted(true);
             onNotify(`Thanks for your ${rating}-star rating preview!`, 'success');
           }}
-          className="w-full min-h-[46px] px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-sm font-semibold transition-colors shadow-xs cursor-pointer"
+          className="w-full min-h-[46px] px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-sm font-semibold transition-colors shadow-xs cursor-pointer"
         >
           {ratingSubmitted ? 'Rating Preview Saved' : `Submit ${rating}-Star Rating (Placement)`}
         </button>
 
         {ratingSubmitted && (
-          <p className="text-xs text-center text-emerald-700 dark:text-emerald-400 font-medium">
+          <p className="text-xs text-center text-secondary font-medium">
             Store review link placement ready — wire your App Store / Play Store URL here when live.
           </p>
         )}
@@ -377,13 +377,13 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
     return (
       <form
         onSubmit={handleSubmitPlacement}
-        className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-5 sm:p-6 shadow-xs space-y-4"
+        className="rounded-xl bg-surface border border-edge p-5 sm:p-6 shadow-xs space-y-4"
       >
         <div>
-          <h2 className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             Send Feedback
           </h2>
-          <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-ink-secondary mt-1">
             Feedback placement for bug reports, translation fixes, or new rotation ideas.
           </p>
         </div>
@@ -406,10 +406,10 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
                   setFeedbackTopic(topic.id);
                   setFeedbackSent(false);
                 }}
-                className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   active
-                    ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
-                    : 'bg-linen-100 text-stone-ink hover:text-forest-900 dark:bg-night-800 dark:text-slate-300'
+                    ? 'bg-primary text-primary-fg'
+                    : 'bg-surface-subtle text-ink-secondary hover:text-ink border border-edge-subtle'
                 }`}
               >
                 {topic.label}
@@ -421,7 +421,7 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
         <div>
           <label
             htmlFor="settings-feedback-message"
-            className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1.5"
+            className="block text-xs font-semibold text-ink mb-1.5"
           >
             Your message
           </label>
@@ -434,7 +434,7 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
               setFeedbackSent(false);
             }}
             placeholder="Share what worked well or what we can improve…"
-            className="w-full p-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+            className="w-full p-3.5 rounded-lg bg-canvas border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-primary"
           />
         </div>
 
@@ -442,14 +442,14 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
           <button
             type="button"
             onClick={handleCopyDraft}
-            className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors cursor-pointer"
+            className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
           >
             Copy Draft
           </button>
 
           <button
             type="submit"
-            className="min-h-[44px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors shadow-xs cursor-pointer"
+            className="min-h-[44px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold inline-flex items-center gap-2 transition-colors shadow-xs cursor-pointer"
           >
             <Icon name="mail" className="w-4 h-4" />
             <span>Send Feedback (Placement)</span>
@@ -459,7 +459,7 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
         {feedbackSent && (
           <div
             role="status"
-            className="rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-400/50 dark:border-emerald-700 px-3.5 py-2.5 text-xs text-emerald-900 dark:text-emerald-200"
+            className="rounded-lg bg-secondary/12 border border-secondary/35 px-3.5 py-2.5 text-xs text-ink"
           >
             Feedback placement ready. Wire your support email (`mailto:`) or issue tracker endpoint here.
           </div>
@@ -469,16 +469,16 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
   }
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-5 sm:p-6 shadow-xs space-y-5">
+    <div className="rounded-xl bg-surface border border-edge p-5 sm:p-6 shadow-xs space-y-5">
       <div className="flex items-start gap-3.5">
-        <span className="w-11 h-11 rounded-2xl bg-brand/10 text-brand dark:bg-brand-dark/12 dark:text-brand-dark flex items-center justify-center shrink-0">
+        <span className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
           <Icon name="coffee" className="w-5 h-5" />
         </span>
         <div>
-          <h2 className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white">
+          <h2 className="font-display text-lg font-semibold text-ink">
             Buy a Coffee / Support Library Rotation
           </h2>
-          <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1 leading-relaxed">
+          <p className="text-xs sm:text-sm text-ink-secondary mt-1 leading-relaxed">
             Placement for voluntary tipping or donation links (e.g. Ko-fi, Buy Me a Coffee, or GitHub
             Sponsors). Zero features are locked behind payment.
           </p>
@@ -502,19 +502,19 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
                 setSelectedCoffeeTier(tier.id);
                 setCoffeePledged(false);
               }}
-              className={`rounded-xl p-3.5 border text-left transition-colors cursor-pointer ${
+              className={`rounded-lg p-3.5 border text-left transition-colors cursor-pointer ${
                 active
-                  ? 'bg-linen-100/90 dark:bg-night-800 border-forest-700 dark:border-[#5ED3DA]'
-                  : 'bg-linen-50/70 dark:bg-night-950/60 border-linen-200 dark:border-night-700 hover:border-forest-700/50'
+                  ? 'bg-surface-elevated border-primary'
+                  : 'bg-surface-subtle border-edge hover:border-primary/50'
               }`}
             >
-              <p className="font-mono-tabular text-lg font-bold text-forest-900 dark:text-white">
+              <p className="font-mono-tabular text-lg font-bold text-ink">
                 {tier.amount}
               </p>
-              <p className="text-xs font-semibold text-forest-900 dark:text-slate-200 mt-0.5">
+              <p className="text-xs font-semibold text-ink mt-0.5">
                 {tier.label}
               </p>
-              <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">{tier.note}</p>
+              <p className="text-[11px] text-ink-secondary mt-0.5">{tier.note}</p>
             </button>
           );
         })}
@@ -526,14 +526,14 @@ export const OtherSubView: React.FC<OtherSubViewProps> = ({ kind, onNotify }) =>
           setCoffeePledged(true);
           onNotify('Donation link placement triggered — attach Ko-fi / Sponsors URL when ready.', 'info');
         }}
-        className="w-full min-h-[46px] px-4 py-2.5 rounded-xl bg-espresso-800 hover:bg-espresso-900 dark:bg-[#5ED3DA] dark:hover:bg-[#7ce0e6] text-white dark:text-night-950 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
+        className="w-full min-h-[46px] px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
       >
         <Icon name="coffee" className="w-4 h-4" />
         <span>Continue to Support Link (Placement)</span>
       </button>
 
       {coffeePledged && (
-        <p className="text-xs text-center text-stone-ink dark:text-slate-400">
+        <p className="text-xs text-center text-ink-secondary">
           Placement ready — replace with your external donation URL (e.g. Ko-fi, GitHub Sponsors, or
           Stripe Payment Link).
         </p>

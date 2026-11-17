@@ -29,21 +29,21 @@ const SCAN_MODES: Record<
   barcode: {
     label: 'Barcode / QR',
     caption: 'EAN-13 / ISBN & Book QR',
-    frameClass: 'w-60 sm:w-80 h-24 sm:h-28 rounded-xl',
+    frameClass: 'w-60 sm:w-80 h-24 sm:h-28 rounded-lg',
     hint: 'Center a back-cover ISBN barcode or library/bookstore QR code inside the guide.',
     tip: 'Hold 15–20 cm away in even light. Use Upload Photo on iOS/desktop if camera focus struggles.',
   },
   'isbn-ocr': {
     label: 'ISBN Text',
     caption: 'Printed ISBN-13 / ISBN-10 OCR',
-    frameClass: 'w-60 sm:w-80 h-12 sm:h-14 rounded-lg',
+    frameClass: 'w-60 sm:w-80 h-12 sm:h-14 rounded-md',
     hint: 'Align the printed "ISBN 978-..." digits inside the narrow strip.',
     tip: 'Great when a barcode sticker is torn or missing—keep only the digits inside the strip.',
   },
   cover: {
     label: 'Cover',
     caption: '3:4 jacket · OCR title/ISBN handoff',
-    frameClass: 'w-36 sm:w-44 h-48 sm:h-56 rounded-2xl',
+    frameClass: 'w-36 sm:w-44 h-48 sm:h-56 rounded-xl',
     hint: 'Frame the book cover and tap Capture Cover to extract title or ISBN.',
     tip: 'Works best when front-cover title lettering is sharp and well lit, then opens Search with the extracted text.',
   },
@@ -352,18 +352,18 @@ export const ScanView: React.FC = () => {
   const isTorchOn = Boolean(scannerState.torchOn);
 
   const frameBorderClasses = isLocked
-    ? 'border-2 border-emerald-400 bg-emerald-950/30 shadow-[0_0_0_4px_rgba(16,185,129,0.28)]'
+    ? 'border-2 border-[#A8B59A] bg-[#142321]/50 shadow-[0_0_0_4px_rgba(168,181,154,0.28)]'
     : isActiveSweep
-      ? 'border-2 border-[#5ED3DA]/95 bg-transparent'
-      : 'border-2 border-[#FAF6EE]/65 group-hover:border-[#5ED3DA] bg-night-950/25';
+      ? 'border-2 border-[#D0AD55] bg-transparent'
+      : 'border-2 border-[#F0E7D5]/60 group-hover:border-[#D0AD55] bg-[#142321]/35';
 
-  const cornerAccentColor = isLocked ? 'border-emerald-300' : 'border-[#5ED3DA]';
+  const cornerAccentColor = isLocked ? 'border-[#A8B59A]' : 'border-[#D0AD55]';
 
   const sweepLineClasses = isLocked
-    ? 'bg-emerald-400 top-1/2 -translate-y-1/2 h-0.5 shadow-[0_0_10px_rgba(52,211,153,0.9)]'
+    ? 'bg-[#A8B59A] top-1/2 -translate-y-1/2 h-0.5 shadow-[0_0_10px_rgba(168,181,154,0.85)]'
     : isActiveSweep
-      ? 'bg-[#5ED3DA] top-0 h-0.5 shadow-[0_0_12px_rgba(94,211,218,0.95)] animate-scan-sweep'
-      : 'bg-[#FAF6EE]/30 top-1/2 -translate-y-1/2 h-px';
+      ? 'bg-[#D0AD55] top-0 h-0.5 shadow-[0_0_12px_rgba(208,173,85,0.85)] animate-scan-sweep'
+      : 'bg-[#F0E7D5]/30 top-1/2 -translate-y-1/2 h-px';
 
   let lockReadoutText = canTapViewportToStart
     ? `Tap Frame to Start · ${activeMode.label}`
@@ -400,7 +400,7 @@ export const ScanView: React.FC = () => {
         <img
           src={scannerState.uploadedPreviewUrl}
           alt="Uploaded book scan preview"
-          className="absolute inset-0 z-0 w-full h-full object-contain bg-night-950"
+          className="absolute inset-0 z-0 w-full h-full object-contain bg-[#142321]"
         />
       )}
 
@@ -430,19 +430,19 @@ export const ScanView: React.FC = () => {
 
         {showCenterBadge && (
           <span
-            className={`px-3 py-1 rounded-full bg-night-950/85 border border-[#FAF6EE]/15 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
-              isLocked ? 'text-emerald-300 font-semibold' : 'text-[#FAF6EE]'
+            className={`px-3 py-1 rounded-md bg-[#142321]/90 border border-[#F0E7D5]/20 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
+              isLocked ? 'text-[#A8B59A] font-semibold' : 'text-[#F0E7D5]'
             }`}
           >
             {canTapViewportToStart && !isLocked && !(isSearching && pendingIsbn) && (
-              <Icon name="camera" className="w-3.5 h-3.5 text-[#5ED3DA]" />
+              <Icon name="camera" className="w-3.5 h-3.5 text-[#D0AD55]" />
             )}
             <span>{lockReadoutText}</span>
           </span>
         )}
       </div>
 
-      <span className="relative z-10 mt-3 px-3 py-1 rounded-full bg-night-950/75 text-[11px] text-[#FAF6EE]/90 text-center max-w-sm">
+      <span className="relative z-10 mt-3 px-3 py-1 rounded-md bg-[#142321]/80 text-[11px] text-[#F0E7D5]/90 text-center max-w-sm">
         {activeMode.hint}
       </span>
     </>
@@ -453,24 +453,24 @@ export const ScanView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="flex items-start gap-3.5">
-          <span className="hidden sm:inline-flex w-11 h-11 rounded-2xl bg-forest-900/6 dark:bg-[#5ED3DA]/12 border border-linen-200 dark:border-night-700 items-center justify-center text-forest-800 dark:text-[#5ED3DA] shrink-0 mt-0.5">
+          <span className="hidden sm:inline-flex w-11 h-11 rounded-xl bg-surface-elevated border border-edge items-center justify-center text-primary shrink-0 mt-0.5">
             <Icon name="scan" className="w-5 h-5" />
           </span>
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-forest-700 dark:text-[#5ED3DA]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
               Catalog Intake Workbench
             </p>
-            <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
+            <h1 className="font-display text-3xl sm:text-[34px] font-semibold tracking-tight text-ink leading-tight mt-0.5">
               Scan &amp; Add Books
             </h1>
-            <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1">
+            <p className="text-xs sm:text-sm text-ink-secondary mt-1">
               Scan a barcode or cover, query online metadata catalogs, or log offline editions manually.
             </p>
           </div>
         </div>
 
         {/* Mode Switcher Tabs */}
-        <div className="flex items-center gap-1 p-1.5 rounded-2xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-800 text-xs font-semibold w-full md:w-auto">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-subtle border border-edge text-xs font-semibold w-full md:w-auto">
           {[
             { id: 'scanner', label: 'Camera', icon: 'camera' },
             { id: 'search', label: 'Search & ISBN', icon: 'search' },
@@ -484,10 +484,10 @@ export const ScanView: React.FC = () => {
                 data-action="select-intake-tab"
                 aria-pressed={isActive}
                 onClick={() => handleSelectTab(tab.id as any)}
-                className={`flex-1 md:flex-initial min-h-[42px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                className={`flex-1 md:flex-initial min-h-[40px] px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all inline-flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
                   isActive
-                    ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-xs'
-                    : 'text-subtitle dark:text-slate-300 hover:text-title dark:hover:text-white'
+                    ? 'bg-primary text-primary-fg shadow-xs'
+                    : 'text-ink-secondary hover:text-ink'
                 }`}
               >
                 <Icon name={tab.icon} className="w-4 h-4" />
@@ -506,10 +506,10 @@ export const ScanView: React.FC = () => {
           {activeTab === 'scanner' && (
             <section
               aria-label="Camera and photo scanner"
-              className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-4 sm:p-6 space-y-4"
+              className="rounded-xl bg-surface border border-edge shadow-2xs p-4 sm:p-6 space-y-4"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex flex-1 items-center gap-1 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-800 max-w-md">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-1 items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
                   {(['barcode', 'isbn-ocr', 'cover'] as ScanMode[]).map((modeKey) => {
                     const selected = scanMode === modeKey;
                     return (
@@ -520,10 +520,10 @@ export const ScanView: React.FC = () => {
                         data-scan-mode={modeKey}
                         aria-pressed={selected}
                         onClick={() => handleSwitchGuide(modeKey)}
-                        className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                        className={`flex-1 min-h-[36px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                           selected
-                            ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-[#5ED3DA] shadow-2xs border border-linen-200/80 dark:border-night-700'
-                            : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                            ? 'bg-surface text-ink shadow-2xs border border-edge'
+                            : 'text-ink-secondary hover:text-ink'
                         }`}
                       >
                         {SCAN_MODES[modeKey].label}
@@ -531,9 +531,6 @@ export const ScanView: React.FC = () => {
                     );
                   })}
                 </div>
-                <span className="text-[11px] font-medium text-stone-ink dark:text-slate-400">
-                  {activeMode.caption}
-                </span>
               </div>
 
               {canTapViewportToStart ? (
@@ -542,33 +539,34 @@ export const ScanView: React.FC = () => {
                   data-action="start-camera-scan"
                   aria-label={`Start camera in ${activeMode.label} mode`}
                   onClick={handleStartCamera}
-                  className="group w-full relative h-64 sm:h-80 rounded-2xl bg-[#0B2226] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-forest-900/80 dark:border-night-700 shadow-inner cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.996]"
+                  className="group w-full relative h-64 sm:h-80 rounded-xl bg-[#142321] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-[#3B4436] shadow-inner cursor-pointer transition-transform active:scale-[0.996]"
                 >
                   {viewportInner}
                 </button>
               ) : (
-                <div className="w-full relative h-64 sm:h-80 rounded-2xl bg-[#0B2226] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-forest-900/80 dark:border-night-700 shadow-inner">
+                <div className="w-full relative h-64 sm:h-80 rounded-xl bg-[#142321] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-[#3B4436] shadow-inner">
                   {viewportInner}
                 </div>
               )}
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-0.5">
                 <div className="min-w-0">
-                  <p
-                    role="status"
-                    aria-live="polite"
-                    className={`text-xs font-medium truncate ${
-                      isLocked
-                        ? 'text-emerald-700 dark:text-emerald-400'
-                        : 'text-forest-900 dark:text-slate-300'
-                    }`}
-                  >
-                    {isSearching && pendingIsbn
-                      ? `Looking up ISBN ${pendingIsbn}…`
-                      : scannerState.statusMessage}
-                  </p>
+                  {((isSearching && Boolean(pendingIsbn)) ||
+                    (scannerState.phase !== 'idle' && Boolean(scannerState.statusMessage))) && (
+                    <p
+                      role="status"
+                      aria-live="polite"
+                      className={`text-xs font-medium truncate ${
+                        isLocked ? 'text-primary' : 'text-ink-secondary'
+                      }`}
+                    >
+                      {isSearching && pendingIsbn
+                        ? `Looking up ISBN ${pendingIsbn}…`
+                        : scannerState.statusMessage}
+                    </p>
+                  )}
                   {scannerState.ignoredHint && (
-                    <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5">
+                    <p className="text-[11px] text-accent mt-0.5">
                       {scannerState.ignoredHint}
                     </p>
                   )}
@@ -581,7 +579,7 @@ export const ScanView: React.FC = () => {
                         type="button"
                         data-action="stop-camera-scan"
                         onClick={() => scanner.stopCamera()}
-                        className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-[#8C4A4F] hover:opacity-90 active:scale-[0.98] text-[#FFFCF5] text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                       >
                         <Icon name="close" className="w-4 h-4" />
                         <span>Stop</span>
@@ -592,7 +590,7 @@ export const ScanView: React.FC = () => {
                           type="button"
                           data-action="capture-live-frame"
                           onClick={() => scanner.captureCurrentFrame()}
-                          className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 active:scale-[0.98] text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                          className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                         >
                           <Icon name="camera" className="w-4 h-4" />
                           <span>{scanMode === 'cover' ? 'Capture Cover' : 'Read ISBN'}</span>
@@ -606,10 +604,10 @@ export const ScanView: React.FC = () => {
                         aria-pressed={isTorchOn}
                         aria-label={isTorchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
                         title="Toggle rear camera flashlight"
-                        className={`min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl text-xs font-semibold transition-all active:scale-[0.98] inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                        className={`min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold transition-all active:scale-[0.98] inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                           isTorchOn
-                            ? 'bg-amber-400 text-night-950 shadow-xs'
-                            : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white'
+                            ? 'bg-accent text-[#FFFCF5] shadow-xs'
+                            : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
                         }`}
                       >
                         <Icon
@@ -623,7 +621,7 @@ export const ScanView: React.FC = () => {
                         type="button"
                         data-action="flip-camera"
                         onClick={() => scanner.flipCamera()}
-                        className="min-h-[48px] sm:min-h-[42px] px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 active:scale-[0.98] dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        className="min-h-[44px] sm:min-h-[40px] px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge active:scale-[0.98] text-xs font-semibold text-ink transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                       >
                         <Icon name="flip" className="w-4 h-4" />
                         <span>Flip</span>
@@ -636,7 +634,7 @@ export const ScanView: React.FC = () => {
                         data-action="start-camera-scan"
                         disabled={isStarting || isAnalyzingUpload}
                         onClick={handleStartCamera}
-                        className="min-h-[48px] sm:min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 active:scale-[0.98] disabled:opacity-60 text-white text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        className="min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] disabled:opacity-60 text-primary-fg text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                       >
                         <Icon name="camera" className="w-4 h-4" />
                         <span>{isStarting ? 'Starting…' : 'Start Camera'}</span>
@@ -650,7 +648,7 @@ export const ScanView: React.FC = () => {
                           setPrewarmedStreamPromise(acquireCameraStream('environment'));
                           setIsNativeScannerOpen(true);
                         }}
-                        className="hidden lg:inline-flex min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        className="hidden lg:inline-flex min-h-[40px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors items-center gap-1.5 whitespace-nowrap cursor-pointer"
                       >
                         <Icon name="scan" className="w-4 h-4" />
                         <span>Full-Screen View</span>
@@ -660,7 +658,7 @@ export const ScanView: React.FC = () => {
 
                   <label
                     htmlFor="scan-photo-upload-input"
-                    className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 active:scale-[0.98] dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-all inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge active:scale-[0.98] text-xs font-semibold text-ink transition-all inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   >
                     <Icon name="photo" className="w-4 h-4" />
                     <span>Upload Photo</span>
@@ -679,7 +677,7 @@ export const ScanView: React.FC = () => {
                       type="button"
                       data-action="reset-scanner"
                       onClick={handleResetScanner}
-                      className="min-h-[48px] sm:min-h-[42px] px-3 py-2 rounded-xl text-xs font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white transition-colors whitespace-nowrap cursor-pointer"
+                      className="min-h-[44px] sm:min-h-[40px] px-3 py-2 rounded-lg text-xs font-semibold text-ink-secondary hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                     >
                       Clear
                     </button>
@@ -688,13 +686,13 @@ export const ScanView: React.FC = () => {
               </div>
 
               {!isSearching && notFoundIsbn && (
-                <div className="rounded-2xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="rounded-xl bg-surface-subtle border border-edge p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-forest-900 dark:text-white">
+                    <p className="text-sm font-semibold text-ink">
                       Scanned ISBN <span className="font-mono-tabular">{notFoundIsbn}</span> wasn’t in
                       online catalogs
                     </p>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-secondary mt-0.5">
                       Finish adding it manually with the ISBN pre-filled, or tap Re-scan.
                     </p>
                   </div>
@@ -702,7 +700,7 @@ export const ScanView: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleResetScanner}
-                      className="min-h-[42px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white whitespace-nowrap"
+                      className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink whitespace-nowrap cursor-pointer"
                     >
                       Re-scan
                     </button>
@@ -713,7 +711,7 @@ export const ScanView: React.FC = () => {
                         setNotFoundIsbn('');
                         setActiveTab('manual');
                       }}
-                      className="min-h-[42px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold whitespace-nowrap"
+                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap cursor-pointer"
                     >
                       Complete Manually
                     </button>
@@ -724,15 +722,15 @@ export const ScanView: React.FC = () => {
               {(scannerState.errorMessage || (searchError && !notFoundIsbn)) && (
                 <div
                   role="alert"
-                  className="rounded-2xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  className="rounded-xl bg-surface-elevated border border-[#8C4A4F]/40 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                 >
-                  <p className="text-xs font-medium text-rose-800 dark:text-rose-200">
+                  <p className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
                     {scannerState.errorMessage || searchError}
                   </p>
                   <button
                     type="button"
                     onClick={() => handleSelectTab('search')}
-                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white whitespace-nowrap shrink-0"
+                    className="min-h-[38px] px-3 py-1.5 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     Search or Type ISBN
                   </button>
@@ -741,22 +739,22 @@ export const ScanView: React.FC = () => {
 
               {/* Mobile-only collapsible engine details (shown openly on desktop right rail) */}
               {scannerState.support && (
-                <details className="lg:hidden text-xs text-stone-ink dark:text-slate-400 pt-0.5">
-                  <summary className="cursor-pointer font-medium hover:text-forest-900 dark:hover:text-white select-none">
+                <details className="lg:hidden text-xs text-ink-secondary pt-0.5">
+                  <summary className="cursor-pointer font-medium hover:text-ink select-none">
                     Scanner engine · {scannerState.support.barcodeEngineLabel}
                   </summary>
                   <div className="mt-2 space-y-1 text-[11px] leading-relaxed">
                     <p>
                       Camera API:{' '}
-                      <strong className="text-forest-900 dark:text-white">
+                      <strong className="text-ink">
                         {scannerState.support.cameraApi ? 'Available' : 'Fallback to Upload'}
                       </strong>{' '}
                       · Barcode:{' '}
-                      <strong className="text-forest-900 dark:text-white">
+                      <strong className="text-ink">
                         {scannerState.support.barcodeEngineLabel}
                       </strong>{' '}
                       · OCR:{' '}
-                      <strong className="text-forest-900 dark:text-white">
+                      <strong className="text-ink">
                         {scannerState.support.webAssembly ? 'Tesseract WASM Ready' : 'Unavailable'}
                       </strong>
                     </p>
@@ -774,10 +772,10 @@ export const ScanView: React.FC = () => {
                   e.preventDefault();
                   executeUnifiedSearch(searchQuery, searchAuthor);
                 }}
-                className="space-y-3 bg-ivory dark:bg-night-900 p-4 sm:p-5 rounded-2xl border border-linen-200 dark:border-night-800 shadow-xs"
+                className="space-y-3 bg-surface p-4 sm:p-5 rounded-xl border border-edge shadow-2xs"
               >
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary mb-1">
                     Book Title or ISBN
                   </label>
                   <ClearableInput
@@ -785,12 +783,12 @@ export const ScanView: React.FC = () => {
                     value={searchQuery}
                     onValueChange={setSearchQuery}
                     placeholder="e.g. Goodnight Moon, 9780064431781, or Oliver Jeffers"
-                    className="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                    className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:border-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary mb-1">
                     Author (Optional)
                   </label>
                   <ClearableInput
@@ -798,14 +796,14 @@ export const ScanView: React.FC = () => {
                     value={searchAuthor}
                     onValueChange={setSearchAuthor}
                     placeholder="e.g. Maurice Sendak, Dr. Seuss"
-                    className="w-full h-12 px-3.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                    className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:border-primary"
                   />
                 </div>
 
                 <button
                   type="submit"
                   disabled={isSearching}
-                  className="w-full min-h-[44px] py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                  className="w-full min-h-[44px] py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <Icon name="search" className="w-4 h-4" />
                   <span>{isSearching ? 'Searching Providers…' : 'Find Book Online'}</span>
@@ -813,7 +811,7 @@ export const ScanView: React.FC = () => {
               </form>
 
               {searchError && (
-                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                <p role="alert" className="text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
                   {searchError}
                 </p>
               )}
@@ -824,17 +822,17 @@ export const ScanView: React.FC = () => {
           {activeTab === 'manual' && (
             <form
               onSubmit={handleManualSubmit}
-              className="space-y-3.5 bg-ivory dark:bg-night-900 p-4 sm:p-5 rounded-2xl border border-linen-200 dark:border-night-800 shadow-xs text-xs"
+              className="space-y-3.5 bg-surface p-4 sm:p-5 rounded-xl border border-edge shadow-2xs text-xs"
             >
               {manualError && (
-                <p role="alert" className="text-xs text-rose-600 dark:text-rose-400 font-medium">
+                <p role="alert" className="text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
                   {manualError}
                 </p>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-ink-secondary mb-1">
                     Book Title *
                   </label>
                   <input
@@ -843,12 +841,12 @@ export const ScanView: React.FC = () => {
                     value={manualTitle}
                     onChange={(e) => setManualTitle(e.target.value)}
                     placeholder="Title"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-ink-secondary mb-1">
                     Authors (comma-separated)
                   </label>
                   <input
@@ -856,12 +854,12 @@ export const ScanView: React.FC = () => {
                     value={manualAuthors}
                     onChange={(e) => setManualAuthors(e.target.value)}
                     placeholder="Author name"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-ink-secondary mb-1">
                     ISBN (Optional)
                   </label>
                   <input
@@ -869,18 +867,18 @@ export const ScanView: React.FC = () => {
                     value={manualIsbn}
                     onChange={(e) => setManualIsbn(e.target.value)}
                     placeholder="978…"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-mono text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge font-mono text-base sm:text-xs text-ink placeholder:text-ink-muted"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-ink-secondary mb-1">
                     Format
                   </label>
                   <select
                     value={manualFormat}
                     onChange={(e) => setManualFormat(e.target.value as BookFormat)}
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs text-forest-900 dark:text-white"
+                    className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge font-semibold text-base sm:text-xs text-ink"
                   >
                     <option value="hardcover">Hardcover</option>
                     <option value="board-book">Board Book</option>
@@ -889,13 +887,13 @@ export const ScanView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-ink-secondary mb-1">
                     Reading Stage
                   </label>
                   <select
                     value={manualStage}
                     onChange={(e) => setManualStage(e.target.value as ReadingStage)}
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-base sm:text-xs text-forest-900 dark:text-white"
+                    className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge font-semibold text-base sm:text-xs text-ink"
                   >
                     <option value="board-toddler">Board Book (0–3)</option>
                     <option value="picture-book">Picture Book (3–6)</option>
@@ -909,7 +907,7 @@ export const ScanView: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    <label className="block font-semibold text-ink-secondary mb-1">
                       Min Age
                     </label>
                     <input
@@ -918,11 +916,11 @@ export const ScanView: React.FC = () => {
                       max={120}
                       value={manualAgeMin}
                       onChange={(e) => setManualAgeMin(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white"
+                      className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink"
                     />
                   </div>
                   <div>
-                    <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                    <label className="block font-semibold text-ink-secondary mb-1">
                       Max Age
                     </label>
                     <input
@@ -931,13 +929,13 @@ export const ScanView: React.FC = () => {
                       max={120}
                       value={manualAgeMax}
                       onChange={(e) => setManualAgeMax(e.target.value)}
-                      className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white"
+                      className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-ink-secondary mb-1">
                     Published Year
                   </label>
                   <input
@@ -945,12 +943,12 @@ export const ScanView: React.FC = () => {
                     value={manualYear}
                     onChange={(e) => setManualYear(e.target.value)}
                     placeholder="e.g. 2021"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink placeholder:text-ink-muted"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block font-semibold text-ink-secondary mb-1">
                     Page Count
                   </label>
                   <input
@@ -958,13 +956,13 @@ export const ScanView: React.FC = () => {
                     value={manualPages}
                     onChange={(e) => setManualPages(e.target.value)}
                     placeholder="e.g. 32"
-                    className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink placeholder:text-ink-muted"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-stone-ink dark:text-slate-400 mb-1">
+                <label className="block font-semibold text-ink-secondary mb-1">
                   Tags (comma-separated)
                 </label>
                 <input
@@ -972,13 +970,13 @@ export const ScanView: React.FC = () => {
                   value={manualTags}
                   onChange={(e) => setManualTags(e.target.value)}
                   placeholder="e.g. bedtime, animals, rhyming"
-                  className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                  className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full min-h-[44px] py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                className="w-full min-h-[44px] py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               >
                 <Icon name="plus" className="w-4 h-4" />
                 <span>Save Book to Library</span>
@@ -991,46 +989,46 @@ export const ScanView: React.FC = () => {
         <aside className="lg:col-span-5 space-y-4 min-w-0">
           {activeTab === 'scanner' && (
             <div className="space-y-4">
-              {/* Sage-Tinted Quick Alternative Card */}
-              <div className="rounded-2xl bg-[#E7EEEB] dark:bg-[#13292D] border border-forest-700/15 dark:border-[#5ED3DA]/20 p-5 space-y-3 shadow-2xs">
-                <div className="flex items-center gap-2 text-forest-900 dark:text-white">
-                  <span className="w-7 h-7 rounded-lg bg-ivory/80 dark:bg-night-900/60 flex items-center justify-center text-forest-700 dark:text-[#5ED3DA]">
+              {/* Editorial Quick Alternative Card */}
+              <div className="rounded-xl bg-surface-elevated border border-edge p-5 space-y-3 shadow-2xs">
+                <div className="flex items-center gap-2 text-ink">
+                  <span className="w-7 h-7 rounded-lg bg-surface border border-edge flex items-center justify-center text-primary">
                     <Icon name="search" className="w-4 h-4" />
                   </span>
-                  <h2 className="font-display text-base font-bold">
+                  <h2 className="font-display text-lg font-semibold text-ink">
                     Prefer Typing or Pasting?
                   </h2>
                 </div>
-                <p className="text-xs text-forest-900/80 dark:text-slate-300 leading-relaxed">
+                <p className="text-xs text-ink-secondary leading-relaxed">
                   You can also look up any edition by title, author, or printed ISBN across online metadata providers.
                 </p>
                 <button
                   type="button"
                   onClick={() => handleSelectTab('search')}
-                  className="min-h-[40px] px-4 py-2 rounded-xl bg-ivory hover:bg-linen-50 dark:bg-night-900 dark:hover:bg-night-800 border border-forest-700/20 dark:border-[#5ED3DA]/30 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-2 transition-colors shadow-2xs"
+                  className="min-h-[40px] px-4 py-2 rounded-lg bg-surface hover:bg-surface-subtle border border-edge text-xs font-semibold text-ink inline-flex items-center gap-2 transition-colors shadow-2xs cursor-pointer"
                 >
                   <span>Search &amp; ISBN</span>
                   <Icon name="arrowRight" className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-3">
-                <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+              <div className="rounded-xl bg-surface border border-edge shadow-2xs p-5 space-y-3">
+                <h2 className="font-display text-lg font-semibold text-ink">
                   Optical Scan Guide
                 </h2>
-                <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                <p className="text-xs text-ink-secondary leading-relaxed">
                   {activeMode.tip}
                 </p>
-                <div className="divide-y divide-linen-200/70 dark:divide-night-800 text-xs">
+                <div className="divide-y divide-edge-subtle text-xs">
                   {(['barcode', 'isbn-ocr', 'cover'] as ScanMode[]).map((modeKey) => (
                     <button
                       key={modeKey}
                       type="button"
                       onClick={() => handleSwitchGuide(modeKey)}
-                      className={`w-full py-2.5 first:pt-1 last:pb-0 text-left flex items-start justify-between gap-2 transition-colors ${
+                      className={`w-full py-2.5 first:pt-1 last:pb-0 text-left flex items-start justify-between gap-2 transition-colors cursor-pointer ${
                         scanMode === modeKey
-                          ? 'text-forest-900 dark:text-[#5ED3DA] font-semibold'
-                          : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                          ? 'text-primary font-semibold'
+                          : 'text-ink-secondary hover:text-ink'
                       }`}
                     >
                       <span>{SCAN_MODES[modeKey].label}</span>
@@ -1043,25 +1041,25 @@ export const ScanView: React.FC = () => {
               </div>
 
               {scannerState.support && (
-                <div className="hidden lg:block rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-2 text-xs text-stone-ink dark:text-slate-400">
-                  <p className="font-bold text-forest-900 dark:text-white">
+                <div className="hidden lg:block rounded-xl bg-surface border border-edge shadow-2xs p-5 space-y-2 text-xs text-ink-secondary">
+                  <p className="font-semibold text-ink">
                     Scanner Engine Diagnostics
                   </p>
                   <p>
                     Camera API:{' '}
-                    <strong className="text-forest-900 dark:text-white">
+                    <strong className="text-ink">
                       {scannerState.support.cameraApi ? 'Available' : 'Fallback to Upload'}
                     </strong>{' '}
                     · Barcode:{' '}
-                    <strong className="text-forest-900 dark:text-white">
+                    <strong className="text-ink">
                       {scannerState.support.barcodeEngineLabel}
                     </strong>{' '}
                     · OCR:{' '}
-                    <strong className="text-forest-900 dark:text-white">
+                    <strong className="text-ink">
                       {scannerState.support.webAssembly ? 'Tesseract WASM Ready' : 'Unavailable'}
                     </strong>
                   </p>
-                  <p className="text-[11px] leading-relaxed">
+                  <p className="text-[11px] leading-relaxed text-ink-muted">
                     Chrome/Android use hardware <code>BarcodeDetector</code>; iOS Safari, Firefox,
                     and desktop browsers fall back to pure-JS ZXing + Tesseract WebAssembly OCR.
                   </p>
@@ -1073,25 +1071,25 @@ export const ScanView: React.FC = () => {
           {activeTab === 'search' && (
             <div className="space-y-3">
               {isSearching ? (
-                <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-3">
+                <div className="rounded-xl bg-surface border border-edge shadow-2xs p-5 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="h-5 w-40 rounded-lg animate-pulse bg-linen-200 dark:bg-night-800" />
-                    <div className="h-4 w-24 rounded-lg animate-pulse bg-linen-200 dark:bg-night-800" />
+                    <div className="h-5 w-40 rounded-md animate-pulse bg-surface-elevated" />
+                    <div className="h-4 w-24 rounded-md animate-pulse bg-surface-elevated" />
                   </div>
                   <SearchResultsSkeleton rows={4} />
                 </div>
               ) : searchCandidates.length > 0 ? (
-                <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-5 space-y-3">
+                <div className="rounded-xl bg-surface border border-edge shadow-2xs p-5 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="font-display font-bold text-base text-forest-900 dark:text-white">
+                    <h2 className="font-display font-semibold text-lg text-ink">
                       Matching Books ({searchCandidates.length})
                     </h2>
-                    <span className="text-[11px] text-stone-ink dark:text-slate-400">
+                    <span className="text-[11px] text-ink-secondary">
                       Tap Add Book to customize
                     </span>
                   </div>
 
-                  <div className="divide-y divide-linen-200/80 dark:divide-night-800 max-h-[60vh] overflow-y-auto pr-1">
+                  <div className="divide-y divide-edge-subtle max-h-[60vh] overflow-y-auto pr-1">
                     {searchCandidates.map((cand, i) => {
                       const pseudoBook = {
                         ...cand,
@@ -1110,13 +1108,13 @@ export const ScanView: React.FC = () => {
                               aspectRatio={state.settings?.coverAspectRatio || 'portrait'}
                             />
                             <div className="min-w-0">
-                              <h3 className="font-display font-bold text-sm text-forest-900 dark:text-white leading-snug">
+                              <h3 className="font-display font-semibold text-base text-ink leading-snug">
                                 {cand.title}
                               </h3>
-                              <p className="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5">
+                              <p className="text-xs text-ink-secondary truncate mt-0.5">
                                 {cand.authors.join(', ')}
                               </p>
-                              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400 mt-1">
+                              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-ink-secondary mt-1">
                                 <span>Ages {cand.ageMin}–{cand.ageMax}</span>
                                 <span>·</span>
                                 <span>{formatBookBinding(cand.format)}</span>
@@ -1138,7 +1136,7 @@ export const ScanView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setFoundCandidate(cand)}
-                            className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white font-semibold text-xs shrink-0 transition-colors"
+                            className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shrink-0 transition-colors cursor-pointer"
                           >
                             Add Book
                           </button>
@@ -1148,16 +1146,16 @@ export const ScanView: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-2.5">
-                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                <div className="rounded-xl bg-surface border border-edge p-4 space-y-2.5">
+                  <h2 className="font-display text-lg font-semibold text-ink">
                     Catalog Lookup Tips
                   </h2>
-                  <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                  <p className="text-xs text-ink-secondary leading-relaxed">
                     Type an exact 10- or 13-digit ISBN to pull the specific edition directly, or search by title and author across Google Books &amp; Open Library.
                   </p>
-                  <p className="text-[11px] text-stone-ink/80 dark:text-slate-400">
+                  <p className="text-[11px] text-ink-muted">
                     Active providers:{' '}
-                    <span className="font-semibold text-forest-900 dark:text-slate-200">
+                    <span className="font-semibold text-ink-secondary">
                       {(state.settings?.enabledMetadataProviders || ['google-books', 'open-library']).join(' · ')}
                     </span>
                   </p>
@@ -1167,13 +1165,13 @@ export const ScanView: React.FC = () => {
           )}
 
           {activeTab === 'manual' && (
-            <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 space-y-3">
-              <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+            <div className="rounded-xl bg-surface border border-edge p-4 space-y-3">
+              <h2 className="font-display text-lg font-semibold text-ink">
                 Offline Entry Notes
               </h2>
-              <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+              <p className="text-xs text-ink-secondary leading-relaxed">
                 Great for handmade books, vintage titles, or offline logging. Age range and reading stage automatically default to{' '}
-                <strong className="text-forest-900 dark:text-white">
+                <strong className="text-ink">
                   {activeProfile?.name || 'your active reader'}
                 </strong>
                 .
@@ -1181,7 +1179,7 @@ export const ScanView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleSelectTab('search')}
-                className="min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors"
+                className="min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
               >
                 Try Online Search Instead
               </button>

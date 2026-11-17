@@ -15,7 +15,7 @@
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta id="lr-theme-color" name="theme-color" content="#FFFDF9" />
+    <meta id="lr-theme-color" name="theme-color" content="#F7F1E7" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,28 +25,81 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <style id="lr-critical-splash">
-      html {
-        min-height: 100vh;
-        min-height: 100dvh;
-        background-color: #FFFDF9;
-      }
-      html.dark {
-        background-color: #152226;
-      }
-      body {
+      html, body {
         margin: 0;
         min-height: 100vh;
         min-height: 100dvh;
-        background-color: #FAF6EE;
-        color: #1A2423;
+        background-color: #F7F1E7;
+        color: #292720;
       }
+      html[data-theme="classic-teal"],
+      html[data-theme="classic-teal"] body {
+        background-color: #F8F5EE;
+        color: #142624;
+      }
+      html[data-theme="antique-paper"],
+      html[data-theme="antique-paper"] body {
+        background-color: #F5F0E5;
+        color: #23332D;
+      }
+      html[data-theme="sky-blue"],
+      html[data-theme="sky-blue"] body {
+        background-color: #F0F5FA;
+        color: #1E2D40;
+      }
+      html[data-theme="sage-green"],
+      html[data-theme="sage-green"] body {
+        background-color: #F1F3EA;
+        color: #263326;
+      }
+      html[data-theme="blush-pink"],
+      html[data-theme="blush-pink"] body {
+        background-color: #FBF0EF;
+        color: #352329;
+      }
+      html[data-theme="classic-light"],
+      html[data-theme="classic-light"] body {
+        background-color: #F5F5F3;
+        color: #202326;
+      }
+      html.dark,
       html.dark body {
-        background-color: #0E1618;
-        color: #F4EFE6;
+        background-color: #101713;
+        color: #F1EBDD;
+      }
+      html.dark[data-theme="midnight-ink"],
+      html.dark[data-theme="midnight-ink"] body {
+        background-color: #0B1420;
+        color: #E8F0F7;
+      }
+      html.dark[data-theme="warm-library"],
+      html.dark[data-theme="warm-library"] body {
+        background-color: #17120E;
+        color: #F3E8D7;
+      }
+      html.dark[data-theme="plum-noir"],
+      html.dark[data-theme="plum-noir"] body {
+        background-color: #19121C;
+        color: #F3E7F0;
+      }
+      html.dark[data-theme="slate-minimal"],
+      html.dark[data-theme="slate-minimal"] body {
+        background-color: #15191D;
+        color: #EDF1F3;
+      }
+      html.dark[data-theme="forest-library"],
+      html.dark[data-theme="forest-library"] body {
+        background-color: #142321;
+        color: #F0E7D5;
+      }
+      html.dark[data-theme="midnight-library"],
+      html.dark[data-theme="midnight-library"] body {
+        background-color: #0F100F;
+        color: #F4F2EC;
       }
       .lr-boot-splash {
         min-height: 100vh;
@@ -55,68 +108,61 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 0.875rem;
+        gap: 0.75rem;
         padding: calc(1.5rem + env(safe-area-inset-top, 0px)) 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
         box-sizing: border-box;
       }
       .lr-boot-emblem-wrap {
         position: relative;
-        width: 4.5rem;
-        height: 4.5rem;
+        width: 4.25rem;
+        height: 4.25rem;
         display: flex;
         align-items: center;
         justify-content: center;
       }
       .lr-boot-emblem {
-        width: 4.25rem;
-        height: 4.25rem;
-        border-radius: 1.25rem;
-        background-color: #123C42;
-        border: 1px solid rgba(94, 211, 218, 0.25);
-        box-shadow: 0 12px 26px -8px rgba(18, 60, 66, 0.35);
+        width: 4rem;
+        height: 4rem;
+        border-radius: 0.875rem;
+        background-color: #9E572C;
+        border: 1px solid #C6A77B;
+        box-shadow: 0 12px 26px -10px rgba(41, 39, 32, 0.28);
         display: flex;
         align-items: center;
         justify-content: center;
-        animation: lr-splash-bounce 1.45s cubic-bezier(0.36, 0, 0.66, 1) infinite;
+        animation: lr-splash-breathe 2.1s ease-in-out infinite;
       }
       html.dark .lr-boot-emblem {
-        background-color: #1C2D33;
-        box-shadow: 0 12px 26px -8px rgba(0, 0, 0, 0.55);
+        background-color: #19251F;
+        border-color: #2A3B32;
+        box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.55);
       }
       .lr-boot-orbit {
         transform-origin: 16px 16px;
-        animation: lr-splash-spin 2.8s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
-      }
-      .lr-boot-shadow {
-        width: 2.5rem;
-        height: 0.375rem;
-        border-radius: 9999px;
-        background-color: rgba(18, 60, 66, 0.14);
-        margin-top: -0.35rem;
-        animation: lr-splash-shadow 1.45s cubic-bezier(0.36, 0, 0.66, 1) infinite;
-      }
-      html.dark .lr-boot-shadow {
-        background-color: rgba(94, 211, 218, 0.16);
+        animation: lr-splash-spin 5.5s linear infinite;
       }
       .lr-boot-title {
-        font-family: Georgia, serif;
-        font-size: 1.125rem;
-        font-weight: 700;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.375rem;
+        font-weight: 600;
         letter-spacing: -0.01em;
-        margin: 0.15rem 0 0;
+        margin: 0.25rem 0 0;
       }
       .lr-boot-sub {
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
         font-size: 0.75rem;
-        opacity: 0.72;
+        color: #665B4D;
         margin: 0;
       }
-      @keyframes lr-splash-bounce {
+      html.dark .lr-boot-sub {
+        color: #B3B0A1;
+      }
+      @keyframes lr-splash-breathe {
         0%, 100% {
           transform: translateY(0) scale(1);
         }
         50% {
-          transform: translateY(-9px) scale(1.03);
+          transform: translateY(-4px) scale(1.015);
         }
       }
       @keyframes lr-splash-spin {
@@ -127,20 +173,9 @@
           transform: rotate(360deg);
         }
       }
-      @keyframes lr-splash-shadow {
-        0%, 100% {
-          transform: scaleX(1);
-          opacity: 0.85;
-        }
-        50% {
-          transform: scaleX(0.72);
-          opacity: 0.45;
-        }
-      }
       @media (prefers-reduced-motion: reduce) {
         .lr-boot-emblem,
-        .lr-boot-orbit,
-        .lr-boot-shadow {
+        .lr-boot-orbit {
           animation: none;
         }
       }
@@ -186,24 +221,53 @@
           true
         );
 
-        // 2. Apply saved or system color theme AND exact top-bar theme-color before first paint (zero FOUC / status-bar seam)
+        // 2. Apply saved or system color theme, themePreset, AND exact top-bar theme-color before first paint (zero FOUC)
+        var LIGHT_PRESETS = {
+          'sunlit-cream': { bg: '#F7F1E7', emblem: '#9E572C' },
+          'classic-teal': { bg: '#F8F5EE', emblem: '#115953' },
+          'antique-paper': { bg: '#F5F0E5', emblem: '#244B40' },
+          'sky-blue': { bg: '#F0F5FA', emblem: '#2F6CA8' },
+          'sage-green': { bg: '#F1F3EA', emblem: '#4B683B' },
+          'blush-pink': { bg: '#FBF0EF', emblem: '#9E4357' },
+          'classic-light': { bg: '#F5F5F3', emblem: '#353B40' },
+        };
+        var DARK_PRESETS = {
+          'forest-brass': { bg: '#101713', emblem: '#19251F' },
+          'midnight-ink': { bg: '#0B1420', emblem: '#152538' },
+          'warm-library': { bg: '#17120E', emblem: '#292017' },
+          'plum-noir': { bg: '#19121C', emblem: '#2B1D30' },
+          'slate-minimal': { bg: '#15191D', emblem: '#242C33' },
+          'forest-library': { bg: '#142321', emblem: '#1C2D29' },
+          'midnight-library': { bg: '#0F100F', emblem: '#181918' },
+        };
         var isDark = false;
+        var activePreset = 'sunlit-cream';
+        var canvasHex = '#F7F1E7';
+        var emblemHex = '#9E572C';
         try {
           var saved = localStorage.getItem('lr_theme_pref') || 'light';
+          var savedPreset = localStorage.getItem('lr_theme_preset') || '';
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           isDark = saved === 'dark' || (saved === 'system' && prefersDark);
           if (isDark) {
             document.documentElement.classList.add('dark');
+            activePreset = DARK_PRESETS[savedPreset] ? savedPreset : 'forest-brass';
+            canvasHex = DARK_PRESETS[activePreset].bg;
+            emblemHex = DARK_PRESETS[activePreset].emblem;
           } else {
             document.documentElement.classList.remove('dark');
+            activePreset = LIGHT_PRESETS[savedPreset] ? savedPreset : 'sunlit-cream';
+            canvasHex = LIGHT_PRESETS[activePreset].bg;
+            emblemHex = LIGHT_PRESETS[activePreset].emblem;
           }
+          document.documentElement.setAttribute('data-theme', activePreset);
           var themeMeta = document.getElementById('lr-theme-color');
           if (themeMeta) {
-            themeMeta.setAttribute('content', isDark ? '#152226' : '#FFFDF9');
+            themeMeta.setAttribute('content', canvasHex);
           }
         } catch (_) {}
 
-        // 3. Synthesize a crisp warm/dark iOS startup image on iPhone/iPad so Home Screen launch never flashes a black buffer
+        // 3. Synthesize a crisp iOS startup image matching the active theme preset so Home Screen launch never flashes
         try {
           if (/iphone|ipad|ipod/i.test(navigator.userAgent || '')) {
             var dpr = Math.min(window.devicePixelRatio || 2, 3);
@@ -214,13 +278,13 @@
             canvas.height = h;
             var ctx = canvas.getContext('2d');
             if (ctx) {
-              ctx.fillStyle = isDark ? '#0E1618' : '#FAF6EE';
+              ctx.fillStyle = canvasHex;
               ctx.fillRect(0, 0, w, h);
-              var box = Math.round(72 * dpr);
+              var box = Math.round(68 * dpr);
               var bx = Math.round((w - box) / 2);
               var by = Math.round((h - box) / 2 - 18 * dpr);
-              var r = Math.round(20 * dpr);
-              ctx.fillStyle = isDark ? '#1C2D33' : '#123C42';
+              var r = Math.round(14 * dpr);
+              ctx.fillStyle = emblemHex;
               ctx.beginPath();
               ctx.moveTo(bx + r, by);
               ctx.arcTo(bx + box, by, bx + box, by + box, r);
@@ -239,27 +303,26 @@
       })();
     </script>
   </head>
-  <body class="bg-[#FAF6EE] text-[#1A2423] dark:bg-[#0E1618] dark:text-[#F4EFE6] antialiased selection:bg-[#1F6E75] selection:text-white">
+  <body class="bg-canvas text-ink antialiased selection:bg-primary selection:text-primary-fg">
     <div id="app">
-      <div data-app-splash="true" role="status" aria-label="Opening Book Rotation" class="lr-boot-splash">
+      <div data-app-splash="true" role="status" aria-label="Opening Library Rotation" class="lr-boot-splash">
         <div class="lr-boot-emblem-wrap" aria-hidden="true">
           <div class="lr-boot-emblem">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" width="40" height="40">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" width="38" height="38">
               <g class="lr-boot-orbit">
-                <path d="M8.5 7.5C11.5 4.3 17.2 3.7 21.5 6L23.5 7.2" stroke="#5ED3DA" stroke-width="2.1" stroke-linecap="round"/>
-                <path d="M22.4 4.2L24 7.5L20.5 8" stroke="#5ED3DA" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M23.5 24.5C20.5 27.7 14.8 28.3 10.5 26L8.5 24.8" stroke="#E8A849" stroke-width="2.1" stroke-linecap="round"/>
-                <path d="M9.6 27.8L8 24.5L11.5 24" stroke="#E8A849" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8.5 7.5C11.5 4.3 17.2 3.7 21.5 6L23.5 7.2" stroke="#D0AD55" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M22.4 4.2L24 7.5L20.5 8" stroke="#D0AD55" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M23.5 24.5C20.5 27.7 14.8 28.3 10.5 26L8.5 24.8" stroke="#A8B59A" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M9.6 27.8L8 24.5L11.5 24" stroke="#A8B59A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
               </g>
-              <path d="M16 11.4C13.6 10.1 10.2 10.1 7.5 11V20.8C10.2 20 13.6 20 16 21.3C18.4 20 21.8 20 24.5 20.8V11C21.8 10.1 18.4 10.1 16 11.4Z" fill="#FAF6EE"/>
-              <path d="M16 11.5V21.2" stroke="#123C42" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M9.8 13.8H13.6M9.8 16.3H13.6" stroke="#9A5B25" stroke-width="1.4" stroke-linecap="round"/>
-              <path d="M18.4 13.8H22.2M18.4 16.3H22.2" stroke="#9A5B25" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M16 11.4C13.6 10.1 10.2 10.1 7.5 11V20.8C10.2 20 13.6 20 16 21.3C18.4 20 21.8 20 24.5 20.8V11C21.8 10.1 18.4 10.1 16 11.4Z" fill="#FFFCF5"/>
+              <path d="M16 11.5V21.2" stroke="#244B40" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M9.8 13.8H13.6M9.8 16.3H13.6" stroke="#B38B43" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M18.4 13.8H22.2M18.4 16.3H22.2" stroke="#B38B43" stroke-width="1.3" stroke-linecap="round"/>
             </svg>
           </div>
         </div>
-        <div class="lr-boot-shadow" aria-hidden="true"></div>
-        <p class="lr-boot-title">Book Rotation</p>
+        <p class="lr-boot-title">Library Rotation</p>
         <p class="lr-boot-sub">Opening your family shelf…</p>
       </div>
     </div>

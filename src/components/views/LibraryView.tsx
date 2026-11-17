@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import { Icon } from '../common/Icon.js';
+import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { FilterDrawer, LibraryFilterControls } from '../modals/FilterDrawer.js';
 import { BookCover } from '../common/BookCover.js';
 import {
@@ -61,6 +62,14 @@ export const LibraryView: React.FC = () => {
   };
 
   const coverAspectRatio = state.settings?.coverAspectRatio || 'portrait';
+  const viewMode = state.settings?.bookViewMode || 'grid';
+  const cardSize = state.settings?.bookCardSize || 'regular';
+  const libraryGridClass =
+    cardSize === 'compact'
+      ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3 pt-1'
+      : cardSize === 'large'
+        ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 pt-1'
+        : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4 pt-1';
   const showRotationHistory = state.settings?.enableRotationHistoryInsights !== false;
   const showCoverUsageAdornos = state.settings?.showCoverUsageAdornos !== false;
   const staleBookDays = state.settings?.staleBookDays ?? 10;
@@ -413,7 +422,7 @@ export const LibraryView: React.FC = () => {
       {/* Header Row */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-forest-700 dark:text-[#5ED3DA]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
             {isForActiveReader && activeProfile
               ? `For ${activeProfile.name} & Shared`
               : isAllBooksScope
@@ -422,9 +431,9 @@ export const LibraryView: React.FC = () => {
                   : 'All Household Books'
                 : 'Custom Reader Selection'}
           </p>
-          <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
+          <h1 className="font-display text-3xl sm:text-[34px] font-semibold tracking-tight text-ink leading-tight mt-0.5">
             Family Library
-            <span className="text-sm font-sans font-semibold text-stone-ink dark:text-slate-400 font-mono-tabular ml-2.5 px-2 py-0.5 rounded-lg bg-linen-100 dark:bg-night-800 border border-linen-200 dark:border-night-700 align-middle">
+            <span className="text-xs font-sans font-semibold text-ink-secondary font-mono-tabular ml-2.5 px-2 py-0.5 rounded-md bg-surface-elevated border border-edge align-middle">
               {filteredBooks.length}/{state.books.length}
             </span>
           </h1>
@@ -438,7 +447,7 @@ export const LibraryView: React.FC = () => {
               disabled={isSyncingCatalog}
               onClick={handleSyncCatalogMetadata}
               title={`Fetch missing covers, page counts, or publication years for ${booksNeedingSyncCount} books`}
-              className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-60 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-[0.98] whitespace-nowrap"
+              className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-60 border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
             >
               <Icon name="refresh" className={`w-3.5 h-3.5 ${isSyncingCatalog ? 'animate-spin' : ''}`} />
               <span>
@@ -454,9 +463,9 @@ export const LibraryView: React.FC = () => {
             data-action="open-ai-recommendations"
             onClick={() => setAiRecsModal({ isOpen: true })}
             title="Get AI book recommendations & collection gap analysis"
-            className="min-h-[48px] sm:min-h-[42px] px-3.5 py-2 rounded-xl bg-ivory hover:bg-linen-100 text-forest-900 border border-linen-200 dark:bg-night-900 dark:hover:bg-night-800 dark:text-[#5ED3DA] dark:border-night-700 text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-[0.98] whitespace-nowrap"
+            className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-elevated text-ink border border-edge text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
           >
-            <Icon name="sparkles" className="w-4 h-4 text-forest-700 dark:text-[#5ED3DA]" />
+            <Icon name="sparkles" className="w-4 h-4 text-accent" />
             <span>AI Discover</span>
           </button>
 
@@ -467,7 +476,7 @@ export const LibraryView: React.FC = () => {
               navigate('scan');
             }}
             aria-label="Scan or add a new book"
-            className="min-h-[48px] sm:min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-[0.98] shrink-0 whitespace-nowrap"
+            className="min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-[0.98] shrink-0 whitespace-nowrap"
           >
             <Icon name="plus" className="w-4 h-4" />
             <span>Add Book</span>
@@ -480,12 +489,12 @@ export const LibraryView: React.FC = () => {
         {isDesktopSidebarOpen && (
           <aside
             aria-label="Library filters sidebar"
-            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 shadow-2xs p-4 sticky top-20 max-h-[calc(100vh-6.5rem)]"
+            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-xl bg-surface border border-edge shadow-2xs p-4 sticky top-20 max-h-[calc(100vh-6.5rem)]"
           >
-            <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-linen-200/80 dark:border-night-800 shrink-0">
+            <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-edge-subtle shrink-0">
               <div className="flex items-center gap-2">
-                <Icon name="filter" className="w-4 h-4 text-forest-700 dark:text-[#5ED3DA]" />
-                <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                <Icon name="filter" className="w-4 h-4 text-primary" />
+                <h2 className="font-display text-lg font-semibold text-ink">
                   Filters
                 </h2>
               </div>
@@ -493,7 +502,7 @@ export const LibraryView: React.FC = () => {
                 <button
                   type="button"
                   onClick={resetAllFilters}
-                  className="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline"
+                  className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                 >
                   Reset ({activeFilterCount})
                 </button>
@@ -502,7 +511,7 @@ export const LibraryView: React.FC = () => {
                   type="button"
                   onClick={() => setIsDesktopSidebarOpen(false)}
                   aria-label="Hide filters sidebar"
-                  className="text-xs font-medium text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white"
+                  className="text-xs font-medium text-ink-secondary hover:text-ink cursor-pointer"
                 >
                   Hide
                 </button>
@@ -520,7 +529,7 @@ export const LibraryView: React.FC = () => {
           {/* Search + Controls Row */}
           <div className="space-y-2">
             <div className="relative min-w-0">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-stone-ink dark:text-slate-400">
+              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted">
                 <Icon name="search" className="w-4 h-4" />
               </span>
               <ClearableInput
@@ -528,7 +537,7 @@ export const LibraryView: React.FC = () => {
                 value={searchQuery}
                 onValueChange={handleSearchChange}
                 placeholder="Search title, author, ISBN, owner, or topic…"
-                className="w-full h-12 pl-9 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/70 dark:placeholder:text-slate-400 shadow-2xs focus:outline-2 focus:outline-forest-700"
+                className="w-full h-11 pl-9 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs focus:border-primary"
               />
             </div>
 
@@ -539,10 +548,10 @@ export const LibraryView: React.FC = () => {
                 data-action="open-library-filters"
                 aria-label="Open library filters sidebar"
                 onClick={() => setIsFilterDrawerOpen(true)}
-                className={`lg:hidden min-h-[48px] px-3.5 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700 ${
+                className={`lg:hidden min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap shrink-0 cursor-pointer ${
                   activeFilterCount > 0
-                    ? 'bg-brand text-white dark:bg-linen-100 dark:text-night-950'
-                    : 'bg-ivory dark:bg-night-900 text-title dark:text-slate-200 border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800'
+                    ? 'bg-primary text-primary-fg'
+                    : 'bg-surface text-ink border border-edge hover:bg-surface-elevated'
                 }`}
               >
                 <Icon name="filter" className="w-3.5 h-3.5" />
@@ -557,10 +566,10 @@ export const LibraryView: React.FC = () => {
                 type="button"
                 onClick={() => setIsDesktopSidebarOpen((prev) => !prev)}
                 aria-pressed={isDesktopSidebarOpen}
-                className={`hidden lg:inline-flex min-h-[38px] px-3 py-1 rounded-xl text-xs font-semibold items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+                className={`hidden lg:inline-flex min-h-[38px] px-3 py-1 rounded-lg text-xs font-semibold items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   isDesktopSidebarOpen
-                    ? 'bg-linen-100 dark:bg-night-800 text-forest-900 dark:text-white border border-linen-200 dark:border-night-700'
-                    : 'bg-ivory dark:bg-night-900 text-forest-900 dark:text-slate-200 border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800'
+                    ? 'bg-surface-elevated text-ink border border-edge'
+                    : 'bg-surface text-ink border border-edge hover:bg-surface-elevated'
                 }`}
               >
                 <Icon name="filter" className="w-3.5 h-3.5" />
@@ -574,7 +583,7 @@ export const LibraryView: React.FC = () => {
                 <div
                   role="group"
                   aria-label="Reader book scope"
-                  className="inline-flex items-center p-0.5 rounded-xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-700 shrink-0"
+                  className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge shrink-0"
                 >
                   <button
                     type="button"
@@ -585,10 +594,10 @@ export const LibraryView: React.FC = () => {
                       setOwnerFilter('active-reader');
                       setSelectedOwners([]);
                     }}
-                    className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                    className={`min-h-[34px] px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
                       isForActiveReader
-                        ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                        : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                        ? 'bg-surface text-ink shadow-2xs'
+                        : 'text-ink-secondary hover:text-ink'
                     }`}
                   >
                     <span
@@ -607,10 +616,10 @@ export const LibraryView: React.FC = () => {
                       setOwnerFilter('all');
                       setSelectedOwners([]);
                     }}
-                    className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
+                    className={`min-h-[34px] px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       isAllBooksScope
-                        ? 'bg-ivory dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                        : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                        ? 'bg-surface text-ink shadow-2xs'
+                        : 'text-ink-secondary hover:text-ink'
                     }`}
                   >
                     All Books
@@ -624,10 +633,10 @@ export const LibraryView: React.FC = () => {
                 data-filter="all"
                 aria-pressed={catalogFilter === 'all' ? 'true' : 'false'}
                 onClick={() => setCatalogFilter('all')}
-                className={`min-h-[38px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700 ${
+                className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   catalogFilter === 'all'
-                    ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                    : 'bg-ivory dark:bg-night-900 text-stone-ink dark:text-slate-300 border border-linen-200 dark:border-night-700 hover:text-forest-900 dark:hover:text-white'
+                    ? 'bg-primary text-primary-fg'
+                    : 'bg-surface text-ink-secondary border border-edge hover:text-ink'
                 }`}
               >
                 All
@@ -641,10 +650,10 @@ export const LibraryView: React.FC = () => {
                 aria-label={`Wishlist, ${wishlistCount} ${wishlistCount === 1 ? 'book' : 'books'}`}
                 title="Wishlist"
                 onClick={() => setCatalogFilter('wishlist')}
-                className={`min-h-[38px] px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700 ${
+                className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   catalogFilter === 'wishlist'
-                    ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                    : 'bg-ivory dark:bg-night-900 text-espresso-800 dark:text-amber-200 border border-linen-200 dark:border-night-700 hover:text-forest-900 dark:hover:text-white'
+                    ? 'bg-primary text-primary-fg'
+                    : 'bg-surface text-accent border border-edge hover:bg-surface-elevated'
                 }`}
               >
                 <Icon name="bookmark" className="w-3.5 h-3.5" />
@@ -659,15 +668,54 @@ export const LibraryView: React.FC = () => {
                 aria-label={`Loved, ${lovedCount} ${lovedCount === 1 ? 'book' : 'books'}`}
                 title="Loved favorites"
                 onClick={() => setCatalogFilter('loved')}
-                className={`min-h-[38px] px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-forest-700 ${
+                className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   catalogFilter === 'loved'
-                    ? 'bg-rose-600 text-white shadow-2xs'
-                    : 'bg-ivory dark:bg-night-900 text-rose-600 dark:text-rose-400 border border-linen-200 dark:border-night-700 hover:bg-linen-50 dark:hover:bg-night-800'
+                    ? 'bg-[#8C4A4F] text-[#FFFCF5] shadow-2xs'
+                    : 'bg-surface text-[#8C4A4F] dark:text-[#C48A8E] border border-edge hover:bg-surface-elevated'
                 }`}
               >
                 <Icon name={catalogFilter === 'loved' ? 'heartFilled' : 'heart'} className="w-3.5 h-3.5" />
                 <span className="font-mono-tabular">{lovedCount}</span>
               </button>
+
+              <div
+                role="group"
+                aria-label="Catalog layout"
+                className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge shrink-0 ml-auto"
+              >
+                <button
+                  type="button"
+                  data-action="set-book-view-mode"
+                  data-view-mode="grid"
+                  aria-pressed={viewMode === 'grid'}
+                  aria-label="Grid view"
+                  title="Grid view"
+                  onClick={() => store.updateSettings({ bookViewMode: 'grid' })}
+                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                    viewMode === 'grid'
+                      ? 'bg-primary text-primary-fg shadow-2xs'
+                      : 'text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  <Icon name="grid" className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  data-action="set-book-view-mode"
+                  data-view-mode="list"
+                  aria-pressed={viewMode === 'list'}
+                  aria-label="List view"
+                  title="List view"
+                  onClick={() => store.updateSettings({ bookViewMode: 'list' })}
+                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                    viewMode === 'list'
+                      ? 'bg-primary text-primary-fg shadow-2xs'
+                      : 'text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  <Icon name="list" className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {/* Active Removable Filter Controls */}
@@ -685,7 +733,7 @@ export const LibraryView: React.FC = () => {
                     data-action="toggle-library-format"
                     data-format={fmt}
                     onClick={() => setSelectedFormats((prev) => prev.filter((f) => f !== fmt))}
-                    className="min-h-[28px] px-2.5 py-0.5 rounded-lg bg-forest-700/12 dark:bg-[#5ED3DA]/15 text-forest-900 dark:text-[#5ED3DA] text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-forest-700/20 transition-colors"
+                    className="min-h-[28px] px-2.5 py-0.5 rounded-md bg-surface-elevated border border-primary/35 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
                     <span>{formatBookBinding(fmt as any)}</span>
                     <span aria-hidden="true">×</span>
@@ -703,7 +751,7 @@ export const LibraryView: React.FC = () => {
                         prev.filter((t) => t.toLowerCase() !== th.toLowerCase())
                       )
                     }
-                    className="min-h-[28px] px-2.5 py-0.5 rounded-lg bg-forest-700/12 dark:bg-[#5ED3DA]/15 text-forest-900 dark:text-[#5ED3DA] text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-forest-700/20 transition-colors"
+                    className="min-h-[28px] px-2.5 py-0.5 rounded-md bg-surface-elevated border border-primary/35 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
                     <span>#{th}</span>
                     <span aria-hidden="true">×</span>
@@ -725,7 +773,7 @@ export const LibraryView: React.FC = () => {
                             prev.filter((o) => o.toLowerCase() !== own.toLowerCase())
                           )
                         }
-                        className="min-h-[28px] px-2.5 py-0.5 rounded-lg bg-forest-700/12 dark:bg-[#5ED3DA]/15 text-forest-900 dark:text-[#5ED3DA] text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-forest-700/20 transition-colors"
+                        className="min-h-[28px] px-2.5 py-0.5 rounded-md bg-surface-elevated border border-primary/35 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-surface-subtle transition-colors cursor-pointer"
                       >
                         <span>{label}</span>
                         <span aria-hidden="true">×</span>
@@ -739,7 +787,7 @@ export const LibraryView: React.FC = () => {
                     data-action="set-library-condition"
                     data-condition-filter="all"
                     onClick={() => setConditionFilter('all')}
-                    className="min-h-[28px] px-2.5 py-0.5 rounded-lg bg-forest-700/12 dark:bg-[#5ED3DA]/15 text-forest-900 dark:text-[#5ED3DA] text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-forest-700/20 transition-colors"
+                    className="min-h-[28px] px-2.5 py-0.5 rounded-md bg-surface-elevated border border-primary/35 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
                     <span>{conditionFilter === 'good' ? 'Good Condition' : 'Needs Care'}</span>
                     <span aria-hidden="true">×</span>
@@ -752,7 +800,7 @@ export const LibraryView: React.FC = () => {
                     data-action="set-library-freshness"
                     data-freshness="all"
                     onClick={() => setFreshnessFilter('all')}
-                    className="min-h-[28px] px-2.5 py-0.5 rounded-lg bg-forest-700/12 dark:bg-[#5ED3DA]/15 text-forest-900 dark:text-[#5ED3DA] text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-forest-700/20 transition-colors"
+                    className="min-h-[28px] px-2.5 py-0.5 rounded-md bg-surface-elevated border border-primary/35 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
                     <span>{freshnessFilter}</span>
                     <span aria-hidden="true">×</span>
@@ -765,7 +813,7 @@ export const LibraryView: React.FC = () => {
                     data-action="set-library-sort"
                     data-sort="default"
                     onClick={() => setSortBy('default')}
-                    className="min-h-[28px] px-2.5 py-0.5 rounded-lg bg-forest-700/12 dark:bg-[#5ED3DA]/15 text-forest-900 dark:text-[#5ED3DA] text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-forest-700/20 transition-colors"
+                    className="min-h-[28px] px-2.5 py-0.5 rounded-md bg-surface-elevated border border-primary/35 text-primary text-[11px] font-semibold inline-flex items-center gap-1 hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
                     <span>Sort: {sortBy}</span>
                     <span aria-hidden="true">×</span>
@@ -776,7 +824,7 @@ export const LibraryView: React.FC = () => {
                   type="button"
                   data-action="reset-library-filters"
                   onClick={resetAllFilters}
-                  className="text-[11px] font-semibold text-stone-ink hover:text-forest-900 dark:text-slate-400 dark:hover:text-white px-1.5 py-0.5"
+                  className="text-[11px] font-semibold text-ink-secondary hover:text-ink px-1.5 py-0.5 cursor-pointer"
                 >
                   Clear all
                 </button>
@@ -784,9 +832,128 @@ export const LibraryView: React.FC = () => {
             )}
           </div>
 
-          {/* Book Grid */}
+          {/* Book Grid / List */}
           {filteredBooks.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4 pt-1">
+            viewMode === 'list' ? (
+              <div className="space-y-2 pt-1">
+                {filteredBooks.map((book) => {
+                  const primaryAuthor = book.authors[0] || 'Unknown Author';
+                  const status = normalizeCollectionStatus(book.collectionStatus);
+                  const condition = normalizeBookCondition(book.condition);
+                  const usage = usageByBookId.get(book.id);
+
+                  const statusLabel =
+                    status === 'wishlist'
+                      ? 'Wishlist'
+                      : status === 'library'
+                        ? 'Loan'
+                        : status === 'interested'
+                          ? 'Saved'
+                          : condition !== 'good'
+                            ? condition === 'torn'
+                              ? 'Torn'
+                              : 'Damaged'
+                            : null;
+
+                  return (
+                    <article
+                      key={book.id}
+                      data-book-card={book.id}
+                      className="group rounded-xl bg-surface border border-edge hover:border-primary/45 p-2.5 sm:p-3 shadow-2xs transition-all"
+                    >
+                      <button
+                        type="button"
+                        data-action="inspect-book"
+                        data-book-id={book.id}
+                        onClick={() => setInspectedBookId(book.id)}
+                        aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
+                        className="w-full flex items-center gap-3 text-left cursor-pointer"
+                      >
+                        <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle">
+                          <BookCover
+                            book={book}
+                            size="sm"
+                            aspectRatio={coverAspectRatio}
+                            showBadges={false}
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <h2 className="font-display text-base font-semibold text-ink truncate group-hover:text-primary transition-colors">
+                              {book.title}
+                            </h2>
+                            {statusLabel && (
+                              <span className="shrink-0 px-1.5 py-0.5 rounded bg-surface-elevated border border-edge text-[10px] font-semibold text-ink-secondary">
+                                {statusLabel}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-ink-secondary truncate mt-0.5">
+                            {primaryAuthor}
+                          </p>
+                          <p className="text-[11px] text-ink-muted truncate mt-1">
+                            <span>Ages {book.ageMin}–{book.ageMax}</span>
+                            <span aria-hidden="true" className="mx-1">·</span>
+                            <span>{formatBookBinding(book.format)}</span>
+                            {showRotationHistory && isBookRotatable(book) && usage && (
+                              <>
+                                <span aria-hidden="true" className="mx-1">·</span>
+                                <span
+                                  data-library-usage-line="true"
+                                  className={
+                                    usage.inCooldown
+                                      ? 'text-accent font-medium'
+                                      : usage.isCurrentlyOnActiveShelf
+                                        ? 'text-primary font-semibold'
+                                        : ''
+                                  }
+                                >
+                                  {usage.compactRecencyLabel}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {book.owners && book.owners.length > 0 && (
+                            <div className="hidden sm:flex -space-x-1">
+                              {book.owners
+                                .filter((o) => o !== 'shared')
+                                .slice(0, 2)
+                                .map((ownerId) => {
+                                  const prof = state.profiles.find((p) => p.id === ownerId);
+                                  const tone = AVATAR_TONES[prof?.avatarTone || 'teal'] || AVATAR_TONES.teal;
+                                  return (
+                                    <span
+                                      key={ownerId}
+                                      title={prof?.name || ownerId}
+                                      className={`w-5 h-5 rounded-full text-[10px] font-bold inline-flex items-center justify-center ring-1 ring-surface ${tone}`}
+                                    >
+                                      {(prof?.name || ownerId).charAt(0).toUpperCase()}
+                                    </span>
+                                  );
+                                })}
+                            </div>
+                          )}
+                          {book.loved && (
+                            <span
+                              className="w-6 h-6 rounded-full bg-surface-elevated text-[#8C4A4F] dark:text-[#C48A8E] inline-flex items-center justify-center border border-edge"
+                              title="Loved favorite"
+                            >
+                              <Icon name="heartFilled" className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                          <Icon name="chevronRight" className="w-4 h-4 text-ink-muted group-hover:text-ink" />
+                        </div>
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+            <div className={libraryGridClass}>
               {filteredBooks.map((book) => {
                 const primaryAuthor = book.authors[0] || 'Unknown Author';
                 const status = normalizeCollectionStatus(book.collectionStatus);
@@ -845,7 +1012,9 @@ export const LibraryView: React.FC = () => {
                   <article
                     key={book.id}
                     data-book-card={book.id}
-                    className="group flex flex-col min-w-0 rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 p-2.5 shadow-2xs hover:shadow-md hover:border-linen-300 dark:hover:border-night-700 transition-all"
+                    className={`group flex flex-col min-w-0 rounded-xl bg-surface border border-edge ${
+                      cardSize === 'compact' ? 'p-2' : cardSize === 'large' ? 'p-3' : 'p-2.5'
+                    } shadow-2xs hover:border-secondary transition-all`}
                   >
                     <div className="relative">
                       <button
@@ -854,7 +1023,7 @@ export const LibraryView: React.FC = () => {
                         data-book-id={book.id}
                         onClick={() => setInspectedBookId(book.id)}
                         aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
-                        className="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
+                        className="block w-full rounded-lg transition-transform active:scale-[0.98] cursor-pointer"
                       >
                         <BookCover
                           book={book}
@@ -869,10 +1038,10 @@ export const LibraryView: React.FC = () => {
                       {book.loved && (
                         <span
                           data-cover-slot={COVER_BADGE_SLOTS.affection.slot}
-                          className={`${COVER_BADGE_SLOTS.affection.positionClass} w-6 h-6 rounded-full bg-ivory/95 dark:bg-night-900/95 text-rose-600 dark:text-rose-400 flex items-center justify-center shadow-xs border border-linen-200/70 dark:border-night-700`}
+                          className={`${COVER_BADGE_SLOTS.affection.positionClass} w-6 h-6 rounded-full bg-surface/95 text-[#8C4A4F] dark:text-[#C48A8E] flex items-center justify-center shadow-xs border border-edge`}
                           title="Loved favorite"
                         >
-                          <Icon name="heartFilled" className="w-3.5 h-3.5 text-rose-600" />
+                          <Icon name="heartFilled" className="w-3.5 h-3.5" />
                         </span>
                       )}
 
@@ -881,10 +1050,10 @@ export const LibraryView: React.FC = () => {
                           <span
                             className={`inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-md shadow-xs border ${
                               usage.inCooldown
-                                ? 'bg-amber-100/95 text-amber-900 border-amber-300 dark:bg-amber-950/90 dark:text-amber-200 dark:border-amber-700'
+                                ? 'bg-surface-elevated/95 text-accent border-accent/45'
                                 : usage.isCurrentlyOnActiveShelf
-                                  ? 'bg-brand/95 text-white border-brand dark:bg-brand/95 dark:text-emerald-200 dark:border-brand-dark/50'
-                                  : 'bg-ivory/95 text-title border-linen-300 dark:bg-night-900/95 dark:text-slate-200 dark:border-night-700'
+                                  ? 'bg-primary text-primary-fg border-surface'
+                                  : 'bg-surface/95 text-ink border-edge'
                             }`}
                           >
                             {usage.compactRecencyLabel}
@@ -907,7 +1076,7 @@ export const LibraryView: React.FC = () => {
                                 <span
                                   key={ownerId}
                                   title={prof?.name || ownerId}
-                                  className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center ring-1 ring-ivory dark:ring-night-900 shadow-2xs ${tone}`}
+                                  className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center ring-1 ring-surface shadow-2xs ${tone}`}
                                 >
                                   {(prof?.name || ownerId).charAt(0).toUpperCase()}
                                 </span>
@@ -922,18 +1091,26 @@ export const LibraryView: React.FC = () => {
                       data-action="inspect-book"
                       data-book-id={book.id}
                       onClick={() => setInspectedBookId(book.id)}
-                      className="mt-2.5 px-0.5 pb-0.5 text-left min-w-0 focus-visible:outline-2 focus-visible:outline-forest-700 rounded flex-1 flex flex-col justify-between"
+                      className="mt-2.5 px-0.5 pb-0.5 text-left min-w-0 rounded flex-1 flex flex-col justify-between cursor-pointer"
                     >
                       <div>
-                        <h2 className="font-sans text-xs sm:text-[13px] font-bold text-forest-900 dark:text-white leading-snug line-clamp-2 group-hover:text-forest-700 dark:group-hover:text-[#5ED3DA] transition-colors">
+                        <h2
+                          className={`font-display ${
+                            cardSize === 'compact'
+                              ? 'text-[13px]'
+                              : cardSize === 'large'
+                                ? 'text-base sm:text-lg'
+                                : 'text-[15px]'
+                          } font-semibold text-ink leading-snug line-clamp-2 group-hover:text-primary transition-colors`}
+                        >
                           {book.title}
                         </h2>
-                        <p className="text-[11px] text-stone-ink dark:text-slate-400 truncate mt-0.5">
+                        <p className="text-[11px] text-ink-secondary truncate mt-0.5">
                           {primaryAuthor}
                         </p>
                       </div>
-                      <div className="mt-1.5 pt-1.5 border-t border-linen-200/70 dark:border-night-800/80 space-y-0.5">
-                        <p className="text-[10px] text-stone-ink/85 dark:text-slate-400 truncate">
+                      <div className="mt-1.5 pt-1.5 border-t border-edge-subtle space-y-0.5">
+                        <p className="text-[10px] text-ink-secondary truncate">
                           Ages {book.ageMin}–{book.ageMax} · {formatBookBinding(book.format)}
                         </p>
                         {showRotationHistory && isBookRotatable(book) && usage && (
@@ -942,10 +1119,10 @@ export const LibraryView: React.FC = () => {
                             title={usage.shortRecencyLabel}
                             className={`text-[10px] truncate ${
                               usage.inCooldown
-                                ? 'text-amber-700 dark:text-amber-400 font-medium'
+                                ? 'text-accent font-medium'
                                 : usage.isCurrentlyOnActiveShelf
-                                  ? 'text-forest-700 dark:text-[#5ED3DA] font-semibold'
-                                  : 'text-stone-ink/90 dark:text-slate-400'
+                                  ? 'text-primary font-semibold'
+                                  : 'text-ink-muted'
                             }`}
                           >
                             {usage.compactRecencyLabel}
@@ -957,12 +1134,14 @@ export const LibraryView: React.FC = () => {
                 );
               })}
             </div>
+            )
           ) : (
-            <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-8 text-center space-y-2.5">
-              <p className="text-sm font-semibold text-forest-900 dark:text-white">
+            <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3">
+              <BotanicalIllustration variant="empty-library" className="w-40 h-auto mx-auto" />
+              <h2 className="font-display text-xl font-semibold text-ink">
                 {state.books.length === 0 ? 'Your household library is ready for its first books' : 'No books match these filters'}
-              </p>
-              <p className="text-xs text-stone-ink dark:text-slate-400">
+              </h2>
+              <p className="text-xs text-ink-secondary max-w-sm mx-auto">
                 {state.books.length === 0
                   ? 'Scan a barcode, search online catalogs, or add your first favorites manually.'
                   : !isAllBooksScope || activeFilterCount > 0
@@ -974,7 +1153,7 @@ export const LibraryView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate('scan')}
-                    className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors"
+                    className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
                   >
                     Scan or Add Books
                   </button>
@@ -984,7 +1163,7 @@ export const LibraryView: React.FC = () => {
                       type="button"
                       data-action="reset-library-filters"
                       onClick={resetAllFilters}
-                      className="min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors"
+                      className="min-h-[40px] px-4 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
                     >
                       Show All Books
                     </button>

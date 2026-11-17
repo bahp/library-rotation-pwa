@@ -1,73 +1,775 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  /* ===================================================================== */
-  /* APP TYPOGRAPHY & COLOR CONFIGURATION (Single Source of Truth)         */
-  /* Configure fonts, greens, sidebar, landing page, buttons & text here.  */
-  /* ===================================================================== */
+/* ============================================================================
+ * LIBRARY ROTATION — CENTRALIZED MULTI-THEME DESIGN SYSTEM
+ * ----------------------------------------------------------------------------
+ * Light Presets (7):
+ *   - sunlit-cream      (Default Light — Honeyed Cream #F7F1E7, Terracotta #9E572C)
+ *   - classic-teal      (Warm Ivory #F8F5EE, White #FFFFFF, Teal #115953, Slate-Blue #2D6F8A)
+ *   - antique-paper     (Archival Parchment #F5F0E5, Deep Forest #244B40)
+ *   - sky-blue          (Coastal Air #F0F5FA, Maritime Blue #2F6CA8)
+ *   - sage-green        (Meadow Sage #F1F3EA, Soft Olive #4B683B)
+ *   - blush-pink        (Rose Petal #FBF0EF, Berry Plum #9E4357)
+ *   - classic-light     (Gallery Stone #F5F5F3, Charcoal #353B40)
+ * Dark Presets (7):
+ *   - forest-brass      (Default Dark — Deep Evergreen #101713, Matte Forest Buttons, Brass #C49A55)
+ *   - midnight-ink      (Nocturnal Navy #0B1420, Slate Blue #4B91C7, Mist #9CC8E8)
+ *   - warm-library      (Espresso Walnut #17120E, Amber #D49A50, Parchment #E8BC78)
+ *   - plum-noir         (Velvet Aubergine #19121C, Dusty Rose #C477A6, Orchid #DCA4C6)
+ *   - slate-minimal     (Cool Graphite #15191D, Seafoam #39B8C3, Mineral #8CABB2)
+ *   - forest-library    (Spruce Study #142321, Matte Spruce Buttons, Antique Brass #D0AD55)
+ *   - midnight-library  (Warm Charcoal #0F100F, Matte Charcoal Buttons, Gold #E0B654)
+ *
+ * Edit palette colors, font pairings, badge tints, and card radii here in one place.
+ * ============================================================================ */
 
-  /* Font Families (Loaded via Google Fonts in index.html) */
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+:root,
+[data-theme="sunlit-cream"] {
+  /* Typography Tokens (Theme-overridable) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(158, 87, 44, 0.12);
+  --lr-badge-fg: #9E572C;
+  --scrim: rgba(41, 39, 32, 0.45);
+
+  /* Light Theme — Sunlit Cream (Default Light) */
+  --background: #F7F1E7;
+  --surface: #FCF9F3;
+  --surface-elevated: #EDE2D1;
+  --surface-subtle: #F1E7D7;
+
+  --primary: #9E572C;
+  --primary-hover: #864823;
+  --primary-fg: #FFFDF8;
+  --secondary: #B59469;
+  --accent: #A65E32;
+  --highlight: #C6A77B;
+
+  --text-primary: #292720;
+  --text-secondary: #665B4D;
+  --text-muted: #8C7F6E;
+
+  --border: #E0D3BF;
+  --border-subtle: #EAE0CF;
+
+  /* Architectural Sidebar Tokens (Sunlit Cream: Warm Espresso Shelf) */
+  --sidebar-bg: #2A221B;
+  --sidebar-surface: #352B23;
+  --sidebar-border: #473A30;
+  --sidebar-text: #F7F1E7;
+  --sidebar-muted: #C8BAA7;
+  --sidebar-active-bg: #3F3329;
+  --sidebar-accent: #DFB584;
+
+  /* Botanical & Status Accents */
+  --reader-teal: #2B6B62;
+  --reader-amber: #A65E32;
+  --reader-indigo: #3B5470;
+  --reader-rose: #944A54;
+  --reader-emerald: #4B6F52;
+
+  /* Safe area insets */
+  --lr-safe-top: env(safe-area-inset-top, 0px);
+  --lr-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --lr-safe-left: env(safe-area-inset-left, 0px);
+  --lr-safe-right: env(safe-area-inset-right, 0px);
+}
+
+[data-theme="classic-teal"] {
+  /* Light Theme — Classic Teal (Warm Ivory Linen + Crisp White + Slate-Blue Icons) */
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(17, 89, 83, 0.10);
+  --lr-badge-fg: #115953;
+  --scrim: rgba(13, 66, 62, 0.44);
+
+  --background: #F8F5EE;
+  --surface: #FFFFFF;
+  --surface-elevated: #EFECE4;
+  --surface-subtle: #F3EFE7;
+
+  --primary: #115953;
+  --primary-hover: #0D4742;
+  --primary-fg: #FFFFFF;
+  --secondary: #5A7F8A;
+  --accent: #2D6F8A;
+  --highlight: #2D6F8A;
+
+  --text-primary: #142624;
+  --text-secondary: #556765;
+  --text-muted: #7B8C89;
+
+  --border: #E2DDD2;
+  --border-subtle: #ECE8DF;
+
+  --sidebar-bg: #0D423E;
+  --sidebar-surface: #13504B;
+  --sidebar-border: #1F635D;
+  --sidebar-text: #F8F5EE;
+  --sidebar-muted: #B4CECC;
+  --sidebar-active-bg: #175B55;
+  --sidebar-accent: #7CC3D8;
+
+  --reader-teal: #115953;
+  --reader-amber: #2D6F8A;
+  --reader-indigo: #395572;
+  --reader-rose: #9E4A56;
+  --reader-emerald: #2F7D63;
+}
+
+[data-theme="antique-paper"] {
+  /* Light Theme — Antique Paper (Archival Parchment + Deep Forest Green) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(36, 75, 64, 0.12);
+  --lr-badge-fg: #244B40;
+  --scrim: rgba(20, 35, 33, 0.45);
+
+  --background: #F5F0E5;
+  --surface: #FFFCF5;
+  --surface-elevated: #EEE7D8;
+  --surface-subtle: #F0EBDD;
+
+  --primary: #244B40;
+  --primary-hover: #315D50;
+  --primary-fg: #FFFCF5;
+  --secondary: #82947D;
+  --accent: #B38B43;
+  --highlight: #82947D;
+
+  --text-primary: #23332D;
+  --text-secondary: #756F62;
+  --text-muted: #968D7D;
+
+  --border: #DED5C3;
+  --border-subtle: #EAE3D6;
+
+  --sidebar-bg: #1E3A32;
+  --sidebar-surface: #24453B;
+  --sidebar-border: #31564B;
+  --sidebar-text: #F5F0E5;
+  --sidebar-muted: #B6C1B5;
+  --sidebar-active-bg: #2A5044;
+  --sidebar-accent: #D0AD55;
+
+  --reader-teal: #244B40;
+  --reader-amber: #9E6E32;
+  --reader-indigo: #394E61;
+  --reader-rose: #8C4A4F;
+  --reader-emerald: #4B6F52;
+}
+
+[data-theme="sky-blue"] {
+  /* Light Theme — Sky Blue (Coastal Air + Crisp White + Maritime Blue) */
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(47, 108, 168, 0.11);
+  --lr-badge-fg: #2F6CA8;
+  --scrim: rgba(30, 45, 64, 0.45);
+
+  --background: #F0F5FA;
+  --surface: #FAFBFD;
+  --surface-elevated: #E0EAF4;
+  --surface-subtle: #E8F0F8;
+
+  --primary: #2F6CA8;
+  --primary-hover: #25588A;
+  --primary-fg: #FFFFFF;
+  --secondary: #6E98BD;
+  --accent: #3979B8;
+  --highlight: #8DB6D9;
+
+  --text-primary: #1E2D40;
+  --text-secondary: #516378;
+  --text-muted: #7A8CA1;
+
+  --border: #CFDCE9;
+  --border-subtle: #DFE9F3;
+
+  --sidebar-bg: #172B40;
+  --sidebar-surface: #1F3752;
+  --sidebar-border: #2C4969;
+  --sidebar-text: #F0F5FA;
+  --sidebar-muted: #AFC3D7;
+  --sidebar-active-bg: #254160;
+  --sidebar-accent: #8DB6D9;
+
+  --reader-teal: #2B6D78;
+  --reader-amber: #8C6E42;
+  --reader-indigo: #2F6CA8;
+  --reader-rose: #9E5266;
+  --reader-emerald: #3E785D;
+}
+
+[data-theme="sage-green"] {
+  /* Light Theme — Sage Green (Natural Meadow Sage + Soft Olive) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(75, 104, 59, 0.11);
+  --lr-badge-fg: #4B683B;
+  --scrim: rgba(38, 51, 38, 0.45);
+
+  --background: #F1F3EA;
+  --surface: #F9FAF5;
+  --surface-elevated: #E2E8D9;
+  --surface-subtle: #EAEFE2;
+
+  --primary: #4B683B;
+  --primary-hover: #3D5630;
+  --primary-fg: #FAFCF7;
+  --secondary: #83966A;
+  --accent: #597747;
+  --highlight: #A5B58B;
+
+  --text-primary: #263326;
+  --text-secondary: #556452;
+  --text-muted: #7D8B78;
+
+  --border: #D3DCC8;
+  --border-subtle: #E1E8D8;
+
+  --sidebar-bg: #213021;
+  --sidebar-surface: #2A3D2A;
+  --sidebar-border: #395039;
+  --sidebar-text: #F1F3EA;
+  --sidebar-muted: #B7C4B3;
+  --sidebar-active-bg: #314731;
+  --sidebar-accent: #A5B58B;
+
+  --reader-teal: #3B6B5F;
+  --reader-amber: #8A6D3B;
+  --reader-indigo: #465B70;
+  --reader-rose: #8E5058;
+  --reader-emerald: #4B683B;
+}
+
+[data-theme="blush-pink"] {
+  /* Light Theme — Blush Pink (Soft Rose Petal + Warm Berry) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(158, 67, 87, 0.11);
+  --lr-badge-fg: #9E4357;
+  --scrim: rgba(53, 35, 41, 0.45);
+
+  --background: #FBF0EF;
+  --surface: #FFF9F8;
+  --surface-elevated: #F2DEDF;
+  --surface-subtle: #F7E8E8;
+
+  --primary: #9E4357;
+  --primary-hover: #843547;
+  --primary-fg: #FFF9F9;
+  --secondary: #BD7E8B;
+  --accent: #A94E62;
+  --highlight: #D99AA6;
+
+  --text-primary: #352329;
+  --text-secondary: #6B5058;
+  --text-muted: #967B83;
+
+  --border: #E7CFD1;
+  --border-subtle: #F0DEE0;
+
+  --sidebar-bg: #341F26;
+  --sidebar-surface: #432831;
+  --sidebar-border: #593642;
+  --sidebar-text: #FBF0EF;
+  --sidebar-muted: #D6B8BE;
+  --sidebar-active-bg: #4E2F3A;
+  --sidebar-accent: #D99AA6;
+
+  --reader-teal: #496D6B;
+  --reader-amber: #9E6846;
+  --reader-indigo: #5B5072;
+  --reader-rose: #9E4357;
+  --reader-emerald: #52735B;
+}
+
+[data-theme="classic-light"] {
+  /* Light Theme — Classic Light (Clean Gallery Stone + Crisp Charcoal) */
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(53, 59, 64, 0.10);
+  --lr-badge-fg: #353B40;
+  --scrim: rgba(32, 35, 38, 0.45);
+
+  --background: #F5F5F3;
+  --surface: #FFFFFF;
+  --surface-elevated: #E9EAE8;
+  --surface-subtle: #EFEFED;
+
+  --primary: #353B40;
+  --primary-hover: #252A2E;
+  --primary-fg: #FFFFFF;
+  --secondary: #7C848A;
+  --accent: #4E565C;
+  --highlight: #A5ADB2;
+
+  --text-primary: #202326;
+  --text-secondary: #595F64;
+  --text-muted: #82888D;
+
+  --border: #D9DBDA;
+  --border-subtle: #E6E7E5;
+
+  --sidebar-bg: #1F2225;
+  --sidebar-surface: #2A2E32;
+  --sidebar-border: #3B4045;
+  --sidebar-text: #F5F5F3;
+  --sidebar-muted: #B7BDC2;
+  --sidebar-active-bg: #33383D;
+  --sidebar-accent: #A5ADB2;
+
+  --reader-teal: #356360;
+  --reader-amber: #8A6A42;
+  --reader-indigo: #3F5168;
+  --reader-rose: #8C4E58;
+  --reader-emerald: #446A52;
+}
+
+.dark,
+[data-theme="forest-brass"] {
+  /* Dark Theme — Forest & Brass (Default Dark — Calm Matte Spruce Buttons + Brass Accents) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(145, 165, 138, 0.16);
+  --lr-badge-fg: #91A58A;
+  --scrim: rgba(8, 13, 10, 0.72);
+
+  --background: #101713;
+  --surface: #19251F;
+  --surface-elevated: #213028;
+  --surface-subtle: #141E19;
+
+  --primary: #233A2E;
+  --primary-hover: #2C493A;
+  --primary-fg: #F1EBDD;
+  --secondary: #91A58A;
+  --accent: #C49A55;
+  --highlight: #91A58A;
+
+  --text-primary: #F1EBDD;
+  --text-secondary: #B3B0A1;
+  --text-muted: #82857A;
+
+  --border: #2A3B32;
+  --border-subtle: #213028;
+
+  --sidebar-bg: #0C120F;
+  --sidebar-surface: #16211C;
+  --sidebar-border: #283930;
+  --sidebar-text: #F1EBDD;
+  --sidebar-muted: #A4B0A2;
+  --sidebar-active-bg: #1F2E26;
+  --sidebar-accent: #C49A55;
+
+  --reader-teal: #7FA596;
+  --reader-amber: #C49A55;
+  --reader-indigo: #94A8B8;
+  --reader-rose: #C48A8E;
+  --reader-emerald: #91A58A;
+}
+
+.dark[data-theme="midnight-ink"],
+[data-theme="midnight-ink"] {
+  /* Dark Theme — Midnight Ink (Deep Nocturnal Navy + Slate Blue) */
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(75, 145, 199, 0.16);
+  --lr-badge-fg: #9CC8E8;
+  --scrim: rgba(6, 12, 20, 0.74);
+
+  --background: #0B1420;
+  --surface: #152538;
+  --surface-elevated: #1C314A;
+  --surface-subtle: #101C2C;
+
+  --primary: #1C3D5E;
+  --primary-hover: #234B73;
+  --primary-fg: #E8F0F7;
+  --secondary: #4B91C7;
+  --accent: #4B91C7;
+  --highlight: #9CC8E8;
+
+  --text-primary: #E8F0F7;
+  --text-secondary: #A6BACD;
+  --text-muted: #758BA3;
+
+  --border: #243B55;
+  --border-subtle: #1B2F46;
+
+  --sidebar-bg: #08101A;
+  --sidebar-surface: #112032;
+  --sidebar-border: #213750;
+  --sidebar-text: #E8F0F7;
+  --sidebar-muted: #97AFC7;
+  --sidebar-active-bg: #192D45;
+  --sidebar-accent: #9CC8E8;
+
+  --reader-teal: #6BAAB8;
+  --reader-amber: #D2A86A;
+  --reader-indigo: #9CC8E8;
+  --reader-rose: #C88C9D;
+  --reader-emerald: #7DB89E;
+}
+
+.dark[data-theme="warm-library"],
+[data-theme="warm-library"] {
+  /* Dark Theme — Warm Library (Espresso Walnut + Amber Lampglow) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(212, 154, 80, 0.16);
+  --lr-badge-fg: #E8BC78;
+  --scrim: rgba(14, 10, 7, 0.74);
+
+  --background: #17120E;
+  --surface: #292017;
+  --surface-elevated: #362A1E;
+  --surface-subtle: #201913;
+
+  --primary: #47331E;
+  --primary-hover: #573F26;
+  --primary-fg: #F3E8D7;
+  --secondary: #D49A50;
+  --accent: #D49A50;
+  --highlight: #E8BC78;
+
+  --text-primary: #F3E8D7;
+  --text-secondary: #C1B09B;
+  --text-muted: #8E7E6C;
+
+  --border: #413325;
+  --border-subtle: #33281D;
+
+  --sidebar-bg: #120E0B;
+  --sidebar-surface: #221A13;
+  --sidebar-border: #3B2E21;
+  --sidebar-text: #F3E8D7;
+  --sidebar-muted: #B9A791;
+  --sidebar-active-bg: #2E2319;
+  --sidebar-accent: #E8BC78;
+
+  --reader-teal: #85A89B;
+  --reader-amber: #E8BC78;
+  --reader-indigo: #94A6BC;
+  --reader-rose: #C88A8E;
+  --reader-emerald: #9EB591;
+}
+
+.dark[data-theme="plum-noir"],
+[data-theme="plum-noir"] {
+  /* Dark Theme — Plum Noir (Velvet Aubergine + Dusty Rose) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(196, 119, 166, 0.16);
+  --lr-badge-fg: #DCA4C6;
+  --scrim: rgba(14, 9, 16, 0.74);
+
+  --background: #19121C;
+  --surface: #2B1D30;
+  --surface-elevated: #37253D;
+  --surface-subtle: #211725;
+
+  --primary: #47294E;
+  --primary-hover: #583461;
+  --primary-fg: #F3E7F0;
+  --secondary: #C477A6;
+  --accent: #C477A6;
+  --highlight: #DCA4C6;
+
+  --text-primary: #F3E7F0;
+  --text-secondary: #C3B0C0;
+  --text-muted: #8E7C8D;
+
+  --border: #432E4A;
+  --border-subtle: #35243B;
+
+  --sidebar-bg: #130D15;
+  --sidebar-surface: #231727;
+  --sidebar-border: #3C2843;
+  --sidebar-text: #F3E7F0;
+  --sidebar-muted: #BBA6B8;
+  --sidebar-active-bg: #301F36;
+  --sidebar-accent: #DCA4C6;
+
+  --reader-teal: #84A9AC;
+  --reader-amber: #D2A679;
+  --reader-indigo: #A49CC8;
+  --reader-rose: #DCA4C6;
+  --reader-emerald: #96B59C;
+}
+
+.dark[data-theme="slate-minimal"],
+[data-theme="slate-minimal"] {
+  /* Dark Theme — Slate Minimal (Cool Graphite + Seafoam Teal) */
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(57, 184, 195, 0.15);
+  --lr-badge-fg: #8CABB2;
+  --scrim: rgba(11, 14, 17, 0.74);
+
+  --background: #15191D;
+  --surface: #242C33;
+  --surface-elevated: #2D3740;
+  --surface-subtle: #1C2228;
+
+  --primary: #1D464F;
+  --primary-hover: #255661;
+  --primary-fg: #EDF1F3;
+  --secondary: #8CABB2;
+  --accent: #39B8C3;
+  --highlight: #8CABB2;
+
+  --text-primary: #EDF1F3;
+  --text-secondary: #ADB6BD;
+  --text-muted: #7C868E;
+
+  --border: #35404A;
+  --border-subtle: #2A333B;
+
+  --sidebar-bg: #101417;
+  --sidebar-surface: #1D242A;
+  --sidebar-border: #303A43;
+  --sidebar-text: #EDF1F3;
+  --sidebar-muted: #A2ADB5;
+  --sidebar-active-bg: #262F37;
+  --sidebar-accent: #39B8C3;
+
+  --reader-teal: #39B8C3;
+  --reader-amber: #CCA86E;
+  --reader-indigo: #8DAAC7;
+  --reader-rose: #C88C96;
+  --reader-emerald: #8CB8A4;
+}
+
+.dark[data-theme="forest-library"],
+[data-theme="forest-library"] {
+  /* Dark Theme — Forest Library (Spruce Study + Matte Forest Buttons) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(208, 173, 85, 0.16);
+  --lr-badge-fg: #D0AD55;
+  --scrim: rgba(10, 18, 17, 0.65);
+
+  --background: #142321;
+  --surface: #1C2D29;
+  --surface-elevated: #243831;
+  --surface-subtle: #192925;
+
+  --primary: #24453B;
+  --primary-hover: #2E564A;
+  --primary-fg: #F0E7D5;
+  --secondary: #A8B59A;
+  --accent: #D0AD55;
+  --highlight: #DFC16F;
+
+  --text-primary: #F0E7D5;
+  --text-secondary: #B5AA96;
+  --text-muted: #887F70;
+
+  --border: #3B4436;
+  --border-subtle: #2B3932;
+
+  --sidebar-bg: #192925;
+  --sidebar-surface: #243831;
+  --sidebar-border: #3B4436;
+  --sidebar-text: #F0E7D5;
+  --sidebar-muted: #B5AA96;
+  --sidebar-active-bg: #243831;
+  --sidebar-accent: #D0AD55;
+
+  --reader-teal: #82A699;
+  --reader-amber: #D0AD55;
+  --reader-indigo: #94A8B8;
+  --reader-rose: #C48A8E;
+  --reader-emerald: #A8B59A;
+}
+
+.dark[data-theme="midnight-library"],
+[data-theme="midnight-library"] {
+  /* Dark Theme — Midnight Library (Warm Charcoal + Matte Obsidian Buttons + Brushed Gold) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 18px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(224, 182, 84, 0.14);
+  --lr-badge-fg: #E0B654;
+  --scrim: rgba(8, 9, 8, 0.72);
+
+  --background: #0F100F;
+  --surface: #181918;
+  --surface-elevated: #222321;
+  --surface-subtle: #141514;
+
+  --primary: #2B2A26;
+  --primary-hover: #383631;
+  --primary-fg: #F4F2EC;
+  --secondary: #9E9B92;
+  --accent: #E0B654;
+  --highlight: #E0B654;
+
+  --text-primary: #F4F2EC;
+  --text-secondary: #9E9B92;
+  --text-muted: #76736C;
+
+  --border: #2A2B29;
+  --border-subtle: #20211F;
+
+  --sidebar-bg: #131413;
+  --sidebar-surface: #1B1C1B;
+  --sidebar-border: #2A2B29;
+  --sidebar-text: #F4F2EC;
+  --sidebar-muted: #9E9B92;
+  --sidebar-active-bg: #222321;
+  --sidebar-accent: #E0B654;
+
+  --reader-teal: #7BA89C;
+  --reader-amber: #E0B654;
+  --reader-indigo: #92A7BD;
+  --reader-rose: #CC8E92;
+  --reader-emerald: #96B597;
+}
+
+@theme inline {
+  /* Typography Families (Bound dynamically to active theme preset) */
+  --font-display: var(--font-display-theme);
+  --font-sans: var(--font-sans-theme);
+  --font-serif-italic: var(--font-serif-italic);
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Warm Paper Surfaces */
-  --color-linen-50: #FAF7F2;
-  --color-linen-100: #F2ECE1;
-  --color-linen-200: #E6DFD3;
-  --color-ivory: #FFFFFF;
+  /* Primary Semantic Palette */
+  --color-canvas: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-subtle: var(--surface-subtle);
 
-  /* Consistent App Forest-Teal Green Scale (Not-So-Dark Calm Palette) */
-  --color-forest-950: #113B40;
-  --color-forest-900: #16484E;
-  --color-forest-800: #19565C;
-  --color-forest-700: #1D646B;
-  --color-forest-600: #2A7D85;
-  --color-forest-500: #38949D;
-  --color-forest-50: #EEF7F7;
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-fg: var(--primary-fg);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-highlight: var(--highlight);
 
-  /* Semantic UI Tokens (Buttons, Progress Bars, Sidebar, Titles & Copy) */
-  --color-brand: #1D646B;
-  --color-brand-hover: #16484E;
-  --color-brand-dark: #5ED3DA;
-  --color-brand-dark-hover: #77DFE5;
-  --color-sidebar: #14444A;
-  --color-sidebar-deep: #113B40;
-  --color-sidebar-border: #1E5961;
-  --color-title: #16484E;
-  --color-subtitle: #5B6766;
-  --color-ink: #1C454A;
-  --color-stone-ink: #5B6766;
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
 
-  /* Onboarding & Initial Landing Page Tokens */
-  --color-landing-canvas: #FAF7F2;
-  --color-landing-surface: #FFFFFF;
-  --color-landing-border: #E6DFD3;
-  --color-landing-icon-bg: #E5EFEF;
-  --color-landing-accent-rule: #CBB994;
-  --color-hero-art-bg: #15373B;
+  --color-edge: var(--border);
+  --color-edge-subtle: var(--border-subtle);
 
-  /* Reader Profile Pill & Border Colors */
-  --color-reader-teal: #1F6E75;
-  --color-reader-teal-dark: #5ED3DA;
-  --color-reader-amber: #9A5B25;
-  --color-reader-amber-dark: #FBBF24;
-  --color-reader-indigo: #2C4257;
-  --color-reader-indigo-dark: #7DD3FC;
-  --color-reader-rose: #963E47;
-  --color-reader-rose-dark: #FDA4AF;
-  --color-reader-emerald: #2E6B4E;
-  --color-reader-emerald-dark: #6EE7B7;
+  /* Sidebar Utilities */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-surface: var(--sidebar-surface);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-active: var(--sidebar-active-bg);
+  --color-sidebar-accent: var(--sidebar-accent);
 
-  /* Secondary & Night Surfaces */
-  --color-espresso-900: #3E2716;
-  --color-espresso-800: #5C3A21;
-  --color-espresso-700: #7B5030;
-  --color-night-950: #0B1214;
-  --color-night-900: #121D20;
-  --color-night-800: #1A292E;
-  --color-night-700: #24383E;
+  /* Reader Profile Tokens */
+  --color-reader-teal: var(--reader-teal);
+  --color-reader-teal-dark: #82A699;
+  --color-reader-amber: var(--reader-amber);
+  --color-reader-amber-dark: #D0AD55;
+  --color-reader-indigo: var(--reader-indigo);
+  --color-reader-indigo-dark: #94A8B8;
+  --color-reader-rose: var(--reader-rose);
+  --color-reader-rose-dark: #C48A8E;
+  --color-reader-emerald: var(--reader-emerald);
+  --color-reader-emerald-dark: #A8B59A;
+
+  /* Legacy Alias Bridges (Preserve safety for utility classes across views/modals) */
+  --color-linen-50: var(--background);
+  --color-linen-100: var(--surface-subtle);
+  --color-linen-200: var(--border);
+  --color-linen-300: var(--border);
+  --color-ivory: var(--surface);
+  --color-forest-950: var(--text-primary);
+  --color-forest-900: var(--text-primary);
+  --color-forest-800: var(--primary);
+  --color-forest-700: var(--primary);
+  --color-forest-600: var(--secondary);
+  --color-forest-500: var(--secondary);
+  --color-forest-50: var(--surface-subtle);
+  --color-brand: var(--primary);
+  --color-brand-hover: var(--primary-hover);
+  --color-brand-dark: var(--primary);
+  --color-brand-dark-hover: var(--primary-hover);
+  --color-title: var(--text-primary);
+  --color-subtitle: var(--text-secondary);
+  --color-stone-ink: var(--text-secondary);
+  --color-landing-canvas: var(--background);
+  --color-landing-surface: var(--surface);
+  --color-landing-border: var(--border);
+  --color-landing-icon-bg: var(--surface-elevated);
+  --color-landing-accent-rule: var(--accent);
+  --color-hero-art-bg: var(--surface-subtle);
+  --color-espresso-900: #2C221A;
+  --color-espresso-800: #4A3828;
+  --color-espresso-700: #6B523B;
+  --color-night-950: var(--background);
+  --color-night-900: var(--surface);
+  --color-night-800: var(--surface-elevated);
+  --color-night-700: var(--border);
+}
+
+/* Dark-theme legibility & matte button refinement: keep links/icons crisp with --highlight and
+ * replace loud bright/gold buttons with calm matte surfaces framed by a subtle accent hairline. */
+:where(.dark) .text-primary {
+  color: var(--highlight);
+}
+
+:where(.dark) .border-primary {
+  border-color: var(--accent);
+}
+
+:where(.dark) .bg-primary {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+
+:where(.dark) .bg-primary:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 62%, transparent);
 }
 
 @layer base {
@@ -76,7 +778,8 @@
     min-height: 100dvh;
     scrollbar-gutter: stable;
     font-family: var(--font-sans);
-    background-color: var(--color-linen-50);
+    background-color: var(--background);
+    color: var(--text-primary);
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     -webkit-text-size-adjust: 100%;
@@ -84,19 +787,14 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  html.dark {
-    background-color: var(--color-night-950);
-  }
-
   body {
     margin: 0;
     min-height: 100vh;
     min-height: 100dvh;
-    background-color: var(--color-linen-50);
-  }
-
-  html.dark body {
-    background-color: var(--color-night-950);
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    line-height: 1.5;
   }
 
   /* Prevent iOS Safari & Android Chrome auto-zoom when focusing text inputs (<16px triggers zoom) */
@@ -110,7 +808,7 @@
   select {
     -webkit-appearance: none;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666055' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23756F62' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     background-size: 1rem 1rem;
@@ -118,7 +816,7 @@
   }
 
   .dark select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23B5AA96' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   }
 
   /* Constrain native mobile WebKit/Safari date pickers so they never overflow narrow screen grids */
@@ -145,9 +843,28 @@
     display: none;
   }
 
-  h1, h2, .font-display {
+  h1, h2, h3, .font-display {
     font-family: var(--font-display);
     text-wrap: balance;
+    letter-spacing: -0.012em;
+  }
+
+  h1, h2 {
+    font-weight: 600;
+  }
+
+  button, [role="button"] {
+    font-family: var(--font-sans);
+  }
+
+  :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .dark :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--highlight);
+    outline-offset: 2px;
   }
 
   .font-mono-tabular {
@@ -157,13 +874,6 @@
 }
 
 /* Safe area padding & height for notched iOS/Android standalone PWAs (viewport-fit=cover) */
-:root {
-  --lr-safe-top: env(safe-area-inset-top, 0px);
-  --lr-safe-bottom: env(safe-area-inset-bottom, 0px);
-  --lr-safe-left: env(safe-area-inset-left, 0px);
-  --lr-safe-right: env(safe-area-inset-right, 0px);
-}
-
 .h-safe-top {
   height: env(safe-area-inset-top, 0px);
 }
@@ -198,6 +908,20 @@
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Editorial hairlines & bookplate border rules */
+.lr-editorial-rule {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border) 15%,
+    var(--accent) 50%,
+    var(--border) 85%,
+    transparent 100%
+  );
+  opacity: 0.7;
 }
 
 /* Material Design 3 bottom-sheet & scrim transitions (compositor-only transform + opacity) */
@@ -307,26 +1031,26 @@
 
 /* Dynamic Cover Art Detail Card Tint (applied to the slide-up card when a book is clicked; toggleable in Settings) */
 .lr-tinted-card {
-  background-color: color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 14%, var(--color-ivory));
+  background-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 11%, var(--surface));
   background-image: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 22%, var(--color-ivory)) 0%,
-    color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 8%, var(--color-ivory)) 48%,
-    var(--color-ivory) 100%
+    color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 18%, var(--surface)) 0%,
+    color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 6%, var(--surface)) 48%,
+    var(--surface) 100%
   );
-  border-color: color-mix(in srgb, var(--lr-cover-tint, #1F6E75) 28%, var(--color-linen-200));
+  border-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 28%, var(--border));
   transition: background-color 220ms ease, border-color 220ms ease;
 }
 
 .dark .lr-tinted-card {
-  background-color: color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 20%, var(--color-night-900));
+  background-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 16%, var(--surface));
   background-image: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 28%, var(--color-night-900)) 0%,
-    color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 12%, var(--color-night-900)) 52%,
-    var(--color-night-900) 100%
+    color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 24%, var(--surface)) 0%,
+    color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 10%, var(--surface)) 52%,
+    var(--surface) 100%
   );
-  border-color: color-mix(in srgb, var(--lr-cover-tint, #5ED3DA) 34%, var(--color-night-700));
+  border-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 34%, var(--border));
 }
 
 /* Settings hierarchical sub-menu slide transitions (compositor-only transform + opacity) */
@@ -415,7 +1139,7 @@
 
   html, body {
     background-color: #ffffff !important;
-    color: #1a2423 !important;
+    color: #23332D !important;
     overflow: visible !important;
     height: auto !important;
     min-height: auto !important;
@@ -475,4 +1199,3 @@
     break-after: page;
   }
 }
-

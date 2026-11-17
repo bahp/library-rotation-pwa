@@ -39,7 +39,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   onActivate,
   onDelete,
 }) => {
-  const { state, activeProfile, setInspectedBookId } = useApp();
+  const { state, store, activeProfile, setInspectedBookId } = useApp();
   const [localEditorOpen, setLocalEditorOpen] = useState(false);
   const [isPlacementOpen, setIsPlacementOpen] = useState(false);
 
@@ -60,6 +60,14 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   };
 
   const coverAspect = state.settings?.coverAspectRatio || 'portrait';
+  const viewMode = state.settings?.bookViewMode || 'grid';
+  const cardSize = state.settings?.bookCardSize || 'regular';
+  const shelfGridClass =
+    cardSize === 'compact'
+      ? 'grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 pt-1'
+      : cardSize === 'large'
+        ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 pt-1'
+        : 'grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-1';
 
   const bookMap = new Map(books.map((b: Book) => [b.id, b]));
   const shelfBooks = rotation.bookIds
@@ -78,26 +86,23 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   return (
     <>
       <section
-        className={`rounded-2xl bg-ivory dark:bg-night-900 border p-4 sm:p-6 shadow-2xs space-y-4 transition-shadow ${
+        className={`rounded-xl bg-surface border p-4 sm:p-6 shadow-2xs space-y-4 transition-shadow ${
           isActive
-            ? 'border-forest-700/35 ring-1 ring-forest-700/10 dark:border-[#5ED3DA]/35 dark:ring-[#5ED3DA]/15'
-            : 'border-linen-200/90 dark:border-night-800 hover:shadow-md'
+            ? 'border-primary/50 ring-1 ring-primary/15'
+            : 'border-edge hover:shadow-md'
         }`}
       >
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-stone-ink dark:text-slate-400">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-secondary">
               {isActive ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/80 dark:border-emerald-800 font-bold text-emerald-800 dark:text-emerald-300">
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0"
-                    aria-hidden="true"
-                  />
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-elevated border border-primary/40 font-semibold text-primary">
+                  <Icon name="check" className="w-3 h-3 shrink-0" />
                   <span>Active Shelf</span>
                 </span>
               ) : (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-linen-100 dark:bg-night-800 border border-linen-200 dark:border-night-700 font-semibold text-stone-ink dark:text-slate-300">
+                <span className="inline-flex items-center px-2 py-0.5 rounded bg-surface-subtle border border-edge font-semibold text-ink-secondary">
                   Saved
                 </span>
               )}
@@ -110,12 +115,12 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               </span>
             </div>
 
-            <h2 className="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white leading-snug truncate mt-1.5">
+            <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-snug truncate mt-1.5">
               {rotation.title}
             </h2>
 
             {rotation.rules?.objective && (
-              <p className="font-sans text-xs text-stone-ink dark:text-slate-300 mt-1 line-clamp-2 leading-relaxed">
+              <p className="font-sans text-xs text-ink-secondary mt-1 line-clamp-2 leading-relaxed">
                 {rotation.rules.objective}
               </p>
             )}
@@ -124,10 +129,10 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               data-rotation-schedule={isActive ? 'active' : 'saved'}
               className={`font-sans text-xs mt-1.5 truncate flex items-center gap-1.5 ${
                 isActive && schedule.isDue
-                  ? 'font-semibold text-amber-800 dark:text-amber-300'
+                  ? 'font-semibold text-accent'
                   : isActive && schedule.isDueSoon
-                    ? 'font-medium text-forest-700 dark:text-[#5ED3DA]'
-                    : 'text-stone-ink dark:text-slate-400'
+                    ? 'font-medium text-primary'
+                    : 'text-ink-secondary'
               }`}
             >
               <Icon name="calendar" className="w-3.5 h-3.5 shrink-0 opacity-75" />
@@ -139,11 +144,46 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
 
           {/* Right Actions */}
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div
+              role="group"
+              aria-label="Shelf books layout"
+              className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge"
+            >
+              <button
+                type="button"
+                aria-pressed={viewMode === 'grid'}
+                aria-label="Grid view"
+                title="Grid view"
+                onClick={() => store.updateSettings({ bookViewMode: 'grid' })}
+                className={`min-h-[34px] min-w-[34px] px-1.5 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'text-ink-secondary hover:text-ink'
+                }`}
+              >
+                <Icon name="grid" className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-pressed={viewMode === 'list'}
+                aria-label="List view"
+                title="List view"
+                onClick={() => store.updateSettings({ bookViewMode: 'list' })}
+                className={`min-h-[34px] min-w-[34px] px-1.5 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                  viewMode === 'list'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'text-ink-secondary hover:text-ink'
+                }`}
+              >
+                <Icon name="list" className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             {!isActive && onActivate && (
               <button
                 type="button"
                 onClick={onActivate}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold transition-colors shadow-2xs whitespace-nowrap"
+                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
               >
                 Activate
               </button>
@@ -153,7 +193,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               type="button"
               onClick={() => setIsPlacementOpen(true)}
               aria-label={`Stock shelf checklist for ${rotation.title}`}
-              className="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-50 hover:bg-linen-100 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
             >
               <Icon name="checklist" className="w-3.5 h-3.5" />
               <span>Stock</span>
@@ -163,7 +203,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               type="button"
               onClick={openEditor}
               aria-label={`Edit ${rotation.title}`}
-              className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-50 hover:bg-linen-100 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+              className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
             >
               <Icon name="edit" className="w-3.5 h-3.5" />
               <span>Edit</span>
@@ -173,23 +213,82 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
 
         {/* Progress Bar */}
         {totalCount > 0 && (
-          <div className="mt-2.5 h-2 w-full rounded-full bg-linen-100 dark:bg-night-800 overflow-hidden">
+          <div className="mt-2.5 h-1.5 w-full rounded-full bg-surface-elevated overflow-hidden">
             <div
-              className="h-full rounded-full bg-brand dark:bg-brand-dark transition-all duration-300"
+              className="h-full rounded-full bg-primary dark:bg-accent transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
         )}
 
-        {/* Cover Strip */}
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-1">
+        {/* Cover Strip or List Rows */}
+        {viewMode === 'list' ? (
+          <div className="space-y-2 pt-1">
+            {shelfBooks.map((book: Book) => {
+              const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
+              const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
+              const primaryAuthor = (book.authors && book.authors[0]) || 'Unknown Author';
+
+              return (
+                <div
+                  key={book.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-edge-subtle bg-surface-subtle/60 hover:bg-surface-subtle px-2.5 py-2 transition-colors"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setInspectedBookId(book.id)}
+                    className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
+                  >
+                    <div className="shrink-0">
+                      <BookCover
+                        book={book}
+                        size="xs"
+                        aspectRatio={coverAspect}
+                        showBadges={false}
+                        activeProfile={activeProfile}
+                        profiles={state.profiles}
+                        isReadOnActiveShelf={isBookRead}
+                        isPickedInRotation={isBookPicked}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-display text-sm font-semibold text-ink truncate">
+                        {book.title}
+                      </p>
+                      <p className="text-[11px] text-ink-secondary truncate">
+                        {primaryAuthor}
+                        {isBookRead ? ' · Read' : isBookPicked ? ' · Picked' : ''}
+                      </p>
+                    </div>
+                  </button>
+
+                  {onToggleRead && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleRead(book.id)}
+                      className={`min-h-[36px] px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 transition-colors cursor-pointer ${
+                        isBookRead
+                          ? 'bg-primary text-primary-fg'
+                          : 'bg-surface border border-edge text-ink hover:bg-surface-elevated'
+                      }`}
+                    >
+                      <Icon name="check" className="w-3 h-3" />
+                      <span>{isBookRead ? 'Read' : 'Mark Read'}</span>
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        <div className={shelfGridClass}>
           {shelfBooks.map((book: Book) => {
             const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
             const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
             const coverRingClass = isBookPicked
-              ? 'ring-2 ring-forest-700 dark:ring-[#5ED3DA] ring-offset-2 ring-offset-ivory dark:ring-offset-night-900'
+              ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface'
               : isBookRead
-                ? 'ring-[1.5px] ring-forest-700/75 dark:ring-[#5ED3DA]/75 ring-offset-2 ring-offset-ivory dark:ring-offset-night-900'
+                ? 'ring-[1.5px] ring-primary/70 ring-offset-2 ring-offset-surface'
                 : '';
 
             return (
@@ -198,7 +297,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                   type="button"
                   onClick={() => setInspectedBookId(book.id)}
                   aria-label={`Inspect ${book.title}`}
-                  className="block w-full rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-[0.98]"
+                  className="block w-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-transform active:scale-[0.98] cursor-pointer"
                 >
                   <BookCover
                     book={book}
@@ -216,6 +315,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
             );
           })}
         </div>
+        )}
       </section>
 
       {/* Slide-Up Bottom Sheet Editor Modal */}

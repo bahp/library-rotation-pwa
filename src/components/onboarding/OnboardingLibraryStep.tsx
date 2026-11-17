@@ -401,10 +401,10 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
             setPrewarmedStreamPromise(acquireCameraStream('environment'));
             setIsNativeScannerOpen(true);
           }}
-          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover text-white dark:text-night-950 text-left flex flex-col justify-between gap-2 shadow-sm transition-all cursor-pointer"
+          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg text-left flex flex-col justify-between gap-2 shadow-sm transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between w-full">
-            <span className="w-8 h-8 rounded-xl bg-white/15 dark:bg-night-950/15 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-lg bg-black/15 flex items-center justify-center">
               <Icon name="scan" className="w-4 h-4" />
             </span>
             <span className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
@@ -412,7 +412,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
             </span>
           </div>
           <div>
-            <p className="text-sm font-bold leading-tight">Scan Barcode</p>
+            <p className="text-sm font-semibold leading-tight">Scan Barcode</p>
             <p className="text-[11px] opacity-80 mt-0.5 leading-tight">Camera ISBN scan</p>
           </div>
         </button>
@@ -426,14 +426,14 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
             setSearchError('');
             setActiveSheet('search');
           }}
-          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-ivory hover:bg-linen-100/70 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-800 text-forest-900 dark:text-white text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer"
+          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-xl bg-surface hover:bg-surface-elevated active:scale-[0.98] border border-edge text-ink text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer"
         >
-          <span className="w-8 h-8 rounded-xl bg-linen-100 dark:bg-night-800 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center">
+          <span className="w-8 h-8 rounded-lg bg-surface-subtle border border-edge text-primary flex items-center justify-center">
             <Icon name="search" className="w-4 h-4" />
           </span>
           <div>
-            <p className="text-sm font-bold leading-tight">Search Title</p>
-            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 leading-tight">
+            <p className="text-sm font-semibold leading-tight">Search Title</p>
+            <p className="text-[11px] text-ink-secondary mt-0.5 leading-tight">
               Title or author
             </p>
           </div>
@@ -447,14 +447,14 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
             setManualError('');
             setActiveSheet('manual');
           }}
-          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl bg-ivory hover:bg-linen-100/70 active:scale-[0.98] dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-800 text-forest-900 dark:text-white text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer"
+          className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-xl bg-surface hover:bg-surface-elevated active:scale-[0.98] border border-edge text-ink text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer"
         >
-          <span className="w-8 h-8 rounded-xl bg-linen-100 dark:bg-night-800 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center">
+          <span className="w-8 h-8 rounded-lg bg-surface-subtle border border-edge text-primary flex items-center justify-center">
             <Icon name="edit" className="w-4 h-4" />
           </span>
           <div>
-            <p className="text-sm font-bold leading-tight">Add Manually</p>
-            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 leading-tight">
+            <p className="text-sm font-semibold leading-tight">Add Manually</p>
+            <p className="text-[11px] text-ink-secondary mt-0.5 leading-tight">
               Title &amp; category
             </p>
           </div>
@@ -466,22 +466,22 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
           data-action="onboarding-starter-collection"
           disabled={importingSample}
           onClick={handleImportStarterCollection}
-          className={`min-h-[88px] sm:min-h-[104px] p-3.5 rounded-2xl border text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer active:scale-[0.98] disabled:opacity-60 ${
+          className={`min-h-[88px] sm:min-h-[104px] p-3.5 rounded-xl border text-left flex flex-col justify-between gap-2 shadow-2xs transition-all cursor-pointer active:scale-[0.98] disabled:opacity-60 ${
             starterImported
-              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 text-forest-900 dark:text-white'
-              : 'bg-ivory hover:bg-linen-100/70 dark:bg-night-900 dark:hover:bg-night-800 border-linen-200 dark:border-night-800 text-forest-900 dark:text-white'
+              ? 'bg-surface-elevated border-secondary text-ink'
+              : 'bg-surface hover:bg-surface-elevated border-edge text-ink'
           }`}
         >
           <div className="flex items-center justify-between w-full">
-            <span className="w-8 h-8 rounded-xl bg-amber-100/80 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-lg bg-surface-subtle border border-edge text-accent flex items-center justify-center">
               <Icon name={starterImported ? 'check' : 'sparkles'} className="w-4 h-4" />
             </span>
           </div>
           <div>
-            <p className="text-sm font-bold leading-tight">
+            <p className="text-sm font-semibold leading-tight">
               {importingSample ? 'Adding…' : 'Starter Collection'}
             </p>
-            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 leading-tight line-clamp-1">
+            <p className="text-[11px] text-ink-secondary mt-0.5 leading-tight line-clamp-1">
               {starterSublabel}
             </p>
           </div>
@@ -490,15 +490,15 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
 
       {/* Live ISBN Lookup Status / Not Found Recovery */}
       {isSearching && pendingIsbn && (
-        <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 px-4 py-3 flex items-center gap-3 text-xs font-medium text-forest-900 dark:text-white">
-          <span className="w-4 h-4 rounded-full border-2 border-forest-700 border-t-transparent animate-spin shrink-0" />
+        <div className="rounded-xl bg-surface border border-edge px-4 py-3 flex items-center gap-3 text-xs font-medium text-ink">
+          <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
           <span>Looking up ISBN {pendingIsbn}…</span>
         </div>
       )}
 
       {notFoundIsbn && !isSearching && (
-        <div className="rounded-2xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/70 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
-          <span className="text-amber-950 dark:text-amber-200 truncate">
+        <div className="rounded-xl bg-surface-elevated border border-accent/45 px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs">
+          <span className="text-ink truncate">
             ISBN {notFoundIsbn} not found in online catalog.
           </span>
           <button
@@ -508,7 +508,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
               setNotFoundIsbn('');
               setActiveSheet('manual');
             }}
-            className="min-h-[36px] px-3 py-1 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold whitespace-nowrap shrink-0 cursor-pointer"
+            className="min-h-[36px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold whitespace-nowrap shrink-0 cursor-pointer"
           >
             Add Manually
           </button>
@@ -516,19 +516,19 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       )}
 
       {/* Live Added-Books Counter & Preview Tray */}
-      <div className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-800 p-3.5 space-y-2.5 shadow-2xs">
+      <div className="rounded-xl bg-surface border border-edge p-3.5 space-y-2.5 shadow-2xs">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400">
+          <span className="text-xs font-semibold uppercase tracking-wider text-ink-secondary">
             Added to Shelf
           </span>
-          <span className="text-xs font-mono-tabular font-bold text-forest-700 dark:text-[#5ED3DA]">
+          <span className="text-xs font-mono-tabular font-semibold text-primary">
             {state.books.length} {state.books.length === 1 ? 'book' : 'books'}
           </span>
         </div>
 
         {state.books.length === 0 ? (
           <div className="py-3 text-center">
-            <p className="text-xs text-stone-ink dark:text-slate-400">
+            <p className="text-xs text-ink-secondary">
               No books added yet · Scan a barcode or tap Starter Collection above.
             </p>
           </div>
@@ -540,7 +540,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 type="button"
                 onClick={() => setInspectedBookId(b.id)}
                 title={`Inspect ${b.title}`}
-                className="shrink-0 w-14 text-left group cursor-pointer focus-visible:outline-2 focus-visible:outline-forest-700 rounded-lg space-y-1 active:scale-95 transition-transform"
+                className="shrink-0 w-14 text-left group cursor-pointer focus-visible:outline-2 focus-visible:outline-primary rounded-lg space-y-1 active:scale-95 transition-transform"
               >
                 <BookCover
                   book={b}
@@ -549,13 +549,13 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                   showBadges={false}
                   hideRotationAdorno={true}
                 />
-                <p className="text-[10px] font-medium text-forest-900 dark:text-slate-200 truncate">
+                <p className="text-[10px] font-medium text-ink truncate">
                   {b.title}
                 </p>
               </button>
             ))}
             {state.books.length > 12 && (
-              <div className="shrink-0 flex items-center px-2 text-xs font-mono-tabular font-semibold text-stone-ink dark:text-slate-400">
+              <div className="shrink-0 flex items-center px-2 text-xs font-mono-tabular font-semibold text-ink-secondary">
                 +{state.books.length - 12}
               </div>
             )}
@@ -566,7 +566,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       {/* Modal Sheet: Search Title / Author (Google Books + Open Library) */}
       {activeSheet === 'search' && (
         <div
-          className="sheet-backdrop fixed inset-0 z-40 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+          className="sheet-backdrop fixed inset-0 z-40 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
           role="dialog"
           aria-modal="true"
           aria-label="Search book title or author"
@@ -574,19 +574,19 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-up w-full max-w-lg h-[82dvh] sm:h-auto sm:max-h-[82vh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
+            className="animate-sheet-up w-full max-w-lg h-[82dvh] sm:h-auto sm:max-h-[82vh] flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
           >
-            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
+            <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
 
-            <div className="px-5 py-3 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
-              <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+            <div className="px-5 py-3 border-b border-edge-subtle flex items-center justify-between gap-3 shrink-0">
+              <h2 className="font-display text-lg font-semibold text-ink">
                 Search Books
               </h2>
               <button
                 type="button"
                 onClick={() => setActiveSheet('none')}
                 aria-label="Close search"
-                className="min-h-[44px] min-w-[44px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center cursor-pointer"
+                className="min-h-[44px] min-w-[44px] rounded-lg text-ink-secondary hover:bg-surface-elevated flex items-center justify-center cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5" />
               </button>
@@ -603,7 +603,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 <div>
                   <label
                     htmlFor="onboarding-sheet-search-query"
-                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                    className="block text-xs font-semibold text-ink mb-1"
                   >
                     Title or ISBN
                   </label>
@@ -613,7 +613,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                     value={searchQuery}
                     onValueChange={setSearchQuery}
                     placeholder="e.g. Where the Wild Things Are"
-                    className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink focus:border-primary focus:outline-none"
                   />
                 </div>
 
@@ -621,7 +621,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                   <div className="flex-1">
                     <label
                       htmlFor="onboarding-sheet-search-author"
-                      className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                      className="block text-xs font-semibold text-ink mb-1"
                     >
                       Author (optional)
                     </label>
@@ -630,14 +630,14 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                       value={searchAuthor}
                       onValueChange={setSearchAuthor}
                       placeholder="e.g. Maurice Sendak"
-                      className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                      className="w-full min-h-[44px] px-3.5 py-2 rounded-lg bg-surface-subtle border border-edge text-sm text-ink focus:border-primary focus:outline-none"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={isSearching}
-                    className="min-h-[44px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover active:scale-95 disabled:opacity-60 dark:bg-brand-dark dark:text-night-950 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
+                    className="min-h-[44px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover active:scale-95 disabled:opacity-60 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-all"
                   >
                     <Icon name="search" className="w-4 h-4" />
                     <span>{isSearching ? 'Searching…' : 'Find'}</span>
@@ -646,13 +646,13 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
               </form>
 
               {searchError && (
-                <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{searchError}</p>
+                <p className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">{searchError}</p>
               )}
 
               {isSearching && <SearchResultsSkeleton rows={3} />}
 
               {!isSearching && searchCandidates.length > 0 && (
-                <div className="divide-y divide-linen-200/70 dark:divide-night-800">
+                <div className="divide-y divide-edge-subtle">
                   {searchCandidates.map((cand, idx) => {
                     const pseudo = { ...cand, id: `onb_cand_${idx}`, addedAt: '' };
                     return (
@@ -668,13 +668,13 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                             showBadges={false}
                           />
                           <div className="min-w-0">
-                            <p className="font-display font-bold text-sm text-forest-900 dark:text-white line-clamp-1">
+                            <p className="font-display font-semibold text-base text-ink line-clamp-1">
                               {cand.title}
                             </p>
-                            <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
+                            <p className="text-xs text-ink-secondary truncate">
                               {cand.authors.join(', ')}
                             </p>
-                            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                            <p className="text-[11px] text-ink-muted mt-0.5">
                               Ages {cand.ageMin}–{cand.ageMax} · {formatBookBinding(cand.format)}
                             </p>
                             {cand.sources && cand.sources.length > 0 && (
@@ -687,7 +687,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                         <button
                           type="button"
                           onClick={() => setFoundCandidate(cand)}
-                          className="min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover active:scale-95 text-white dark:bg-brand-dark dark:text-night-950 text-xs font-bold shrink-0 cursor-pointer transition-all"
+                          className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover active:scale-95 text-primary-fg text-xs font-semibold shrink-0 cursor-pointer transition-all"
                         >
                           Add
                         </button>
@@ -704,7 +704,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       {/* Modal Sheet: Manual Book Entry */}
       {activeSheet === 'manual' && (
         <div
-          className="sheet-backdrop fixed inset-0 z-40 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+          className="sheet-backdrop fixed inset-0 z-40 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
           role="dialog"
           aria-modal="true"
           aria-label="Add book manually"
@@ -712,19 +712,19 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-up w-full max-w-lg max-h-[88dvh] flex flex-col rounded-t-3xl sm:rounded-3xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
+            className="animate-sheet-up w-full max-w-lg max-h-[88dvh] flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
           >
-            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
+            <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
 
-            <div className="px-5 py-3 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-3 shrink-0">
-              <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+            <div className="px-5 py-3 border-b border-edge-subtle flex items-center justify-between gap-3 shrink-0">
+              <h2 className="font-display text-lg font-semibold text-ink">
                 Add Book Manually
               </h2>
               <button
                 type="button"
                 onClick={() => setActiveSheet('none')}
                 aria-label="Close manual entry"
-                className="min-h-[44px] min-w-[44px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center cursor-pointer"
+                className="min-h-[44px] min-w-[44px] rounded-lg text-ink-secondary hover:bg-surface-elevated flex items-center justify-center cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5" />
               </button>
@@ -732,13 +732,13 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
 
             <form onSubmit={handleManualSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5">
               {manualError && (
-                <p role="alert" className="text-xs font-medium text-rose-600 dark:text-rose-400">
+                <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
                   {manualError}
                 </p>
               )}
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-secondary mb-1">
                   Title *
                 </label>
                 <input
@@ -748,12 +748,12 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
                   placeholder="e.g. Goodnight Moon"
-                  className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  className="w-full min-h-[46px] px-3.5 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink focus:border-primary focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-ink-secondary mb-1">
                   Author
                 </label>
                 <input
@@ -761,19 +761,19 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                   value={manualAuthors}
                   onChange={(e) => setManualAuthors(e.target.value)}
                   placeholder="e.g. Margaret Wise Brown"
-                  className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  className="w-full min-h-[46px] px-3.5 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink focus:border-primary focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink-secondary mb-1">
                     Category
                   </label>
                   <select
                     value={manualCategory}
                     onChange={(e) => setManualCategory(e.target.value)}
-                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm font-medium text-ink"
                   >
                     <option value="animals">Animals</option>
                     <option value="bedtime">Bedtime</option>
@@ -789,13 +789,13 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink-secondary mb-1">
                     Format
                   </label>
                   <select
                     value={manualFormat}
                     onChange={(e) => setManualFormat(e.target.value as BookFormat)}
-                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm font-medium text-ink"
                   >
                     <option value="hardcover">Hardcover</option>
                     <option value="board-book">Board Book</option>
@@ -806,13 +806,13 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink-secondary mb-1">
                     Reading Stage
                   </label>
                   <select
                     value={manualStage}
                     onChange={(e) => setManualStage(e.target.value as ReadingStage)}
-                    className="w-full min-h-[46px] px-3 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+                    className="w-full min-h-[46px] px-3 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm font-medium text-ink"
                   >
                     <option value="board-toddler">Board Books (0–3)</option>
                     <option value="picture-book">Picture Books (3–6)</option>
@@ -825,7 +825,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-ink-secondary mb-1">
                     ISBN (optional)
                   </label>
                   <input
@@ -833,7 +833,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
                     value={manualIsbn}
                     onChange={(e) => setManualIsbn(e.target.value)}
                     placeholder="978..."
-                    className="w-full min-h-[46px] px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white"
+                    className="w-full min-h-[46px] px-3.5 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink focus:border-primary focus:outline-none"
                   />
                 </div>
               </div>
@@ -841,7 +841,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full min-h-[48px] px-5 py-3 rounded-2xl bg-brand hover:bg-brand-hover active:scale-[0.98] dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white font-bold text-sm inline-flex items-center justify-center gap-2 cursor-pointer transition-all"
+                  className="w-full min-h-[48px] px-5 py-3 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
                   <Icon name="plus" className="w-4 h-4" />
                   <span>Add Book to Shelf</span>

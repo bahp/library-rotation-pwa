@@ -488,8 +488,8 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
     <div className="space-y-6 max-w-5xl mx-auto pb-16 passport-studio-sheet-root">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl bg-night-950 text-white border border-[#5ED3DA]/40 shadow-xl text-xs font-semibold flex items-center gap-2 animate-bounce">
-          <Icon name="check" className="w-4 h-4 text-[#5ED3DA]" />
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-lg bg-primary text-primary-fg border border-accent/40 shadow-xl text-xs font-semibold flex items-center gap-2">
+          <Icon name="check" className="w-4 h-4" />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -497,23 +497,23 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {/* CONTROL BAR (Hidden during print)                                   */}
       {/* ==================================================================== */}
-      <div className="no-print space-y-4 rounded-3xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 p-4 sm:p-6 shadow-sm">
+      <div className="no-print space-y-4 rounded-xl bg-surface border border-edge p-4 sm:p-6 shadow-xs">
         {/* Top Header & Action Buttons */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-linen-200/80 dark:border-night-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-edge-subtle">
           <div className="flex items-center gap-3">
-            <span className="w-10 h-10 rounded-2xl bg-forest-900/10 dark:bg-[#5ED3DA]/20 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center">
+            <span className="w-10 h-10 rounded-lg bg-surface-elevated border border-edge text-primary flex items-center justify-center shrink-0">
               <Icon name="stamp" className="w-5 h-5" />
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-display text-lg font-bold text-forest-900 dark:text-white">
+                <h2 className="font-display text-xl font-semibold text-ink">
                   Reading Passport &amp; Certificate Studio
                 </h2>
-                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-md bg-surface-elevated border border-accent/40 text-accent text-[10px] font-semibold">
                   Print Ready
                 </span>
               </div>
-              <p className="text-xs text-stone-ink dark:text-slate-400">
+              <p className="text-xs text-ink-secondary">
                 Design custom passports, diplomas, and sticker sheets for {readerName}.
               </p>
             </div>
@@ -523,7 +523,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3.5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer"
             >
               <Icon name="printer" className="w-4 h-4" />
               <span>Print / Save PDF</span>
@@ -531,7 +531,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={handleDownloadHtml}
-              className="px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-800 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Icon name="download" className="w-4 h-4" />
               <span>HTML</span>
@@ -539,7 +539,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={handleShare}
-              className="px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-800 dark:text-slate-200 font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Icon name="share" className="w-4 h-4" />
               <span>Share</span>
@@ -548,7 +548,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               type="button"
               onClick={onClose}
               aria-label="Close Studio"
-              className="w-9 h-9 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
+              className="w-9 h-9 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink-secondary flex items-center justify-center transition-colors cursor-pointer"
             >
               <Icon name="close" className="w-4 h-4" />
             </button>
@@ -559,16 +559,16 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Layout Buttons */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider mr-1 shrink-0">
+            <span className="text-[11px] font-semibold text-ink-secondary uppercase tracking-wider mr-1 shrink-0">
               Format:
             </span>
             <button
               type="button"
               onClick={() => setLayoutMode('traditional-passport')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                 layoutMode === 'traditional-passport'
-                  ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-xs'
-                  : 'bg-linen-100 text-stone-700 hover:bg-linen-200 dark:bg-night-800 dark:text-slate-300'
+                  ? 'bg-primary text-primary-fg shadow-xs'
+                  : 'bg-surface-subtle border border-edge-subtle text-ink-secondary hover:bg-surface-elevated hover:text-ink'
               }`}
             >
               <Icon name="book" className="w-3.5 h-3.5" />
@@ -578,10 +578,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={() => setLayoutMode('official-certificate')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                 layoutMode === 'official-certificate'
-                  ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-xs'
-                  : 'bg-linen-100 text-stone-700 hover:bg-linen-200 dark:bg-night-800 dark:text-slate-300'
+                  ? 'bg-primary text-primary-fg shadow-xs'
+                  : 'bg-surface-subtle border border-edge-subtle text-ink-secondary hover:bg-surface-elevated hover:text-ink'
               }`}
             >
               <Icon name="award" className="w-3.5 h-3.5" />
@@ -591,10 +591,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={() => setLayoutMode('storytime-bingo')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                 layoutMode === 'storytime-bingo'
-                  ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-xs'
-                  : 'bg-linen-100 text-stone-700 hover:bg-linen-200 dark:bg-night-800 dark:text-slate-300'
+                  ? 'bg-primary text-primary-fg shadow-xs'
+                  : 'bg-surface-subtle border border-edge-subtle text-ink-secondary hover:bg-surface-elevated hover:text-ink'
               }`}
             >
               <Icon name="grid" className="w-3.5 h-3.5" />
@@ -604,10 +604,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={() => setLayoutMode('adventure-map')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                 layoutMode === 'adventure-map'
-                  ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-xs'
-                  : 'bg-linen-100 text-stone-700 hover:bg-linen-200 dark:bg-night-800 dark:text-slate-300'
+                  ? 'bg-primary text-primary-fg shadow-xs'
+                  : 'bg-surface-subtle border border-edge-subtle text-ink-secondary hover:bg-surface-elevated hover:text-ink'
               }`}
             >
               <Icon name="compass" className="w-3.5 h-3.5" />
@@ -617,10 +617,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={() => setLayoutMode('stamp-sheet')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                 layoutMode === 'stamp-sheet'
-                  ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-xs'
-                  : 'bg-linen-100 text-stone-700 hover:bg-linen-200 dark:bg-night-800 dark:text-slate-300'
+                  ? 'bg-primary text-primary-fg shadow-xs'
+                  : 'bg-surface-subtle border border-edge-subtle text-ink-secondary hover:bg-surface-elevated hover:text-ink'
               }`}
             >
               <Icon name="stamp" className="w-3.5 h-3.5" />
@@ -633,7 +633,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={() => setShowPresetBrowser(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-900 dark:text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-surface-elevated hover:bg-surface-subtle border border-accent/40 text-accent font-semibold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Icon name="sparkles" className="w-3.5 h-3.5" />
               <span>Series Presets &amp; Sets</span>
@@ -642,7 +642,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={() => setShowSavePresetModal(true)}
-              className="px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-700 dark:text-slate-300 text-xs font-medium transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold transition-colors cursor-pointer"
             >
               <span>Save Set</span>
             </button>
@@ -653,9 +653,9 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
           {/* Column A: Book Scope & Picker */}
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-stone-600 dark:text-slate-400 flex items-center justify-between">
+            <label className="text-[11px] font-semibold text-ink-secondary flex items-center justify-between">
               <span>Books to Include:</span>
-              <span className="text-[10px] text-forest-800 dark:text-[#5ED3DA]">
+              <span className="text-[10px] text-primary">
                 {activeBooks.length} selected
               </span>
             </label>
@@ -663,7 +663,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               <select
                 value={scope}
                 onChange={(e) => setScope(e.target.value as any)}
-                className="flex-1 text-xs rounded-xl border border-linen-300 dark:border-night-700 bg-linen-50 dark:bg-night-800 p-2 font-medium"
+                className="flex-1 text-xs rounded-lg border border-edge bg-surface-subtle text-ink p-2 font-medium"
               >
                 <option value="preset-series">Series Preset Books</option>
                 <option value="active-shelf">Active Shelf Books</option>
@@ -673,7 +673,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               <button
                 type="button"
                 onClick={() => setShowBookPicker(true)}
-                className="px-3 py-2 rounded-xl bg-linen-200 hover:bg-linen-300 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-bold shrink-0 flex items-center gap-1 cursor-pointer"
+                className="px-3 py-2 rounded-lg bg-surface-elevated hover:bg-surface-subtle border border-edge text-ink text-xs font-semibold shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 <Icon name="checklist" className="w-3.5 h-3.5" />
                 <span>Choose</span>
@@ -683,13 +683,13 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
 
           {/* Column B: Theme Selector */}
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-stone-600 dark:text-slate-400">
+            <label className="text-[11px] font-semibold text-ink-secondary">
               Aesthetic Theme:
             </label>
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value as any)}
-              className="w-full text-xs rounded-xl border border-linen-300 dark:border-night-700 bg-linen-50 dark:bg-night-800 p-2 font-medium"
+              className="w-full text-xs rounded-lg border border-edge bg-surface-subtle text-ink p-2 font-medium"
             >
               <option value="classic">Classic Royal (Navy &amp; Gold)</option>
               <option value="magic">Magic Wizard (Purple &amp; Starlight)</option>
@@ -702,15 +702,15 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
 
           {/* Column C: Certificate Style / Title Customization */}
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-stone-600 dark:text-slate-400 flex items-center justify-between">
+            <label className="text-[11px] font-semibold text-ink-secondary flex items-center justify-between">
               <span>Title &amp; Background:</span>
               {layoutMode === 'official-certificate' && (
                 <button
                   type="button"
                   onClick={() => setShowCertStylingModal(true)}
-                  className="text-[11px] text-forest-800 dark:text-[#5ED3DA] font-bold underline cursor-pointer"
+                  className="text-[11px] text-primary font-semibold underline cursor-pointer"
                 >
-                  Custom Style 🎨
+                  Custom Style
                 </button>
               )}
             </label>
@@ -719,15 +719,15 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
               placeholder={`${readerName}’s Reading Passport`}
-              className="w-full text-xs rounded-xl border border-linen-300 dark:border-night-700 bg-linen-50 dark:bg-night-800 p-2 font-medium"
+              className="w-full text-xs rounded-lg border border-edge bg-surface-subtle text-ink p-2 font-medium"
             />
           </div>
         </div>
 
         {/* Digital Stamp Selection Bar */}
-        <div className="pt-2 border-t border-linen-200/80 dark:border-night-800 flex items-center justify-between flex-wrap gap-2">
+        <div className="pt-2 border-t border-edge-subtle flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider mr-1">
+            <span className="text-[11px] font-semibold text-ink-secondary uppercase tracking-wider mr-1">
               Active Stamp:
             </span>
             {PASSPORT_STAMPS.map((stamp) => (
@@ -735,10 +735,10 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 key={stamp.id}
                 type="button"
                 onClick={() => setSelectedStampId(stamp.id)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                   selectedStampId === stamp.id
-                    ? `${stamp.color} ring-2 ring-forest-700 shadow-xs scale-105`
-                    : 'bg-linen-100 dark:bg-night-800 text-stone-700 dark:text-slate-300 hover:bg-linen-200'
+                    ? `${stamp.color} ring-2 ring-primary shadow-xs`
+                    : 'bg-surface-subtle border border-edge-subtle text-ink-secondary hover:bg-surface-elevated hover:text-ink'
                 }`}
               >
                 <span>{stamp.symbol}</span>
@@ -751,7 +751,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={handleClearAllStamps}
-              className="text-[11px] text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 font-medium underline cursor-pointer"
+              className="text-[11px] text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] font-medium underline cursor-pointer"
             >
               Clear Stamps
             </button>
@@ -1311,20 +1311,20 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showPresetBrowser && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setShowPresetBrowser(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-up w-full max-w-2xl rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col max-h-[88vh] pb-safe sm:pb-0"
+            className="animate-sheet-up w-full max-w-2xl rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden flex flex-col max-h-[88vh] pb-safe sm:pb-0"
           >
-            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
-            <div className="p-5 border-b border-linen-200 dark:border-night-800 flex items-center justify-between">
+            <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
+            <div className="p-5 border-b border-edge-subtle flex items-center justify-between">
               <div>
-                <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
+                <h3 className="font-display text-xl font-semibold text-ink">
                   Reading Series &amp; Certificate Presets
                 </h3>
-                <p className="text-xs text-stone-ink dark:text-slate-400">
+                <p className="text-xs text-ink-secondary">
                   Select a pre-configured book collection or your own custom template.
                 </p>
               </div>
@@ -1332,7 +1332,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 type="button"
                 onClick={() => setShowPresetBrowser(false)}
                 aria-label="Close preset browser"
-                className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center text-stone-600 dark:text-slate-300 active:scale-95 transition-transform"
+                className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge flex items-center justify-center text-ink-secondary active:scale-95 transition-transform cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
@@ -1342,27 +1342,27 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               {allPresets.map((preset) => (
                 <div
                   key={preset.id}
-                  className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                  className={`p-4 rounded-xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                     activePresetId === preset.id
-                      ? 'border-forest-700 bg-forest-50/50 dark:bg-night-800 ring-2 ring-forest-700/30'
-                      : 'border-linen-200 dark:border-night-800 hover:border-linen-300 bg-white dark:bg-night-900'
+                      ? 'border-primary bg-surface-elevated ring-1 ring-primary/30'
+                      : 'border-edge hover:border-secondary bg-surface'
                   }`}
                 >
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-display font-bold text-sm text-forest-900 dark:text-white">
+                      <h4 className="font-display font-semibold text-base text-ink">
                         {preset.title}
                       </h4>
                       {preset.isCustom && (
-                        <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded-md bg-surface-subtle border border-edge text-ink-secondary text-[10px] font-semibold">
                           Custom
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-stone-600 dark:text-slate-400 line-clamp-2">
+                    <p className="text-xs text-ink-secondary line-clamp-2">
                       {preset.description}
                     </p>
-                    <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-400">
+                    <p className="text-[11px] font-semibold text-accent">
                       {preset.books.length} books · {preset.defaultLayout} format · {preset.theme} theme
                     </p>
                   </div>
@@ -1371,7 +1371,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                     <button
                       type="button"
                       onClick={() => applyPreset(preset)}
-                      className="px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 text-xs font-bold shadow-xs cursor-pointer"
+                      className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold shadow-xs cursor-pointer"
                     >
                       Apply Set
                     </button>
@@ -1379,7 +1379,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                       <button
                         type="button"
                         onClick={() => handleDeletePreset(preset.id)}
-                        className="p-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs cursor-pointer"
+                        className="p-2 rounded-lg text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-surface-elevated text-xs cursor-pointer"
                         title="Delete custom preset"
                       >
                         <Icon name="trash" className="w-4 h-4" />
@@ -1398,20 +1398,20 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showBookPicker && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setShowBookPicker(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-up w-full max-w-2xl rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden flex flex-col max-h-[88vh] pb-safe sm:pb-0"
+            className="animate-sheet-up w-full max-w-2xl rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden flex flex-col max-h-[88vh] pb-safe sm:pb-0"
           >
-            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
-            <div className="p-5 border-b border-linen-200 dark:border-night-800 flex items-center justify-between">
+            <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden" aria-hidden="true" />
+            <div className="p-5 border-b border-edge-subtle flex items-center justify-between">
               <div>
-                <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
+                <h3 className="font-display text-xl font-semibold text-ink">
                   Choose &amp; Order Passport Books
                 </h3>
-                <p className="text-xs text-stone-ink dark:text-slate-400">
+                <p className="text-xs text-ink-secondary">
                   Select which books appear and arrange their order on the printable sheets.
                 </p>
               </div>
@@ -1419,20 +1419,20 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 type="button"
                 onClick={() => setShowBookPicker(false)}
                 aria-label="Close book picker"
-                className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center text-stone-600 dark:text-slate-300 active:scale-95 transition-transform"
+                className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge flex items-center justify-center text-ink-secondary active:scale-95 transition-transform cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
             </div>
 
             {/* Quick Filter & Add Manual Book */}
-            <div className="p-4 border-b border-linen-200 dark:border-night-800 bg-linen-50/50 dark:bg-night-800/50 space-y-3">
+            <div className="p-4 border-b border-edge-subtle bg-surface-subtle space-y-3">
               <input
                 type="text"
                 value={bookSearchQuery}
                 onChange={(e) => setBookSearchQuery(e.target.value)}
                 placeholder="Search by book title or author..."
-                className="w-full text-xs rounded-xl border border-linen-300 dark:border-night-700 bg-white dark:bg-night-900 p-2.5"
+                className="w-full text-xs rounded-lg border border-edge bg-surface text-ink p-2.5"
               />
 
               {/* Add Custom Book Entry */}
@@ -1442,19 +1442,19 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                   value={newCustomTitle}
                   onChange={(e) => setNewCustomTitle(e.target.value)}
                   placeholder="Add custom title (e.g. Harry Potter 4)..."
-                  className="flex-1 text-xs rounded-xl border border-linen-300 dark:border-night-700 bg-white dark:bg-night-900 p-2"
+                  className="flex-1 text-xs rounded-lg border border-edge bg-surface text-ink p-2"
                 />
                 <input
                   type="text"
                   value={newCustomAuthor}
                   onChange={(e) => setNewCustomAuthor(e.target.value)}
                   placeholder="Author..."
-                  className="w-28 text-xs rounded-xl border border-linen-300 dark:border-night-700 bg-white dark:bg-night-900 p-2"
+                  className="w-28 text-xs rounded-lg border border-edge bg-surface text-ink p-2"
                 />
                 <button
                   type="button"
                   onClick={handleAddCustomBook}
-                  className="px-3 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 text-xs font-bold shrink-0 cursor-pointer"
+                  className="px-3 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold shrink-0 cursor-pointer"
                 >
                   + Add Book
                 </button>
@@ -1470,16 +1470,16 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                       (b.author || '').toLowerCase().includes(bookSearchQuery.toLowerCase())
                     : true
                 )
-                .map((book, idx) => {
+                .map((book) => {
                   const isSelected = selectedBookIds.includes(book.id);
 
                   return (
                     <div
                       key={book.id}
-                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
+                      className={`p-3 rounded-lg border flex items-center justify-between gap-3 transition-colors ${
                         isSelected
-                          ? 'border-forest-600 bg-forest-50/30 dark:bg-night-800'
-                          : 'border-linen-200 dark:border-night-800'
+                          ? 'border-primary bg-surface-elevated'
+                          : 'border-edge bg-surface'
                       }`}
                     >
                       <div
@@ -1490,13 +1490,13 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => {}}
-                          className="w-4 h-4 rounded text-forest-700"
+                          className="w-4 h-4 rounded accent-[var(--primary)]"
                         />
                         <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-forest-900 dark:text-white truncate">
+                          <h4 className="text-xs font-semibold text-ink truncate">
                             {book.title}
                           </h4>
-                          <p className="text-[11px] text-stone-500 truncate">
+                          <p className="text-[11px] text-ink-secondary truncate">
                             {book.author}
                           </p>
                         </div>
@@ -1508,7 +1508,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                           <button
                             type="button"
                             onClick={() => handleMoveBook(selectedBookIds.indexOf(book.id), 'up')}
-                            className="p-1.5 rounded bg-linen-100 dark:bg-night-700 hover:bg-linen-200 text-xs cursor-pointer"
+                            className="p-1.5 rounded bg-surface-subtle hover:bg-surface border border-edge text-ink text-xs cursor-pointer"
                             title="Move Up"
                           >
                             ▲
@@ -1516,7 +1516,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                           <button
                             type="button"
                             onClick={() => handleMoveBook(selectedBookIds.indexOf(book.id), 'down')}
-                            className="p-1.5 rounded bg-linen-100 dark:bg-night-700 hover:bg-linen-200 text-xs cursor-pointer"
+                            className="p-1.5 rounded bg-surface-subtle hover:bg-surface border border-edge text-ink text-xs cursor-pointer"
                             title="Move Down"
                           >
                             ▼
@@ -1528,14 +1528,14 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 })}
             </div>
 
-            <div className="p-4 border-t border-linen-200 dark:border-night-800 flex items-center justify-between">
-              <span className="text-xs text-stone-500">
+            <div className="p-4 border-t border-edge-subtle flex items-center justify-between">
+              <span className="text-xs text-ink-secondary">
                 {selectedBookIds.length} books chosen for printable
               </span>
               <button
                 type="button"
                 onClick={() => setShowBookPicker(false)}
-                className="px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs"
+                className="px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs cursor-pointer"
               >
                 Done
               </button>
@@ -1549,23 +1549,23 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showCertStylingModal && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setShowCertStylingModal(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-up w-full max-w-lg rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl px-6 pt-3 pb-6 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto pb-safe sm:pb-6"
+            className="animate-sheet-up w-full max-w-lg rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl px-6 pt-3 pb-6 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto pb-safe sm:pb-6"
           >
-            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto sm:hidden" aria-hidden="true" />
-            <div className="flex items-center justify-between border-b border-linen-200 dark:border-night-800 pb-3">
-              <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
+            <div className="w-10 h-1 bg-edge rounded-full mx-auto sm:hidden" aria-hidden="true" />
+            <div className="flex items-center justify-between border-b border-edge-subtle pb-3">
+              <h3 className="font-display text-xl font-semibold text-ink">
                 Certificate Background &amp; Embellishment
               </h3>
               <button
                 type="button"
                 onClick={() => setShowCertStylingModal(false)}
                 aria-label="Close certificate styling"
-                className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-full bg-linen-100 dark:bg-night-800 flex items-center justify-center active:scale-95 transition-transform"
+                className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge flex items-center justify-center text-ink-secondary active:scale-95 transition-transform cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
               </button>
@@ -1574,13 +1574,13 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <div className="space-y-3 text-xs">
               {/* Background Preset */}
               <div>
-                <label className="font-bold text-stone-600 dark:text-slate-400 block mb-1">
+                <label className="font-semibold text-ink-secondary block mb-1">
                   Background Style:
                 </label>
                 <select
                   value={certStyle.bgType}
                   onChange={(e) => setCertStyle((prev) => ({ ...prev, bgType: e.target.value as any }))}
-                  className="w-full rounded-xl border border-linen-300 dark:border-night-700 p-2 bg-linen-50 dark:bg-night-800"
+                  className="w-full rounded-lg border border-edge p-2 bg-surface-subtle text-ink"
                 >
                   <option value="stars">Starry Galaxy / Night Sky</option>
                   <option value="parchment">Vintage Parchment Scroll</option>
@@ -1592,9 +1592,9 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
 
               {/* Custom Image Upload or URL */}
               {certStyle.bgType === 'custom' && (
-                <div className="space-y-2 p-3 rounded-2xl bg-linen-100/60 dark:bg-night-800 border">
+                <div className="space-y-2 p-3 rounded-xl bg-surface-subtle border border-edge">
                   <div>
-                    <label className="font-bold block text-[11px] mb-1">Image URL:</label>
+                    <label className="font-semibold text-ink block text-[11px] mb-1">Image URL:</label>
                     <input
                       type="text"
                       value={certStyle.customImageUrl}
@@ -1602,17 +1602,17 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                         setCertStyle((prev) => ({ ...prev, customImageUrl: e.target.value }))
                       }
                       placeholder="https://example.com/certificate-art.jpg"
-                      className="w-full text-xs rounded-xl border p-2 bg-white dark:bg-night-900"
+                      className="w-full text-xs rounded-lg border border-edge p-2 bg-surface text-ink"
                     />
                   </div>
                   <div>
-                    <label className="font-bold block text-[11px] mb-1">Or Upload Local Image:</label>
+                    <label className="font-semibold text-ink block text-[11px] mb-1">Or Upload Local Image:</label>
                     <input
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
                       onChange={handleImageUpload}
-                      className="w-full text-xs"
+                      className="w-full text-xs text-ink-secondary"
                     />
                   </div>
                 </div>
@@ -1620,9 +1620,9 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
 
               {/* Blur Slider */}
               <div>
-                <div className="flex justify-between font-bold text-stone-600 dark:text-slate-400 mb-1">
+                <div className="flex justify-between font-semibold text-ink-secondary mb-1">
                   <span>Background Blur:</span>
-                  <span>{certStyle.bgBlur}px</span>
+                  <span className="font-mono-tabular">{certStyle.bgBlur}px</span>
                 </div>
                 <input
                   type="range"
@@ -1633,15 +1633,15 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                   onChange={(e) =>
                     setCertStyle((prev) => ({ ...prev, bgBlur: Number(e.target.value) }))
                   }
-                  className="w-full accent-forest-700"
+                  className="w-full accent-[var(--primary)]"
                 />
               </div>
 
               {/* Opacity Slider */}
               <div>
-                <div className="flex justify-between font-bold text-stone-600 dark:text-slate-400 mb-1">
+                <div className="flex justify-between font-semibold text-ink-secondary mb-1">
                   <span>Background Visibility:</span>
-                  <span>{certStyle.bgOpacity}%</span>
+                  <span className="font-mono-tabular">{certStyle.bgOpacity}%</span>
                 </div>
                 <input
                   type="range"
@@ -1652,42 +1652,42 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                   onChange={(e) =>
                     setCertStyle((prev) => ({ ...prev, bgOpacity: Number(e.target.value) }))
                   }
-                  className="w-full accent-forest-700"
+                  className="w-full accent-[var(--primary)]"
                 />
               </div>
 
               {/* Signers */}
               <div className="grid grid-cols-2 gap-3 pt-2">
                 <div>
-                  <label className="font-bold block text-[11px] mb-1">Parent Signer Name:</label>
+                  <label className="font-semibold text-ink block text-[11px] mb-1">Parent Signer Name:</label>
                   <input
                     type="text"
                     value={certStyle.parentSigner}
                     onChange={(e) =>
                       setCertStyle((prev) => ({ ...prev, parentSigner: e.target.value }))
                     }
-                    className="w-full text-xs rounded-xl border p-2"
+                    className="w-full text-xs rounded-lg border border-edge bg-surface-subtle text-ink p-2"
                   />
                 </div>
                 <div>
-                  <label className="font-bold block text-[11px] mb-1">Librarian / Guide:</label>
+                  <label className="font-semibold text-ink block text-[11px] mb-1">Librarian / Guide:</label>
                   <input
                     type="text"
                     value={certStyle.librarianSigner}
                     onChange={(e) =>
                       setCertStyle((prev) => ({ ...prev, librarianSigner: e.target.value }))
                     }
-                    className="w-full text-xs rounded-xl border p-2"
+                    className="w-full text-xs rounded-lg border border-edge bg-surface-subtle text-ink p-2"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="pt-3 border-t flex justify-end">
+            <div className="pt-3 border-t border-edge-subtle flex justify-end">
               <button
                 type="button"
                 onClick={() => setShowCertStylingModal(false)}
-                className="px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs"
+                className="px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs cursor-pointer"
               >
                 Apply Style
               </button>
@@ -1701,59 +1701,59 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showSavePresetModal && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/45 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={() => setShowSavePresetModal(false)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="animate-sheet-up w-full max-w-md rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl px-6 pt-3 pb-6 sm:p-6 space-y-4 pb-safe sm:pb-6"
+            className="animate-sheet-up w-full max-w-md rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl px-6 pt-3 pb-6 sm:p-6 space-y-4 pb-safe sm:pb-6"
           >
-            <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto sm:hidden" aria-hidden="true" />
-            <h3 className="font-display text-lg font-bold text-forest-900 dark:text-white">
+            <div className="w-10 h-1 bg-edge rounded-full mx-auto sm:hidden" aria-hidden="true" />
+            <h3 className="font-display text-xl font-semibold text-ink">
               Save Current Passport as Template
             </h3>
-            <p className="text-xs text-stone-ink dark:text-slate-400">
+            <p className="text-xs text-ink-secondary">
               Save this combination of books, theme, layout, and dedication as a reusable preset.
             </p>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="font-bold block mb-1">Template Title:</label>
+                <label className="font-semibold text-ink block mb-1">Template Title:</label>
                 <input
                   type="text"
                   value={newPresetTitle}
                   onChange={(e) => setNewPresetTitle(e.target.value)}
                   placeholder="e.g. Bedtime Chapter Book Challenge"
-                  className="w-full rounded-xl border p-2.5 bg-linen-50 dark:bg-night-800"
+                  className="w-full rounded-lg border border-edge p-2.5 bg-surface-subtle text-ink"
                 />
               </div>
               <div>
-                <label className="font-bold block mb-1">Series Name:</label>
+                <label className="font-semibold text-ink block mb-1">Series Name:</label>
                 <input
                   type="text"
                   value={newPresetSeries}
                   onChange={(e) => setNewPresetSeries(e.target.value)}
                   placeholder="e.g. Magic Treehouse Series"
-                  className="w-full rounded-xl border p-2.5 bg-linen-50 dark:bg-night-800"
+                  className="w-full rounded-lg border border-edge p-2.5 bg-surface-subtle text-ink"
                 />
               </div>
               <div>
-                <label className="font-bold block mb-1">Description:</label>
+                <label className="font-semibold text-ink block mb-1">Description:</label>
                 <textarea
                   value={newPresetDesc}
                   onChange={(e) => setNewPresetDesc(e.target.value)}
                   placeholder="Notes about this reading challenge..."
                   rows={2}
-                  className="w-full rounded-xl border p-2.5 bg-linen-50 dark:bg-night-800"
+                  className="w-full rounded-lg border border-edge p-2.5 bg-surface-subtle text-ink"
                 />
               </div>
             </div>
 
-            <div className="pt-3 border-t border-linen-200 dark:border-night-800 flex justify-end gap-2">
+            <div className="pt-3 border-t border-edge-subtle flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowSavePresetModal(false)}
-                className="min-h-[48px] sm:min-h-[36px] px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-300 hover:bg-linen-100 dark:hover:bg-night-800 active:scale-[0.98] transition-all"
+                className="min-h-[44px] sm:min-h-[36px] px-4 py-2 rounded-lg text-xs font-semibold text-ink-secondary hover:bg-surface-elevated active:scale-[0.98] transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -1761,7 +1761,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 type="button"
                 onClick={handleSaveCurrentAsPreset}
                 disabled={!newPresetTitle.trim()}
-                className="min-h-[48px] sm:min-h-[36px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs disabled:opacity-50 active:scale-[0.98] transition-all"
+                className="min-h-[44px] sm:min-h-[36px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs disabled:opacity-50 active:scale-[0.98] transition-all cursor-pointer"
               >
                 Save Template
               </button>

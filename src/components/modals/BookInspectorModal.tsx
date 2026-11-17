@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { StarRating } from '../common/StarRating.js';
 import { Icon } from '../common/Icon.js';
+import { ToggleSwitch } from '../common/ToggleSwitch.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import { compressImageFileToDataUrl } from '../../features/catalog/cover-image-utils.js';
@@ -71,9 +72,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   bookId,
   onClose,
 }) => {
-  const { state, store, catalogService, activeProfile, setAiTagModal } = useApp();
+  const { state, store, catalogService, activeProfile, setAiTagModal, navigate } = useApp();
 
   const book = state.books.find((b) => b.id === bookId);
+  const detailStyle = state.settings?.bookDetailStyle || 'compact';
 
   const [isEditing, setIsEditing] = useState(false);
   const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
@@ -89,6 +91,13 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const [editError, setEditError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Editorial layout interactive states
+  const [editorialStatusMenuOpen, setEditorialStatusMenuOpen] = useState(false);
+  const [editorialReadMenuOpen, setEditorialReadMenuOpen] = useState(false);
+  const [editorialEditionExpanded, setEditorialEditionExpanded] = useState(true);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState(book?.notes || '');
+
   // Form edit state
   const [editTitle, setEditTitle] = useState(book?.title || '');
   const [editAuthors, setEditAuthors] = useState((book?.authors || []).join(', '));
@@ -99,6 +108,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const [editStage, setEditStage] = useState<ReadingStage>(book?.readingStage || 'picture-book');
   const [editAgeMin, setEditAgeMin] = useState(book ? String(book.ageMin) : '2');
   const [editAgeMax, setEditAgeMax] = useState(book ? String(book.ageMax) : '6');
+  const [editPublisher, setEditPublisher] = useState(book?.publisher || '');
+  const [editLanguage, setEditLanguage] = useState(book?.language || '');
   const [editCoverUrl, setEditCoverUrl] = useState(
     book?.coverUrl && book.coverUrl.startsWith('https://') ? book.coverUrl : ''
   );
@@ -113,7 +124,12 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     setConfirmDelete(false);
     setNewTagInput('');
     setNewOwnerInput('');
+    setEditorialStatusMenuOpen(false);
+    setEditorialReadMenuOpen(false);
+    setEditorialEditionExpanded(true);
+    setIsEditingNote(false);
     if (book) {
+      setNoteDraft(book.notes || '');
       setCoverSearchQuery(`${book.title} ${book.authors[0] || ''}`.trim());
       setEditTitle(book.title);
       setEditAuthors((book.authors || []).join(', '));
@@ -124,6 +140,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       setEditStage(book.readingStage || 'picture-book');
       setEditAgeMin(String(book.ageMin));
       setEditAgeMax(String(book.ageMax));
+      setEditPublisher(book.publisher || '');
+      setEditLanguage(book.language || '');
       setEditCoverUrl(
         book.coverUrl && book.coverUrl.startsWith('https://') ? book.coverUrl : ''
       );
@@ -302,6 +320,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         readingStage: editStage,
         ageMin: Number(editAgeMin),
         ageMax: Number(editAgeMax),
+        publisher: editPublisher.trim(),
+        language: editLanguage.trim().toLowerCase(),
       };
 
       if (editCoverUrl.trim() || !(book.coverUrl || '').startsWith('data:image/')) {
@@ -314,6 +334,20 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     } catch (err) {
       setEditError(err instanceof Error ? err.message : String(err));
     }
+  };
+
+  const handleSaveNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await store.updateBook(book.id, { notes: noteDraft.trim() });
+    setIsEditingNote(false);
+  };
+
+  const handleVerifyScanMatch = async () => {
+    await store.updateBook(book.id, {
+      needsScanReview: false,
+      verifiedAt: new Date().toISOString(),
+    });
+    store.notify('Book match confirmed.', 'success');
   };
 
   const handleConfirmDelete = async () => {
@@ -438,31 +472,1182 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     book.publisher || '',
   ].filter(Boolean);
   const readerRating = getBookUserRating(book, effectiveReader?.id);
+  const formattedAddedDate = (() => {
+    try {
+      const d = new Date(book.addedAt);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return '';
+    }
+  })();
 
+  const coverStudioSection = isCoverPickerOpen && (
+    <section
+      aria-label="Change book cover"
+      className="rounded-xl bg-surface-subtle border border-edge p-3.5 space-y-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-semibold text-ink">Cover Studio</p>
+          <p className="text-[11px] text-ink-secondary">
+            Choose a photo, snap a picture, or search Google Books &amp; Open Library.
+          </p>
+        </div>
+        {book.coverUrl && (
+          <button
+            type="button"
+            data-action="clear-book-cover"
+            onClick={handleClearCover}
+            className="min-h-[36px] px-2.5 py-1 rounded-lg text-[11px] font-semibold text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-colors shrink-0"
+          >
+            Cloth Cover
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <label className="min-h-[44px] px-3 py-2 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+          <Icon name="photo" className="w-4 h-4" />
+          <span>From Phone</span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="sr-only"
+          />
+        </label>
+
+        <label className="min-h-[44px] px-3 py-2 rounded-lg bg-primary hover:bg-primary-hover text-xs font-semibold text-primary-fg inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+          <Icon name="camera" className="w-4 h-4" />
+          <span>Take Picture</span>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileUpload}
+            className="sr-only"
+          />
+        </label>
+      </div>
+
+      <form onSubmit={handleCoverSearch} className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <ClearableInput
+            id="inspector-cover-search-input"
+            value={coverSearchQuery}
+            onValueChange={setCoverSearchQuery}
+            placeholder="Search Google Books / Open Library covers…"
+            className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={coverSearchLoading}
+          className="h-12 px-3.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-55 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+        >
+          <Icon name="search" className="w-3.5 h-3.5" />
+          <span>{coverSearchLoading ? 'Searching…' : 'Search'}</span>
+        </button>
+      </form>
+
+      {coverSearchError && (
+        <p role="alert" className="text-xs text-[#8C4A4F] dark:text-[#C48A8E]">
+          {coverSearchError}
+        </p>
+      )}
+
+      {coverSearchLoading ? (
+        <div className="pt-1">
+          <CoverGridSkeleton count={4} />
+        </div>
+      ) : coverSearchResults.length > 0 && (
+        <div className="grid grid-cols-4 gap-2 pt-0.5">
+          {coverSearchResults.map((res, i) => (
+            <button
+              key={`${res.coverUrl}-${i}`}
+              type="button"
+              onClick={() => handleSelectCover(res.coverUrl)}
+              className="group flex flex-col items-center text-left rounded-lg p-1 bg-surface hover:bg-surface-elevated border border-edge transition-transform active:scale-95"
+            >
+              <div className="w-full aspect-[3/4] rounded-md overflow-hidden bg-surface-elevated">
+                <img
+                  src={res.coverUrl}
+                  alt={res.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="mt-1 text-[10px] text-ink-secondary truncate w-full text-center">
+                {res.source}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
+  const editBookSection = isEditing && (
+    <form
+      id="edit-book-form"
+      onSubmit={handleSaveEdits}
+      noValidate
+      className="rounded-xl bg-surface-subtle border border-edge p-3.5 space-y-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold text-ink">
+          Edit Bibliographic Info
+        </p>
+        <span className="text-[11px] text-ink-muted">
+          Saved on device
+        </span>
+      </div>
+
+      {editError && (
+        <div
+          role="alert"
+          className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3.5 py-2 text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]"
+        >
+          {editError}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div className="sm:col-span-2">
+          <label
+            htmlFor="edit-book-title"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            Title *
+          </label>
+          <ClearableInput
+            id="edit-book-title"
+            value={editTitle}
+            onValueChange={setEditTitle}
+            className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-book-authors"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            Author(s)
+          </label>
+          <ClearableInput
+            id="edit-book-authors"
+            value={editAuthors}
+            onValueChange={setEditAuthors}
+            className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-book-isbn"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            ISBN (optional)
+          </label>
+          <ClearableInput
+            id="edit-book-isbn"
+            value={editIsbn}
+            onValueChange={setEditIsbn}
+            className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-book-format"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            Binding Format
+          </label>
+          <select
+            id="edit-book-format"
+            value={editFormat}
+            onChange={(e) => setEditFormat(e.target.value as BookFormat)}
+            className="w-full h-12 px-3.5 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="hardcover">Hardcover</option>
+            <option value="board-book">Board Book</option>
+            <option value="paperback">Paperback</option>
+          </select>
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-book-stage"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            Reading Stage
+          </label>
+          <select
+            id="edit-book-stage"
+            value={editStage}
+            onChange={(e) => setEditStage(e.target.value as ReadingStage)}
+            className="w-full h-12 px-3.5 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="board-toddler">Board &amp; Toddler</option>
+            <option value="picture-book">Picture Book</option>
+            <option value="early-reader">Early Reader</option>
+            <option value="chapter-book">Chapter Book</option>
+            <option value="middle-grade">Middle Grade</option>
+            <option value="teen-ya">Teen / YA</option>
+            <option value="adult">Adult Reader</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <label
+              htmlFor="edit-book-age-min"
+              className="block text-xs font-semibold text-ink mb-1"
+            >
+              Min Age
+            </label>
+            <input
+              id="edit-book-age-min"
+              type="number"
+              min={0}
+              max={120}
+              value={editAgeMin}
+              onChange={(e) => setEditAgeMin(e.target.value)}
+              className="w-full h-12 px-3 rounded-lg bg-surface border border-edge text-base sm:text-sm font-mono-tabular text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="edit-book-age-max"
+              className="block text-xs font-semibold text-ink mb-1"
+            >
+              Max Age
+            </label>
+            <input
+              id="edit-book-age-max"
+              type="number"
+              min={0}
+              max={120}
+              value={editAgeMax}
+              onChange={(e) => setEditAgeMax(e.target.value)}
+              className="w-full h-12 px-3 rounded-lg bg-surface border border-edge text-base sm:text-sm font-mono-tabular text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <label
+              htmlFor="edit-book-pages"
+              className="block text-xs font-semibold text-ink mb-1"
+            >
+              Pages
+            </label>
+            <input
+              id="edit-book-pages"
+              type="number"
+              min={1}
+              max={2000}
+              value={editPages}
+              placeholder="—"
+              onChange={(e) => setEditPages(e.target.value)}
+              className="w-full h-12 px-3 rounded-lg bg-surface border border-edge text-base sm:text-sm font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label
+              htmlFor="edit-book-year"
+              className="block text-xs font-semibold text-ink mb-1"
+            >
+              Year
+            </label>
+            <input
+              id="edit-book-year"
+              type="number"
+              min={1800}
+              max={2100}
+              value={editYear}
+              placeholder="—"
+              onChange={(e) => setEditYear(e.target.value)}
+              className="w-full h-12 px-3 rounded-lg bg-surface border border-edge text-base sm:text-sm font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-book-publisher"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            Publisher (optional)
+          </label>
+          <ClearableInput
+            id="edit-book-publisher"
+            value={editPublisher}
+            onValueChange={setEditPublisher}
+            placeholder="e.g., Candlewick Press"
+            className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div>
+          <label
+            htmlFor="edit-book-language"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            Language (optional)
+          </label>
+          <ClearableInput
+            id="edit-book-language"
+            value={editLanguage}
+            onValueChange={setEditLanguage}
+            placeholder="e.g., english, spanish"
+            className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label
+            htmlFor="edit-book-cover-url"
+            className="block text-xs font-semibold text-ink mb-1"
+          >
+            HTTPS Cover URL (optional
+            {book.coverUrl && book.coverUrl.startsWith('data:image/')
+              ? ' · custom photo saved'
+              : ''}
+            )
+          </label>
+          <ClearableInput
+            id="edit-book-cover-url"
+            value={editCoverUrl}
+            onValueChange={setEditCoverUrl}
+            placeholder="https://covers.openlibrary.org/..."
+            className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      </div>
+
+      <div className="pt-1 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setIsEditing(false)}
+          className="min-h-[44px] px-4 py-2 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="min-h-[44px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap"
+        >
+          Save Changes
+        </button>
+      </div>
+    </form>
+  );
+
+  // =========================================================================
+  // EDITORIAL BOOK DETAIL VIEW (Option B — Matching Midnight Library Reference)
+  // =========================================================================
+  if (detailStyle === 'editorial') {
+    const readStatusLabel = isReadInActive || usageSummary.isReadByActiveProfile
+      ? 'READ'
+      : inActiveShelf
+        ? 'ON SHELF'
+        : 'TO BE READ';
+    const durationChip = hintParts[0] ? hintParts[0].toUpperCase() : 'STORYTIME';
+
+    const handlePrimaryEditorialAction = async () => {
+      if (inActiveShelf && activeRot) {
+        await store.toggleRotationBookRead(activeRot.id, book.id);
+      } else if (effectiveReader) {
+        await store.toggleProfileBookRead(effectiveReader.id, book.id);
+      }
+    };
+
+    return (
+      <div
+        data-backdrop-action="close-inspect-book"
+        className="sheet-backdrop fixed inset-0 z-[60] bg-[#0F100F]/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+        onClick={onClose}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="inspect-book-title"
+          data-book-detail-style="editorial"
+          style={dialogTintStyle}
+          data-cover-tint={dynamicCoverTint ? tintHex : undefined}
+          onClick={(e) => e.stopPropagation()}
+          className="animate-sheet-up w-full max-w-lg sm:max-w-xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
+        >
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            {/* Ambient Radial Cover-Tinted Hero Header */}
+            <div
+              className="relative px-5 pt-4 pb-6"
+              style={{
+                background: dynamicCoverTint
+                  ? `radial-gradient(ellipse 90% 80% at 50% 15%, color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 26%, transparent), transparent 72%)`
+                  : `radial-gradient(ellipse 90% 80% at 50% 15%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 72%)`,
+              }}
+            >
+              {/* Top Circular Controls: Back/Close (left) & Love/Edit (right) */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  data-action="close-inspect-book"
+                  onClick={onClose}
+                  aria-label="Close book details"
+                  className="w-10 h-10 rounded-full bg-surface-elevated/85 hover:bg-surface-elevated border border-edge/80 text-ink flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
+                >
+                  <Icon name="arrowLeft" className="w-4 h-4" />
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    data-action="toggle-book-loved"
+                    onClick={handleToggleLoved}
+                    aria-pressed={book.loved ? 'true' : 'false'}
+                    aria-label={book.loved ? 'Remove Loved mark' : 'Mark as Loved'}
+                    className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+                      book.loved
+                        ? 'bg-[#8C4A4F] border-[#8C4A4F] text-[#FFFCF5]'
+                        : 'bg-surface-elevated/85 hover:bg-surface-elevated border-edge/80 text-ink-secondary hover:text-ink'
+                    }`}
+                  >
+                    <Icon name={book.loved ? 'heartFilled' : 'heart'} className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    data-action="toggle-edit-book-info"
+                    onClick={() => setIsEditing((prev) => !prev)}
+                    aria-pressed={isEditing ? 'true' : 'false'}
+                    aria-label="Edit book details"
+                    className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+                      isEditing
+                        ? 'bg-primary border-primary text-primary-fg'
+                        : 'bg-surface-elevated/85 hover:bg-surface-elevated border-edge/80 text-ink-secondary hover:text-ink'
+                    }`}
+                  >
+                    <Icon name="edit" className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Centered Tracked Uppercase Collection Status Divider */}
+              <div className="mt-2 flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={() => setEditorialStatusMenuOpen((p) => !p)}
+                  aria-expanded={editorialStatusMenuOpen}
+                  className="inline-flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary hover:opacity-85 transition-opacity cursor-pointer"
+                >
+                  <span className="w-4 h-px bg-primary/50" aria-hidden="true" />
+                  <span>{formatCollectionStatus(currentStatus)}</span>
+                  <Icon name="chevronDown" className="w-3 h-3" />
+                  <span className="w-4 h-px bg-primary/50" aria-hidden="true" />
+                </button>
+
+                {editorialStatusMenuOpen && (
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 p-1.5 rounded-xl bg-surface-elevated border border-edge shadow-lg">
+                    {(['owned', 'library', 'wishlist', 'interested'] as CollectionStatus[]).map((st) => {
+                      const active = currentStatus === st;
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={async () => {
+                            await handleStatusChange(st);
+                            setEditorialStatusMenuOpen(false);
+                          }}
+                          className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-primary text-primary-fg'
+                              : 'text-ink-secondary hover:text-ink hover:bg-surface'
+                          }`}
+                        >
+                          {formatCollectionStatus(st)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Centered Floating Cover with Top-Right Pencil Badge */}
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  data-action="toggle-cover-picker"
+                  aria-expanded={isCoverPickerOpen}
+                  aria-label={`Change cover for ${book.title}`}
+                  onClick={() => setIsCoverPickerOpen((prev) => !prev)}
+                  className="group relative rounded-xl shadow-2xl transition-transform active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
+                >
+                  <BookCover
+                    book={book}
+                    size="lg"
+                    aspectRatio={state.settings?.coverAspectRatio || 'portrait'}
+                  />
+                  <span
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-canvas/85 backdrop-blur-xs border border-edge/70 text-ink flex items-center justify-center shadow-sm"
+                    aria-hidden="true"
+                  >
+                    <Icon name="edit" className="w-3.5 h-3.5" />
+                  </span>
+                </button>
+              </div>
+
+              {/* Centered Bold Title + Italic Serif Author */}
+              <div className="mt-5 text-center px-2">
+                <h2
+                  id="inspect-book-title"
+                  className="font-display text-2xl sm:text-[28px] font-bold text-ink leading-tight text-balance"
+                >
+                  {book.title}
+                </h2>
+                <p className="mt-1 font-serif-italic italic text-base text-ink-secondary">
+                  by {book.authors.join(', ')}
+                </p>
+              </div>
+
+              {/* Dual Action Pill Row */}
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setEditorialReadMenuOpen((p) => !p)}
+                    aria-expanded={editorialReadMenuOpen}
+                    className="min-h-[42px] px-4 py-2 rounded-full border border-primary/50 bg-primary/10 hover:bg-primary/15 text-primary text-[11px] font-bold uppercase tracking-[0.12em] inline-flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-primary" aria-hidden="true" />
+                    <span>{readStatusLabel}</span>
+                    <Icon name="chevronDown" className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handlePrimaryEditorialAction}
+                  className="min-h-[42px] px-5 py-1.5 rounded-full bg-primary hover:bg-primary-hover text-primary-fg inline-flex items-center gap-2.5 shadow-sm transition-all active:scale-95 cursor-pointer"
+                >
+                  <Icon
+                    name={isReadInActive || usageSummary.isReadByActiveProfile ? 'check' : 'clock'}
+                    className="w-4 h-4 shrink-0"
+                  />
+                  <span className="text-left leading-tight">
+                    <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] opacity-85">
+                      {durationChip}
+                    </span>
+                    <span className="block text-xs font-bold">
+                      {isReadInActive || usageSummary.isReadByActiveProfile
+                        ? 'Read · Undo'
+                        : "Let's read!"}
+                    </span>
+                  </span>
+                </button>
+              </div>
+
+              {/* Inline Shelf & Cycle Action Bar (when status pill tapped) */}
+              {editorialReadMenuOpen && (
+                <div className="mt-3 p-3 rounded-2xl bg-surface-elevated border border-edge flex flex-wrap items-center justify-center gap-2 shadow-md">
+                  {inActiveShelf && activeRot ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => store.toggleRotationBookPicked(activeRot.id, book.id)}
+                        className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
+                          isPickedInActive
+                            ? 'bg-primary text-primary-fg'
+                            : 'bg-surface border border-edge text-ink'
+                        }`}
+                      >
+                        <Icon name={isPickedInActive ? 'bookmarkFilled' : 'bookmark'} className="w-3.5 h-3.5" />
+                        <span>{isPickedInActive ? 'Picked' : 'Mark Picked'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => store.toggleRotationBookRead(activeRot.id, book.id)}
+                        className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
+                          isReadInActive
+                            ? 'bg-primary text-primary-fg'
+                            : 'bg-surface border border-edge text-ink'
+                        }`}
+                      >
+                        <Icon name="check" className="w-3.5 h-3.5" />
+                        <span>{isReadInActive ? 'Read · Undo' : 'Mark Read'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => store.replaceRotationBookRandom(activeRot.id, book.id)}
+                        className="min-h-[36px] px-3 py-1.5 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Icon name="shuffle" className="w-3.5 h-3.5" />
+                        <span>Swap Book</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {effectiveReader && (
+                        <button
+                          type="button"
+                          onClick={() => store.toggleProfileBookRead(effectiveReader.id, book.id)}
+                          className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
+                            usageSummary.isReadByActiveProfile
+                              ? 'bg-primary text-primary-fg'
+                              : 'bg-surface border border-edge text-ink'
+                          }`}
+                        >
+                          <Icon name="check" className="w-3.5 h-3.5" />
+                          <span>{usageSummary.isReadByActiveProfile ? 'Read · Undo' : 'Mark Read'}</span>
+                        </button>
+                      )}
+                      {rotatable && activeRot && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await store.addBooksToRotationManual(activeRot.id, [book.id]);
+                            store.notify(`Added "${book.title}" to active shelf!`, 'success');
+                          }}
+                          className="min-h-[36px] px-3 py-1.5 rounded-lg bg-primary text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Icon name="plus" className="w-3.5 h-3.5" />
+                          <span>Add to Active Shelf</span>
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 pb-6 space-y-4">
+              {/* Contextual Scan Verification Card ("Is this the right book?") */}
+              {book.needsScanReview && (
+                <section
+                  aria-label="Verify scanned book"
+                  className="rounded-2xl bg-surface-subtle border border-edge p-4 sm:p-5 space-y-3.5"
+                >
+                  <div>
+                    <h3 className="font-display text-xl font-semibold text-ink">
+                      Is this the right book?
+                    </h3>
+                    <p className="text-xs text-ink-secondary mt-1 leading-relaxed">
+                      We matched this title to the catalog details below. Check that the cover and edition look right, or correct them anytime.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleVerifyScanMatch}
+                    className="w-full min-h-[44px] px-4 py-2.5 rounded-xl bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Icon name="check" className="w-4 h-4" />
+                    <span>Yes, this is correct</span>
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="min-h-[42px] px-3 py-2 rounded-xl bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Icon name="edit" className="w-3.5 h-3.5" />
+                      <span>Edit details</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        navigate('scan');
+                      }}
+                      className="min-h-[42px] px-3 py-2 rounded-xl bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Icon name="qrcode" className="w-3.5 h-3.5" />
+                      <span>Scan ISBN</span>
+                    </button>
+                  </div>
+
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(true)}
+                      className="text-xs font-medium text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-colors cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </section>
+              )}
+
+              {coverStudioSection}
+              {editBookSection}
+
+              {/* Bento Metadata Grid */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3.5 text-center transition-colors cursor-pointer"
+                  >
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Stage
+                    </span>
+                    <Icon name="layers" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span className="mt-1.5 block font-display text-base font-medium text-ink truncate">
+                      {formatReadingStage(book.readingStage)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3.5 text-center transition-colors cursor-pointer"
+                  >
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Format
+                    </span>
+                    <Icon name="bookmark" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span className="mt-1.5 block font-display text-base font-medium text-ink truncate">
+                      {formatBookBinding(book.format)}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
+                  >
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Pub. Year
+                    </span>
+                    <Icon name="calendar" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span className="mt-1.5 block font-display text-base font-medium text-ink font-mono-tabular">
+                      {book.publishedYear || '—'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
+                  >
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Pages
+                    </span>
+                    <Icon name="fileText" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span className="mt-1.5 block font-display text-base font-medium text-ink font-mono-tabular">
+                      {book.pageCount || '—'}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditing(true)}
+                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
+                  >
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Ages
+                    </span>
+                    <Icon name="profiles" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span className="mt-1.5 block font-display text-base font-medium text-ink font-mono-tabular">
+                      {book.ageMin}–{book.ageMax}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Collapsible EDITION Card */}
+              <section className="rounded-2xl bg-surface-subtle/90 border border-edge/90 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setEditorialEditionExpanded((p) => !p)}
+                  aria-expanded={editorialEditionExpanded}
+                  className="w-full px-4 py-3.5 flex items-center justify-between gap-2 text-left cursor-pointer hover:bg-surface-elevated/40 transition-colors"
+                >
+                  <span className="inline-flex items-center gap-2.5">
+                    <Icon name="fileText" className="w-4 h-4 text-ink-secondary" />
+                    <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-secondary">
+                      Edition
+                    </span>
+                  </span>
+                  <Icon
+                    name="chevronDown"
+                    className={`w-4 h-4 text-ink-secondary transition-transform ${
+                      editorialEditionExpanded ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+
+                {editorialEditionExpanded && (
+                  <div className="px-4 pb-3.5 divide-y divide-edge-subtle text-xs">
+                    <div className="py-2.5 flex items-center justify-between gap-3">
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="qrcode" className="w-4 h-4" />
+                        <span>ISBN</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono-tabular text-ink select-all">
+                          {isbnVal || 'Not set'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditing(true)}
+                          aria-label="Edit ISBN"
+                          className="text-primary hover:opacity-80 cursor-pointer"
+                        >
+                          <Icon name="qrcode" className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="building" className="w-4 h-4" />
+                        <span>Publisher</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-ink font-medium truncate">
+                        <span className={book.publisher ? 'text-ink' : 'text-ink-muted'}>
+                          {book.publisher || 'Add publisher'}
+                        </span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="compass" className="w-4 h-4" />
+                        <span>Condition</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-ink font-medium">
+                        <span>{formatBookCondition(currentCondition)}</span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="globe" className="w-4 h-4" />
+                        <span>Language</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 text-ink font-medium capitalize">
+                        <span>{book.language || 'English'}</span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              {/* Rotation Eligibility Pill Switch */}
+              <div className="px-1 py-2 flex items-center justify-between gap-4">
+                <div className="flex items-start gap-3 min-w-0">
+                  <Icon name="rotations" className="w-5 h-5 text-ink-secondary mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p id="editorial-rotation-label" className="text-sm font-semibold text-ink">
+                      Eligible for shelf rotations
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      {isExcluded
+                        ? 'Kept in catalog only; skipped when building rotations'
+                        : showRotationHistory && usageSegments.length > 0
+                          ? usageSegments.slice(0, 2).join(' · ')
+                          : 'Included in automatic family shelf rotations'}
+                    </p>
+                  </div>
+                </div>
+                <ToggleSwitch
+                  checked={!isExcluded}
+                  onChange={handleToggleEligibility}
+                  ariaLabelledBy="editorial-rotation-label"
+                  onLabel="Included"
+                  offLabel="Excluded"
+                />
+              </div>
+
+              {/* Quote & Note Inline Block */}
+              <div className="border-l-2 border-primary/70 pl-3.5 py-1 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    Quote &amp; Note
+                  </span>
+                  {!isEditingNote && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingNote(true)}
+                      className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      {book.notes ? 'Edit' : 'Add'}
+                    </button>
+                  )}
+                </div>
+
+                {isEditingNote ? (
+                  <form onSubmit={handleSaveNote} className="space-y-2">
+                    <textarea
+                      rows={3}
+                      value={noteDraft}
+                      onChange={(e) => setNoteDraft(e.target.value)}
+                      placeholder="Write a favorite quote, reading memory, or bedtime note…"
+                      className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNoteDraft(book.notes || '');
+                          setIsEditingNote(false);
+                        }}
+                        className="min-h-[34px] px-3 py-1 rounded-lg bg-surface-subtle border border-edge text-xs font-semibold text-ink-secondary cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="min-h-[34px] px-3.5 py-1 rounded-lg bg-primary text-primary-fg text-xs font-semibold cursor-pointer"
+                      >
+                        Save Note
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingNote(true)}
+                    className="w-full text-left font-serif-italic italic text-sm text-ink-secondary hover:text-ink transition-colors cursor-pointer"
+                  >
+                    {book.notes || 'Add a quote or note'}
+                  </button>
+                )}
+              </div>
+
+              {/* Per-Reader Star Rating + Readers + Condition */}
+              <section className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <span className="font-semibold text-ink block">
+                      {effectiveReader ? `${effectiveReader.name}’s Rating` : 'Reader Rating'}
+                    </span>
+                    {book.averageRating && (
+                      <span className="text-[11px] text-ink-muted font-mono-tabular">
+                        Catalog ★ {book.averageRating}
+                        {book.ratingsCount ? ` (${book.ratingsCount})` : ''}
+                      </span>
+                    )}
+                  </div>
+                  <StarRating
+                    rating={readerRating}
+                    onChange={handleRatingChange}
+                    size="sm"
+                    compact
+                    dataInspectorCoverStars
+                  />
+                </div>
+
+                <div className="pt-2.5 border-t border-edge-subtle flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-ink-secondary font-semibold">Owners</span>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {ownerToggleChips.map((chip) => {
+                      const active = currentOwners.some(
+                        (o) => o.toLowerCase() === chip.key.toLowerCase()
+                      );
+                      const tone = AVATAR_TONES[chip.tone] || AVATAR_TONES.teal;
+                      return (
+                        <button
+                          key={chip.key}
+                          type="button"
+                          onClick={() => handleToggleOwner(chip.key)}
+                          aria-pressed={active}
+                          className={`min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-primary text-primary-fg'
+                              : 'bg-surface border border-edge text-ink-secondary hover:text-ink'
+                          }`}
+                        >
+                          <span
+                            className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center ${tone}`}
+                          >
+                            {chip.initial}
+                          </span>
+                          <span>{chip.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </section>
+
+              {/* Topics & Themes Curation */}
+              <section aria-label="Topics and themes" className="space-y-2.5 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <strong className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    Topics &amp; Themes
+                  </strong>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      data-action="open-ai-tag-modal"
+                      onClick={() => setAiTagModal({ isOpen: true, bookId: book.id })}
+                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Icon name="sparkles" className="w-3.5 h-3.5" />
+                      <span>AI Tag Assistant</span>
+                    </button>
+                    <button
+                      type="button"
+                      data-action="enrich-book-tags"
+                      onClick={handleEnrichRules}
+                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink cursor-pointer"
+                    >
+                      Quick Rules
+                    </button>
+                  </div>
+                </div>
+
+                {book.tags.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {book.tags.map((tag) => {
+                      const origin = resolveBookTagOrigin(book, tag);
+                      const meta = TAG_ORIGIN_META[origin];
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          data-tag-origin={origin}
+                          onClick={() => handleRemoveTag(tag)}
+                          title={`${meta.badgeTitle} — tap to remove "${tag}"`}
+                          className="min-h-[32px] px-2.5 py-1 rounded-md bg-surface-subtle hover:bg-[#8C4A4F]/10 border border-edge text-xs font-medium text-ink hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Icon name={meta.icon} className="w-3 h-3 opacity-60 shrink-0" />
+                          <span>{tag}</span>
+                          <span aria-hidden="true" className="opacity-55">×</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <form onSubmit={handleAddTag} className="flex items-center gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <ClearableInput
+                      id="inspector-new-tag-input"
+                      value={newTagInput}
+                      onValueChange={setNewTagInput}
+                      placeholder="Add topic (e.g., bedtime, dinosaurs)"
+                      className="w-full h-10 pl-3 pr-8 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="h-10 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer"
+                  >
+                    Add Tag
+                  </button>
+                </form>
+              </section>
+
+              {/* Centered Date Added */}
+              {formattedAddedDate && (
+                <p className="pt-2 text-center text-[11px] text-ink-muted">
+                  Date added: {formattedAddedDate}
+                </p>
+              )}
+
+              {/* Bottom Replace / Remove Hairline Footer */}
+              <div className="pt-3 border-t border-edge-subtle">
+                {!confirmDelete ? (
+                  <div className="grid grid-cols-2 divide-x divide-edge-subtle text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setIsCoverPickerOpen(true)}
+                      className="min-h-[40px] flex items-center justify-center gap-2 text-ink-secondary hover:text-ink font-semibold transition-colors cursor-pointer"
+                    >
+                      <Icon name="replace" className="w-3.5 h-3.5" />
+                      <span>Replace book</span>
+                    </button>
+                    <button
+                      type="button"
+                      data-action="delete-book"
+                      onClick={() => setConfirmDelete(true)}
+                      className="min-h-[40px] flex items-center justify-center gap-2 text-[#8C4A4F] dark:text-[#C48A8E] hover:opacity-80 font-semibold transition-opacity cursor-pointer"
+                    >
+                      <Icon name="trash" className="w-3.5 h-3.5" />
+                      <span>Remove book</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-2.5 text-xs">
+                    <span className="font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                      Remove from library?
+                    </span>
+                    <button
+                      type="button"
+                      data-action="confirm-delete-book"
+                      onClick={handleConfirmDelete}
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] font-semibold cursor-pointer"
+                    >
+                      Yes, Remove
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-ink font-semibold cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // COMPACT BOOK DETAIL VIEW (Option A — Preserved Information-Dense View)
+  // =========================================================================
   return (
     <div
       data-backdrop-action="close-inspect-book"
-      className="sheet-backdrop fixed inset-0 z-[60] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="sheet-backdrop fixed inset-0 z-[60] bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="inspect-book-title"
+        data-book-detail-style="compact"
         style={dialogTintStyle}
         data-cover-tint={dynamicCoverTint ? tintHex : undefined}
         onClick={(e) => e.stopPropagation()}
-        className={`animate-sheet-up w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-2xl ${
+        className={`animate-sheet-up w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] sm:max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-xl ${
           dynamicCoverTint ? 'lr-tinted-card ' : ''
-        }bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0`}
+        }bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0`}
       >
         {/* Mobile Handle Pill */}
-        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 sm:hidden shrink-0" aria-hidden="true" />
+        <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 sm:hidden shrink-0" aria-hidden="true" />
 
         {/* Top Utility Header: Calm Status Context (left) + Love / Edit / Close (right) */}
-        <div className="px-5 pt-3 pb-2.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2 shrink-0">
-          <div className="min-w-0 truncate flex items-center gap-1.5 text-xs text-stone-ink dark:text-slate-400">
-            <span className="font-semibold text-forest-900 dark:text-slate-200">
+        <div className="px-5 pt-3 pb-2.5 border-b border-edge-subtle flex items-center justify-between gap-2 shrink-0">
+          <div className="min-w-0 truncate flex items-center gap-1.5 text-xs text-ink-secondary">
+            <span className="font-semibold text-ink">
               {formatCollectionStatus(currentStatus)}
             </span>
             <span aria-hidden="true" className="opacity-50">·</span>
@@ -476,10 +1661,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               onClick={handleToggleLoved}
               aria-pressed={book.loved ? 'true' : 'false'}
               aria-label={book.loved ? 'Remove Loved mark' : 'Mark as Loved'}
-              className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+              className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                 book.loved
-                  ? 'bg-rose-600 text-white'
-                  : 'bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
+                  ? 'bg-[#8C4A4F] text-[#FFFCF5]'
+                  : 'bg-surface-subtle hover:bg-surface-elevated border border-edge-subtle text-ink'
               }`}
             >
               <Icon name={book.loved ? 'heartFilled' : 'heart'} className="w-3.5 h-3.5" />
@@ -491,10 +1676,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               data-action="toggle-edit-book-info"
               onClick={() => setIsEditing((prev) => !prev)}
               aria-pressed={isEditing ? 'true' : 'false'}
-              className={`min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+              className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                 isEditing
-                  ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                  : 'bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
+                  ? 'bg-primary text-primary-fg'
+                  : 'bg-surface-subtle hover:bg-surface-elevated border border-edge-subtle text-ink'
               }`}
             >
               <Icon name="edit" className="w-3.5 h-3.5" />
@@ -506,7 +1691,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               data-action="close-inspect-book"
               onClick={onClose}
               aria-label="Close book details"
-              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 transition-all active:scale-95"
+              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated transition-all active:scale-95"
             >
               <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
@@ -525,7 +1710,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 aria-label={`Change cover for ${book.title}`}
                 title="Tap to change book cover"
                 onClick={() => setIsCoverPickerOpen((prev) => !prev)}
-                className="group relative rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
+                className="group relative rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-transform active:scale-95"
               >
                 <BookCover
                   book={book}
@@ -536,7 +1721,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   data-cover-badge="centered"
                   className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-20 flex justify-center"
                 >
-                  <span className="px-2 py-0.5 rounded-lg bg-night-950/80 backdrop-blur-xs text-ivory text-[10px] font-semibold inline-flex items-center justify-center gap-1 shadow-xs whitespace-nowrap">
+                  <span className="px-2 py-0.5 rounded-md bg-[#142321]/85 backdrop-blur-xs text-[#F0E7D5] text-[10px] font-semibold inline-flex items-center justify-center gap-1 shadow-xs whitespace-nowrap">
                     <Icon name="camera" className="w-3 h-3" />
                     <span>{isCoverPickerOpen ? 'Close' : 'Cover'}</span>
                   </span>
@@ -553,16 +1738,16 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   dataInspectorCoverStars
                 />
                 {effectiveReader && (
-                  <span className="mt-0.5 text-[10px] text-stone-ink/75 dark:text-slate-400 leading-tight">
+                  <span className="mt-0.5 text-[10px] text-ink-muted leading-tight">
                     {effectiveReader.name}’s rating
                   </span>
                 )}
                 {book.averageRating ? (
                   <span
-                    className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-mono-tabular text-stone-ink/75 dark:text-slate-400"
+                    className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] font-mono-tabular text-ink-muted"
                     title="Catalog community rating"
                   >
-                    <span className="text-amber-500">★</span>
+                    <span className="text-accent">★</span>
                     <span>
                       {book.averageRating}
                       {book.ratingsCount ? ` (${book.ratingsCount})` : ''}
@@ -576,29 +1761,29 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
             <div className="min-w-0 flex-1 md:hidden">
               <h2
                 id="inspect-book-title"
-                className="font-display text-lg sm:text-xl font-bold text-forest-900 dark:text-white leading-snug text-balance"
+                className="font-display text-lg sm:text-xl font-semibold text-ink leading-snug text-balance"
               >
                 {book.title}
               </h2>
-              <p className="text-xs sm:text-sm font-medium text-stone-ink dark:text-slate-300 mt-0.5">
+              <p className="text-xs sm:text-sm font-medium text-ink-secondary mt-0.5">
                 {book.authors.join(', ')}
               </p>
 
               {/* Compact Hairline Edition Metrics */}
-              <div className="mt-2.5 grid grid-cols-2 divide-x divide-linen-200/90 dark:divide-night-800 rounded-xl bg-linen-50/85 dark:bg-night-950/60 border border-linen-200/90 dark:border-night-800 py-1.5 px-1">
+              <div className="mt-2.5 grid grid-cols-2 divide-x divide-edge-subtle rounded-lg bg-surface-subtle border border-edge-subtle py-1.5 px-1">
                 <div className="px-2">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                  <span className="block text-[9px] font-semibold uppercase tracking-wider text-ink-muted">
                     Ages
                   </span>
-                  <span className="text-xs font-bold text-forest-900 dark:text-white font-mono-tabular">
+                  <span className="text-xs font-semibold text-ink font-mono-tabular">
                     {book.ageMin}–{book.ageMax}
                   </span>
                 </div>
                 <div className="px-2 min-w-0">
-                  <span className="block text-[9px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                  <span className="block text-[9px] font-semibold uppercase tracking-wider text-ink-muted">
                     Stage
                   </span>
-                  <span className="block text-xs font-semibold text-forest-900 dark:text-white truncate">
+                  <span className="block text-xs font-semibold text-ink truncate">
                     {formatReadingStage(book.readingStage)}
                   </span>
                 </div>
@@ -606,14 +1791,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
               <div className="mt-2 space-y-1">
                 {editionSpecs.length > 0 && (
-                  <p className="text-[11px] text-stone-ink/85 dark:text-slate-400 leading-snug">
+                  <p className="text-[11px] text-ink-secondary leading-snug">
                     {editionSpecs.join(' · ')}
                   </p>
                 )}
 
                 {hintParts.length > 0 && (
                   <p
-                    className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium leading-snug"
+                    className="text-[11px] text-primary dark:text-accent font-medium leading-snug"
                     title="Read-aloud pacing & duration"
                   >
                     {hintParts.join(' · ')}
@@ -621,7 +1806,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 )}
 
                 {isbnVal && (
-                  <p className="text-[11px] font-mono-tabular text-stone-ink/75 dark:text-slate-400 select-all">
+                  <p className="text-[11px] font-mono-tabular text-ink-muted select-all">
                     ISBN {isbnVal}
                   </p>
                 )}
@@ -632,47 +1817,47 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           {/* Column 2: Desktop Title Block + Actions, Editor, Customize, Tags, Footer */}
           <div className="min-w-0 space-y-4">
             <div className="hidden md:block">
-              <h2 className="font-display text-2xl font-bold tracking-tight text-forest-900 dark:text-white leading-snug text-balance">
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-ink leading-snug text-balance">
                 {book.title}
               </h2>
-              <p className="text-sm font-medium text-stone-ink dark:text-slate-300 mt-0.5">
+              <p className="text-sm font-medium text-ink-secondary mt-0.5">
                 {book.authors.join(', ')}
               </p>
 
               {/* Desktop Structured Edition Metrics Strip */}
-              <div className="mt-3 grid grid-cols-4 divide-x divide-linen-200/90 dark:divide-night-800 rounded-xl bg-linen-50/85 dark:bg-night-950/60 border border-linen-200/90 dark:border-night-800 py-2">
+              <div className="mt-3 grid grid-cols-4 divide-x divide-edge-subtle rounded-lg bg-surface-subtle border border-edge-subtle py-2">
                 <div className="px-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
                     Ages
                   </span>
                   <span
-                    className="text-xs font-bold text-forest-900 dark:text-white font-mono-tabular cursor-help"
+                    className="text-xs font-semibold text-ink font-mono-tabular cursor-help"
                     title="Recommended reading ages (tap Edit to adjust)"
                   >
                     {book.ageMin}–{book.ageMax} yrs
                   </span>
                 </div>
                 <div className="px-3 min-w-0">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
                     Stage
                   </span>
-                  <span className="block text-xs font-semibold text-forest-900 dark:text-white truncate">
+                  <span className="block text-xs font-semibold text-ink truncate">
                     {formatReadingStage(book.readingStage)}
                   </span>
                 </div>
                 <div className="px-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
                     Pages
                   </span>
-                  <span className="text-xs font-semibold text-forest-900 dark:text-white font-mono-tabular">
+                  <span className="text-xs font-semibold text-ink font-mono-tabular">
                     {book.pageCount ? `${book.pageCount} pp` : '—'}
                   </span>
                 </div>
                 <div className="px-3">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-stone-ink/75 dark:text-slate-400">
+                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
                     Published
                   </span>
-                  <span className="text-xs font-semibold text-forest-900 dark:text-white font-mono-tabular">
+                  <span className="text-xs font-semibold text-ink font-mono-tabular">
                     {book.publishedYear || '—'}
                   </span>
                 </div>
@@ -681,7 +1866,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               {(editionSpecs.length > 0 || hintParts.length > 0 || isbnVal) && (
                 <div className="mt-2.5 space-y-1">
                   {(book.publisher || (book.language && book.language !== 'english')) && (
-                    <p className="text-xs text-stone-ink/85 dark:text-slate-400">
+                    <p className="text-xs text-ink-secondary">
                       {[book.publisher, book.language && book.language !== 'english' ? book.language : '']
                         .filter(Boolean)
                         .join(' · ')}
@@ -690,7 +1875,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
                   {hintParts.length > 0 && (
                     <p
-                      className="text-xs text-emerald-700 dark:text-emerald-400 font-medium leading-snug"
+                      className="text-xs text-primary dark:text-accent font-medium leading-snug"
                       title="Read-aloud pacing & duration"
                     >
                       {hintParts.join(' · ')}
@@ -698,7 +1883,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   )}
 
                   {isbnVal && (
-                    <p className="text-[11px] font-mono-tabular text-stone-ink/75 dark:text-slate-400 select-all">
+                    <p className="text-[11px] font-mono-tabular text-ink-muted select-all">
                       ISBN {isbnVal}
                     </p>
                   )}
@@ -706,346 +1891,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               )}
             </div>
 
-          {/* Contextual Drawer 1: Cover Studio (opens when tapping cover) */}
-          {isCoverPickerOpen && (
-            <section
-              aria-label="Change book cover"
-              className="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3.5 space-y-3"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-bold text-forest-900 dark:text-white">Cover Studio</p>
-                  <p className="text-[11px] text-stone-ink dark:text-slate-400">
-                    Choose a photo, snap a picture, or search Google Books &amp; Open Library.
-                  </p>
-                </div>
-                {book.coverUrl && (
-                  <button
-                    type="button"
-                    data-action="clear-book-cover"
-                    onClick={handleClearCover}
-                    className="min-h-[36px] px-2.5 py-1 rounded-xl text-[11px] font-semibold text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-colors shrink-0"
-                  >
-                    Cloth Cover
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <label className="min-h-[44px] px-3 py-2 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
-                  <Icon name="photo" className="w-4 h-4" />
-                  <span>From Phone</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="sr-only"
-                  />
-                </label>
-
-                <label className="min-h-[44px] px-3 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
-                  <Icon name="camera" className="w-4 h-4" />
-                  <span>Take Picture</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileUpload}
-                    className="sr-only"
-                  />
-                </label>
-              </div>
-
-              <form onSubmit={handleCoverSearch} className="flex items-center gap-2">
-                <div className="relative flex-1 min-w-0">
-                  <ClearableInput
-                    id="inspector-cover-search-input"
-                    value={coverSearchQuery}
-                    onValueChange={setCoverSearchQuery}
-                    placeholder="Search Google Books / Open Library covers…"
-                    className="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={coverSearchLoading}
-                  className="h-12 px-3.5 rounded-xl bg-forest-900 hover:bg-forest-800 disabled:opacity-55 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-                >
-                  <Icon name="search" className="w-3.5 h-3.5" />
-                  <span>{coverSearchLoading ? 'Searching…' : 'Search'}</span>
-                </button>
-              </form>
-
-              {coverSearchError && (
-                <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">
-                  {coverSearchError}
-                </p>
-              )}
-
-              {coverSearchLoading ? (
-                <div className="pt-1">
-                  <CoverGridSkeleton count={4} />
-                </div>
-              ) : coverSearchResults.length > 0 && (
-                <div className="grid grid-cols-4 gap-2 pt-0.5">
-                  {coverSearchResults.map((res, i) => (
-                    <button
-                      key={`${res.coverUrl}-${i}`}
-                      type="button"
-                      onClick={() => handleSelectCover(res.coverUrl)}
-                      className="group flex flex-col items-center text-left rounded-xl p-1 bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 transition-transform active:scale-95"
-                    >
-                      <div className="w-full aspect-[3/4] rounded-lg overflow-hidden bg-linen-100 dark:bg-night-800">
-                        <img
-                          src={res.coverUrl}
-                          alt={res.title}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span className="mt-1 text-[10px] text-stone-ink dark:text-slate-400 truncate w-full text-center">
-                        {res.source}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Contextual Drawer 2: Bibliographic Details Editor (opens when tapping Edit) */}
-          {isEditing && (
-            <form
-              id="edit-book-form"
-              onSubmit={handleSaveEdits}
-              noValidate
-              className="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3.5 space-y-3"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-bold text-forest-900 dark:text-white">
-                  Edit Bibliographic Info
-                </p>
-                <span className="text-[11px] text-stone-ink dark:text-slate-400">
-                  Saved on device
-                </span>
-              </div>
-
-              {editError && (
-                <div
-                  role="alert"
-                  className="rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-3.5 py-2 text-xs font-medium text-rose-800 dark:text-rose-200"
-                >
-                  {editError}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="sm:col-span-2">
-                  <label
-                    htmlFor="edit-book-title"
-                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                  >
-                    Title *
-                  </label>
-                  <ClearableInput
-                    id="edit-book-title"
-                    value={editTitle}
-                    onValueChange={setEditTitle}
-                    className="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="edit-book-authors"
-                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                  >
-                    Author(s)
-                  </label>
-                  <ClearableInput
-                    id="edit-book-authors"
-                    value={editAuthors}
-                    onValueChange={setEditAuthors}
-                    className="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="edit-book-isbn"
-                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                  >
-                    ISBN (optional)
-                  </label>
-                  <ClearableInput
-                    id="edit-book-isbn"
-                    value={editIsbn}
-                    onValueChange={setEditIsbn}
-                    className="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="edit-book-format"
-                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                  >
-                    Binding Format
-                  </label>
-                  <select
-                    id="edit-book-format"
-                    value={editFormat}
-                    onChange={(e) => setEditFormat(e.target.value as BookFormat)}
-                    className="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  >
-                    <option value="hardcover">Hardcover</option>
-                    <option value="board-book">Board Book</option>
-                    <option value="paperback">Paperback</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="edit-book-stage"
-                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                  >
-                    Reading Stage
-                  </label>
-                  <select
-                    id="edit-book-stage"
-                    value={editStage}
-                    onChange={(e) => setEditStage(e.target.value as ReadingStage)}
-                    className="w-full h-12 px-3.5 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  >
-                    <option value="board-toddler">Board &amp; Toddler</option>
-                    <option value="picture-book">Picture Book</option>
-                    <option value="early-reader">Early Reader</option>
-                    <option value="chapter-book">Chapter Book</option>
-                    <option value="middle-grade">Middle Grade</option>
-                    <option value="teen-ya">Teen / YA</option>
-                    <option value="adult">Adult Reader</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label
-                      htmlFor="edit-book-age-min"
-                      className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                    >
-                      Min Age
-                    </label>
-                    <input
-                      id="edit-book-age-min"
-                      type="number"
-                      min={0}
-                      max={120}
-                      value={editAgeMin}
-                      onChange={(e) => setEditAgeMin(e.target.value)}
-                      className="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="edit-book-age-max"
-                      className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                    >
-                      Max Age
-                    </label>
-                    <input
-                      id="edit-book-age-max"
-                      type="number"
-                      min={0}
-                      max={120}
-                      value={editAgeMax}
-                      onChange={(e) => setEditAgeMax(e.target.value)}
-                      className="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div>
-                    <label
-                      htmlFor="edit-book-pages"
-                      className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                    >
-                      Pages
-                    </label>
-                    <input
-                      id="edit-book-pages"
-                      type="number"
-                      min={1}
-                      max={2000}
-                      value={editPages}
-                      placeholder="—"
-                      onChange={(e) => setEditPages(e.target.value)}
-                      className="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="edit-book-year"
-                      className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                    >
-                      Year
-                    </label>
-                    <input
-                      id="edit-book-year"
-                      type="number"
-                      min={1800}
-                      max={2100}
-                      value={editYear}
-                      placeholder="—"
-                      onChange={(e) => setEditYear(e.target.value)}
-                      className="w-full h-12 px-3 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label
-                    htmlFor="edit-book-cover-url"
-                    className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
-                  >
-                    HTTPS Cover URL (optional
-                    {book.coverUrl && book.coverUrl.startsWith('data:image/')
-                      ? ' · custom photo saved'
-                      : ''}
-                    )
-                  </label>
-                  <ClearableInput
-                    id="edit-book-cover-url"
-                    value={editCoverUrl}
-                    onValueChange={setEditCoverUrl}
-                    placeholder="https://covers.openlibrary.org/..."
-                    className="w-full h-12 pl-3.5 pr-9 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-1 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="min-h-[44px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap"
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          )}
+          {/* Contextual Drawers: Cover Studio & Bibliographic Editor */}
+          {coverStudioSection}
+          {editBookSection}
 
           {/* Quick Shelf & Read Bar */}
-          <div className="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200/90 dark:border-night-800 px-4 py-3 space-y-2 shadow-2xs">
+          <div className="rounded-xl bg-surface-subtle border border-edge px-4 py-3 space-y-2 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-medium text-stone-ink dark:text-slate-300">
+              <span className="text-xs font-medium text-ink-secondary">
                 {inActiveShelf
                   ? 'On current rotation shelf'
                   : rotatable
@@ -1071,10 +1924,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                           ? 'Picked during this rotation (tap to unmark picked)'
                           : 'Mark picked during this rotation (automatically marks read)'
                       }
-                      className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+                      className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
                         isPickedInActive
-                          ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                          : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
+                          ? 'bg-primary text-primary-fg'
+                          : 'bg-surface hover:bg-surface-elevated text-ink border border-edge'
                       }`}
                     >
                       <Icon
@@ -1088,10 +1941,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                       type="button"
                       onClick={() => store.toggleRotationBookRead(activeRot.id, book.id)}
                       aria-pressed={isReadInActive}
-                      className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+                      className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
                         isReadInActive
-                          ? 'bg-forest-700 text-white dark:bg-forest-600'
-                          : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
+                          ? 'bg-primary text-primary-fg'
+                          : 'bg-surface hover:bg-surface-elevated text-ink border border-edge'
                       }`}
                     >
                       <Icon name="check" className="w-3.5 h-3.5" />
@@ -1103,7 +1956,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         type="button"
                         onClick={() => store.toggleProfileBookRead(effectiveReader.id, book.id)}
                         title="Clear previous Read status for this reader"
-                        className="min-h-[40px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-rose-50 dark:bg-night-900 dark:hover:bg-rose-950/40 border border-linen-200 dark:border-night-700 text-xs font-semibold text-stone-ink hover:text-rose-700 dark:text-slate-300 dark:hover:text-rose-300 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                        className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-[#8C4A4F]/10 border border-edge text-xs font-semibold text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                       >
                         <Icon name="close" className="w-3.5 h-3.5" />
                         <span>Clear Read</span>
@@ -1113,7 +1966,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     <button
                       type="button"
                       onClick={() => store.replaceRotationBookRandom(activeRot.id, book.id)}
-                      className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                     >
                       <Icon name="shuffle" className="w-3.5 h-3.5" />
                       <span>Swap Book</span>
@@ -1127,10 +1980,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                           type="button"
                           onClick={() => store.toggleProfileBookRead(effectiveReader.id, book.id)}
                           aria-pressed={usageSummary.isReadByActiveProfile}
-                          className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
+                          className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap ${
                             usageSummary.isReadByActiveProfile
-                              ? 'bg-forest-700 text-white dark:bg-forest-600'
-                              : 'bg-ivory hover:bg-linen-100 text-forest-900 dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-100 border border-linen-200 dark:border-night-700'
+                              ? 'bg-primary text-primary-fg'
+                              : 'bg-surface hover:bg-surface-elevated text-ink border border-edge'
                           }`}
                         >
                           <Icon name="check" className="w-3.5 h-3.5" />
@@ -1146,7 +1999,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                             await store.addBooksToRotationManual(activeRot.id, [book.id]);
                             store.notify(`Added "${book.title}" to active shelf!`, 'success');
                           }}
-                          className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                          className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                         >
                           <Icon name="plus" className="w-3.5 h-3.5" />
                           <span>Add to Active Shelf</span>
@@ -1163,8 +2016,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 data-book-usage-summary="true"
                 className={`text-[11px] font-mono-tabular ${
                   usageSummary.isStaleUnreadOnShelf
-                    ? 'font-semibold text-amber-800 dark:text-amber-300'
-                    : 'text-stone-ink dark:text-slate-400'
+                    ? 'font-semibold text-accent'
+                    : 'text-ink-secondary'
                 }`}
               >
                 {usageSegments.join(' · ')}
@@ -1175,13 +2028,13 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           {/* Unified Customize Table: Reader, Shelf, Condition, Rotations */}
           <section
             aria-label="Customize reader, shelf status, and condition"
-            className="rounded-2xl bg-linen-50/90 dark:bg-night-950/70 border border-linen-200/90 dark:border-night-800 px-4 py-3 text-xs shadow-2xs"
+            className="rounded-xl bg-surface-subtle border border-edge px-4 py-3 text-xs shadow-2xs"
           >
-            <div className="divide-y divide-linen-200/70 dark:divide-night-800/80">
+            <div className="divide-y divide-edge-subtle">
               {/* Row 1: Reader / Household Owners */}
               <div data-customize-row="owner" className="py-2 first:pt-0 last:pb-0 space-y-2">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold text-stone-ink dark:text-slate-300 shrink-0">
+                  <span className="text-xs font-semibold text-ink-secondary shrink-0">
                     Reader
                   </span>
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -1196,10 +2049,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                           type="button"
                           onClick={() => handleToggleOwner(chip.key)}
                           aria-pressed={active}
-                          className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                          className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                             active
-                              ? 'bg-forest-900 text-white dark:bg-linen-100 dark:text-night-950'
-                              : 'bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300'
+                              ? 'bg-primary text-primary-fg'
+                              : 'bg-surface border border-edge text-ink-secondary hover:text-ink'
                           }`}
                         >
                           <span
@@ -1215,7 +2068,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </div>
 
                 <details className="group">
-                  <summary className="cursor-pointer list-none flex justify-end text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] select-none">
+                  <summary className="cursor-pointer list-none flex justify-end text-[11px] font-semibold text-primary dark:text-accent select-none">
                     <span>+ Custom owner / house</span>
                   </summary>
                   <form onSubmit={handleAddCustomOwner} className="mt-2 flex items-center gap-2">
@@ -1225,12 +2078,12 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         value={newOwnerInput}
                         onValueChange={setNewOwnerInput}
                         placeholder="e.g., Grandma's House, Cousin Maya"
-                        className="w-full h-11 pl-3 pr-8 rounded-xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                        className="w-full h-11 pl-3 pr-8 rounded-lg bg-surface border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                     </div>
                     <button
                       type="submit"
-                      className="h-11 px-3 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+                      className="h-11 px-3 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
                     >
                       Add
                     </button>
@@ -1243,7 +2096,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 data-customize-row="status"
                 className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
               >
-                <span className="text-xs font-semibold text-stone-ink dark:text-slate-300 shrink-0">
+                <span className="text-xs font-semibold text-ink-secondary shrink-0">
                   Shelf
                 </span>
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -1255,10 +2108,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         type="button"
                         onClick={() => handleStatusChange(st)}
                         aria-pressed={active}
-                        className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                        className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                           active
-                            ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                            : 'bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300'
+                            ? 'bg-primary text-primary-fg'
+                            : 'bg-surface border border-edge text-ink-secondary hover:text-ink'
                         }`}
                       >
                         {formatCollectionStatus(st)}
@@ -1273,7 +2126,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 data-customize-row="condition"
                 className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
               >
-                <span className="text-xs font-semibold text-stone-ink dark:text-slate-300 shrink-0">
+                <span className="text-xs font-semibold text-ink-secondary shrink-0">
                   Condition
                 </span>
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -1281,20 +2134,20 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     const active = currentCondition === cond;
                     const activeClass =
                       cond === 'broken' || cond === 'retired'
-                        ? 'bg-rose-700 text-white'
+                        ? 'bg-[#8C4A4F] text-[#FFFCF5]'
                         : cond === 'torn'
-                          ? 'bg-amber-700 text-white'
-                          : 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950';
+                          ? 'bg-accent text-[#FFFCF5]'
+                          : 'bg-primary text-primary-fg';
                     return (
                       <button
                         key={cond}
                         type="button"
                         onClick={() => handleConditionChange(cond)}
                         aria-pressed={active}
-                        className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                        className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                           active
                             ? activeClass
-                            : 'bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300'
+                            : 'bg-surface border border-edge text-ink-secondary hover:text-ink'
                         }`}
                       >
                         {formatBookCondition(cond)}
@@ -1310,10 +2163,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
               >
                 <div>
-                  <span className="text-xs font-semibold text-stone-ink dark:text-slate-300 block">
+                  <span className="text-xs font-semibold text-ink-secondary block">
                     Rotations
                   </span>
-                  <p className="text-[11px] text-stone-ink/80 dark:text-slate-400">
+                  <p className="text-[11px] text-ink-muted">
                     {isExcluded ? 'Excluded from shelf rotations' : 'Eligible for shelf rotations'}
                   </p>
                 </div>
@@ -1322,10 +2175,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   role="switch"
                   onClick={handleToggleEligibility}
                   aria-checked={!isExcluded}
-                  className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                     isExcluded
-                      ? 'bg-linen-100 text-stone-ink dark:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
-                      : 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
+                      ? 'bg-surface-elevated text-ink-secondary border border-edge'
+                      : 'bg-primary text-primary-fg'
                   }`}
                 >
                   {isExcluded ? 'Excluded' : 'Included'}
@@ -1337,10 +2190,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           {/* Topics & Themes Curation */}
           <section
             aria-label="Topics and themes"
-            className="space-y-2.5 text-xs text-stone-ink dark:text-slate-300"
+            className="space-y-2.5 text-xs text-ink-secondary"
           >
             <div className="flex items-center justify-between gap-2">
-              <strong className="text-xs font-bold text-forest-900 dark:text-white">
+              <strong className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
                 Topics &amp; Themes
               </strong>
               <div className="flex items-center gap-1.5">
@@ -1349,7 +2202,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   data-action="open-ai-tag-modal"
                   onClick={() => setAiTagModal({ isOpen: true, bookId: book.id })}
                   title="Query LLM for interactive features, developmental themes & story tags"
-                  className="min-h-[36px] px-2.5 py-1 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  className="min-h-[36px] px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                 >
                   <Icon name="sparkles" className="w-3.5 h-3.5" />
                   <span>AI Tag Assistant</span>
@@ -1359,7 +2212,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   data-action="enrich-book-tags"
                   onClick={handleEnrichRules}
                   title="Quick local rule enrichment"
-                  className="min-h-[36px] px-2.5 py-1 rounded-xl bg-linen-100/90 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-100 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  className="min-h-[36px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                 >
                   <span>Quick Rules</span>
                 </button>
@@ -1380,7 +2233,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         onClick={() => handleRemoveTag(tag)}
                         title={`${meta.badgeTitle} — tap to remove "${tag}"`}
                         aria-label={`Remove topic ${tag} (${meta.label})`}
-                        className="min-h-[34px] px-2.5 py-1 rounded-lg bg-linen-100/90 hover:bg-rose-50 dark:bg-night-800 dark:hover:bg-rose-950/50 text-xs font-medium text-forest-900 hover:text-rose-700 dark:text-slate-200 dark:hover:text-rose-300 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                        className="min-h-[34px] px-2.5 py-1 rounded-md bg-surface-subtle hover:bg-[#8C4A4F]/10 border border-edge-subtle text-xs font-medium text-ink hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                       >
                         <Icon
                           name={meta.icon}
@@ -1395,7 +2248,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
                 {/* Quiet Origin Micro-Legend */}
                 <div
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-stone-ink/75 dark:text-slate-400 pt-0.5"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted pt-0.5"
                   aria-label="Topic origin legend"
                 >
                   {(['provider', 'ai', 'rules', 'manual'] as TagOrigin[]).map((originKey) => {
@@ -1414,7 +2267,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </div>
               </div>
             ) : (
-              <p className="text-stone-ink dark:text-slate-400">No topics tagged yet.</p>
+              <p className="text-ink-muted">No topics tagged yet.</p>
             )}
 
             <form onSubmit={handleAddTag} className="flex items-center gap-2">
@@ -1424,12 +2277,12 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   value={newTagInput}
                   onValueChange={setNewTagInput}
                   placeholder="Add topic (e.g., bedtime, dinosaurs)"
-                  className="w-full h-11 pl-3 pr-8 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                  className="w-full h-11 pl-3 pr-8 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
               <button
                 type="submit"
-                className="h-11 px-3.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
+                className="h-11 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
               >
                 Add Tag
               </button>
@@ -1437,7 +2290,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           </section>
 
           {/* Quiet Footer: Source Attribution + External IDs + Preview + Raw Payloads + Remove Book */}
-          <div className="pt-3 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs">
+          <div className="pt-3 border-t border-edge-subtle space-y-2 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
                 <ProviderAttribution
@@ -1448,7 +2301,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
                 {aiSources.length > 0 && (
                   <span
-                    className="text-[11px] text-stone-ink/75 dark:text-slate-400 whitespace-nowrap cursor-help"
+                    className="text-[11px] text-ink-muted whitespace-nowrap cursor-help"
                     title={`AI enrichment via ${aiSources
                       .map((s) => String(s.provider || '').replace(/^ai:/i, ''))
                       .join(', ')}`}
@@ -1462,7 +2315,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     href={book.previewLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] font-semibold text-forest-700 hover:underline dark:text-[#5ED3DA] inline-flex items-center gap-0.5 whitespace-nowrap"
+                    className="text-[11px] font-semibold text-primary dark:text-accent hover:underline inline-flex items-center gap-0.5 whitespace-nowrap"
                   >
                     <span>Preview ↗</span>
                   </a>
@@ -1475,28 +2328,28 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   data-action="delete-book"
                   onClick={() => setConfirmDelete(true)}
                   aria-label={`Remove ${book.title} from catalog`}
-                  className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                  className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
                 >
                   <Icon name="trash" className="w-3.5 h-3.5" />
                   <span>Remove Book</span>
                 </button>
               ) : (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-3 py-2">
-                  <span className="text-xs font-semibold text-rose-900 dark:text-rose-200">
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-2">
+                  <span className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
                     Remove from library?
                   </span>
                   <button
                     type="button"
                     data-action="confirm-delete-book"
                     onClick={handleConfirmDelete}
-                    className="min-h-[34px] px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors"
+                    className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold transition-colors"
                   >
                     Yes, Remove
                   </button>
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(false)}
-                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-ivory dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200"
+                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink hover:bg-surface-elevated"
                   >
                     Cancel
                   </button>
@@ -1506,10 +2359,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
             {hasRawPayloads && (
               <details className="pt-0.5">
-                <summary className="cursor-pointer font-semibold text-forest-700 dark:text-[#5ED3DA]">
+                <summary className="cursor-pointer font-semibold text-primary dark:text-accent">
                   View Captured Raw Provider Payloads
                 </summary>
-                <pre className="mt-2 p-3 rounded-xl bg-night-950 text-slate-100 font-mono-tabular text-[11px] overflow-x-auto max-h-52">
+                <pre className="mt-2 p-3 rounded-lg bg-[#142321] text-[#F0E7D5] border border-edge font-mono-tabular text-[11px] overflow-x-auto max-h-52">
                   {JSON.stringify(book.sources, null, 2)}
                 </pre>
               </details>

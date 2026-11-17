@@ -79,32 +79,32 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="shelf-placement-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-lg max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden"
+        className="animate-sheet-up w-full max-w-lg max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden"
       >
         <div
-          className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden"
+          className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden"
           aria-hidden="true"
         />
 
         {/* Header */}
-        <div className="px-5 pt-3.5 pb-3 border-b border-linen-200 dark:border-night-800 space-y-2.5 shrink-0">
+        <div className="px-5 pt-3.5 pb-3 border-b border-edge-subtle space-y-2.5 shrink-0">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-brand dark:text-brand-dark">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">
                 Shelf Placement Helper
               </p>
               <h2
                 id="shelf-placement-title"
-                className="font-display text-lg font-bold text-forest-900 dark:text-white leading-tight truncate mt-0.5"
+                className="font-display text-lg font-semibold text-ink leading-tight truncate mt-0.5"
               >
                 {rotation.title}
               </h2>
-              <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5 font-mono-tabular">
+              <p className="text-xs text-ink-secondary mt-0.5 font-mono-tabular">
                 {placedCount} of {shelfBooks.length} checked · {completedCount} completed
               </p>
             </div>
@@ -113,16 +113,16 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Close shelf placement checklist"
-              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 transition-all active:scale-95 shrink-0"
+              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] flex items-center justify-center rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated transition-all active:scale-95 shrink-0"
             >
               <Icon name="close" className="w-5 h-5" />
             </button>
           </div>
 
           {/* Progress Bar */}
-          <div className="h-1.5 w-full rounded-full bg-linen-200/80 dark:bg-night-800 overflow-hidden">
+          <div className="h-1.5 w-full rounded-full bg-surface-elevated overflow-hidden">
             <div
-              className="h-full bg-forest-700 dark:bg-[#5ED3DA] transition-all duration-200"
+              className="h-full bg-primary transition-all duration-200"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -143,10 +143,10 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
                   type="button"
                   onClick={() => setFilter(tab.id)}
                   aria-pressed={active}
-                  className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                  className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap ${
                     active
-                      ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
-                      : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-subtitle dark:text-slate-300'
+                      ? 'bg-primary text-primary-fg'
+                      : 'bg-surface-subtle hover:bg-surface-elevated border border-edge-subtle text-ink-secondary'
                   }`}
                 >
                   {tab.label}
@@ -181,17 +181,17 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
                   data-placement-book-id={book.id}
                   aria-pressed={isPlaced}
                   onClick={() => handleTogglePlaced(book.id)}
-                  className={`w-full min-h-[58px] px-3 py-2 rounded-2xl border flex items-center gap-3 text-left transition-colors ${
+                  className={`w-full min-h-[58px] px-3 py-2 rounded-xl border flex items-center gap-3 text-left transition-colors ${
                     isPlaced
-                      ? 'bg-linen-100/75 dark:bg-night-950/60 border-linen-200/80 dark:border-night-800'
-                      : 'bg-ivory hover:bg-linen-50 dark:bg-night-900 dark:hover:bg-night-800/80 border-linen-200 dark:border-night-700'
+                      ? 'bg-surface-subtle border-edge-subtle'
+                      : 'bg-surface hover:bg-surface-subtle border-edge'
                   }`}
                 >
                   <span
                     className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                       isPlaced
-                        ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                        : 'border-2 border-linen-300 dark:border-night-600 bg-white dark:bg-night-950'
+                        ? 'bg-primary text-primary-fg'
+                        : 'border-2 border-edge bg-canvas'
                     }`}
                     aria-hidden="true"
                   >
@@ -202,13 +202,13 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
 
                   <div className="min-w-0 flex-1">
                     <p
-                      className={`font-sans text-xs sm:text-sm font-bold text-forest-900 dark:text-white leading-snug truncate ${
+                      className={`font-sans text-xs sm:text-sm font-semibold text-ink leading-snug truncate ${
                         isPlaced ? 'line-through opacity-60' : ''
                       }`}
                     >
                       {book.title}
                     </p>
-                    <p className="text-[11px] text-stone-ink dark:text-slate-400 truncate mt-0.5">
+                    <p className="text-[11px] text-ink-secondary truncate mt-0.5">
                       {primaryAuthor} · {formatBookBinding(book.format)}
                     </p>
                   </div>
@@ -217,8 +217,8 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
                     <span
                       className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${
                         isPlaced
-                          ? 'bg-linen-100 text-stone-ink border-linen-200 dark:bg-night-800 dark:text-slate-400 dark:border-night-700'
-                          : 'bg-forest-50 text-forest-800 border-forest-200 dark:bg-night-800 dark:text-[#5ED3DA] dark:border-night-700'
+                          ? 'bg-surface-elevated text-ink-muted border-edge-subtle'
+                          : 'bg-primary/10 text-primary border-primary/30'
                       }`}
                     >
                       {statusTag}
@@ -228,7 +228,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               );
             })
           ) : (
-            <div className="py-8 text-center text-xs text-stone-ink dark:text-slate-400">
+            <div className="py-8 text-center text-xs text-ink-secondary">
               {filter === 'remaining'
                 ? 'All books on this shelf are checked off!'
                 : 'No completed books on this shelf yet.'}
@@ -237,14 +237,14 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
         </div>
 
         {/* Batch Actions Footer */}
-        <div className="px-4 py-3 pb-safe sm:pb-3 border-t border-linen-200 dark:border-night-800 bg-linen-50/70 dark:bg-night-950/60 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="px-4 py-3 pb-safe sm:pb-3 border-t border-edge-subtle bg-surface-subtle flex flex-wrap items-center justify-between gap-2 shrink-0">
           <div className="flex flex-wrap items-center gap-1.5">
             {completedIds.length > 0 && (
               <button
                 type="button"
                 onClick={handleCheckCompleted}
                 disabled={allCompletedChecked}
-                className="min-h-[48px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-all active:scale-[0.98] whitespace-nowrap"
+                className="min-h-[48px] sm:min-h-[38px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-45 border border-edge text-xs font-semibold text-ink transition-all active:scale-[0.98] whitespace-nowrap"
               >
                 Check Completed
               </button>
@@ -253,7 +253,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               type="button"
               onClick={handleCheckAll}
               disabled={placedCount === shelfBooks.length || shelfBooks.length === 0}
-              className="min-h-[48px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-all active:scale-[0.98] whitespace-nowrap"
+              className="min-h-[48px] sm:min-h-[38px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-45 border border-edge text-xs font-semibold text-ink transition-all active:scale-[0.98] whitespace-nowrap"
             >
               Check All
             </button>
@@ -261,7 +261,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="min-h-[48px] sm:min-h-[38px] px-2.5 py-1.5 rounded-xl text-xs font-semibold text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-all active:scale-[0.98] whitespace-nowrap"
+                className="min-h-[48px] sm:min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-all active:scale-[0.98] whitespace-nowrap"
               >
                 Clear
               </button>
@@ -271,7 +271,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[48px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-forest-700 hover:bg-forest-800 text-white dark:bg-[#5ED3DA] dark:text-night-950 text-xs font-bold transition-all active:scale-[0.98] whitespace-nowrap"
+            className="min-h-[48px] sm:min-h-[40px] px-5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-all active:scale-[0.98] whitespace-nowrap"
           >
             Done
           </button>

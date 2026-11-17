@@ -65,18 +65,18 @@ export const ProfilesView: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] uppercase tracking-[0.08em]">
+          <p className="text-[11px] font-semibold text-accent uppercase tracking-[0.12em]">
             {state.settings.householdName
               ? `${state.settings.householdName} · Family Readers`
               : 'Family Readers'}
           </p>
           <h1
             id="profiles-heading"
-            className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5"
+            className="font-display text-3xl sm:text-[34px] font-semibold tracking-tight text-ink leading-tight mt-0.5"
           >
             Reader Profiles
           </h1>
-          <p className="text-xs sm:text-sm text-stone-ink dark:text-slate-400 mt-1">
+          <p className="text-xs sm:text-sm text-ink-secondary mt-1">
             {state.profiles.length} {state.profiles.length === 1 ? 'reader' : 'readers'} ·{' '}
             {totalOwnedBooks} owned books · {state.rotations.length} saved shelves
           </p>
@@ -87,7 +87,7 @@ export const ProfilesView: React.FC = () => {
           data-action="open-add-profile-sheet"
           onClick={handleAddProfile}
           aria-label="Add new reader profile"
-          className="min-h-[48px] sm:min-h-[44px] min-w-[48px] px-4 py-2.5 rounded-xl bg-forest-700 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 dark:hover:bg-[#4bc2c9] text-white text-xs font-bold inline-flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] shrink-0"
+          className="min-h-[44px] min-w-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] shrink-0 cursor-pointer"
         >
           <Icon name="plus" className="w-4 h-4" />
           <span>Add Reader Profile</span>
@@ -95,16 +95,16 @@ export const ProfilesView: React.FC = () => {
       </div>
 
       {/* Household Banner & Editor */}
-      <section className="rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200/90 dark:border-night-800 p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+      <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
         <div className="flex items-start gap-3 min-w-0">
-          <span className="w-10 h-10 rounded-xl bg-linen-100 dark:bg-night-800 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center shrink-0">
+          <span className="w-10 h-10 rounded-lg bg-surface-elevated border border-edge-subtle text-primary flex items-center justify-center shrink-0">
             <Icon name="home" className="w-5 h-5" />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
               Household or Family Name
             </p>
-            <p className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white truncate mt-0.5">
+            <p className="font-display text-lg font-semibold text-ink truncate mt-0.5">
               {state.settings.householdName?.trim() || 'Not set yet (shown on Home shelf)'}
             </p>
           </div>
@@ -118,11 +118,11 @@ export const ProfilesView: React.FC = () => {
               onChange={(e) => setHouseholdDraft(e.target.value)}
               placeholder="e.g. Rivera Family"
               aria-label="Household or family name"
-              className="flex-1 md:w-56 px-3.5 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs sm:text-sm font-medium text-forest-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-forest-700"
+              className="flex-1 md:w-56 px-3.5 py-2 rounded-lg bg-surface-subtle border border-edge text-xs sm:text-sm font-medium text-ink focus:border-primary"
             />
             <button
               type="submit"
-              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 dark:bg-[#5ED3DA] dark:text-night-950 text-white text-xs font-bold transition-all active:scale-[0.98]"
+              className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-all active:scale-[0.98] cursor-pointer"
             >
               Save
             </button>
@@ -132,7 +132,7 @@ export const ProfilesView: React.FC = () => {
                 setHouseholdDraft(state.settings.householdName || '');
                 setIsEditingHousehold(false);
               }}
-              className="min-h-[48px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-400 hover:bg-linen-100 dark:hover:bg-night-800 transition-all active:scale-[0.98]"
+              className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-semibold text-ink-secondary hover:bg-surface-elevated transition-all active:scale-[0.98] cursor-pointer"
             >
               Cancel
             </button>
@@ -141,7 +141,7 @@ export const ProfilesView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsEditingHousehold(true)}
-            className="min-h-[48px] sm:min-h-[38px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-1.5 self-start md:self-center transition-all active:scale-[0.98] shrink-0"
+            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 self-start md:self-center transition-all active:scale-[0.98] shrink-0 cursor-pointer"
           >
             <Icon name="edit" className="w-3.5 h-3.5" />
             <span>{state.settings.householdName ? 'Edit Household Name' : 'Set Household Name'}</span>
@@ -163,18 +163,18 @@ export const ProfilesView: React.FC = () => {
           return (
             <article
               key={profile.id}
-              className={`rounded-2xl bg-ivory dark:bg-night-900 border ${
+              className={`rounded-xl bg-surface border ${
                 isActive
-                  ? 'border-forest-700/45 dark:border-[#5ED3DA]/45 ring-1 ring-forest-700/12 dark:ring-[#5ED3DA]/15'
-                  : 'border-linen-200/90 dark:border-night-800'
-              } p-5 flex flex-col justify-between gap-4 shadow-2xs hover:shadow-md transition-shadow`}
+                  ? 'border-primary/50 ring-1 ring-primary/20'
+                  : 'border-edge'
+              } p-5 flex flex-col justify-between gap-4 shadow-2xs transition-colors`}
             >
               <div className="space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
                     {/* Large Avatar Badge */}
                     <span
-                      className={`inline-flex items-center justify-center font-display font-bold shrink-0 select-none w-12 h-12 rounded-2xl text-lg shadow-sm ${toneClass}`}
+                      className={`inline-flex items-center justify-center font-display font-semibold shrink-0 select-none w-12 h-12 rounded-xl text-xl shadow-xs ${toneClass}`}
                       aria-hidden="true"
                     >
                       {initial}
@@ -182,18 +182,18 @@ export const ProfilesView: React.FC = () => {
 
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <h2 className="font-display text-lg font-bold text-forest-900 dark:text-white truncate">
+                        <h2 className="font-display text-xl font-semibold text-ink truncate">
                           {profile.name}
                         </h2>
                         {isActive && (
-                          <span className="text-[11px] font-bold text-brand dark:text-brand-dark">
+                          <span className="text-[11px] font-semibold text-accent">
                             · Active
                           </span>
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-stone-ink dark:text-slate-400 mt-0.5">
-                        <span className="font-semibold text-forest-900 dark:text-slate-200">
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-ink-secondary mt-0.5">
+                        <span className="font-semibold text-ink">
                           {ageLabel}
                         </span>
                         {profile.birthDate && (
@@ -203,7 +203,7 @@ export const ProfilesView: React.FC = () => {
                           </>
                         )}
                       </div>
-                      <p className="text-xs font-medium text-forest-800 dark:text-slate-300 mt-0.5">
+                      <p className="text-xs font-medium text-ink-secondary mt-0.5">
                         {formatReadingStage(profile.readingStage)}
                       </p>
                     </div>
@@ -218,7 +218,7 @@ export const ProfilesView: React.FC = () => {
                       onClick={() => handleEditProfile(profile.id)}
                       aria-label={`Edit profile ${profile.name}`}
                       title="Edit profile"
-                      className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-night-800 transition-colors"
+                      className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated transition-colors cursor-pointer"
                     >
                       <Icon name="edit" className="w-4 h-4" />
                     </button>
@@ -231,7 +231,7 @@ export const ProfilesView: React.FC = () => {
                         onClick={() => handleRequestDeleteProfile(profile.id)}
                         aria-label={`Remove profile ${profile.name}`}
                         title="Remove profile"
-                        className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl text-stone-ink hover:text-rose-700 hover:bg-rose-50 dark:text-slate-400 dark:hover:bg-rose-950/40 transition-colors"
+                        className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] hover:bg-surface-elevated transition-colors cursor-pointer"
                       >
                         <Icon name="trash" className="w-4 h-4" />
                       </button>
@@ -241,14 +241,14 @@ export const ProfilesView: React.FC = () => {
 
                 {/* Metadata summary */}
                 <div className="space-y-1.5 text-xs">
-                  <p className="text-stone-ink dark:text-slate-300 leading-relaxed">
-                    <span className="font-semibold text-forest-900 dark:text-white">Topics:</span>{' '}
+                  <p className="text-ink-secondary leading-relaxed">
+                    <span className="font-semibold text-ink">Topics:</span>{' '}
                     {profile.favoriteTopics && profile.favoriteTopics.length > 0
                       ? profile.favoriteTopics.join(' · ')
                       : 'All topics'}
                   </p>
 
-                  <p className="text-[11px] text-stone-ink dark:text-slate-400 font-mono-tabular">
+                  <p className="text-[11px] text-ink-muted font-mono-tabular">
                     {profile.defaultRotationSize || 5} books/shelf · {profile.cooldownDays ?? 14}d cooldown ·{' '}
                     {savedCount} {savedCount === 1 ? 'shelf' : 'shelves'} · {readCount} read
                   </p>
@@ -256,22 +256,22 @@ export const ProfilesView: React.FC = () => {
 
                 {/* Inline Delete Confirmation (Zero window.confirm) */}
                 {isConfirmingDelete && (
-                  <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/70 space-y-2">
-                    <p className="text-xs font-semibold text-rose-900 dark:text-rose-200">
+                  <div className="p-3 rounded-lg bg-surface-elevated border border-[#8C4A4F]/40 space-y-2">
+                    <p className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
                       Remove {profile.name} and their saved rotations?
                     </p>
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => setConfirmDeleteProfileId(null)}
-                        className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-stone-700 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-night-800"
+                        className="px-2.5 py-1.5 rounded-md text-xs font-semibold text-ink-secondary hover:bg-surface cursor-pointer"
                       >
                         Cancel
                       </button>
                       <button
                         type="button"
                         onClick={() => handleConfirmDeleteProfile(profile.id)}
-                        className="px-3 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-xs font-bold"
+                        className="px-3 py-1.5 rounded-md bg-[#8C4A4F] hover:opacity-90 text-[#FFFCF5] text-xs font-semibold cursor-pointer"
                       >
                         Confirm Remove
                       </button>
@@ -281,11 +281,11 @@ export const ProfilesView: React.FC = () => {
               </div>
 
               {/* Bottom Action Row */}
-              <div className="pt-3 border-t border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
+              <div className="pt-3 border-t border-edge-subtle flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={() => handleEditProfile(profile.id)}
-                  className="text-xs font-semibold text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white transition-colors"
+                  className="text-xs font-semibold text-ink-secondary hover:text-ink transition-colors cursor-pointer"
                 >
                   Preferences
                 </button>
@@ -294,7 +294,7 @@ export const ProfilesView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate('home')}
-                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center justify-center transition-colors whitespace-nowrap"
+                    className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center transition-colors whitespace-nowrap cursor-pointer"
                   >
                     View {profile.name}’s Shelf
                   </button>
@@ -304,7 +304,7 @@ export const ProfilesView: React.FC = () => {
                     data-action="switch-profile"
                     data-profile-id={profile.id}
                     onClick={() => handleSwitchProfile(profile.id)}
-                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 text-xs font-semibold text-white transition-colors whitespace-nowrap"
+                    className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                   >
                     Switch to {profile.name}
                   </button>

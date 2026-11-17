@@ -61,6 +61,7 @@ import { createTaggingService } from '../features/tagging/tagging-service.js';
 import {
   normalizeLanguage,
   normalizePositiveBookCount,
+  resolveEffectiveThemeConfig,
 } from '../config/index.js';
 import {
   queryBookCategorizedTags,
@@ -71,22 +72,35 @@ import {
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
 
 /**
- * Applies light/dark class and `<html lang>` on document.documentElement according to user preference.
+ * Applies light/dark class, `data-theme`, `<meta name="theme-color">`, and `<html lang>`
+ * on document.documentElement according to user preference and active theme preset.
  * @param {import('../types/models.js').ThemeMode} theme
  * @param {string} [language]
+ * @param {string} [themePreset]
  */
-export function applyThemeToDom(theme, language = 'en') {
+export function applyThemeToDom(theme, language = 'en', themePreset) {
   if (typeof document === 'undefined' || typeof window === 'undefined') return;
-  try {
-    if (typeof window.localStorage !== 'undefined') {
-      window.localStorage.setItem('lr_theme_pref', theme);
-    }
-  } catch (_) {}
   const prefersDark =
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const isDark = theme === 'dark' || (theme === 'system' && prefersDark);
+  const effectiveConfig = resolveEffectiveThemeConfig(theme, themePreset, prefersDark);
+  const isDark = effectiveConfig.mode === 'dark';
+
+  try {
+    if (typeof window.localStorage !== 'undefined') {
+      window.localStorage.setItem('lr_theme_pref', theme);
+      if (themePreset || effectiveConfig.id) {
+        window.localStorage.setItem('lr_theme_preset', String(themePreset || effectiveConfig.id));
+      }
+    }
+  } catch (_) {}
+
   document.documentElement.classList.toggle('dark', isDark);
+  if (document.documentElement.dataset) {
+    document.documentElement.dataset.theme = effectiveConfig.id;
+  } else if (typeof document.documentElement.setAttribute === 'function') {
+    document.documentElement.setAttribute('data-theme', effectiveConfig.id);
+  }
   if (typeof document.documentElement.setAttribute === 'function') {
     document.documentElement.setAttribute('lang', normalizeLanguage(language));
   }
@@ -94,7 +108,7 @@ export function applyThemeToDom(theme, language = 'en') {
     document.getElementById('lr-theme-color') ||
     document.querySelector('meta[name="theme-color"]');
   if (themeMeta) {
-    themeMeta.setAttribute('content', isDark ? '#152226' : '#FFFDF9');
+    themeMeta.setAttribute('content', effectiveConfig.themeColorHex);
   }
 }
 
@@ -219,7 +233,7 @@ export function createAppStore(storage, deps = {}) {
    */
   async function commit(next) {
     state = migrateState(next);
-    applyThemeToDom(state.settings.theme, state.settings.language);
+    applyThemeToDom(state.settings.theme, state.settings.language, state.settings.themePreset);
     emit();
     await storage.save(state);
   }
@@ -230,13 +244,13 @@ export function createAppStore(storage, deps = {}) {
   async function init() {
     state = await storage.load();
     initialized = true;
-    applyThemeToDom(state.settings.theme, state.settings.language);
+    applyThemeToDom(state.settings.theme, state.settings.language, state.settings.themePreset);
 
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       const media = window.matchMedia('(prefers-color-scheme: dark)');
       media.addEventListener('change', () => {
         if (state.settings.theme === 'system') {
-          applyThemeToDom('system', state.settings.language);
+          applyThemeToDom('system', state.settings.language, state.settings.themePreset);
         }
       });
     }
@@ -446,6 +460,8 @@ export function createAppStore(storage, deps = {}) {
    *   loved?: boolean,
    *   owners?: string[],
    *   dominantColor?: string,
+   *   notes?: string,
+   *   needsScanReview?: boolean,
    *   sources?: import('../types/models.js').ProviderSource[]
    * }} input
    */
@@ -513,6 +529,8 @@ export function createAppStore(storage, deps = {}) {
     const parsedOwners = normalizeOwnersList(input.owners);
     const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
     const dominantColor = normalizeHexColor(input.dominantColor);
+    const cleanNotes =
+      typeof input.notes === 'string' && input.notes.trim() ? input.notes.trim().slice(0, 1000) : '';
 
     const tagOrigins = mergeTagOrigins(undefined, enriched.tags, {
       manual: baseTags,
@@ -542,6 +560,8 @@ export function createAppStore(storage, deps = {}) {
       loved,
       owners,
       ...(dominantColor ? { dominantColor } : {}),
+      ...(cleanNotes ? { notes: cleanNotes } : {}),
+      ...(input.needsScanReview ? { needsScanReview: true } : {}),
       spineColor: SPINE_COLORS[colorIndex],
       addedAt: now,
       sources: finalSources,
@@ -567,7 +587,9 @@ export function createAppStore(storage, deps = {}) {
    *   condition?: import('../types/models.js').BookCondition,
    *   loved?: boolean,
    *   owners?: string[],
-   *   dominantColor?: string
+   *   dominantColor?: string,
+   *   notes?: string,
+   *   needsScanReview?: boolean
    * }} [intakeOptions]
    */
   async function addBookFromCandidate(candidate, intakeOptions = {}) {
@@ -608,6 +630,10 @@ export function createAppStore(storage, deps = {}) {
     const parsedOwners = normalizeOwnersList(intakeOptions.owners);
     const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
     const dominantColor = normalizeHexColor(intakeOptions.dominantColor);
+    const cleanNotes =
+      typeof intakeOptions.notes === 'string' && intakeOptions.notes.trim()
+        ? intakeOptions.notes.trim().slice(0, 1000)
+        : '';
 
     const tagOrigins = mergeTagOrigins(baseBook.tagOrigins, enriched.tags, {
       rules: enriched.ruleAddedTags,
@@ -630,6 +656,8 @@ export function createAppStore(storage, deps = {}) {
       loved,
       owners,
       ...(dominantColor ? { dominantColor } : {}),
+      ...(cleanNotes ? { notes: cleanNotes } : {}),
+      ...(intakeOptions.needsScanReview ? { needsScanReview: true } : {}),
       sources,
     };
 
@@ -663,7 +691,12 @@ export function createAppStore(storage, deps = {}) {
    *   loved?: boolean,
    *   owners?: string[],
    *   dominantColor?: string | null,
-   *   excludeFromRotations?: boolean
+   *   excludeFromRotations?: boolean,
+   *   notes?: string | null,
+   *   needsScanReview?: boolean,
+   *   verifiedAt?: string | null,
+   *   language?: string | null,
+   *   publisher?: string | null
    * }} patch
    */
   async function updateBook(bookId, patch) {
@@ -784,6 +817,26 @@ export function createAppStore(storage, deps = {}) {
       patch.excludeFromRotations !== undefined
         ? Boolean(patch.excludeFromRotations)
         : existing.excludeFromRotations;
+    const nextNotes =
+      patch.notes !== undefined
+        ? String(patch.notes || '').trim().slice(0, 1000) || undefined
+        : existing.notes;
+    const nextNeedsScanReview =
+      patch.needsScanReview !== undefined
+        ? Boolean(patch.needsScanReview)
+        : existing.needsScanReview;
+    const nextVerifiedAt =
+      patch.verifiedAt !== undefined
+        ? patch.verifiedAt || undefined
+        : existing.verifiedAt;
+    const nextLanguage =
+      patch.language !== undefined
+        ? String(patch.language || '').trim() || undefined
+        : existing.language;
+    const nextPublisher =
+      patch.publisher !== undefined
+        ? String(patch.publisher || '').trim() || undefined
+        : existing.publisher;
 
     /** @type {import('../types/models.js').Book} */
     const updatedBook = {
@@ -808,15 +861,18 @@ export function createAppStore(storage, deps = {}) {
       ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
       ...(nextDominantColor ? { dominantColor: nextDominantColor } : {}),
       ...(nextExcludeFromRotations ? { excludeFromRotations: true } : {}),
+      ...(nextNotes ? { notes: nextNotes } : {}),
+      ...(nextNeedsScanReview !== undefined ? { needsScanReview: nextNeedsScanReview } : {}),
+      ...(nextVerifiedAt ? { verifiedAt: nextVerifiedAt } : {}),
       ...(typeof existing.userRating === 'number' ? { userRating: existing.userRating } : {}),
       ...(existing.userRatings && typeof existing.userRatings === 'object'
         ? { userRatings: { ...existing.userRatings } }
         : {}),
       ...(typeof existing.averageRating === 'number' ? { averageRating: existing.averageRating } : {}),
       ...(typeof existing.ratingsCount === 'number' ? { ratingsCount: existing.ratingsCount } : {}),
-      ...(existing.publisher ? { publisher: existing.publisher } : {}),
+      ...(nextPublisher ? { publisher: nextPublisher } : {}),
       ...(existing.previewLink ? { previewLink: existing.previewLink } : {}),
-      ...(existing.language ? { language: existing.language } : {}),
+      ...(nextLanguage ? { language: nextLanguage } : {}),
       ...(existing.dimensions ? { dimensions: existing.dimensions } : {}),
       spineColor: existing.spineColor,
       addedAt: existing.addedAt,
@@ -3153,8 +3209,17 @@ export function createAppStore(storage, deps = {}) {
       devModeUnlocked: state.settings.devModeUnlocked,
       showMiniWizards: state.settings.showMiniWizards,
       theme: state.settings.theme,
+      themePreset: state.settings.themePreset,
+      bookDetailStyle: state.settings.bookDetailStyle,
+      bookViewMode: state.settings.bookViewMode,
+      bookCardSize: state.settings.bookCardSize,
+      sidebarArtworkMode: state.settings.sidebarArtworkMode,
+      onboardingLandingMode: state.settings.onboardingLandingMode,
+      notificationsEnabled: state.settings.notificationsEnabled,
       coverAspectRatio: state.settings.coverAspectRatio,
       dynamicCoverTint: state.settings.dynamicCoverTint,
+      showPresetDecorations: state.settings.showPresetDecorations,
+      presetCornerArtSize: state.settings.presetCornerArtSize,
       preferredScanMode: state.settings.preferredScanMode,
     });
     await commit({
@@ -3235,7 +3300,7 @@ export function createAppStore(storage, deps = {}) {
         ...state.settings,
         onboarding: {
           status: skipped ? 'skipped' : 'completed',
-          currentStep: 5,
+          currentStep: 6,
           completedSteps: Array.isArray(prev?.completedSteps) ? prev.completedSteps : [],
           skippedSteps: Array.isArray(prev?.skippedSteps) ? prev.skippedSteps : [],
           ...(prev?.startedAt ? { startedAt: prev.startedAt } : {}),
@@ -3312,14 +3377,20 @@ export function createAppStore(storage, deps = {}) {
         ...seeded.settings,
         language: state.settings.language,
         theme: state.settings.theme,
+        themePreset: state.settings.themePreset,
+        bookDetailStyle: state.settings.bookDetailStyle,
+        bookViewMode: state.settings.bookViewMode,
+        bookCardSize: state.settings.bookCardSize,
+        sidebarArtworkMode: state.settings.sidebarArtworkMode,
+        onboardingLandingMode: state.settings.onboardingLandingMode,
         devModeUnlocked: state.settings.devModeUnlocked,
         showMiniWizards: state.settings.showMiniWizards,
         onboarding: options.preserveOnboarding
           ? state.settings.onboarding
           : {
               status: 'completed',
-              currentStep: 5,
-              completedSteps: [0, 1, 2, 3, 4, 5],
+              currentStep: 6,
+              completedSteps: [0, 1, 2, 3, 4, 5, 6],
               skippedSteps: [],
               completedAt: now,
             },
@@ -3367,7 +3438,7 @@ export function createAppStore(storage, deps = {}) {
           devModeUnlocked: state.settings.devModeUnlocked || snapshot.settings.devModeUnlocked,
           onboarding: {
             status: 'completed',
-            currentStep: 5,
+            currentStep: 6,
             completedSteps: snapshot.settings.onboarding?.completedSteps || [],
             skippedSteps: snapshot.settings.onboarding?.skippedSteps || [],
             completedAt: snapshot.settings.onboarding?.completedAt || now,
@@ -3384,7 +3455,7 @@ export function createAppStore(storage, deps = {}) {
         ...state.settings,
         onboarding: {
           status: 'completed',
-          currentStep: 5,
+          currentStep: 6,
           completedSteps: [],
           skippedSteps: [],
           completedAt: now,
@@ -3453,6 +3524,7 @@ export function createAppStore(storage, deps = {}) {
     const clean = createEmptyOnboardingState({
       language: state.settings.language,
       theme: state.settings.theme,
+      themePreset: state.settings.themePreset,
       devModeUnlocked: state.settings.devModeUnlocked,
       showMiniWizards: state.settings.showMiniWizards,
     });
@@ -3476,7 +3548,7 @@ export function createAppStore(storage, deps = {}) {
         devModeUnlocked: state.settings.devModeUnlocked || snapshot.settings.devModeUnlocked,
         onboarding: {
           status: 'completed',
-          currentStep: 5,
+          currentStep: 6,
           completedSteps: snapshot.settings.onboarding?.completedSteps || [],
           skippedSteps: snapshot.settings.onboarding?.skippedSteps || [],
           completedAt: snapshot.settings.onboarding?.completedAt || now,
@@ -3496,6 +3568,7 @@ export function createAppStore(storage, deps = {}) {
     const clean = createEmptyOnboardingState({
       language: state.settings.language,
       theme: state.settings.theme,
+      themePreset: state.settings.themePreset,
       devModeUnlocked: state.settings.devModeUnlocked,
       showMiniWizards: state.settings.showMiniWizards,
     });
@@ -3538,7 +3611,7 @@ export function createAppStore(storage, deps = {}) {
         ...state.settings,
         onboarding: {
           status: 'completed',
-          currentStep: 5,
+          currentStep: 6,
           completedSteps: state.settings.onboarding?.completedSteps || [],
           skippedSteps: state.settings.onboarding?.skippedSteps || [],
           completedAt: now,

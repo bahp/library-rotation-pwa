@@ -41,7 +41,7 @@ export const BottomNav: React.FC = () => {
   return (
     <nav
       aria-label="Mobile primary"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-night-900/95 backdrop-blur-md border-t border-linen-200/90 dark:border-night-800 pb-safe px-safe shadow-lg"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface/95 backdrop-blur-md border-t border-edge pb-safe px-safe shadow-lg"
     >
       <div className="flex items-center justify-around h-14 px-1 max-w-md mx-auto">
         {navItems.map((item) => {
@@ -49,7 +49,7 @@ export const BottomNav: React.FC = () => {
             item.id === currentRoute ||
             (item.id === 'rotations' && currentRoute === 'presets');
 
-          const iconStroke = isActive ? 2.35 : 1.8;
+          const iconStroke = isActive ? 2.2 : 1.75;
 
           if (item.emphasize) {
             return (
@@ -59,31 +59,29 @@ export const BottomNav: React.FC = () => {
                 data-nav-scan="true"
                 aria-label="Scan or add books"
                 aria-current={isActive ? 'page' : undefined}
-                className="group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] pb-1.5 focus-visible:outline-2 focus-visible:outline-forest-700"
+                className="group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] pb-1.5 focus-visible:outline-2 focus-visible:outline-primary"
               >
                 {isActive && (
                   <span
                     data-nav-active-indicator="true"
                     aria-hidden="true"
-                    className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2.5px] rounded-b-full bg-forest-700 dark:bg-[#5ED3DA]"
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2px] bg-primary"
                   />
                 )}
                 <span
                   data-nav-scan-orb="true"
-                  className={`-mt-6 mb-1 flex items-center justify-center w-12 h-12 rounded-full transition-all active:scale-95 ${
+                  className={`-mt-5 mb-1 flex items-center justify-center w-11 h-11 rounded-xl transition-all active:scale-95 ${
                     isActive
-                      ? 'bg-forest-700 text-white shadow-md ring-4 ring-forest-700/20 dark:bg-[#5ED3DA] dark:text-night-950 dark:ring-[#5ED3DA]/25 scale-[1.04]'
-                      : 'bg-linen-100 text-stone-ink border border-linen-200 shadow-sm ring-4 ring-ivory group-hover:text-forest-900 dark:bg-night-800 dark:text-slate-300 dark:border-night-700 dark:ring-night-900 dark:group-hover:text-white'
+                      ? 'bg-primary text-primary-fg shadow-md ring-2 ring-accent/40 scale-[1.03]'
+                      : 'bg-surface-elevated text-ink border border-edge shadow-xs ring-2 ring-surface group-hover:text-primary'
                   }`}
                 >
-                  <Icon name={item.icon} className="w-[22px] h-[22px]" strokeWidth={iconStroke} />
+                  <Icon name={item.icon} className="w-5 h-5" strokeWidth={iconStroke} />
                 </span>
                 <span
                   data-nav-label="true"
                   className={`text-[10px] leading-none tracking-tight whitespace-nowrap ${
-                    isActive
-                      ? 'font-bold text-forest-700 dark:text-[#5ED3DA]'
-                      : 'font-medium text-stone-ink/70 dark:text-slate-400'
+                    isActive ? 'font-semibold text-primary' : 'font-medium text-ink-muted'
                   }`}
                 >
                   {item.label}
@@ -97,23 +95,21 @@ export const BottomNav: React.FC = () => {
               key={item.id}
               href={`#/${item.id}`}
               aria-current={isActive ? 'page' : undefined}
-              className={`group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] px-1 pb-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-forest-700 ${
-                isActive
-                  ? 'text-forest-700 dark:text-[#5ED3DA]'
-                  : 'text-stone-ink/65 dark:text-slate-400 hover:text-forest-900 dark:hover:text-slate-100'
+              className={`group relative flex flex-col items-center justify-end h-full min-h-[48px] min-w-[48px] px-1 pb-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-primary ${
+                isActive ? 'text-primary' : 'text-ink-muted hover:text-ink'
               }`}
             >
               {isActive && (
                 <span
                   data-nav-active-indicator="true"
                   aria-hidden="true"
-                  className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2.5px] rounded-b-full bg-forest-700 dark:bg-[#5ED3DA]"
+                  className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2px] bg-primary"
                 />
               )}
               <span
                 data-nav-icon-slot="true"
                 className={`flex items-center justify-center h-6 mb-1 transition-transform duration-150 ${
-                  isActive ? 'scale-[1.06]' : 'group-hover:scale-105'
+                  isActive ? 'scale-[1.05]' : 'group-hover:scale-105'
                 }`}
               >
                 <Icon name={item.icon} className="w-5 h-5" strokeWidth={iconStroke} />
@@ -121,7 +117,7 @@ export const BottomNav: React.FC = () => {
               <span
                 data-nav-label="true"
                 className={`text-[10px] leading-none tracking-tight whitespace-nowrap ${
-                  isActive ? 'font-bold' : 'font-medium'
+                  isActive ? 'font-semibold' : 'font-medium'
                 }`}
               >
                 {item.label}

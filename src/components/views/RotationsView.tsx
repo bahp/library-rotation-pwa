@@ -4,6 +4,7 @@ import { RotationShelfCard } from '../cards/RotationShelfCard.js';
 import { RotationEditorModal } from '../modals/RotationEditorModal.js';
 import { PresetsView } from './PresetsView.js';
 import { Icon } from '../common/Icon.js';
+import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import { formatProfileAgeLabel, isBookRotatable } from '../../types/models.js';
 import type { BookFormat } from '../../types/models.js';
@@ -191,12 +192,12 @@ export const RotationsView: React.FC = () => {
       {/* Unified Header + Segmented Control (My Shelves | Collection Presets) */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-1">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-forest-700 dark:text-[#5ED3DA]">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
             {activeProfile
               ? `${activeProfile.name} · ${formatProfileAgeLabel(activeProfile)}`
               : 'Book Rotations'}
           </p>
-          <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
+          <h1 className="font-display text-3xl sm:text-[34px] font-semibold tracking-tight text-ink leading-tight mt-0.5">
             Book Rotations
           </h1>
         </div>
@@ -206,17 +207,17 @@ export const RotationsView: React.FC = () => {
           <div
             role="tablist"
             aria-label="Rotation workspace views"
-            className="inline-flex items-center p-1 rounded-2xl bg-linen-100 dark:bg-night-900 border border-linen-200 dark:border-night-800"
+            className="inline-flex items-center p-1 rounded-xl bg-surface-subtle border border-edge"
           >
             <button
               type="button"
               role="tab"
               aria-selected={!isPresetsTab}
               onClick={() => navigate('rotations')}
-              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                 !isPresetsTab
-                  ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                  ? 'bg-surface text-ink shadow-2xs'
+                  : 'text-ink-secondary hover:text-ink'
               }`}
             >
               My Shelves ({orderedRotations.length})
@@ -226,10 +227,10 @@ export const RotationsView: React.FC = () => {
               role="tab"
               aria-selected={isPresetsTab}
               onClick={() => navigate('presets')}
-              className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+              className={`min-h-[38px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                 isPresetsTab
-                  ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                  ? 'bg-surface text-ink shadow-2xs'
+                  : 'text-ink-secondary hover:text-ink'
               }`}
             >
               Collection Presets
@@ -241,16 +242,16 @@ export const RotationsView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setAiCuratorModal({ isOpen: true })}
-                className="min-h-[42px] px-3.5 py-2 rounded-xl bg-white hover:bg-linen-100 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-[#5ED3DA] font-semibold text-xs inline-flex items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
+                className="min-h-[42px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink font-semibold text-xs inline-flex items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
               >
-                <Icon name="sparkles" className="w-3.5 h-3.5 text-forest-700 dark:text-[#5ED3DA]" />
+                <Icon name="sparkles" className="w-3.5 h-3.5 text-accent" />
                 <span>AI Curator</span>
               </button>
 
               <button
                 type="button"
                 onClick={openGenerator}
-                className="min-h-[42px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
+                className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap cursor-pointer"
               >
                 <Icon name={isGeneratorOpen ? 'close' : 'plus'} className="w-4 h-4" />
                 <span>{isGeneratorOpen ? 'Close' : 'New Shelf'}</span>
@@ -277,23 +278,23 @@ export const RotationsView: React.FC = () => {
             >
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="animate-sheet-up sm:animate-none w-full max-h-[90dvh] sm:max-h-none flex flex-col rounded-t-3xl sm:rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl sm:shadow-md overflow-hidden pb-safe sm:pb-0"
+                className="animate-sheet-up sm:animate-none w-full max-h-[90dvh] sm:max-h-none flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl sm:shadow-sm overflow-hidden pb-safe sm:pb-0"
               >
                 <div
-                  className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden"
+                  className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden"
                   aria-hidden="true"
                 />
-                <div className="px-4 sm:px-5 py-3.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2 shrink-0">
+                <div className="px-4 sm:px-5 py-3.5 border-b border-edge-subtle flex items-center justify-between gap-2 shrink-0">
                   <div className="min-w-0">
                     <h2
                       id="new-shelf-generator-title"
-                      className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white truncate"
+                      className="font-display text-lg sm:text-xl font-semibold text-ink truncate"
                     >
                       {wizardMode
                         ? `Create Shelf · Step ${wizardStep} of 3`
                         : 'Generate Shelf Rotation'}
                     </h2>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
+                    <p className="text-xs text-ink-secondary truncate">
                       Reader: <strong>{activeProfile?.name || 'Reader'}</strong> ·{' '}
                       {rotatableLibraryCount} rotatable books available
                     </p>
@@ -303,7 +304,7 @@ export const RotationsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setWizardMode((prev) => !prev)}
-                      className="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline whitespace-nowrap cursor-pointer"
+                      className="text-xs font-semibold text-primary hover:underline whitespace-nowrap cursor-pointer"
                     >
                       {wizardMode ? 'Full Form' : 'Guided Wizard'}
                     </button>
@@ -311,7 +312,7 @@ export const RotationsView: React.FC = () => {
                       type="button"
                       onClick={() => setIsGeneratorOpen(false)}
                       aria-label="Close new shelf panel"
-                      className="min-h-[44px] min-w-[44px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center sm:hidden cursor-pointer"
+                      className="min-h-[44px] min-w-[44px] rounded-lg text-ink-secondary hover:bg-surface-elevated flex items-center justify-center sm:hidden cursor-pointer"
                     >
                       <Icon name="close" className="w-5 h-5" />
                     </button>
@@ -326,7 +327,7 @@ export const RotationsView: React.FC = () => {
                         <div className="space-y-3.5 text-xs">
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                              <label className="block font-semibold text-ink mb-1">
                                 Shelf Title
                               </label>
                               <input
@@ -334,25 +335,25 @@ export const RotationsView: React.FC = () => {
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
                                 placeholder={`e.g. ${activeProfile?.name || 'Reader'}’s Cozy Bedtime Shelf`}
-                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                                className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink placeholder:text-ink-muted"
                               />
                             </div>
                             <div>
-                              <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                              <label className="block font-semibold text-ink mb-1">
                                 Objective / Mood (Optional)
                               </label>
                               <ClearableInput
                                 value={objective}
                                 onValueChange={setObjective}
                                 placeholder="e.g. hardcover + bedtime & winter stories"
-                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                                className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink placeholder:text-ink-muted"
                               />
                             </div>
                           </div>
 
                           {topLibraryTags.length > 0 && (
                             <div>
-                              <p className="font-bold text-forest-900 dark:text-slate-200 mb-1.5">
+                              <p className="font-semibold text-ink mb-1.5">
                                 Pick Topics from Your Library
                               </p>
                               <div className="flex flex-wrap gap-1.5">
@@ -364,10 +365,10 @@ export const RotationsView: React.FC = () => {
                                       type="button"
                                       onClick={() => toggleSuggestedTag(tag)}
                                       aria-pressed={active}
-                                      className={`min-h-[34px] px-3 py-1 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+                                      className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                                         active
-                                          ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                                          : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-slate-200'
+                                          ? 'bg-primary text-primary-fg'
+                                          : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
                                       }`}
                                     >
                                       #{tag}
@@ -379,7 +380,7 @@ export const RotationsView: React.FC = () => {
                           )}
 
                           <div>
-                            <label className="block font-semibold text-stone-ink dark:text-slate-300 mb-1">
+                            <label className="block font-semibold text-ink-secondary mb-1">
                               Or Enter Custom Topics (comma-separated)
                             </label>
                             <input
@@ -387,7 +388,7 @@ export const RotationsView: React.FC = () => {
                               value={preferredTags}
                               onChange={(e) => setPreferredTags(e.target.value)}
                               placeholder="animals, space, seasons"
-                              className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                              className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-ink placeholder:text-ink-muted"
                             />
                           </div>
 
@@ -395,14 +396,14 @@ export const RotationsView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setIsGeneratorOpen(false)}
-                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-xl text-xs font-semibold text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-semibold text-ink-secondary hover:bg-surface-elevated cursor-pointer"
                             >
                               Cancel
                             </button>
                             <button
                               type="button"
                               onClick={() => setWizardStep(2)}
-                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <span>Next: Rules &amp; Pacing</span>
                               <Icon name="chevronRight" className="w-4 h-4" />
@@ -416,7 +417,7 @@ export const RotationsView: React.FC = () => {
                         <div className="space-y-3.5 text-xs">
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                             <div>
-                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                              <label className="block font-semibold text-ink-secondary mb-1">
                                 Books on Shelf
                               </label>
                               <input
@@ -425,11 +426,11 @@ export const RotationsView: React.FC = () => {
                                 max={20}
                                 value={bookCount}
                                 onChange={(e) => setBookCount(Number(e.target.value))}
-                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular text-forest-900 dark:text-white"
+                                className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge font-semibold font-mono-tabular text-ink"
                               />
                             </div>
                             <div>
-                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                              <label className="block font-semibold text-ink-secondary mb-1">
                                 Swap Cycle (Days)
                               </label>
                               <input
@@ -438,11 +439,11 @@ export const RotationsView: React.FC = () => {
                                 max={90}
                                 value={swapDays}
                                 onChange={(e) => setSwapDays(Number(e.target.value))}
-                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular text-forest-900 dark:text-white"
+                                className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge font-semibold font-mono-tabular text-ink"
                               />
                             </div>
                             <div>
-                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                              <label className="block font-semibold text-ink-secondary mb-1">
                                 Cooldown (Days)
                               </label>
                               <input
@@ -451,17 +452,17 @@ export const RotationsView: React.FC = () => {
                                 max={90}
                                 value={cooldownDays}
                                 onChange={(e) => setCooldownDays(Number(e.target.value))}
-                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold font-mono-tabular text-forest-900 dark:text-white"
+                                className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge font-semibold font-mono-tabular text-ink"
                               />
                             </div>
                             <div>
-                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                              <label className="block font-semibold text-ink-secondary mb-1">
                                 Binding Format
                               </label>
                               <select
                                 value={format}
                                 onChange={(e) => setFormat(e.target.value as any)}
-                                className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                                className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge font-semibold text-ink"
                               >
                                 <option value="any">Any Format</option>
                                 <option value="hardcover">Hardcover Only</option>
@@ -473,7 +474,7 @@ export const RotationsView: React.FC = () => {
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
                             <div>
-                              <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                              <label className="block font-semibold text-ink-secondary mb-1">
                                 Deterministic Seed (Optional)
                               </label>
                               <input
@@ -481,7 +482,7 @@ export const RotationsView: React.FC = () => {
                                 value={seed}
                                 onChange={(e) => setSeed(e.target.value)}
                                 placeholder="Repeatable PRNG seed string"
-                                className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                                className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge font-mono text-ink placeholder:text-ink-muted"
                               />
                             </div>
                             <div className="pt-2 sm:pt-4">
@@ -490,9 +491,9 @@ export const RotationsView: React.FC = () => {
                                   type="checkbox"
                                   checked={varietyMix}
                                   onChange={(e) => setVarietyMix(e.target.checked)}
-                                  className="w-4 h-4 rounded accent-[#1F6E75]"
+                                  className="w-4 h-4 rounded accent-[var(--primary)]"
                                 />
-                                <span className="font-semibold text-forest-900 dark:text-slate-200">
+                                <span className="font-semibold text-ink">
                                   Enforce author &amp; topic variety mix
                                 </span>
                               </label>
@@ -503,14 +504,14 @@ export const RotationsView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setWizardStep(1)}
-                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink cursor-pointer"
                             >
                               ← Back
                             </button>
                             <button
                               type="button"
                               onClick={() => setWizardStep(3)}
-                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-bold inline-flex items-center gap-1 transition-colors cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[40px] px-5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer"
                             >
                               <span>Review &amp; Generate</span>
                               <Icon name="chevronRight" className="w-4 h-4" />
@@ -522,42 +523,42 @@ export const RotationsView: React.FC = () => {
                       {/* Step 3: Review & Generate */}
                       {wizardStep === 3 && (
                         <div className="space-y-4 text-xs">
-                          <div className="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-800 p-4 space-y-1.5">
-                            <p className="text-sm font-bold text-forest-900 dark:text-white">
+                          <div className="rounded-lg bg-surface-subtle border border-edge p-4 space-y-1.5">
+                            <p className="font-display text-base font-semibold text-ink">
                               {title.trim() || `${activeProfile?.name || 'Reader'}’s Shelf Rotation`}
                             </p>
                             {objective.trim() && (
-                              <p className="text-stone-ink dark:text-slate-300">{objective.trim()}</p>
+                              <p className="text-ink-secondary">{objective.trim()}</p>
                             )}
-                            <p className="font-mono-tabular text-stone-ink dark:text-slate-400">
+                            <p className="font-mono-tabular text-ink-secondary">
                               {bookCount} books · {swapDays}d cycle · {cooldownDays}d cooldown ·{' '}
                               {format === 'any' ? 'Any format' : format}
                             </p>
                             {selectedTagList.length > 0 && (
-                              <p className="text-forest-700 dark:text-[#5ED3DA]">
+                              <p className="text-primary">
                                 Topics: {selectedTagList.map((t) => `#${t}`).join(' · ')}
                               </p>
                             )}
                           </div>
 
                           <div>
-                            <p className="font-bold text-forest-900 dark:text-slate-200 mb-1.5">
+                            <p className="font-semibold text-ink mb-1.5">
                               Create as Active or Saved Shelf
                             </p>
                             <div
                               role="radiogroup"
                               aria-label="New shelf initial state"
-                              className="grid grid-cols-2 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-800"
+                              className="grid grid-cols-2 p-1 rounded-lg bg-surface-subtle border border-edge"
                             >
                               <button
                                 type="button"
                                 role="radio"
                                 aria-checked={targetStatus === 'active'}
                                 onClick={() => setTargetStatus('active')}
-                                className={`min-h-[38px] rounded-lg font-bold transition-colors cursor-pointer ${
+                                className={`min-h-[38px] rounded-md font-semibold transition-colors cursor-pointer ${
                                   targetStatus === 'active'
-                                    ? 'bg-emerald-600 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
-                                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                                    ? 'bg-primary text-primary-fg shadow-2xs'
+                                    : 'text-ink-secondary hover:text-ink'
                                 }`}
                               >
                                 Active Shelf Now
@@ -567,10 +568,10 @@ export const RotationsView: React.FC = () => {
                                 role="radio"
                                 aria-checked={targetStatus === 'saved'}
                                 onClick={() => setTargetStatus('saved')}
-                                className={`min-h-[38px] rounded-lg font-bold transition-colors cursor-pointer ${
+                                className={`min-h-[38px] rounded-md font-semibold transition-colors cursor-pointer ${
                                   targetStatus === 'saved'
-                                    ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                                    : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                                    ? 'bg-surface text-ink shadow-2xs'
+                                    : 'text-ink-secondary hover:text-ink'
                                 }`}
                               >
                                 Saved (Inactive)
@@ -582,7 +583,7 @@ export const RotationsView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setWizardStep(2)}
-                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-xs font-semibold text-forest-900 dark:text-slate-200 cursor-pointer"
+                              className="min-h-[44px] sm:min-h-[40px] px-4 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink cursor-pointer"
                             >
                               ← Back
                             </button>
@@ -590,7 +591,7 @@ export const RotationsView: React.FC = () => {
                               type="button"
                               disabled={isGenerating}
                               onClick={() => handleGenerate()}
-                              className="min-h-[44px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                              className="min-h-[44px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shadow-xs transition-colors cursor-pointer"
                             >
                               {isGenerating
                                 ? 'Generating Shelf…'
@@ -607,7 +608,7 @@ export const RotationsView: React.FC = () => {
                     <form onSubmit={handleGenerate} className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                          <label className="block font-semibold text-ink-secondary mb-1">
                             Shelf Title
                           </label>
                           <input
@@ -615,24 +616,24 @@ export const RotationsView: React.FC = () => {
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder={`e.g. ${activeProfile?.name || 'Reader'}’s Winter Shelf`}
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                            className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-ink placeholder:text-ink-muted"
                           />
                         </div>
 
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                          <label className="block font-semibold text-ink-secondary mb-1">
                             Objective / Natural Language Rules
                           </label>
                           <ClearableInput
                             value={objective}
                             onValueChange={setObjective}
                             placeholder="e.g. hardcover + bedtime & winter stories"
-                            className="h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                            className="h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-ink placeholder:text-ink-muted"
                           />
                         </div>
 
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                          <label className="block font-semibold text-ink-secondary mb-1">
                             Number of Books
                           </label>
                           <input
@@ -641,18 +642,18 @@ export const RotationsView: React.FC = () => {
                             max={20}
                             value={bookCount}
                             onChange={(e) => setBookCount(Number(e.target.value))}
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                            className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge font-semibold font-mono-tabular text-ink"
                           />
                         </div>
 
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                          <label className="block font-semibold text-ink-secondary mb-1">
                             Binding Format Filter
                           </label>
                           <select
                             value={format}
                             onChange={(e) => setFormat(e.target.value as any)}
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                            className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge font-semibold text-ink"
                           >
                             <option value="any">Any Binding Format</option>
                             <option value="hardcover">Hardcover Only</option>
@@ -662,7 +663,7 @@ export const RotationsView: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                          <label className="block font-semibold text-ink-secondary mb-1">
                             Preferred Topics (comma-separated)
                           </label>
                           <input
@@ -670,13 +671,13 @@ export const RotationsView: React.FC = () => {
                             value={preferredTags}
                             onChange={(e) => setPreferredTags(e.target.value)}
                             placeholder="e.g. animals, bedtime, space"
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                            className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge text-ink placeholder:text-ink-muted"
                           />
                         </div>
 
                         <div className="grid grid-cols-2 gap-2.5">
                           <div>
-                            <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                            <label className="block font-semibold text-ink-secondary mb-1">
                               Swap Cycle (d)
                             </label>
                             <input
@@ -685,11 +686,11 @@ export const RotationsView: React.FC = () => {
                               max={90}
                               value={swapDays}
                               onChange={(e) => setSwapDays(Number(e.target.value))}
-                              className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                              className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge font-semibold font-mono-tabular text-ink"
                             />
                           </div>
                           <div>
-                            <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                            <label className="block font-semibold text-ink-secondary mb-1">
                               Cooldown (d)
                             </label>
                             <input
@@ -698,13 +699,13 @@ export const RotationsView: React.FC = () => {
                               max={90}
                               value={cooldownDays}
                               onChange={(e) => setCooldownDays(Number(e.target.value))}
-                              className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-semibold text-forest-900 dark:text-white"
+                              className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge font-semibold font-mono-tabular text-ink"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                          <label className="block font-semibold text-ink-secondary mb-1">
                             Deterministic Seed (Optional)
                           </label>
                           <input
@@ -712,28 +713,28 @@ export const RotationsView: React.FC = () => {
                             value={seed}
                             onChange={(e) => setSeed(e.target.value)}
                             placeholder="Repeatable PRNG seed string"
-                            className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 font-mono text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                            className="w-full h-11 px-3.5 rounded-lg bg-surface-subtle border border-edge font-mono text-ink placeholder:text-ink-muted"
                           />
                         </div>
 
                         <div>
-                          <label className="block font-bold text-stone-ink dark:text-slate-300 mb-1">
+                          <label className="block font-semibold text-ink-secondary mb-1">
                             Initial Shelf State
                           </label>
                           <div
                             role="radiogroup"
                             aria-label="New shelf initial state"
-                            className="grid grid-cols-2 p-1 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 h-11"
+                            className="grid grid-cols-2 p-1 rounded-lg bg-surface-subtle border border-edge h-11"
                           >
                             <button
                               type="button"
                               role="radio"
                               aria-checked={targetStatus === 'active'}
                               onClick={() => setTargetStatus('active')}
-                              className={`rounded-lg font-bold transition-colors cursor-pointer ${
+                              className={`rounded-md font-semibold transition-colors cursor-pointer ${
                                 targetStatus === 'active'
-                                  ? 'bg-emerald-600 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
-                                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                                  ? 'bg-primary text-primary-fg shadow-2xs'
+                                  : 'text-ink-secondary hover:text-ink'
                               }`}
                             >
                               Active Shelf
@@ -743,10 +744,10 @@ export const RotationsView: React.FC = () => {
                               role="radio"
                               aria-checked={targetStatus === 'saved'}
                               onClick={() => setTargetStatus('saved')}
-                              className={`rounded-lg font-bold transition-colors cursor-pointer ${
+                              className={`rounded-md font-semibold transition-colors cursor-pointer ${
                                 targetStatus === 'saved'
-                                  ? 'bg-white dark:bg-night-800 text-forest-900 dark:text-white shadow-2xs'
-                                  : 'text-stone-ink dark:text-slate-400 hover:text-forest-900 dark:hover:text-white'
+                                  ? 'bg-surface text-ink shadow-2xs'
+                                  : 'text-ink-secondary hover:text-ink'
                               }`}
                             >
                               Saved (Inactive)
@@ -760,9 +761,9 @@ export const RotationsView: React.FC = () => {
                               type="checkbox"
                               checked={varietyMix}
                               onChange={(e) => setVarietyMix(e.target.checked)}
-                              className="w-4 h-4 rounded accent-[#1F6E75]"
+                              className="w-4 h-4 rounded accent-[var(--primary)]"
                             />
-                            <span className="font-semibold text-forest-900 dark:text-slate-200">
+                            <span className="font-semibold text-ink">
                               Enforce author &amp; topic variety mix
                             </span>
                           </label>
@@ -773,14 +774,14 @@ export const RotationsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setIsGeneratorOpen(false)}
-                          className="min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-xl text-stone-ink dark:text-slate-300 hover:bg-linen-100 dark:hover:bg-night-800 text-xs font-semibold cursor-pointer"
+                          className="min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-lg text-ink-secondary hover:bg-surface-elevated text-xs font-semibold cursor-pointer"
                         >
                           Cancel
                         </button>
                         <button
                           type="submit"
                           disabled={isGenerating}
-                          className="min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                          className="min-h-[44px] sm:min-h-[40px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shadow-xs transition-colors cursor-pointer"
                         >
                           {isGenerating
                             ? 'Generating Shelf…'
@@ -827,25 +828,26 @@ export const RotationsView: React.FC = () => {
               })}
             </div>
           ) : (
-            <div className="p-8 text-center rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 space-y-3">
-              <p className="text-sm font-semibold text-forest-900 dark:text-white">
+            <div className="p-8 text-center rounded-xl bg-surface border border-edge space-y-3">
+              <BotanicalIllustration variant="empty-shelf" className="w-40 h-auto mx-auto" />
+              <h2 className="font-display text-xl font-semibold text-ink">
                 No shelf rotations yet for {activeProfile?.name || 'this reader'}.
-              </p>
-              <p className="text-xs text-stone-ink dark:text-slate-400">
+              </h2>
+              <p className="text-xs text-ink-secondary max-w-sm mx-auto">
                 Create a custom rotation shelf or pick a seasonal Collection Preset in one tap.
               </p>
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
                 <button
                   type="button"
                   onClick={openGenerator}
-                  className="min-h-[42px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs transition-colors cursor-pointer"
+                  className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs transition-colors cursor-pointer"
                 >
                   New Shelf
                 </button>
                 <button
                   type="button"
                   onClick={() => navigate('presets')}
-                  className="min-h-[42px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-forest-900 dark:text-white font-semibold text-xs cursor-pointer"
+                  className="min-h-[42px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink font-semibold text-xs cursor-pointer transition-colors"
                 >
                   Browse Presets
                 </button>

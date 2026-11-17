@@ -6,13 +6,14 @@ import {
 } from '../../features/rotations/rotation-presets.js';
 import { renderPresetCornerDecoration } from '../../ui/preset-motifs.js';
 import { resolvePresetArtworkUrl } from '../../ui/preset-artwork.js';
-import type { Book, RotationPreset } from '../../types/models.js';
+import type { Book, PresetCornerArtSize, RotationPreset } from '../../types/models.js';
 
 interface PresetCardProps {
   preset: RotationPreset;
   books?: Book[];
   t: (key: string) => string;
   showCornerDecoration?: boolean;
+  cornerArtSize?: PresetCornerArtSize;
   onApply: (preset: RotationPreset) => void;
   onToggleActive?: (preset: RotationPreset) => void;
   onEdit?: (preset: RotationPreset) => void;
@@ -39,11 +40,18 @@ export function formatPresetCategoryLabel(
   }
 }
 
+const CORNER_ART_SIZE_CLASS: Record<PresetCornerArtSize, string> = {
+  sm: 'w-20 h-20 sm:w-24 sm:h-24',
+  md: 'w-28 h-28 sm:w-32 sm:h-32',
+  lg: 'w-36 h-36 sm:w-44 sm:h-44',
+};
+
 export const PresetCard: React.FC<PresetCardProps> = ({
   preset,
   books = [],
   t,
   showCornerDecoration = true,
+  cornerArtSize = 'md',
   onApply,
   onToggleActive,
   onEdit,
@@ -64,23 +72,24 @@ export const PresetCard: React.FC<PresetCardProps> = ({
     showCornerDecoration && (artFailed || !artworkUrl)
       ? renderPresetCornerDecoration(preset)
       : '';
+  const artContainerSizeClass = CORNER_ART_SIZE_CLASS[cornerArtSize] || CORNER_ART_SIZE_CLASS.md;
 
   return (
     <article
       data-preset-card={preset.id}
-      className={`relative overflow-hidden rounded-2xl bg-ivory dark:bg-night-900 border p-5 sm:p-5.5 shadow-2xs flex flex-col justify-between transition-all hover:shadow-md ${
+      className={`relative overflow-hidden rounded-xl bg-surface border p-5 sm:p-5.5 shadow-2xs flex flex-col justify-between transition-all hover:shadow-md ${
         isPaused ? 'opacity-80' : ''
       } ${
         isUpcomingAlert && !isPaused
-          ? 'border-amber-400 dark:border-amber-500/70 ring-2 ring-amber-400/20'
-          : 'border-linen-200/90 dark:border-night-800 hover:border-linen-300 dark:hover:border-night-700'
+          ? 'border-accent ring-1 ring-accent/35'
+          : 'border-edge hover:border-primary/40'
       }`}
     >
-      {/* Top-right watercolor corner artwork blended smoothly into card surface */}
+      {/* Top-right vintage botanical artwork blended softly into card corner */}
       {showCornerDecoration && artworkUrl && !artFailed && (
         <div
           aria-hidden="true"
-          className="pointer-events-none select-none absolute top-0 right-0 w-28 h-28 sm:w-32 sm:h-32 overflow-hidden rounded-tr-2xl"
+          className={`pointer-events-none select-none absolute top-0 right-0 ${artContainerSizeClass} overflow-hidden rounded-tr-xl`}
         >
           <img
             key={artworkUrl}
@@ -90,11 +99,16 @@ export const PresetCard: React.FC<PresetCardProps> = ({
             onError={() => setArtFailed(true)}
             style={{
               maskImage:
-                'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.58) 44%, transparent 76%)',
+                'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 42%, transparent 74%)',
               WebkitMaskImage:
-                'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.58) 44%, transparent 76%)',
+                'radial-gradient(circle at 92% 8%, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.45) 42%, transparent 74%)',
             }}
-            className="w-full h-full object-cover object-center opacity-90 mix-blend-multiply dark:mix-blend-lighten dark:opacity-28"
+            className={`w-full h-full object-cover object-center mix-blend-multiply dark:mix-blend-screen ${
+              cornerArtSize === 'lg' ? 'opacity-55 dark:opacity-15' : 'opacity-65 dark:opacity-18'
+            }`}
+          />
+          <div
+            className="absolute inset-0 bg-gradient-to-bl from-transparent via-surface/35 to-surface/85"
           />
         </div>
       )}
@@ -108,47 +122,43 @@ export const PresetCard: React.FC<PresetCardProps> = ({
       )}
 
       <div className="relative z-10 space-y-2.5">
-        <div
-          className={`flex items-start gap-2.5 ${
-            showCornerDecoration ? 'pr-16 sm:pr-20' : ''
-          }`}
-        >
+        <div className="flex items-start gap-2.5">
           {!showCornerDecoration && (
             <span
               aria-hidden="true"
-              className="w-8 h-8 rounded-xl bg-linen-100 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center shrink-0 mt-0.5"
+              className="w-8 h-8 rounded-lg bg-surface-subtle border border-edge text-primary flex items-center justify-center shrink-0 mt-0.5"
             >
               <Icon name="presets" className="w-4 h-4" />
             </span>
           )}
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-forest-700 dark:text-[#5ED3DA]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">
                 {categoryLabel}
                 {preset.isCustom ? ' · Custom' : preset.isBuiltInOverride ? ' · Customized' : ''}
               </p>
               {isPaused && (
-                <span className="text-[10px] font-bold uppercase tracking-[0.06em] text-stone-ink dark:text-slate-400">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-ink-muted">
                   · Paused
                 </span>
               )}
             </div>
-            <h3 className="font-display text-base sm:text-[17px] font-bold text-forest-900 dark:text-white leading-snug mt-1">
+            <h3 className="font-display text-lg font-semibold text-ink leading-snug mt-1">
               {preset.title}
             </h3>
           </div>
         </div>
 
-        <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed line-clamp-2 pr-6">
+        <p className="text-xs text-ink-secondary leading-relaxed line-clamp-2">
           {preset.description}
         </p>
 
         {/* Zero-pill crisp dot-separated schedule, match & tag metadata */}
-        <p className="text-[11px] font-mono-tabular text-stone-ink/90 dark:text-slate-300">
+        <p className="text-[11px] font-mono-tabular text-ink-secondary">
           <span
             className={
               (isUpcomingAlert || schedule.isStartToday) && !isPaused
-                ? 'font-semibold text-amber-800 dark:text-amber-300'
+                ? 'font-semibold text-accent'
                 : ''
             }
           >
@@ -160,7 +170,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
           <span>{preset.swapDays || 14}d cycle</span>
         </p>
 
-        <p className="text-[11px] text-forest-700 dark:text-[#5ED3DA] font-medium">
+        <p className="text-[11px] text-primary font-medium">
           {matchCounts.thematicMatchCount > 0
             ? `${matchCounts.thematicMatchCount} thematic ${
                 matchCounts.thematicMatchCount === 1 ? 'match' : 'matches'
@@ -169,7 +179,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
         </p>
 
         {preset.preferredTags && preset.preferredTags.length > 0 && (
-          <p className="text-[11px] text-stone-ink/80 dark:text-slate-400 truncate">
+          <p className="text-[11px] text-ink-muted truncate">
             {preset.preferredTags
               .slice(0, 5)
               .map((tag) => `#${tag}`)
@@ -178,10 +188,10 @@ export const PresetCard: React.FC<PresetCardProps> = ({
         )}
       </div>
 
-      <div className="relative z-10 mt-4 pt-3 border-t border-linen-200/80 dark:border-night-800 space-y-2">
+      <div className="relative z-10 mt-4 pt-3 border-t border-edge-subtle space-y-2">
         {confirmDelete && onDelete ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-3 py-2">
-            <span className="text-xs font-semibold text-rose-900 dark:text-rose-200">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-elevated border border-[#8C4A4F]/50 px-3 py-2">
+            <span className="text-xs font-semibold text-ink">
               Delete preset?
             </span>
             <div className="flex items-center gap-1.5">
@@ -191,14 +201,14 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                   onDelete(preset);
                   setConfirmDelete(false);
                 }}
-                className="min-h-[32px] px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold"
+                className="min-h-[32px] px-2.5 py-1 rounded bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold cursor-pointer"
               >
                 Delete
               </button>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(false)}
-                className="min-h-[32px] px-2.5 py-1 rounded-lg bg-ivory dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200"
+                className="min-h-[32px] px-2.5 py-1 rounded bg-surface border border-edge text-xs font-semibold text-ink cursor-pointer"
               >
                 Cancel
               </button>
@@ -219,8 +229,8 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                   }
                   className={`min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
                     isPaused
-                      ? 'text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40'
-                      : 'text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800'
+                      ? 'text-primary hover:bg-surface-elevated'
+                      : 'text-ink-secondary hover:text-ink hover:bg-surface-elevated'
                   }`}
                 >
                   <Icon name={isPaused ? 'play' : 'pause'} className="w-3 h-3" />
@@ -231,7 +241,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                 <button
                   type="button"
                   onClick={() => onEdit(preset)}
-                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 transition-colors cursor-pointer"
+                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-ink-secondary hover:text-ink hover:bg-surface-elevated transition-colors cursor-pointer"
                 >
                   Edit
                 </button>
@@ -240,7 +250,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                 <button
                   type="button"
                   onClick={() => onClone(preset)}
-                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 transition-colors cursor-pointer"
+                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-ink-secondary hover:text-ink hover:bg-surface-elevated transition-colors cursor-pointer"
                 >
                   Clone
                 </button>
@@ -249,7 +259,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                 <button
                   type="button"
                   onClick={() => onResetDefault(preset)}
-                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-amber-800 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40 transition-colors cursor-pointer"
+                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-accent hover:bg-surface-elevated transition-colors cursor-pointer"
                 >
                   Reset
                 </button>
@@ -258,7 +268,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-surface-elevated transition-colors cursor-pointer"
                 >
                   Delete
                 </button>
@@ -268,10 +278,10 @@ export const PresetCard: React.FC<PresetCardProps> = ({
             <button
               type="button"
               onClick={() => onApply(preset)}
-              className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
+              className="min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
             >
               <Icon name="sparkles" className="w-3.5 h-3.5" />
-              <span>Generate Shelf</span>
+              <span>Generate</span>
             </button>
           </div>
         )}

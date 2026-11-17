@@ -132,24 +132,24 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="cover-studio-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-xl sm:max-w-2xl bg-ivory dark:bg-night-900 rounded-t-3xl sm:rounded-2xl border border-linen-200 dark:border-night-700 shadow-2xl px-5 pt-3 pb-5 sm:p-6 my-auto max-h-[90vh] flex flex-col pb-safe sm:pb-6"
+        className="animate-sheet-up w-full max-w-xl sm:max-w-2xl bg-surface rounded-t-2xl sm:rounded-xl border border-edge shadow-2xl px-5 pt-3 pb-5 sm:p-6 my-auto max-h-[90vh] flex flex-col pb-safe sm:pb-6"
       >
-        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mb-3 shrink-0 sm:hidden" />
-        <div className="flex items-center justify-between pb-3 border-b border-linen-200/80 dark:border-night-800">
-          <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl bg-forest-700/10 dark:bg-[#5ED3DA]/15 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center font-bold">
+        <div className="w-10 h-1 bg-edge rounded-full mx-auto mb-3 shrink-0 sm:hidden" />
+        <div className="flex items-center justify-between pb-3 border-b border-edge-subtle">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-surface-subtle border border-edge-subtle text-primary dark:text-accent flex items-center justify-center">
               <Icon name="photo" className="w-4 h-4" />
             </span>
             <div>
-              <h2 id="cover-studio-title" className="font-display text-lg font-bold text-forest-900 dark:text-white">
+              <h2 id="cover-studio-title" className="font-display text-lg font-semibold text-ink">
                 Cover Art Studio
               </h2>
-              <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+              <p className="text-xs text-ink-secondary mt-0.5">
                 Update cover for “{book.title}”
               </p>
             </div>
@@ -159,7 +159,7 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
             type="button"
             onClick={onClose}
             aria-label="Close cover studio"
-            className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-linen-100 dark:hover:bg-night-800 transition-all active:scale-95 flex items-center justify-center"
+            className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated transition-all active:scale-95 flex items-center justify-center"
           >
             <Icon name="close" className="w-5 h-5" />
           </button>
@@ -167,8 +167,8 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
 
         {/* Upload or Custom URL options */}
         <div className="pt-4 flex flex-col sm:flex-row sm:items-center gap-2.5">
-          <label className="min-h-[48px] sm:min-h-0 cursor-pointer px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-stone-800 dark:text-white text-xs font-semibold inline-flex items-center justify-center sm:justify-start gap-2 transition-all active:scale-[0.98] border border-linen-200 dark:border-night-700 shrink-0">
-            <Icon name="camera" className="w-4 h-4 text-forest-700 dark:text-[#5ED3DA]" />
+          <label className="min-h-[48px] sm:min-h-0 cursor-pointer px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated text-ink text-xs font-semibold inline-flex items-center justify-center sm:justify-start gap-2 transition-all active:scale-[0.98] border border-edge shrink-0">
+            <Icon name="camera" className="w-4 h-4 text-primary dark:text-accent" />
             <span>Upload Photo / Image</span>
             <input
               type="file"
@@ -184,12 +184,12 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
               value={customUrl}
               onChange={(e) => setCustomUrl(e.target.value)}
               placeholder="Or paste cover image URL…"
-              className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-forest-700"
+              className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-surface-subtle border border-edge text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
             />
             {customUrl.trim() && (
               <button
                 type="submit"
-                className="px-3 py-2 rounded-xl bg-linen-200 hover:bg-linen-300 dark:bg-night-700 text-forest-900 dark:text-white text-xs font-bold shrink-0"
+                className="px-3 py-2 rounded-lg bg-surface-elevated hover:bg-edge/40 border border-edge text-ink text-xs font-semibold shrink-0"
               >
                 Use URL
               </button>
@@ -205,12 +205,12 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
               value={query}
               onValueChange={setQuery}
               placeholder="Search Google & Open Library for covers…"
-              className="px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700"
+              className="px-3.5 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
             />
             <button
               type="submit"
               disabled={loading}
-              className="min-h-[48px] sm:min-h-0 px-4 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shrink-0 flex items-center gap-1.5 active:scale-[0.98] transition-all"
+              className="min-h-[48px] sm:min-h-0 px-4 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shrink-0 flex items-center gap-1.5 active:scale-[0.98] transition-all disabled:opacity-55"
             >
               <Icon name="search" className="w-3.5 h-3.5" />
               <span>{loading ? 'Searching…' : 'Find'}</span>
@@ -219,7 +219,7 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
         </form>
 
         {error && (
-          <p className="mt-2 text-xs text-rose-600 dark:text-rose-400 font-medium">
+          <p className="mt-2 text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
             {error}
           </p>
         )}
@@ -234,9 +234,9 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
                 <div
                   key={`${res.coverUrl}-${i}`}
                   onClick={() => handleSelectCover(res.coverUrl)}
-                  className="group cursor-pointer rounded-xl overflow-hidden border border-linen-200 dark:border-night-700 bg-white dark:bg-night-800 hover:ring-2 hover:ring-forest-700 dark:hover:ring-[#5ED3DA] transition-all active:scale-[0.98] flex flex-col p-1.5"
+                  className="group cursor-pointer rounded-xl overflow-hidden border border-edge bg-surface-subtle hover:ring-2 hover:ring-primary transition-all active:scale-[0.98] flex flex-col p-1.5"
                 >
-                  <div className="relative aspect-[3/4] rounded-lg overflow-hidden mb-1.5 bg-linen-100 dark:bg-night-900">
+                  <div className="relative aspect-[3/4] rounded-lg overflow-hidden mb-1.5 bg-surface-elevated">
                     <img
                       src={res.coverUrl}
                       alt={res.title}
@@ -244,14 +244,14 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>
-                  <span className="text-[10px] text-stone-500 truncate block">
+                  <span className="text-[10px] text-ink-secondary truncate block">
                     {res.source}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="py-8 text-center text-stone-ink dark:text-slate-400 text-xs">
+            <div className="py-8 text-center text-ink-secondary text-xs">
               Search above to find jacket artwork across Google Books and Open Library.
             </div>
           )}

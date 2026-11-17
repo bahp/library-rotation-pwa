@@ -163,9 +163,8 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
 
   const renderIdentityFields = () => (
     <div className="space-y-4">
-      {/* Name */}
       <div>
-        <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+        <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-1">
           Reader Name
         </label>
         <input
@@ -174,22 +173,21 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Maya, Lucas, Leo"
-          className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700 text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+          className="w-full px-3.5 py-2.5 rounded-lg bg-canvas border border-edge text-sm focus:outline-2 focus:outline-primary text-ink placeholder:text-ink-muted"
         />
       </div>
 
-      {/* Birth Date Input with exact text-left and px-3.5 padding */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <div className="flex items-center justify-between mb-1">
             <label
               htmlFor="profile-birth-date"
-              className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+              className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
             >
               Birth Date
             </label>
             {computedAge !== null && (
-              <span className="text-xs font-bold text-forest-800 dark:text-[#5ED3DA]">
+              <span className="text-xs font-mono-tabular font-semibold text-primary">
                 {computedAge} yrs
               </span>
             )}
@@ -200,19 +198,18 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
             id="profile-birth-date"
             value={birthDate}
             onChange={(e) => handleBirthDateChange(e.target.value)}
-            className="w-full text-left px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700 text-forest-900 dark:text-white"
+            className="w-full text-left px-3.5 py-2.5 rounded-lg bg-canvas border border-edge text-sm focus:outline-2 focus:outline-primary text-ink"
           />
         </div>
 
-        {/* Reading Stage */}
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+          <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-1">
             Reading Stage
           </label>
           <select
             value={readingStage}
             onChange={(e) => setReadingStage(e.target.value as ReadingStage)}
-            className="w-full px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm focus:outline-none focus:ring-1 focus:ring-forest-700 text-forest-900 dark:text-white"
+            className="w-full px-3.5 py-2.5 rounded-lg bg-canvas border border-edge text-sm focus:outline-2 focus:outline-primary text-ink"
           >
             <option value="board-toddler">Board Book (Ages 0–3)</option>
             <option value="picture-book">Picture Book (Ages 3–6)</option>
@@ -227,7 +224,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
 
       {/* Avatar Color Swatch Picker */}
       <div>
-        <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-2">
+        <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-2">
           Avatar Color
         </label>
         <div className="flex items-center gap-3 flex-wrap">
@@ -241,13 +238,13 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
                 type="button"
                 onClick={() => setAvatarTone(opt.id)}
                 aria-label={`Select ${opt.label} color`}
-                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${toneStyle} ${
+                className={`w-9 h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${toneStyle} ${
                   isSelected
-                    ? 'ring-3 ring-offset-2 ring-forest-700 dark:ring-[#5ED3DA] scale-110'
+                    ? 'ring-2 ring-offset-2 ring-offset-surface ring-primary scale-105'
                     : 'opacity-80 hover:opacity-100'
                 }`}
               >
-                {isSelected && <Icon name="check" className="w-4 h-4 text-white" />}
+                {isSelected && <Icon name="check" className="w-4 h-4 text-[#FFFCF5]" />}
               </button>
             );
           })}
@@ -258,9 +255,8 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
 
   const renderInterestsAndRulesFields = () => (
     <div className="space-y-4">
-      {/* Favorite Topics */}
       <div>
-        <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-2">
+        <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-2">
           Favorite Topics &amp; Themes
         </label>
         <div className="flex flex-wrap gap-1.5">
@@ -271,10 +267,10 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
                 key={topic}
                 type="button"
                 onClick={() => handleToggleTopic(topic)}
-                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                   isSelected
-                    ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950 shadow-2xs'
-                    : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-subtitle dark:text-slate-300'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink-secondary'
                 }`}
               >
                 #{topic}
@@ -295,22 +291,21 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
               }
             }}
             placeholder="Add custom interest (e.g. ocean, cooking)…"
-            className="flex-1 px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-forest-700"
+            className="flex-1 px-3 py-2 rounded-lg bg-canvas border border-edge text-xs text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-primary"
           />
           <button
             type="button"
             onClick={handleAddCustomTopic}
-            className="px-3 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white"
+            className="px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink cursor-pointer"
           >
             Add
           </button>
         </div>
       </div>
 
-      {/* Shelf Rules Defaults */}
       <div className="grid grid-cols-2 gap-3 pt-1">
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+          <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-1">
             Default Shelf Books
           </label>
           <input
@@ -319,12 +314,12 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
             max={15}
             value={defaultRotationSize}
             onChange={(e) => setDefaultRotationSize(Number(e.target.value))}
-            className="w-full px-3.5 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+            className="w-full px-3.5 py-2 rounded-lg bg-canvas border border-edge text-sm font-mono-tabular font-semibold text-ink focus:outline-2 focus:outline-primary"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400 mb-1">
+          <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted mb-1">
             Cooldown (Days)
           </label>
           <input
@@ -333,7 +328,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
             max={90}
             value={cooldownDays}
             onChange={(e) => setCooldownDays(Number(e.target.value))}
-            className="w-full px-3.5 py-2 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm font-semibold text-forest-900 dark:text-white"
+            className="w-full px-3.5 py-2 rounded-lg bg-canvas border border-edge text-sm font-mono-tabular font-semibold text-ink focus:outline-2 focus:outline-primary"
           />
         </div>
       </div>
@@ -345,28 +340,28 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="profile-form-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-lg sm:max-w-xl bg-ivory dark:bg-night-900 rounded-t-3xl sm:rounded-2xl border border-linen-200 dark:border-night-700 shadow-2xl px-5 pt-3 pb-5 sm:p-6 my-auto max-h-[92vh] flex flex-col pb-safe sm:pb-6"
+        className="animate-sheet-up w-full max-w-lg sm:max-w-xl bg-surface rounded-t-2xl sm:rounded-xl border border-edge shadow-2xl px-5 pt-3 pb-5 sm:p-6 my-auto max-h-[92vh] flex flex-col pb-safe sm:pb-6"
       >
-        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mb-3 shrink-0 sm:hidden" aria-hidden="true" />
-        <div className="flex items-center justify-between pb-3 border-b border-linen-200/80 dark:border-night-800 gap-2">
+        <div className="w-10 h-1 bg-edge rounded-full mx-auto mb-3 shrink-0 sm:hidden" aria-hidden="true" />
+        <div className="flex items-center justify-between pb-3 border-b border-edge-subtle gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="w-8 h-8 rounded-xl bg-forest-700/10 dark:bg-[#5ED3DA]/15 text-forest-800 dark:text-[#5ED3DA] flex items-center justify-center font-bold shrink-0">
+            <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <Icon name="profiles" className="w-4 h-4" />
             </span>
             <div className="min-w-0">
               <h2
                 id="profile-form-title"
-                className="font-display text-lg font-bold text-forest-900 dark:text-white truncate"
+                className="font-display text-xl font-semibold text-ink truncate"
               >
                 {existingProfile ? `Edit ${existingProfile.name}’s Profile` : 'Add Reader Profile'}
               </h2>
               {isGuidedSteps && (
-                <p className="text-[11px] font-medium text-stone-ink dark:text-slate-400">
+                <p className="text-[11px] font-medium text-ink-secondary">
                   Step {wizardStep} of 2 · {wizardStep === 1 ? 'Reader details & stage' : 'Interests & shelf rules'}
                 </p>
               )}
@@ -378,7 +373,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
               <button
                 type="button"
                 onClick={() => setWizardMode((m) => !m)}
-                className="text-[11px] font-semibold text-forest-800 dark:text-[#5ED3DA] hover:underline px-2 py-1"
+                className="text-[11px] font-semibold text-primary hover:underline px-2 py-1 cursor-pointer"
               >
                 {wizardMode ? 'Full Form' : 'Guided Steps'}
               </button>
@@ -387,7 +382,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Close profile form"
-              className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-white hover:bg-linen-100 dark:hover:bg-night-800 transition-all active:scale-95 flex items-center justify-center"
+              className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-subtle transition-all active:scale-95 flex items-center justify-center cursor-pointer"
             >
               <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
@@ -395,7 +390,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
         </div>
 
         {error && (
-          <div className="mt-3 p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300 font-medium">
+          <div className="mt-3 p-2.5 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
             {error}
           </div>
         )}
@@ -410,20 +405,20 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
           ) : (
             <>
               {renderIdentityFields()}
-              <div className="pt-2 border-t border-linen-200/70 dark:border-night-800">
+              <div className="pt-2 border-t border-edge-subtle">
                 {renderInterestsAndRulesFields()}
               </div>
             </>
           )}
 
           {/* Footer Actions */}
-          <div className="pt-4 border-t border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
+          <div className="pt-4 border-t border-edge-subtle flex items-center justify-between gap-2">
             <div>
               {isGuidedSteps && wizardStep === 2 && (
                 <button
                   type="button"
                   onClick={() => setWizardStep(1)}
-                  className="min-h-[48px] sm:min-h-[38px] px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-700 dark:text-slate-300 hover:bg-linen-100 dark:hover:bg-night-800 active:scale-[0.98] transition-all"
+                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-lg text-xs font-semibold text-ink-secondary hover:text-ink hover:bg-surface-subtle active:scale-[0.98] transition-all cursor-pointer"
                 >
                   ← Back
                 </button>
@@ -434,7 +429,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 dark:text-slate-400 hover:bg-linen-100 dark:hover:bg-night-800 active:scale-[0.98] transition-all"
+                className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-lg text-xs font-semibold text-ink-secondary hover:text-ink hover:bg-surface-subtle active:scale-[0.98] transition-all cursor-pointer"
               >
                 Cancel
               </button>
@@ -443,14 +438,14 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
                 <button
                   type="button"
                   onClick={handleWizardNext}
-                  className="min-h-[48px] sm:min-h-[38px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
+                  className="min-h-[44px] sm:min-h-[38px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shadow-xs transition-all active:scale-[0.98] cursor-pointer"
                 >
                   Next: Interests →
                 </button>
               ) : (
                 <button
                   type="submit"
-                  className="min-h-[48px] sm:min-h-[38px] px-5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:text-night-950 font-bold text-xs shadow-xs transition-all active:scale-[0.98]"
+                  className="min-h-[44px] sm:min-h-[38px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shadow-xs transition-all active:scale-[0.98] cursor-pointer"
                 >
                   {existingProfile ? 'Save Changes' : 'Create Reader Profile'}
                 </button>

@@ -10,14 +10,23 @@ import {
 import {
   SUPPORTED_LANGUAGES,
   AVATAR_TONES,
+  THEME_PRESETS,
+  LIGHT_THEME_PRESET_IDS,
+  DARK_THEME_PRESET_IDS,
   normalizeLanguage,
+  resolveEffectiveThemeConfig,
 } from '../../config/index.js';
 import { DEFAULT_PRESET_ILLUSTRATION_PROMPT } from '../../config/defaults.js';
 import {
   formatProfileAgeLabel,
   formatReadingStage,
-  type ThemeMode,
+  type ThemePresetId,
+  type BookDetailStyle,
+  type BookViewMode,
+  type BookCardSize,
+  type SidebarArtworkMode,
   type CoverAspectRatio,
+  type PresetCornerArtSize,
   type LlmProvider,
 } from '../../types/models.js';
 import { APP_VERSION, APP_DOCS_LINKS } from '../../version.js';
@@ -295,8 +304,47 @@ export const SettingsView: React.FC = () => {
   }, [state.books]);
 
   // Appearance handlers
-  const handleThemeChange = async (theme: ThemeMode) => {
-    await store.updateSettings({ theme });
+  const handleSelectThemePreset = async (presetId: ThemePresetId) => {
+    const preset = THEME_PRESETS[presetId];
+    if (!preset) return;
+    await store.updateSettings({
+      theme: preset.mode,
+      themePreset: preset.id,
+    });
+  };
+
+  const handleToggleSystemAuto = async () => {
+    if (state.settings.theme === 'system') {
+      const effective = resolveEffectiveThemeConfig(
+        'system',
+        state.settings.themePreset,
+        typeof window !== 'undefined' &&
+          typeof window.matchMedia === 'function' &&
+          window.matchMedia('(prefers-color-scheme: dark)').matches
+      );
+      await store.updateSettings({
+        theme: effective.mode,
+        themePreset: effective.id,
+      });
+    } else {
+      await store.updateSettings({ theme: 'system' });
+    }
+  };
+
+  const handleBookDetailStyleChange = async (bookDetailStyle: BookDetailStyle) => {
+    await store.updateSettings({ bookDetailStyle });
+  };
+
+  const handleBookViewModeChange = async (bookViewMode: BookViewMode) => {
+    await store.updateSettings({ bookViewMode });
+  };
+
+  const handleBookCardSizeChange = async (bookCardSize: BookCardSize) => {
+    await store.updateSettings({ bookCardSize });
+  };
+
+  const handleSidebarArtworkChange = async (sidebarArtworkMode: SidebarArtworkMode) => {
+    await store.updateSettings({ sidebarArtworkMode });
   };
 
   const handleLanguageChange = async (language: string) => {
@@ -324,6 +372,10 @@ export const SettingsView: React.FC = () => {
     await store.updateSettings({
       showPresetDecorations: state.settings.showPresetDecorations === false,
     });
+  };
+
+  const handlePresetCornerArtSizeChange = async (presetCornerArtSize: PresetCornerArtSize) => {
+    await store.updateSettings({ presetCornerArtSize });
   };
 
   const handleSavePresetPrompt = async (e: React.FormEvent) => {
@@ -729,12 +781,21 @@ export const SettingsView: React.FC = () => {
   };
 
   // Summary helpers for Root Menu rows
+  const effectiveThemeConfig = resolveEffectiveThemeConfig(
+    state.settings.theme,
+    state.settings.themePreset,
+    typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+  );
   const themeLabel =
-    state.settings.theme === 'dark'
-      ? t('settings.themeDark')
-      : state.settings.theme === 'light'
-        ? t('settings.themeLight')
-        : t('settings.themeSystem');
+    state.settings.theme === 'system'
+      ? `${t('settings.themeSystem')} (${effectiveThemeConfig.label})`
+      : effectiveThemeConfig.label;
+  const detailStyleLabel =
+    state.settings.bookDetailStyle === 'editorial'
+      ? t('settings.bookDetailEditorial')
+      : t('settings.bookDetailCompact');
   const ratioLabel = (state.settings.coverAspectRatio || 'square') === 'portrait' ? '3:4' : '1:1';
   const enabledProviderCount = state.settings.enabledMetadataProviders?.length ?? 2;
   const llmSummary =
@@ -767,7 +828,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => navigate('profiles')}
-                      className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <span>{t('settings.allProfilesDetails')}</span>
                     </button>
@@ -779,7 +840,7 @@ export const SettingsView: React.FC = () => {
                       }}
                       aria-label="Add reader profile"
                       title="Add reader profile"
-                      className="min-h-[40px] min-w-[40px] rounded-xl bg-forest-700 hover:bg-forest-800 text-white flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+                      className="min-h-[40px] min-w-[40px] rounded-lg bg-primary hover:bg-primary-hover text-primary-fg flex items-center justify-center transition-colors shadow-xs cursor-pointer"
                     >
                       <Icon name="plus" className="w-4 h-4" />
                     </button>
@@ -788,12 +849,12 @@ export const SettingsView: React.FC = () => {
               />
 
               {/* Optional Household / Family Display Name */}
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3">
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3">
                 <div>
-                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                  <h2 className="font-display text-lg font-semibold text-ink">
                     Household / Parent Display Name
                   </h2>
-                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-ink-secondary mt-0.5">
                     Optional family name shown on your Home shelf and onboarding summary.
                   </p>
                 </div>
@@ -810,24 +871,24 @@ export const SettingsView: React.FC = () => {
                     value={householdNameInput}
                     onChange={(e) => setHouseholdNameInput(e.target.value)}
                     placeholder={t('onboarding.householdNamePlaceholder')}
-                    className="flex-1 px-3.5 py-2.5 rounded-xl bg-linen-50 dark:bg-night-800 border border-linen-200 dark:border-night-700 text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                    className="flex-1 px-3.5 py-2.5 rounded-lg bg-canvas border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-primary"
                   />
                   <button
                     type="submit"
-                    className="min-h-[42px] px-4 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs font-semibold whitespace-nowrap cursor-pointer"
+                    className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap cursor-pointer"
                   >
                     Save Household Name
                   </button>
                 </form>
               </section>
 
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs">
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs">
                 {state.profiles.length === 0 ? (
-                  <p className="text-xs text-stone-ink dark:text-slate-400 py-2">
+                  <p className="text-xs text-ink-secondary py-2">
                     No child reader profiles yet. Tap + above to add your first reader.
                   </p>
                 ) : (
-                  <div className="divide-y divide-linen-200/70 dark:divide-night-800">
+                  <div className="divide-y divide-edge-subtle">
                     {state.profiles.map((profile) => {
                       const isActive = profile.id === state.activeProfileId;
                       const ageLabel = formatProfileAgeLabel(profile);
@@ -843,15 +904,15 @@ export const SettingsView: React.FC = () => {
                               {initial}
                             </span>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-forest-900 dark:text-white truncate">
+                              <p className="text-sm font-semibold text-ink truncate">
                                 {profile.name}
                                 {isActive && (
-                                  <span className="text-xs font-semibold text-brand dark:text-brand-dark ml-1.5">
+                                  <span className="text-xs font-semibold text-primary ml-1.5">
                                     · {t('settings.activeReader')}
                                   </span>
                                 )}
                               </p>
-                              <p className="text-xs text-stone-ink dark:text-slate-400 truncate">
+                              <p className="text-xs text-ink-secondary truncate">
                                 {ageLabel}
                                 {profile.birthDate ? ` (DOB ${profile.birthDate})` : ''} ·{' '}
                                 {formatReadingStage(profile.readingStage)}
@@ -864,7 +925,7 @@ export const SettingsView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => store.setActiveProfile(profile.id)}
-                                className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors cursor-pointer"
+                                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
                               >
                                 {t('settings.selectProfile')}
                               </button>
@@ -876,7 +937,7 @@ export const SettingsView: React.FC = () => {
                                 setIsProfileFormOpen(true);
                               }}
                               aria-label={`Edit ${profile.name}`}
-                              className="min-h-[40px] min-w-[40px] rounded-xl text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-400 dark:hover:bg-night-800 flex items-center justify-center transition-colors cursor-pointer"
+                              className="min-h-[40px] min-w-[40px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-subtle flex items-center justify-center transition-colors cursor-pointer"
                             >
                               <Icon name="edit" className="w-4 h-4" />
                             </button>
@@ -900,28 +961,116 @@ export const SettingsView: React.FC = () => {
                 onBack={goBackToRoot}
               />
 
-              {/* Theme & Cover Ratio */}
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-5">
+              {/* Theme Presets & Layout Preferences */}
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-6">
                 <div>
-                  <p className="text-sm font-semibold text-forest-900 dark:text-white">
-                    {t('settings.themeLabel')}
-                  </p>
-                  <div className="mt-2.5 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        {t('settings.themeLabel')}
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        Choose from 7 curated Light and 7 matte Dark editorial palettes with matching typography.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleSystemAuto}
+                      aria-pressed={state.settings.theme === 'system'}
+                      className={`min-h-[36px] px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                        state.settings.theme === 'system'
+                          ? 'bg-primary text-primary-fg border-primary shadow-xs'
+                          : 'bg-surface-subtle text-ink-secondary hover:text-ink border-edge'
+                      }`}
+                    >
+                      <Icon name="sliders" className="w-3.5 h-3.5" />
+                      <span>{t('settings.themeAutoSystem')}</span>
+                    </button>
+                  </div>
+
+                  <div className="mt-4 space-y-4">
                     {[
-                      { id: 'light' as const, label: t('settings.themeLight') },
-                      { id: 'system' as const, label: t('settings.themeSystem') },
-                      { id: 'dark' as const, label: t('settings.themeDark') },
+                      { label: t('settings.themeLightGroup'), ids: LIGHT_THEME_PRESET_IDS },
+                      { label: t('settings.themeDarkGroup'), ids: DARK_THEME_PRESET_IDS },
+                    ].map((group) => (
+                      <div key={group.label} className="space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-secondary">
+                          {group.label}
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {group.ids.map((presetId) => {
+                            const preset = THEME_PRESETS[presetId];
+                            const active = effectiveThemeConfig.id === preset.id;
+                            return (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => handleSelectThemePreset(preset.id)}
+                                aria-pressed={active}
+                                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                  active
+                                    ? 'bg-surface-elevated border-primary ring-1 ring-primary/35 shadow-xs'
+                                    : 'bg-surface-subtle border-edge hover:border-primary/50'
+                                }`}
+                              >
+                                <div className="min-w-0 space-y-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-xs sm:text-sm font-semibold text-ink truncate">
+                                      {preset.label}
+                                    </p>
+                                    {active && (
+                                      <Icon name="check" className="w-3.5 h-3.5 text-primary shrink-0" />
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-ink-secondary truncate">
+                                    {preset.shortDescription}
+                                  </p>
+                                  <p className="text-[10px] font-mono text-ink-muted truncate">
+                                    {preset.fontDescription}
+                                  </p>
+                                </div>
+                                <div className="flex items-center -space-x-1 shrink-0" aria-hidden="true">
+                                  {preset.swatches.map((hex, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="w-4 h-4 rounded-full border border-edge shadow-2xs"
+                                      style={{ backgroundColor: hex }}
+                                    />
+                                  ))}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Book Detail Layout: Compact vs. Editorial */}
+                <div className="pt-4 border-t border-edge-subtle">
+                  <p className="text-sm font-semibold text-ink">
+                    {t('settings.bookDetailStyleLabel')}
+                  </p>
+                  <p className="text-xs text-ink-secondary mt-0.5">
+                    Compare the information-dense Compact inspector with the ambient, bento-grid Editorial book view.
+                  </p>
+                  <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
+                    {[
+                      { id: 'compact' as const, label: t('settings.bookDetailCompact') },
+                      { id: 'editorial' as const, label: t('settings.bookDetailEditorial') },
                     ].map((item) => {
-                      const active = state.settings.theme === item.id;
+                      const active = (state.settings.bookDetailStyle || 'compact') === item.id;
                       return (
                         <button
                           key={item.id}
                           type="button"
-                          onClick={() => handleThemeChange(item.id)}
-                          className={`flex-1 min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                          onClick={() => handleBookDetailStyleChange(item.id)}
+                          aria-pressed={active}
+                          className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                             active
-                              ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
-                              : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                              ? 'bg-primary text-primary-fg shadow-xs'
+                              : 'text-ink-secondary hover:text-ink'
                           }`}
                         >
                           {item.label}
@@ -931,14 +1080,117 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-linen-200/70 dark:border-night-800">
-                  <p className="text-sm font-semibold text-forest-900 dark:text-white">
+                {/* Shelf & Catalog View Mode + Card Density */}
+                <div className="pt-4 border-t border-edge-subtle grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">
+                      {t('settings.bookViewModeLabel')}
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      Show book cards in a visual cover grid or compact scannable rows.
+                    </p>
+                    <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                      {[
+                        { id: 'grid' as const, label: t('settings.bookViewGrid'), icon: 'grid' },
+                        { id: 'list' as const, label: t('settings.bookViewList'), icon: 'list' },
+                      ].map((item) => {
+                        const active = (state.settings.bookViewMode || 'grid') === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleBookViewModeChange(item.id)}
+                            aria-pressed={active}
+                            className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+                              active
+                                ? 'bg-primary text-primary-fg shadow-xs'
+                                : 'text-ink-secondary hover:text-ink'
+                            }`}
+                          >
+                            <Icon name={item.icon} className="w-3.5 h-3.5" />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-semibold text-ink">
+                      {t('settings.bookCardSizeLabel')}
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      Controls card density when browsing shelves in Grid mode.
+                    </p>
+                    <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                      {[
+                        { id: 'compact' as const, label: t('settings.bookCardCompact') },
+                        { id: 'regular' as const, label: t('settings.bookCardRegular') },
+                        { id: 'large' as const, label: t('settings.bookCardLarge') },
+                      ].map((item) => {
+                        const active = (state.settings.bookCardSize || 'regular') === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleBookCardSizeChange(item.id)}
+                            aria-pressed={active}
+                            className={`flex-1 min-h-[40px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                              active
+                                ? 'bg-primary text-primary-fg shadow-xs'
+                                : 'text-ink-secondary hover:text-ink'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sidebar Artwork Mode */}
+                <div className="pt-4 border-t border-edge-subtle">
+                  <p className="text-sm font-semibold text-ink">
+                    {t('settings.sidebarArtworkLabel')}
+                  </p>
+                  <p className="text-xs text-ink-secondary mt-0.5">
+                    Choose between the theme’s default footer art, vintage botanical line engraving, or the reading lamp illustration.
+                  </p>
+                  <div className="mt-2.5 flex flex-wrap sm:flex-nowrap items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                    {[
+                      { id: 'theme' as const, label: t('settings.sidebarArtworkTheme') },
+                      { id: 'engraving' as const, label: t('settings.sidebarArtworkEngraving') },
+                      { id: 'illustration' as const, label: t('settings.sidebarArtworkIllustration') },
+                    ].map((item) => {
+                      const active = (state.settings.sidebarArtworkMode || 'theme') === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleSidebarArtworkChange(item.id)}
+                          aria-pressed={active}
+                          className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                            active
+                              ? 'bg-primary text-primary-fg shadow-xs'
+                              : 'text-ink-secondary hover:text-ink'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-edge-subtle">
+                  <p className="text-sm font-semibold text-ink">
                     {t('settings.coverAspectLabel')}
                   </p>
-                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-ink-secondary mt-0.5">
                     {t('settings.coverAspectHint')}
                   </p>
-                  <div className="mt-2.5 flex items-center gap-1 p-1 rounded-2xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 max-w-sm">
+                  <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
                     {[
                       { id: 'square' as const, label: t('settings.coverAspectSquare') },
                       { id: 'portrait' as const, label: t('settings.coverAspectPortrait') },
@@ -950,10 +1202,10 @@ export const SettingsView: React.FC = () => {
                           type="button"
                           onClick={() => handleCoverAspectChange(item.id)}
                           aria-pressed={active}
-                          className={`flex-1 min-h-[42px] px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                          className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                             active
-                              ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-xs'
-                              : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                              ? 'bg-primary text-primary-fg shadow-xs'
+                              : 'text-ink-secondary hover:text-ink'
                           }`}
                         >
                           {item.label}
@@ -964,15 +1216,15 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 {/* Dynamic Cover Tint Switch */}
-                <div className="pt-4 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
+                <div className="pt-4 border-t border-edge-subtle flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p
                       id="label-dynamic-tint"
-                      className="text-sm font-semibold text-forest-900 dark:text-white"
+                      className="text-sm font-semibold text-ink"
                     >
                       {t('settings.dynamicTintLabel')}
                     </p>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-secondary mt-0.5">
                       {t('settings.dynamicTintHint')}
                     </p>
                   </div>
@@ -986,16 +1238,16 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 {/* Corner Decorations Switch */}
-                <div className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-4">
+                <div className="pt-4 border-t border-edge-subtle space-y-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <p
                         id="label-corner-decorations"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         Preset Corner Illustrations
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         Show soft watercolor corner artwork on rotation preset cards, or fall back to
                         clean vector icons when off.
                       </p>
@@ -1009,19 +1261,54 @@ export const SettingsView: React.FC = () => {
                     />
                   </div>
 
+                  {state.settings.showPresetDecorations !== false && (
+                    <div>
+                      <p className="text-xs font-semibold text-ink">
+                        {t('settings.presetArtSizeLabel')}
+                      </p>
+                      <p className="text-[11px] text-ink-secondary mt-0.5">
+                        Adjust the size of top-right corner illustrations on Collections cards.
+                      </p>
+                      <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-xs">
+                        {[
+                          { id: 'sm' as const, label: t('settings.presetArtSmall') },
+                          { id: 'md' as const, label: t('settings.presetArtMedium') },
+                          { id: 'lg' as const, label: t('settings.presetArtLarge') },
+                        ].map((item) => {
+                          const active = (state.settings.presetCornerArtSize || 'md') === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handlePresetCornerArtSizeChange(item.id)}
+                              aria-pressed={active}
+                              className={`flex-1 min-h-[38px] px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                active
+                                  ? 'bg-primary text-primary-fg shadow-xs'
+                                  : 'text-ink-secondary hover:text-ink'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Reusable AI Preset Illustration Prompt Template */}
                   <form
                     onSubmit={handleSavePresetPrompt}
-                    className="rounded-xl bg-linen-50/85 dark:bg-night-950/75 border border-linen-200 dark:border-night-800 p-3.5 space-y-2.5"
+                    className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-2.5"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <label
                         htmlFor="setting-preset-prompt-template"
-                        className="text-xs font-bold uppercase tracking-wider text-forest-900 dark:text-slate-200"
+                        className="text-xs font-semibold uppercase tracking-wider text-ink"
                       >
                         Preset Illustration AI Prompt Template
                       </label>
-                      <span className="text-[10px] font-mono-tabular text-stone-ink dark:text-slate-400">
+                      <span className="text-[10px] font-mono-tabular text-ink-muted">
                         Reusable style guide
                       </span>
                     </div>
@@ -1031,9 +1318,9 @@ export const SettingsView: React.FC = () => {
                       value={presetPromptDraft}
                       onChange={(e) => setPresetPromptDraft(e.target.value)}
                       placeholder={DEFAULT_PRESET_ILLUSTRATION_PROMPT}
-                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-400 dark:placeholder:text-slate-500 leading-relaxed focus:outline-2 focus:outline-forest-700"
+                      className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-xs text-ink placeholder:text-ink-muted leading-relaxed focus:outline-2 focus:outline-primary"
                     />
-                    <p className="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-ink-secondary leading-relaxed">
                       Prefilled automatically when creating or customizing preset corner art, or passed to
                       Gemini when generating illustrations.
                     </p>
@@ -1041,13 +1328,13 @@ export const SettingsView: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleResetPresetPrompt}
-                        className="min-h-[38px] px-3 py-1.5 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800 text-xs font-semibold text-stone-ink dark:text-slate-300 cursor-pointer"
+                        className="min-h-[38px] px-3 py-1.5 rounded-lg border border-edge hover:bg-surface-elevated text-xs font-semibold text-ink-secondary hover:text-ink cursor-pointer"
                       >
                         Reset Default Prompt
                       </button>
                       <button
                         type="submit"
-                        className="min-h-[38px] px-4 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-white text-xs font-bold transition-colors cursor-pointer"
+                        className="min-h-[38px] px-4 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
                       >
                         Save Prompt Template
                       </button>
@@ -1057,7 +1344,7 @@ export const SettingsView: React.FC = () => {
               </section>
 
               {/* Quick Jump to Language */}
-              <div className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 overflow-hidden shadow-xs">
+              <div className="rounded-xl bg-surface border border-edge overflow-hidden shadow-xs">
                 <SettingsMenuRow
                   icon="globe"
                   iconTone="indigo"
@@ -1084,7 +1371,7 @@ export const SettingsView: React.FC = () => {
               <section
                 role="radiogroup"
                 aria-label={t('settings.languageLabel')}
-                className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 divide-y divide-linen-200/70 dark:divide-night-800 overflow-hidden shadow-xs"
+                className="rounded-xl bg-surface border border-edge divide-y divide-edge-subtle overflow-hidden shadow-xs"
               >
                 {SUPPORTED_LANGUAGES.map((opt) => {
                   const isSelected = opt.code === lang;
@@ -1097,22 +1384,22 @@ export const SettingsView: React.FC = () => {
                       onClick={() => handleLanguageChange(opt.code)}
                       className={`w-full min-h-[64px] px-4 py-3.5 flex items-center justify-between gap-4 text-left transition-colors cursor-pointer ${
                         isSelected
-                          ? 'bg-linen-50/90 dark:bg-night-800/80'
-                          : 'hover:bg-linen-50/60 dark:hover:bg-night-800/40'
+                          ? 'bg-surface-elevated/70'
+                          : 'hover:bg-surface-subtle'
                       }`}
                     >
                       <div className="flex items-center gap-3.5 min-w-0">
                         <span
                           aria-hidden="true"
-                          className="text-2xl leading-none select-none w-9 h-9 rounded-xl bg-linen-100/80 dark:bg-night-800 flex items-center justify-center shrink-0"
+                          className="text-2xl leading-none select-none w-9 h-9 rounded-lg bg-surface-subtle border border-edge-subtle flex items-center justify-center shrink-0"
                         >
                           {opt.flag}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-sm sm:text-base font-bold text-forest-900 dark:text-white">
+                          <p className="text-sm sm:text-base font-semibold text-ink">
                             {opt.nativeLabel}
                           </p>
-                          <p className="text-xs text-stone-ink dark:text-slate-400">
+                          <p className="text-xs text-ink-secondary">
                             {opt.label}
                           </p>
                         </div>
@@ -1122,8 +1409,8 @@ export const SettingsView: React.FC = () => {
                         aria-hidden="true"
                         className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors shrink-0 ${
                           isSelected
-                            ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                            : 'border-2 border-linen-200 dark:border-night-700'
+                            ? 'bg-primary text-primary-fg'
+                            : 'border-2 border-edge'
                         }`}
                       >
                         {isSelected && <Icon name="check" className="w-3.5 h-3.5" strokeWidth={2.5} />}
@@ -1148,24 +1435,24 @@ export const SettingsView: React.FC = () => {
               {/* Preset Tradition Reminders */}
               <section
                 aria-labelledby="preset-reminders-heading"
-                className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-4"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2
                       id="preset-reminders-heading"
-                      className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white"
+                      className="font-display text-lg font-semibold text-ink"
                     >
                       {t('settings.presetRemindersHeading')}
                     </h2>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
+                    <p className="text-xs text-ink-secondary mt-0.5 leading-relaxed">
                       {t('settings.presetRemindersDesc')}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => navigate('presets')}
-                    className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white inline-flex items-center transition-colors shrink-0 whitespace-nowrap cursor-pointer"
+                    className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center transition-colors shrink-0 whitespace-nowrap cursor-pointer"
                   >
                     {t('settings.openPresets')}
                   </button>
@@ -1173,13 +1460,13 @@ export const SettingsView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Days Before */}
-                  <div className="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3.5 space-y-2">
+                  <div className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-1.5">
                           <label
                             htmlFor="setting-preset-days-before"
-                            className="text-xs font-semibold text-forest-900 dark:text-white"
+                            className="text-xs font-semibold text-ink"
                           >
                             {t('settings.presetDaysBeforeLabel')}
                           </label>
@@ -1187,12 +1474,12 @@ export const SettingsView: React.FC = () => {
                             type="button"
                             onClick={() => toggleHelp('presetDaysBefore')}
                             aria-label="Info on reminder advance days"
-                            className="w-5 h-5 rounded-full bg-linen-200 dark:bg-night-800 text-[11px] font-bold text-stone-600 dark:text-slate-300 flex items-center justify-center hover:bg-linen-300 cursor-pointer"
+                            className="w-5 h-5 rounded-full bg-surface-elevated text-[11px] font-bold text-ink-secondary flex items-center justify-center hover:text-ink cursor-pointer"
                           >
                             i
                           </button>
                         </div>
-                        <span className="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                        <span className="block text-[11px] text-ink-secondary mt-0.5">
                           {t('settings.presetDaysBeforeSub')}
                         </span>
                       </div>
@@ -1203,12 +1490,12 @@ export const SettingsView: React.FC = () => {
                         max={30}
                         value={state.settings.presetAlertDaysBefore ?? 2}
                         onChange={(e) => handlePresetDaysBeforeChange(Number(e.target.value))}
-                        className="w-20 h-11 px-2.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+                        className="w-20 h-11 px-2.5 rounded-lg bg-canvas border border-edge text-sm font-mono-tabular text-center font-semibold text-ink focus:outline-2 focus:outline-primary shrink-0"
                       />
                     </div>
                     {openHelpKeys['presetDaysBefore'] && (
-                      <div className="p-2.5 rounded-lg bg-linen-100 dark:bg-night-900 text-xs text-stone-700 dark:text-slate-300 border border-linen-200 dark:border-night-800">
-                        <p className="font-bold text-forest-900 dark:text-white mb-0.5">
+                      <div className="p-2.5 rounded-lg bg-surface-elevated text-xs text-ink-secondary border border-edge">
+                        <p className="font-semibold text-ink mb-0.5">
                           {FIELD_HELP_COPY.presetDaysBefore.title}
                         </p>
                         <p>{FIELD_HELP_COPY.presetDaysBefore.body}</p>
@@ -1217,13 +1504,13 @@ export const SettingsView: React.FC = () => {
                   </div>
 
                   {/* Days After */}
-                  <div className="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3.5 space-y-2">
+                  <div className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-1.5">
                           <label
                             htmlFor="setting-preset-days-after"
-                            className="text-xs font-semibold text-forest-900 dark:text-white"
+                            className="text-xs font-semibold text-ink"
                           >
                             {t('settings.presetDaysAfterLabel')}
                           </label>
@@ -1231,12 +1518,12 @@ export const SettingsView: React.FC = () => {
                             type="button"
                             onClick={() => toggleHelp('presetDaysAfter')}
                             aria-label="Info on unactioned reminder duration"
-                            className="w-5 h-5 rounded-full bg-linen-200 dark:bg-night-800 text-[11px] font-bold text-stone-600 dark:text-slate-300 flex items-center justify-center hover:bg-linen-300 cursor-pointer"
+                            className="w-5 h-5 rounded-full bg-surface-elevated text-[11px] font-bold text-ink-secondary flex items-center justify-center hover:text-ink cursor-pointer"
                           >
                             i
                           </button>
                         </div>
-                        <span className="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                        <span className="block text-[11px] text-ink-secondary mt-0.5">
                           {t('settings.presetDaysAfterSub')}
                         </span>
                       </div>
@@ -1247,12 +1534,12 @@ export const SettingsView: React.FC = () => {
                         max={30}
                         value={state.settings.presetAlertDaysAfter ?? 5}
                         onChange={(e) => handlePresetDaysAfterChange(Number(e.target.value))}
-                        className="w-20 h-11 px-2.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+                        className="w-20 h-11 px-2.5 rounded-lg bg-canvas border border-edge text-sm font-mono-tabular text-center font-semibold text-ink focus:outline-2 focus:outline-primary shrink-0"
                       />
                     </div>
                     {openHelpKeys['presetDaysAfter'] && (
-                      <div className="p-2.5 rounded-lg bg-linen-100 dark:bg-night-900 text-xs text-stone-700 dark:text-slate-300 border border-linen-200 dark:border-night-800">
-                        <p className="font-bold text-forest-900 dark:text-white mb-0.5">
+                      <div className="p-2.5 rounded-lg bg-surface-elevated text-xs text-ink-secondary border border-edge">
+                        <p className="font-semibold text-ink mb-0.5">
                           {FIELD_HELP_COPY.presetDaysAfter.title}
                         </p>
                         <p>{FIELD_HELP_COPY.presetDaysAfter.body}</p>
@@ -1265,31 +1552,31 @@ export const SettingsView: React.FC = () => {
               {/* Shelf Freshness, Cooldown Log & Stale Book Spotlight */}
               <section
                 aria-labelledby="freshness-spotlight-heading"
-                className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3.5"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3.5"
               >
                 <div>
                   <h2
                     id="freshness-spotlight-heading"
-                    className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white"
+                    className="font-display text-lg font-semibold text-ink"
                   >
                     {t('settings.freshnessHeading')}
                   </h2>
-                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
+                  <p className="text-xs text-ink-secondary mt-0.5 leading-relaxed">
                     {t('settings.freshnessDesc')}
                   </p>
                 </div>
 
-                <div className="divide-y divide-linen-200/70 dark:divide-night-800">
+                <div className="divide-y divide-edge-subtle">
                   {/* Rotation History Insights */}
                   <div className="py-3 first:pt-1 flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <p
                         id="label-rotation-history"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         {t('settings.rotationHistoryHeading')}
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         {t('settings.rotationHistoryDesc')}
                       </p>
                     </div>
@@ -1309,7 +1596,7 @@ export const SettingsView: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           <p
                             id="label-cover-adornos"
-                            className="text-sm font-semibold text-forest-900 dark:text-white"
+                            className="text-sm font-semibold text-ink"
                           >
                             {t('settings.coverAdornosHeading')}
                           </p>
@@ -1317,12 +1604,12 @@ export const SettingsView: React.FC = () => {
                             type="button"
                             onClick={() => toggleHelp('coverUsageAdornos')}
                             aria-label="Info on cover badges"
-                            className="w-5 h-5 rounded-full bg-linen-200 dark:bg-night-800 text-[11px] font-bold text-stone-600 dark:text-slate-300 flex items-center justify-center hover:bg-linen-300 cursor-pointer"
+                            className="w-5 h-5 rounded-full bg-surface-elevated text-[11px] font-bold text-ink-secondary flex items-center justify-center hover:text-ink cursor-pointer"
                           >
                             i
                           </button>
                         </div>
-                        <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                        <p className="text-xs text-ink-secondary mt-0.5">
                           {t('settings.coverAdornosDesc')}
                         </p>
                       </div>
@@ -1335,8 +1622,8 @@ export const SettingsView: React.FC = () => {
                       />
                     </div>
                     {openHelpKeys['coverUsageAdornos'] && (
-                      <div className="p-2.5 rounded-lg bg-linen-100 dark:bg-night-950 text-xs text-stone-700 dark:text-slate-300 border border-linen-200 dark:border-night-800">
-                        <p className="font-bold text-forest-900 dark:text-white mb-0.5">
+                      <div className="p-2.5 rounded-lg bg-surface-elevated text-xs text-ink-secondary border border-edge">
+                        <p className="font-semibold text-ink mb-0.5">
                           {FIELD_HELP_COPY.coverUsageAdornos.title}
                         </p>
                         <p>{FIELD_HELP_COPY.coverUsageAdornos.body}</p>
@@ -1349,11 +1636,11 @@ export const SettingsView: React.FC = () => {
                     <div className="min-w-0">
                       <p
                         id="label-stale-spotlight"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         {t('settings.staleSpotlightHeading')}
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         {t('settings.staleSpotlightDesc')}
                       </p>
                     </div>
@@ -1373,7 +1660,7 @@ export const SettingsView: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           <label
                             htmlFor="setting-stale-book-days"
-                            className="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white"
+                            className="text-xs sm:text-sm font-semibold text-ink"
                           >
                             {t('settings.staleDaysLabel')}
                           </label>
@@ -1381,12 +1668,12 @@ export const SettingsView: React.FC = () => {
                             type="button"
                             onClick={() => toggleHelp('staleBookDays')}
                             aria-label="Info on stale book days"
-                            className="w-5 h-5 rounded-full bg-linen-200 dark:bg-night-800 text-[11px] font-bold text-stone-600 dark:text-slate-300 flex items-center justify-center hover:bg-linen-300 cursor-pointer"
+                            className="w-5 h-5 rounded-full bg-surface-elevated text-[11px] font-bold text-ink-secondary flex items-center justify-center hover:text-ink cursor-pointer"
                           >
                             i
                           </button>
                         </div>
-                        <span className="block text-[11px] text-stone-ink dark:text-slate-400 mt-0.5">
+                        <span className="block text-[11px] text-ink-secondary mt-0.5">
                           {t('settings.staleDaysSub')}
                         </span>
                       </div>
@@ -1398,12 +1685,12 @@ export const SettingsView: React.FC = () => {
                         disabled={state.settings.enableStaleBookSpotlight === false}
                         value={state.settings.staleBookDays ?? 10}
                         onChange={(e) => handleStaleBookDaysChange(Number(e.target.value))}
-                        className="w-20 h-11 px-2.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 disabled:opacity-50 text-sm font-mono-tabular text-center font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700 shrink-0"
+                        className="w-20 h-11 px-2.5 rounded-lg bg-canvas border border-edge disabled:opacity-50 text-sm font-mono-tabular text-center font-semibold text-ink focus:outline-2 focus:outline-primary shrink-0"
                       />
                     </div>
                     {openHelpKeys['staleBookDays'] && (
-                      <div className="p-2.5 rounded-lg bg-linen-100 dark:bg-night-950 text-xs text-stone-700 dark:text-slate-300 border border-linen-200 dark:border-night-800">
-                        <p className="font-bold text-forest-900 dark:text-white mb-0.5">
+                      <div className="p-2.5 rounded-lg bg-surface-elevated text-xs text-ink-secondary border border-edge">
+                        <p className="font-semibold text-ink mb-0.5">
                           {FIELD_HELP_COPY.staleBookDays.title}
                         </p>
                         <p>{FIELD_HELP_COPY.staleBookDays.body}</p>
@@ -1416,11 +1703,11 @@ export const SettingsView: React.FC = () => {
                     <div className="min-w-0">
                       <p
                         id="label-mini-wizards"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         Guided Creation Mini-Wizards
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         Show optional step-by-step guidance when adding new children or building new shelf rotations.
                       </p>
                     </div>
@@ -1451,18 +1738,18 @@ export const SettingsView: React.FC = () => {
                 onBack={goBackToRoot}
               />
 
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs">
-                <div className="divide-y divide-linen-200/70 dark:divide-night-800">
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs">
+                <div className="divide-y divide-edge-subtle">
                   {/* Provider 1: Google Books */}
                   <div className="py-3 first:pt-1 flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <p
                         id="label-provider-google"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         {t('settings.googleBooksProviderTitle')}
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         {t('settings.googleBooksProviderDesc')}
                       </p>
                     </div>
@@ -1480,11 +1767,11 @@ export const SettingsView: React.FC = () => {
                     <div className="min-w-0">
                       <p
                         id="label-provider-openlibrary"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         {t('settings.openLibraryProviderTitle')}
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         {t('settings.openLibraryProviderDesc')}
                       </p>
                     </div>
@@ -1502,11 +1789,11 @@ export const SettingsView: React.FC = () => {
                     <div className="min-w-0">
                       <p
                         id="label-retain-raw"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         {t('settings.retainRawTitle')}
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         {t('settings.retainRawDesc')}
                       </p>
                     </div>
@@ -1524,11 +1811,11 @@ export const SettingsView: React.FC = () => {
                     <div className="min-w-0">
                       <p
                         id="label-search-while-typing"
-                        className="text-sm font-semibold text-forest-900 dark:text-white"
+                        className="text-sm font-semibold text-ink"
                       >
                         {t('settings.searchWhileTypingTitle')}
                       </p>
-                      <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                      <p className="text-xs text-ink-secondary mt-0.5">
                         {t('settings.searchWhileTypingDesc')}
                       </p>
                     </div>
@@ -1546,10 +1833,10 @@ export const SettingsView: React.FC = () => {
                   <div className="pt-3.5 pb-3.5 flex flex-col gap-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                       <div>
-                        <p className="text-sm font-semibold text-forest-900 dark:text-white">
+                        <p className="text-sm font-semibold text-ink">
                           {t('settings.googleQuotaTitle')}
                         </p>
-                        <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                        <p className="text-xs text-ink-secondary mt-0.5">
                           {t('settings.googleQuotaDesc')}
                         </p>
                       </div>
@@ -1557,22 +1844,22 @@ export const SettingsView: React.FC = () => {
                         type="button"
                         onClick={() => handleVerifyGoogleBooks(false)}
                         disabled={checkingGoogle}
-                        className={`min-h-[44px] px-3.5 py-2 rounded-xl disabled:opacity-60 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                        className={`min-h-[44px] px-3.5 py-2 rounded-lg disabled:opacity-60 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                           googleTone === 'success'
-                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-500/45 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/60 dark:text-emerald-200 dark:border-emerald-500/40'
+                            ? 'bg-secondary/15 hover:bg-secondary/25 text-ink border border-secondary/45'
                             : googleTone === 'error'
-                              ? 'bg-rose-50 hover:bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/45 dark:hover:bg-rose-950/65 dark:text-rose-200 dark:border-rose-800'
-                              : 'bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white'
+                              ? 'bg-[#8C4A4F]/10 hover:bg-[#8C4A4F]/20 text-[#8C4A4F] dark:text-[#C48A8E] border border-[#8C4A4F]/35'
+                              : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
                         }`}
                       >
                         {checkingGoogle ? (
-                          <Icon name="activity" className="w-3.5 h-3.5 animate-pulse" />
+                          <Icon name="activity" className="w-3.5 h-3.5 animate-spin" />
                         ) : googleTone === 'success' ? (
-                          <span className="inline-flex text-emerald-700 dark:text-emerald-300">
+                          <span className="inline-flex text-primary dark:text-secondary">
                             <Icon name="check" className="w-3.5 h-3.5" />
                           </span>
                         ) : googleTone === 'error' ? (
-                          <span className="inline-flex text-rose-700 dark:text-rose-300">
+                          <span className="inline-flex text-[#8C4A4F] dark:text-[#C48A8E]">
                             <Icon name="close" className="w-3.5 h-3.5" />
                           </span>
                         ) : (
@@ -1589,15 +1876,17 @@ export const SettingsView: React.FC = () => {
                     {googleReport && (
                       <div
                         role={googleTone === 'error' ? 'alert' : 'status'}
-                        className={`rounded-xl px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium leading-relaxed ${
+                        className={`rounded-lg px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium leading-relaxed ${
                           googleTone === 'error'
-                            ? 'bg-rose-50/95 dark:bg-rose-950/45 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
-                            : 'bg-emerald-50/95 dark:bg-emerald-950/35 border border-emerald-500/40 dark:border-emerald-500/40 text-emerald-950 dark:text-emerald-100'
+                            ? 'bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-[#8C4A4F] dark:text-[#C48A8E]'
+                            : 'bg-secondary/12 border border-secondary/35 text-ink'
                         }`}
                       >
                         <span
-                          className={`mt-0.5 w-4 h-4 rounded-full text-white inline-flex items-center justify-center shrink-0 ${
-                            googleTone === 'error' ? 'bg-rose-600' : 'bg-emerald-600'
+                          className={`mt-0.5 w-4 h-4 rounded-full inline-flex items-center justify-center shrink-0 ${
+                            googleTone === 'error'
+                              ? 'bg-[#8C4A4F] text-[#FFFCF5]'
+                              : 'bg-primary text-primary-fg'
                           }`}
                         >
                           <Icon name={googleTone === 'error' ? 'close' : 'check'} className="w-3 h-3" />
@@ -1607,43 +1896,43 @@ export const SettingsView: React.FC = () => {
                     )}
 
                     {proxyUrl ? (
-                      <div className="rounded-xl bg-forest-50/90 dark:bg-forest-900/25 border border-forest-700/30 dark:border-[#5ED3DA]/35 px-3.5 py-3 flex items-start gap-2.5">
-                        <span className="mt-0.5 text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                      <div className="rounded-lg bg-surface-subtle border border-primary/35 px-3.5 py-3 flex items-start gap-2.5">
+                        <span className="mt-0.5 text-primary shrink-0">
                           <Icon name="shield" className="w-4 h-4" />
                         </span>
                         <div className="text-xs leading-relaxed min-w-0">
-                          <p className="font-semibold text-forest-900 dark:text-[#5ED3DA]">
+                          <p className="font-semibold text-primary">
                             {t('settings.deviceProxyActiveTitle')}
                           </p>
-                          <p className="text-stone-ink dark:text-slate-300 mt-0.5 break-all">
+                          <p className="text-ink-secondary mt-0.5 break-all">
                             {t('settings.deviceProxyActiveDesc', { url: proxyUrl })}
                           </p>
                         </div>
                       </div>
                     ) : googleKeyStatus === 'configured' ? (
-                      <div className="rounded-xl bg-forest-50/90 dark:bg-forest-900/25 border border-forest-700/30 dark:border-[#5ED3DA]/35 px-3.5 py-3 flex items-start gap-2.5">
-                        <span className="mt-0.5 text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                      <div className="rounded-lg bg-surface-subtle border border-primary/35 px-3.5 py-3 flex items-start gap-2.5">
+                        <span className="mt-0.5 text-primary shrink-0">
                           <Icon name="shield" className="w-4 h-4" />
                         </span>
                         <div className="text-xs leading-relaxed">
-                          <p className="font-semibold text-forest-900 dark:text-[#5ED3DA]">
+                          <p className="font-semibold text-primary">
                             {t('settings.serverKeyConfiguredTitle')}
                           </p>
-                          <p className="text-stone-ink dark:text-slate-300 mt-0.5">
+                          <p className="text-ink-secondary mt-0.5">
                             {t('settings.serverKeyConfiguredDesc')}
                           </p>
                         </div>
                       </div>
                     ) : (
-                      <div className="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 px-3.5 py-3 flex items-start gap-2.5">
-                        <span className="mt-0.5 text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                      <div className="rounded-lg bg-surface-subtle border border-edge px-3.5 py-3 flex items-start gap-2.5">
+                        <span className="mt-0.5 text-primary shrink-0">
                           <Icon name="shield" className="w-4 h-4" />
                         </span>
                         <div className="text-xs leading-relaxed">
-                          <p className="font-semibold text-forest-900 dark:text-white">
+                          <p className="font-semibold text-ink">
                             {t('settings.safeQuotaGeneralTitle')}
                           </p>
-                          <p className="text-stone-ink dark:text-slate-300 mt-0.5">
+                          <p className="text-ink-secondary mt-0.5">
                             {t('settings.safeQuotaGeneralDesc')}
                           </p>
                         </div>
@@ -1651,17 +1940,17 @@ export const SettingsView: React.FC = () => {
                     )}
 
                     {/* Live Query Usage & Limits Monitor Link */}
-                    <div className="rounded-xl bg-linen-100/70 dark:bg-night-800/60 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 flex items-center justify-between gap-3">
+                    <div className="rounded-lg bg-surface-subtle border border-edge px-3.5 py-2.5 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="w-2 h-2 rounded-full bg-forest-700 dark:bg-[#5ED3DA]" />
-                        <span className="font-semibold text-forest-900 dark:text-white">
-                          Today's Google Books calls: <strong className="font-mono">{queryLogger.getDailyCount('google-books')} / {queryLogger.getServiceQuota('google-books').limit}</strong>
+                        <span className="w-2 h-2 rounded-full bg-primary" />
+                        <span className="font-semibold text-ink">
+                          Today's Google Books calls: <strong className="font-mono-tabular">{queryLogger.getDailyCount('google-books')} / {queryLogger.getServiceQuota('google-books').limit}</strong>
                         </span>
                       </div>
                       <button
                         type="button"
                         onClick={() => openSection('query-usage')}
-                        className="text-xs font-bold text-forest-700 dark:text-[#5ED3DA] hover:underline flex items-center gap-1 cursor-pointer"
+                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer"
                       >
                         <span>View Query Monitor</span>
                         <Icon name="chevronRight" className="w-3.5 h-3.5" />
@@ -1669,23 +1958,23 @@ export const SettingsView: React.FC = () => {
                     </div>
 
                     {/* Collapsible Advanced Device Proxy Disclosure */}
-                    <details className="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5">
-                      <summary className="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
+                    <details className="group rounded-lg bg-surface-subtle border border-edge px-3.5 py-2.5">
+                      <summary className="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-ink focus-visible:outline-2 focus-visible:outline-primary">
                         <span>{t('settings.advancedProxySummary')}</span>
-                        <span className="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
+                        <span className="text-ink-secondary transition-transform group-open:rotate-180">
                           <Icon name="chevronDown" className="w-4 h-4" />
                         </span>
                       </summary>
 
                       <form
                         onSubmit={handleSaveProxyUrl}
-                        className="pt-3 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2.5"
+                        className="pt-3 mt-2 border-t border-edge-subtle space-y-2.5"
                       >
                         <div className="flex flex-col sm:flex-row sm:items-end gap-2.5">
                           <div className="flex-1 min-w-0">
                             <label
                               htmlFor="device-books-proxy-url-input"
-                              className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                              className="block text-xs font-semibold text-ink mb-1"
                             >
                               {t('settings.deviceProxyLabel')}
                             </label>
@@ -1696,13 +1985,13 @@ export const SettingsView: React.FC = () => {
                                 value={proxyUrl}
                                 onChange={(e) => setProxyUrl(e.target.value)}
                                 placeholder="https://books-proxy.yourname.workers.dev"
-                                className="w-full h-11 pl-3.5 pr-9 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                                className="w-full h-11 pl-3.5 pr-9 rounded-lg bg-canvas border border-edge text-base sm:text-xs font-mono-tabular text-ink focus:outline-2 focus:outline-primary"
                               />
                               {proxyUrl && (
                                 <button
                                   type="button"
                                   onClick={() => setProxyUrl('')}
-                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-700 dark:hover:text-white"
+                                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-ink-muted hover:text-ink"
                                 >
                                   <Icon name="close" className="w-3.5 h-3.5" />
                                 </button>
@@ -1713,7 +2002,7 @@ export const SettingsView: React.FC = () => {
                             <button
                               type="submit"
                               disabled={checkingGoogle}
-                              className="h-11 px-4 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs cursor-pointer"
+                              className="h-11 px-4 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-60 text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap shadow-xs cursor-pointer"
                             >
                               {checkingGoogle
                                 ? t('settings.verifyingBtn')
@@ -1725,20 +2014,20 @@ export const SettingsView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={handleClearProxyUrl}
-                                className="h-11 px-3 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-stone-ink dark:text-slate-300 transition-colors whitespace-nowrap cursor-pointer"
+                                className="h-11 px-3 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink-secondary hover:text-ink transition-colors whitespace-nowrap cursor-pointer"
                               >
                                 {t('common.clear')}
                               </button>
                             )}
                           </div>
                         </div>
-                        <p className="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
+                        <p className="text-[11px] text-ink-secondary leading-relaxed">
                           {t('settings.proxyAutoCheckHint')}
                           <a
                             href={APP_DOCS_LINKS.cloudflareWorkerGuide}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white ml-1 whitespace-nowrap"
+                            className="font-semibold text-primary underline underline-offset-2 ml-1 whitespace-nowrap"
                           >
                             {t('settings.cloudflareGuideLinkText')}
                           </a>
@@ -1746,7 +2035,7 @@ export const SettingsView: React.FC = () => {
                         {proxyError && (
                           <div
                             role="alert"
-                            className="rounded-xl bg-rose-50/95 dark:bg-rose-950/45 border border-rose-300 dark:border-rose-800 px-3 py-2 text-xs font-medium text-rose-800 dark:text-rose-200"
+                            className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-2 text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]"
                           >
                             {proxyError}
                           </div>
@@ -1755,16 +2044,16 @@ export const SettingsView: React.FC = () => {
                     </details>
 
                     {/* Collapsible Google Books Key Guide */}
-                    <details className="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5">
-                      <summary className="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
+                    <details className="group rounded-lg bg-surface-subtle border border-edge px-3.5 py-2.5">
+                      <summary className="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-ink focus-visible:outline-2 focus-visible:outline-primary">
                         <span>{t('settings.googleGuideSummary')}</span>
-                        <span className="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
+                        <span className="text-ink-secondary transition-transform group-open:rotate-180">
                           <Icon name="chevronDown" className="w-4 h-4" />
                         </span>
                       </summary>
-                      <div className="pt-2.5 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2 text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                      <div className="pt-2.5 mt-2 border-t border-edge-subtle space-y-2 text-xs text-ink-secondary leading-relaxed">
                         <p>
-                          <strong className="text-forest-900 dark:text-white">
+                          <strong className="text-ink">
                             {t('settings.googleGuideStep1')}
                           </strong>{' '}
                           In{' '}
@@ -1772,7 +2061,7 @@ export const SettingsView: React.FC = () => {
                             href={GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2"
+                            className="font-semibold text-primary underline underline-offset-2"
                           >
                             Google Cloud Console
                           </a>{' '}
@@ -1781,14 +2070,14 @@ export const SettingsView: React.FC = () => {
                           <strong>Books API</strong>.
                         </p>
                         <p>
-                          <strong className="text-forest-900 dark:text-white">
+                          <strong className="text-ink">
                             {t('settings.googleGuideStep2')}
                           </strong>{' '}
                           Set <code>GOOGLE_BOOKS_API_KEY=your_secret_here</code> in server environment
                           variables or local <code>.env</code>.
                         </p>
                         <p>
-                          <strong className="text-forest-900 dark:text-white">
+                          <strong className="text-ink">
                             {t('settings.googleGuideStep3')}
                           </strong>{' '}
                           Or create a free Cloudflare Worker, paste the CORS proxy script below, set
@@ -1796,13 +2085,13 @@ export const SettingsView: React.FC = () => {
                           URL above:
                         </p>
                         <div className="relative group/code">
-                          <pre className="p-2.5 rounded-lg bg-night-950 text-ivory font-mono-tabular text-[11px] overflow-x-auto">
+                          <pre className="p-2.5 rounded-lg bg-[#142321] text-[#F0E7D5] border border-[#3B4436] font-mono-tabular text-[11px] overflow-x-auto">
                             {GOOGLE_BOOKS_WORKER_SAMPLE_SCRIPT}
                           </pre>
                           <button
                             type="button"
                             onClick={() => copyToClipboard(GOOGLE_BOOKS_WORKER_SAMPLE_SCRIPT, 'books')}
-                            className="absolute top-2 right-2 px-2 py-1 rounded bg-night-800 hover:bg-night-700 text-white text-[10px] font-semibold transition-colors cursor-pointer"
+                            className="absolute top-2 right-2 px-2 py-1 rounded bg-[#243831] hover:bg-[#314B42] text-[#F0E7D5] text-[10px] font-semibold transition-colors cursor-pointer"
                           >
                             {copiedBooksScript ? 'Copied!' : 'Copy'}
                           </button>
@@ -1811,7 +2100,7 @@ export const SettingsView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setIsWelcomeModalOpen(true)}
-                            className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors cursor-pointer"
+                            className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
                           >
                             {t('settings.openWelcomeModalBtn')}
                           </button>
@@ -1819,7 +2108,7 @@ export const SettingsView: React.FC = () => {
                             href={APP_DOCS_LINKS.cloudflareWorkerGuide}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] underline underline-offset-2 hover:text-forest-900 dark:hover:text-white"
+                            className="text-xs font-semibold text-primary underline underline-offset-2"
                           >
                             {t('settings.openCloudflareGuideBtn')}
                           </a>
@@ -1832,10 +2121,10 @@ export const SettingsView: React.FC = () => {
                   <div className="pt-3.5 flex flex-col gap-2.5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-forest-900 dark:text-white">
+                        <p className="text-sm font-semibold text-ink">
                           {t('settings.syncLibraryTitle')}
                         </p>
-                        <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5 leading-relaxed">
+                        <p className="text-xs text-ink-secondary mt-0.5 leading-relaxed">
                           {t('settings.syncLibraryDesc', {
                             needed: booksNeedingGoogleSyncCount,
                             total: state.books.length,
@@ -1846,7 +2135,7 @@ export const SettingsView: React.FC = () => {
                         type="button"
                         onClick={handleSyncLibraryMetadata}
                         disabled={syncingCatalog || state.books.length === 0}
-                        className="min-h-[44px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
+                        className="min-h-[44px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-60 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
                       >
                         <Icon
                           name="rotations"
@@ -1863,15 +2152,17 @@ export const SettingsView: React.FC = () => {
                     {catalogSyncReport && (
                       <div
                         role={catalogSyncTone === 'error' ? 'alert' : 'status'}
-                        className={`rounded-xl px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium leading-relaxed ${
+                        className={`rounded-lg px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium leading-relaxed ${
                           catalogSyncTone === 'error'
-                            ? 'bg-rose-50/95 dark:bg-rose-950/45 border border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100'
-                            : 'bg-emerald-50/95 dark:bg-emerald-950/35 border border-emerald-500/40 text-emerald-950 dark:text-emerald-100'
+                            ? 'bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-[#8C4A4F] dark:text-[#C48A8E]'
+                            : 'bg-secondary/12 border border-secondary/35 text-ink'
                         }`}
                       >
                         <span
-                          className={`mt-0.5 w-4 h-4 rounded-full text-white inline-flex items-center justify-center shrink-0 ${
-                            catalogSyncTone === 'error' ? 'bg-rose-600' : 'bg-emerald-600'
+                          className={`mt-0.5 w-4 h-4 rounded-full inline-flex items-center justify-center shrink-0 ${
+                            catalogSyncTone === 'error'
+                              ? 'bg-[#8C4A4F] text-[#FFFCF5]'
+                              : 'bg-primary text-primary-fg'
                           }`}
                         >
                           <Icon
@@ -1901,27 +2192,27 @@ export const SettingsView: React.FC = () => {
               {/* AI Assistant & Free LLM Connection */}
               <section
                 aria-labelledby="llm-connection-heading"
-                className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-4"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-4"
               >
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-3 border-b border-linen-200/80 dark:border-night-800">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-3 border-b border-edge-subtle">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-lg bg-forest-50 dark:bg-forest-950/60 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center">
+                      <span className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                         <Icon name="sparkles" className="w-4 h-4" />
                       </span>
                       <h2
                         id="llm-connection-heading"
-                        className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white"
+                        className="font-display text-lg font-semibold text-ink"
                       >
-                        AI Assistant &amp; Free LLM Connection
+                        AI Assistant &amp; Free LLM
                       </h2>
                     </div>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-1">
+                    <p className="text-xs text-ink-secondary mt-1">
                       Powers categorized book tagging (interactive formats &amp; themes), Smart Shelf
                       Rotations, and Library Gap Recommendations.
                     </p>
                   </div>
-                  <span className="text-xs font-semibold text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                  <span className="text-xs font-semibold text-primary shrink-0">
                     {selectedLlmProvider === 'cloudflare-worker'
                       ? 'Cloudflare Proxy'
                       : selectedLlmProvider === 'byok-openai'
@@ -1934,7 +2225,7 @@ export const SettingsView: React.FC = () => {
 
                 <form onSubmit={handleSaveLlmSettings} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-2">
+                    <label className="block text-xs font-semibold text-ink mb-2">
                       Select LLM Provider:
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -1968,10 +2259,10 @@ export const SettingsView: React.FC = () => {
                         return (
                           <label
                             key={p.id}
-                            className={`cursor-pointer rounded-xl p-3 border transition-colors flex flex-col justify-between ${
+                            className={`cursor-pointer rounded-lg p-3 border transition-colors flex flex-col justify-between ${
                               isSelected
-                                ? 'bg-linen-100/90 dark:bg-night-800 border-forest-700 dark:border-[#5ED3DA] shadow-2xs'
-                                : 'bg-linen-50/70 dark:bg-night-950/60 border-linen-200 dark:border-night-700 hover:border-forest-700/50'
+                                ? 'bg-surface-elevated border-primary shadow-2xs'
+                                : 'bg-surface-subtle border-edge hover:border-primary/50'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -1982,23 +2273,23 @@ export const SettingsView: React.FC = () => {
                                   value={p.id}
                                   checked={isSelected}
                                   onChange={() => setSelectedLlmProvider(p.id)}
-                                  className="accent-[#1F6E75] h-4 w-4"
+                                  className="accent-primary h-4 w-4"
                                 />
-                                <span className="text-xs font-bold text-forest-900 dark:text-white">
+                                <span className="text-xs font-semibold text-ink">
                                   {p.title}
                                 </span>
                               </div>
                               <span
                                 className={`text-[10px] font-semibold shrink-0 ${
                                   isSelected
-                                    ? 'text-forest-700 dark:text-[#5ED3DA]'
-                                    : 'text-stone-ink dark:text-slate-400'
+                                    ? 'text-primary'
+                                    : 'text-ink-muted'
                                 }`}
                               >
                                 {p.badge}
                               </span>
                             </div>
-                            <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-1.5 leading-relaxed">
+                            <p className="text-[11px] text-ink-secondary mt-1.5 leading-relaxed">
                               {p.desc}
                             </p>
                           </label>
@@ -2008,11 +2299,11 @@ export const SettingsView: React.FC = () => {
                   </div>
 
                   {selectedLlmProvider === 'cloudflare-worker' && (
-                    <div className="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 p-3.5 space-y-3">
+                    <div className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-3">
                       <div>
                         <label
                           htmlFor="llm-cloudflare-url-input"
-                          className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                          className="block text-xs font-semibold text-ink mb-1"
                         >
                           Cloudflare Worker Proxy URL
                         </label>
@@ -2023,19 +2314,19 @@ export const SettingsView: React.FC = () => {
                             value={llmCloudflareUrl}
                             onChange={(e) => setLlmCloudflareUrl(e.target.value)}
                             placeholder="https://gemini-proxy.yourname.workers.dev"
-                            className="w-full h-11 pl-3.5 pr-9 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                            className="w-full h-11 pl-3.5 pr-9 rounded-lg bg-canvas border border-edge text-base sm:text-xs font-mono-tabular text-ink focus:outline-2 focus:outline-primary"
                           />
                           {llmCloudflareUrl && (
                             <button
                               type="button"
                               onClick={() => setLlmCloudflareUrl('')}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-700 dark:hover:text-white"
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-ink-muted hover:text-ink"
                             >
                               <Icon name="close" className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>
-                        <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-1">
+                        <p className="text-[11px] text-ink-secondary mt-1">
                           Your worker receives the prompt and calls the Gemini API server-side using
                           your personal quota.
                         </p>
@@ -2044,12 +2335,12 @@ export const SettingsView: React.FC = () => {
                   )}
 
                   {selectedLlmProvider === 'byok-openai' && (
-                    <div className="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 p-3.5 space-y-3">
+                    <div className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label
                             htmlFor="llm-base-url-input"
-                            className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                            className="block text-xs font-semibold text-ink mb-1"
                           >
                             Endpoint Base URL
                           </label>
@@ -2059,13 +2350,13 @@ export const SettingsView: React.FC = () => {
                             value={llmBaseUrl}
                             onChange={(e) => setLlmBaseUrl(e.target.value)}
                             placeholder="https://api.groq.com/openai/v1 or http://localhost:11434/v1"
-                            className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                            className="w-full h-11 px-3.5 rounded-lg bg-canvas border border-edge text-base sm:text-xs font-mono-tabular text-ink focus:outline-2 focus:outline-primary"
                           />
                         </div>
                         <div>
                           <label
                             htmlFor="llm-openai-model-input"
-                            className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                            className="block text-xs font-semibold text-ink mb-1"
                           >
                             Model Name
                           </label>
@@ -2075,7 +2366,7 @@ export const SettingsView: React.FC = () => {
                             value={llmModel}
                             onChange={(e) => setLlmModel(e.target.value)}
                             placeholder="llama-3.3-70b-versatile or mistral-small-latest"
-                            className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                            className="w-full h-11 px-3.5 rounded-lg bg-canvas border border-edge text-base sm:text-xs font-mono-tabular text-ink focus:outline-2 focus:outline-primary"
                           />
                         </div>
                       </div>
@@ -2085,11 +2376,11 @@ export const SettingsView: React.FC = () => {
                   {(selectedLlmProvider === 'byok-gemini' ||
                     selectedLlmProvider === 'byok-openai' ||
                     selectedLlmProvider === 'cloudflare-worker') && (
-                    <div className="rounded-xl bg-linen-50/80 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 p-3.5 space-y-2">
+                    <div className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <label
                           htmlFor="llm-api-key-input"
-                          className="text-xs font-semibold text-forest-900 dark:text-slate-200"
+                          className="text-xs font-semibold text-ink"
                         >
                           {selectedLlmProvider === 'byok-gemini'
                             ? 'Google Gemini API Key'
@@ -2100,7 +2391,7 @@ export const SettingsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setShowLlmApiKey((prev) => !prev)}
-                          className="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline cursor-pointer"
+                          className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
                         >
                           {showLlmApiKey ? 'Hide Key' : 'Show Key'}
                         </button>
@@ -2113,9 +2404,9 @@ export const SettingsView: React.FC = () => {
                         placeholder={
                           selectedLlmProvider === 'byok-gemini' ? 'AIzaSy...' : 'sk-... or gsk_...'
                         }
-                        className="w-full h-11 px-3.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-base sm:text-xs font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                        className="w-full h-11 px-3.5 rounded-lg bg-canvas border border-edge text-base sm:text-xs font-mono-tabular text-ink focus:outline-2 focus:outline-primary"
                       />
-                      <p className="text-[11px] text-stone-ink dark:text-slate-400">
+                      <p className="text-[11px] text-ink-secondary">
                         Stored locally in browser storage. Never logged or sent to third-party trackers.
                       </p>
                     </div>
@@ -2126,7 +2417,7 @@ export const SettingsView: React.FC = () => {
                       <div>
                         <label
                           htmlFor="llm-model-select"
-                          className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                          className="block text-xs font-semibold text-ink mb-1"
                         >
                           Gemini Model
                         </label>
@@ -2134,7 +2425,7 @@ export const SettingsView: React.FC = () => {
                           id="llm-model-select"
                           value={llmModel}
                           onChange={(e) => setLlmModel(e.target.value)}
-                          className="w-full h-11 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                          className="w-full h-11 px-3 rounded-lg bg-canvas border border-edge text-xs font-semibold text-ink focus:outline-2 focus:outline-primary"
                         >
                           <option value="gemini-2.5-flash">
                             gemini-2.5-flash (Recommended · Fast &amp; Reliable)
@@ -2150,7 +2441,7 @@ export const SettingsView: React.FC = () => {
                     <div className={selectedLlmProvider === 'byok-openai' ? 'sm:col-span-2' : ''}>
                       <label
                         htmlFor="llm-custom-hint-input"
-                        className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                        className="block text-xs font-semibold text-ink mb-1"
                       >
                         Parenting / Library Focus (Optional)
                       </label>
@@ -2160,17 +2451,17 @@ export const SettingsView: React.FC = () => {
                         value={llmCustomPromptHint}
                         onChange={(e) => setLlmCustomPromptHint(e.target.value)}
                         placeholder="e.g. Montessori, hands-on sensory, Spanish bilingual, STEM"
-                        className="w-full h-11 px-3.5 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-xs text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                        className="w-full h-11 px-3.5 rounded-lg bg-canvas border border-edge text-base sm:text-xs text-ink focus:outline-2 focus:outline-primary"
                       />
                     </div>
                   </div>
 
-                  <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-linen-200/80 dark:border-night-800">
+                  <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-edge-subtle">
                     <button
                       type="button"
                       onClick={handleTestLlm}
                       disabled={testingLlm}
-                      className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 disabled:opacity-50 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge disabled:opacity-50 text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       <Icon
                         name="activity"
@@ -2181,7 +2472,7 @@ export const SettingsView: React.FC = () => {
 
                     <button
                       type="submit"
-                      className="min-h-[44px] px-5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 text-white text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
+                      className="min-h-[44px] px-5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
                     >
                       <Icon name="check" className="w-4 h-4" />
                       <span>Save AI Settings</span>
@@ -2191,10 +2482,10 @@ export const SettingsView: React.FC = () => {
                   {llmReport && (
                     <div
                       role="status"
-                      className={`rounded-xl px-3.5 py-2.5 text-xs font-medium flex items-start gap-2 ${
+                      className={`rounded-lg px-3.5 py-2.5 text-xs font-medium flex items-start gap-2 ${
                         llmTone === 'error'
-                          ? 'bg-rose-50 text-rose-900 border border-rose-300 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-800'
-                          : 'bg-emerald-50 text-emerald-950 border border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200 dark:border-emerald-700'
+                          ? 'bg-[#8C4A4F]/10 text-[#8C4A4F] dark:text-[#C48A8E] border border-[#8C4A4F]/35'
+                          : 'bg-secondary/12 text-ink border border-secondary/35'
                       }`}
                     >
                       <span className="mt-0.5">
@@ -2206,27 +2497,27 @@ export const SettingsView: React.FC = () => {
                 </form>
 
                 {/* Collapsible Cloudflare Worker Guide for Gemini */}
-                <details className="group rounded-xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-700 px-3.5 py-2.5">
-                  <summary className="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700">
+                <details className="group rounded-lg bg-surface-subtle border border-edge px-3.5 py-2.5">
+                  <summary className="cursor-pointer list-none min-h-[36px] flex items-center justify-between gap-2 text-xs font-semibold text-ink focus-visible:outline-2 focus-visible:outline-primary">
                     <span>How to set up a free Cloudflare Worker for Gemini API (Copy-Paste Script)</span>
-                    <span className="text-stone-ink dark:text-slate-400 transition-transform group-open:rotate-180">
+                    <span className="text-ink-secondary transition-transform group-open:rotate-180">
                       <Icon name="chevronDown" className="w-4 h-4" />
                     </span>
                   </summary>
 
-                  <div className="pt-2.5 mt-2 border-t border-linen-200/80 dark:border-night-800 space-y-2.5 text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                  <div className="pt-2.5 mt-2 border-t border-edge-subtle space-y-2.5 text-xs text-ink-secondary leading-relaxed">
                     <p>
                       A Cloudflare Worker acts as your own private gateway to the Google Gemini API
                       with unlimited free monthly requests on Cloudflare’s free tier.
                     </p>
-                    <ol className="list-decimal list-inside space-y-1 font-medium text-forest-900 dark:text-white">
+                    <ol className="list-decimal list-inside space-y-1 font-medium text-ink">
                       <li>
                         Log in to{' '}
                         <a
                           href="https://dash.cloudflare.com"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-forest-700 dark:text-[#5ED3DA] underline"
+                          className="text-primary underline"
                         >
                           Cloudflare Dashboard
                         </a>{' '}
@@ -2239,13 +2530,13 @@ export const SettingsView: React.FC = () => {
                       <li>Paste this script into your Worker and click <strong>Deploy</strong>:</li>
                     </ol>
                     <div className="relative group/llmcode">
-                      <pre className="p-3 rounded-lg bg-night-950 text-ivory font-mono-tabular text-[11px] overflow-x-auto leading-relaxed">
+                      <pre className="p-3 rounded-lg bg-[#142321] text-[#F0E7D5] border border-[#3B4436] font-mono-tabular text-[11px] overflow-x-auto leading-relaxed">
                         {CLOUDFLARE_WORKER_SAMPLE_SCRIPT}
                       </pre>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(CLOUDFLARE_WORKER_SAMPLE_SCRIPT, 'llm')}
-                        className="absolute top-2 right-2 px-2.5 py-1 rounded bg-night-800 hover:bg-night-700 text-white text-[10px] font-semibold transition-colors cursor-pointer"
+                        className="absolute top-2 right-2 px-2.5 py-1 rounded bg-[#243831] hover:bg-[#314B42] text-[#F0E7D5] text-[10px] font-semibold transition-colors cursor-pointer"
                       >
                         {copiedLlmScript ? 'Copied!' : 'Copy Script'}
                       </button>
@@ -2258,12 +2549,12 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </details>
 
-                <div className="rounded-xl bg-linen-50/70 dark:bg-night-950/60 border border-linen-200 dark:border-night-800 p-3 flex items-start gap-2.5">
-                  <span className="text-forest-700 dark:text-[#5ED3DA] mt-0.5 shrink-0">
+                <div className="rounded-lg bg-surface-subtle border border-edge p-3 flex items-start gap-2.5">
+                  <span className="text-primary mt-0.5 shrink-0">
                     <Icon name="shield" className="w-4 h-4" />
                   </span>
-                  <div className="text-[11px] text-stone-ink dark:text-slate-400 space-y-0.5 leading-relaxed">
-                    <p className="font-bold text-forest-900 dark:text-white">
+                  <div className="text-[11px] text-ink-secondary space-y-0.5 leading-relaxed">
+                    <p className="font-semibold text-ink">
                       Quota-Conscious Design:
                     </p>
                     <p>
@@ -2279,23 +2570,23 @@ export const SettingsView: React.FC = () => {
               {/* Tagging & Pluggable AI Enrichment */}
               <section
                 aria-labelledby="tagging-providers-heading"
-                className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3.5"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3.5"
               >
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-linen-200/80 dark:border-night-800">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-edge-subtle">
                   <div>
                     <h2
                       id="tagging-providers-heading"
-                      className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white"
+                      className="font-display text-lg font-semibold text-ink"
                     >
                       {t('settings.taggingHeading')}
                     </h2>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-secondary mt-0.5">
                       {t('settings.taggingDesc')}
                     </p>
                   </div>
-                  <span className="text-xs text-stone-ink dark:text-slate-400 whitespace-nowrap">
+                  <span className="text-xs text-ink-secondary whitespace-nowrap">
                     {t('settings.modeLabel')}:{' '}
-                    <strong className="font-semibold text-forest-900 dark:text-slate-200">
+                    <strong className="font-semibold text-ink">
                       {state.settings.aiEnrichmentOptIn
                         ? t('settings.localPlusAdapter', {
                             adapter: selectedAdapter ? selectedAdapter.label : state.settings.aiAdapterId,
@@ -2310,11 +2601,11 @@ export const SettingsView: React.FC = () => {
                   <div className="min-w-0">
                     <p
                       id="label-auto-tagging"
-                      className="text-sm font-semibold text-forest-900 dark:text-white"
+                      className="text-sm font-semibold text-ink"
                     >
                       {t('settings.autoTaggingTitle')}
                     </p>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-secondary mt-0.5">
                       {t('settings.autoTaggingDesc')}
                     </p>
                   </div>
@@ -2328,15 +2619,15 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 {/* AI Tag Enrichment Opt-In Switch */}
-                <div className="pt-3 border-t border-linen-200/70 dark:border-night-800 flex items-center justify-between gap-4">
+                <div className="pt-3 border-t border-edge-subtle flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p
                       id="label-ai-opt-in"
-                      className="text-sm font-semibold text-forest-900 dark:text-white"
+                      className="text-sm font-semibold text-ink"
                     >
                       {t('settings.aiOptInTitle')}
                     </p>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-secondary mt-0.5">
                       {t('settings.aiOptInDesc')}
                     </p>
                   </div>
@@ -2350,8 +2641,8 @@ export const SettingsView: React.FC = () => {
                 </div>
 
                 {/* Pluggable Adapter Selector Cards */}
-                <div className="pt-3 border-t border-linen-200/70 dark:border-night-800">
-                  <p className="text-xs font-semibold text-forest-900 dark:text-slate-200">
+                <div className="pt-3 border-t border-edge-subtle">
+                  <p className="text-xs font-semibold text-ink">
                     {t('settings.aiAdapterHeading')}
                   </p>
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2362,34 +2653,34 @@ export const SettingsView: React.FC = () => {
                           key={adapter.id}
                           type="button"
                           onClick={() => handleSelectAiAdapter(adapter.id)}
-                          className={`text-left rounded-xl p-3.5 border transition-colors cursor-pointer ${
+                          className={`text-left rounded-lg p-3.5 border transition-colors cursor-pointer ${
                             isSelected
-                              ? 'bg-linen-100/80 dark:bg-night-800 border-forest-700 dark:border-[#5ED3DA]'
-                              : 'bg-linen-50/70 dark:bg-night-950/60 border-linen-200 dark:border-night-700 hover:border-forest-700/50'
+                              ? 'bg-surface-elevated border-primary'
+                              : 'bg-surface-subtle border-edge hover:border-primary/50'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                            <span className="text-xs sm:text-sm font-semibold text-ink">
                               {adapter.label}
                             </span>
                             <span
                               className={`text-[11px] font-medium ${
                                 isSelected
-                                  ? 'text-forest-700 dark:text-[#5ED3DA]'
-                                  : 'text-stone-ink dark:text-slate-400'
+                                  ? 'text-primary'
+                                  : 'text-ink-muted'
                               }`}
                             >
                               {isSelected ? 'Selected' : 'Select'}
                             </span>
                           </div>
-                          <p className="text-xs text-stone-ink dark:text-slate-400 mt-1 leading-relaxed">
+                          <p className="text-xs text-ink-secondary mt-1 leading-relaxed">
                             {adapter.privacyNote}
                           </p>
                           <p
                             className={`text-[11px] mt-1.5 ${
                               adapter.available
-                                ? 'text-forest-700 dark:text-[#5ED3DA]'
-                                : 'text-amber-700 dark:text-amber-300'
+                                ? 'text-primary'
+                                : 'text-[#9E6E32] dark:text-[#D0AD55]'
                             }`}
                           >
                             {adapter.reason}
@@ -2402,13 +2693,13 @@ export const SettingsView: React.FC = () => {
                   {state.settings.aiAdapterId === 'custom-endpoint' && (
                     <form
                       onSubmit={handleSaveCustomEndpoint}
-                      className="mt-4 pt-4 border-t border-linen-200 dark:border-night-700 space-y-3"
+                      className="mt-4 pt-4 border-t border-edge-subtle space-y-3"
                     >
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                         <div className="sm:col-span-8">
                           <label
                             htmlFor="ai-endpoint-url-input"
-                            className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                            className="block text-xs font-semibold text-ink mb-1"
                           >
                             Keyless HTTPS Proxy or Localhost Bridge URL
                           </label>
@@ -2419,13 +2710,13 @@ export const SettingsView: React.FC = () => {
                               value={customEndpointUrl}
                               onChange={(e) => setCustomEndpointUrl(e.target.value)}
                               placeholder="https://your-proxy.example.com/api/enrich or http://localhost:11434/enrich"
-                              className="w-full h-12 pl-3.5 pr-9 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm font-mono-tabular text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                              className="w-full h-12 pl-3.5 pr-9 rounded-lg bg-canvas border border-edge text-base sm:text-sm font-mono-tabular text-ink focus:outline-2 focus:outline-primary"
                             />
                             {customEndpointUrl && (
                               <button
                                 type="button"
                                 onClick={() => setCustomEndpointUrl('')}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-stone-400 hover:text-stone-700 dark:hover:text-white"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-ink-muted hover:text-ink"
                               >
                                 <Icon name="close" className="w-3.5 h-3.5" />
                               </button>
@@ -2435,7 +2726,7 @@ export const SettingsView: React.FC = () => {
                         <div className="sm:col-span-4">
                           <label
                             htmlFor="ai-timeout-select"
-                            className="block text-xs font-semibold text-forest-900 dark:text-slate-200 mb-1"
+                            className="block text-xs font-semibold text-ink mb-1"
                           >
                             Request Timeout
                           </label>
@@ -2443,7 +2734,7 @@ export const SettingsView: React.FC = () => {
                             id="ai-timeout-select"
                             value={customEndpointTimeout}
                             onChange={(e) => setCustomEndpointTimeout(Number(e.target.value))}
-                            className="w-full h-12 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-base sm:text-sm text-forest-900 dark:text-white focus:outline-2 focus:outline-forest-700"
+                            className="w-full h-12 px-3 rounded-lg bg-canvas border border-edge text-base sm:text-sm text-ink focus:outline-2 focus:outline-primary"
                           >
                             <option value={3000}>3 seconds (Fast fallback)</option>
                             <option value={6000}>6 seconds (Balanced)</option>
@@ -2453,19 +2744,19 @@ export const SettingsView: React.FC = () => {
                       </div>
 
                       {customEndpointError && (
-                        <p role="alert" className="text-xs font-medium text-rose-700 dark:text-rose-300">
+                        <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
                           {customEndpointError}
                         </p>
                       )}
 
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <p className="text-[11px] text-stone-ink dark:text-slate-400">
+                        <p className="text-[11px] text-ink-secondary">
                           Never paste API keys in URLs. Upstream secrets must stay inside your proxy
                           or local daemon.
                         </p>
                         <button
                           type="submit"
-                          className="min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
+                          className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
                         >
                           Save Proxy Config
                         </button>
@@ -2477,18 +2768,18 @@ export const SettingsView: React.FC = () => {
                 {lastAdapterTestReport && (
                   <div
                     role="status"
-                    className="rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 px-3.5 py-2.5 text-xs text-forest-900 dark:text-slate-300"
+                    className="rounded-lg bg-surface-subtle border border-edge px-3.5 py-2.5 text-xs text-ink"
                   >
                     {lastAdapterTestReport}
                   </div>
                 )}
 
-                <div className="pt-3 border-t border-linen-200/70 dark:border-night-800 flex flex-wrap items-center gap-2.5">
+                <div className="pt-3 border-t border-edge-subtle flex flex-wrap items-center gap-2.5">
                   <button
                     type="button"
                     onClick={handleEnrichAllBooks}
                     disabled={enrichingCatalog}
-                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-forest-700 hover:bg-forest-800 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
+                    className="min-h-[44px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-60 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
                   >
                     <Icon name="sparkles" className="w-3.5 h-3.5" />
                     <span>
@@ -2502,7 +2793,7 @@ export const SettingsView: React.FC = () => {
                     type="button"
                     onClick={handleTestAiAdapter}
                     disabled={testingAdapter}
-                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-60 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
+                    className="min-h-[44px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge disabled:opacity-60 text-ink text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                   >
                     <span>
                       {testingAdapter ? t('settings.testingProgress') : t('settings.testPipelineBtn')}
@@ -2512,7 +2803,7 @@ export const SettingsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleResetProviderDefaults}
-                    className="min-h-[44px] px-3.5 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-100 dark:hover:bg-night-800 text-stone-ink dark:text-slate-300 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
+                    className="min-h-[44px] px-3.5 py-2 rounded-lg border border-edge hover:bg-surface-subtle text-ink-secondary hover:text-ink text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                   >
                     {t('settings.safeDefaultsBtn')}
                   </button>
@@ -2534,33 +2825,33 @@ export const SettingsView: React.FC = () => {
               {/* Installable Phone App (PWA) */}
               <section
                 aria-labelledby="pwa-heading"
-                className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h2
                       id="pwa-heading"
-                      className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white"
+                      className="font-display text-lg font-semibold text-ink"
                     >
                       {t('settings.pwaHeading')}
                     </h2>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-secondary mt-0.5">
                       {t('settings.pwaNetwork')}:{' '}
-                      <strong className="text-forest-900 dark:text-white">
+                      <strong className="text-ink">
                         {pwaStatus.isOnline ? t('settings.pwaOnline') : t('settings.pwaOffline')}
                       </strong>{' '}
                       · {t('settings.pwaShell')}:{' '}
-                      <strong className="text-forest-900 dark:text-white">
+                      <strong className="text-ink">
                         {pwaStatus.swReady ? t('settings.pwaReady') : t('settings.pwaRegistering')}
                       </strong>{' '}
                       · {t('settings.pwaStorage')}:{' '}
-                      <strong className="text-forest-900 dark:text-white">indexeddb</strong>
+                      <strong className="text-ink">indexeddb</strong>
                     </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
                     {pwaStatus.isInstalled ? (
-                      <p className="text-xs font-semibold text-emerald-700 dark:text-[#5ED3DA] inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800">
+                      <p className="text-xs font-semibold text-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-secondary/15 border border-secondary/35">
                         <Icon name="check" className="w-3.5 h-3.5" />
                         <span>{t('settings.pwaInstalledMode')}</span>
                       </p>
@@ -2568,20 +2859,20 @@ export const SettingsView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => pwaManager.triggerInstall()}
-                        className="min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shadow-xs cursor-pointer"
+                        className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shadow-xs cursor-pointer"
                       >
                         <Icon name="download" className="w-4 h-4" />
                         <span>{t('settings.pwaSaveHomeScreen')}</span>
                       </button>
                     ) : pwaStatus.isIOS ? (
-                      <div className="text-xs text-stone-ink dark:text-slate-400 bg-linen-100 dark:bg-night-800 px-3 py-2 rounded-xl border border-linen-200 dark:border-night-700">
+                      <div className="text-xs text-ink-secondary bg-surface-subtle px-3 py-2 rounded-lg border border-edge">
                         <span>
                           Tap <strong>Share</strong> in Safari &rarr;{' '}
                           <strong>Add to Home Screen</strong>
                         </span>
                       </div>
                     ) : (
-                      <span className="text-xs font-semibold text-stone-ink dark:text-slate-400 px-3 py-2 rounded-xl bg-linen-100 dark:bg-night-800">
+                      <span className="text-xs font-semibold text-ink-secondary px-3 py-2 rounded-lg bg-surface-subtle border border-edge">
                         PWA Ready
                       </span>
                     )}
@@ -2591,7 +2882,7 @@ export const SettingsView: React.FC = () => {
                       data-action="force-refresh-app"
                       onClick={handleForceRefresh}
                       disabled={refreshingApp}
-                      className="min-h-[44px] px-3.5 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-60 dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                      className="min-h-[44px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated disabled:opacity-60 border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       <Icon
                         name="refresh"
@@ -2605,7 +2896,7 @@ export const SettingsView: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <p className="text-[11px] text-stone-ink dark:text-slate-400 leading-relaxed">
+                <p className="text-[11px] text-ink-secondary leading-relaxed">
                   {t('settings.forceRefreshHint')}
                 </p>
               </section>
@@ -2613,38 +2904,38 @@ export const SettingsView: React.FC = () => {
               {/* Storage & Browser Cache */}
               <section
                 aria-labelledby="storage-heading"
-                className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3.5"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3.5"
               >
-                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-linen-200/80 dark:border-night-800">
+                <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-edge-subtle">
                   <div>
                     <h2
                       id="storage-heading"
-                      className="font-display text-base sm:text-lg font-bold text-forest-900 dark:text-white"
+                      className="font-display text-lg font-semibold text-ink"
                     >
                       {t('settings.storageHeading')}
                     </h2>
-                    <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-ink-secondary mt-0.5">
                       {t('settings.storageDesc')}
                     </p>
                   </div>
                   <div className="sm:text-right shrink-0">
-                    <span className="text-xs font-mono-tabular text-stone-ink dark:text-slate-400 whitespace-nowrap">
+                    <span className="text-xs font-mono-tabular text-ink-secondary whitespace-nowrap">
                       {t('settings.versionLabel')}{' '}
-                      <strong className="font-semibold text-forest-900 dark:text-white">
+                      <strong className="font-semibold text-ink">
                         {APP_VERSION}
                       </strong>
                       <span aria-hidden="true" className="mx-1">
                         ·
                       </span>
                       {t('settings.memoryLabel')}{' '}
-                      <strong className="font-semibold text-forest-900 dark:text-white">
+                      <strong className="font-semibold text-ink">
                         {storageUsage.formatted}
                       </strong>
                     </span>
                   </div>
                 </div>
 
-                <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+                <p className="text-xs text-ink-secondary leading-relaxed">
                   {t('settings.aboutStorageText', {
                     profiles: state.profiles.length,
                     rotations: state.rotations.length,
@@ -2655,14 +2946,14 @@ export const SettingsView: React.FC = () => {
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                   {storageUsage.coverDataUrlBytes > 0 ? (
-                    <span className="text-xs font-mono-tabular text-stone-ink dark:text-slate-400">
+                    <span className="text-xs font-mono-tabular text-ink-secondary">
                       {t('settings.photosLabel')}:{' '}
-                      <strong className="text-forest-900 dark:text-white">
+                      <strong className="text-ink">
                         {formatStorageBytes(storageUsage.coverDataUrlBytes)}
                       </strong>
                     </span>
                   ) : (
-                    <span className="text-xs text-stone-ink dark:text-slate-400">
+                    <span className="text-xs text-ink-secondary">
                       Local device cover cache
                     </span>
                   )}
@@ -2670,7 +2961,7 @@ export const SettingsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleClearCoverCache}
-                    className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
                   >
                     {t('settings.clearCoverCache')}
                   </button>
@@ -2689,18 +2980,18 @@ export const SettingsView: React.FC = () => {
                 onBack={goBackToRoot}
               />
 
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-4">
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-4">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <button
                     type="button"
                     onClick={handleExportBackup}
-                    className="min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:hover:bg-brand-dark-hover text-white dark:text-night-950 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shadow-xs cursor-pointer"
                   >
                     <Icon name="download" className="w-3.5 h-3.5" />
                     <span>{t('settings.exportBtn')}</span>
                   </button>
 
-                  <label className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-forest-900 dark:text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap">
+                  <label className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap">
                     <Icon name="upload" className="w-3.5 h-3.5" />
                     <span>{t('settings.importBtn')}</span>
                     <input
@@ -2713,12 +3004,12 @@ export const SettingsView: React.FC = () => {
                   </label>
                 </div>
 
-                <div className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-3">
+                <div className="pt-4 border-t border-edge-subtle space-y-3">
                   {!confirmResetOpen ? (
                     <button
                       type="button"
                       onClick={() => setConfirmResetOpen(true)}
-                      className="min-h-[44px] px-4 py-2 rounded-xl border border-rose-200 dark:border-rose-900/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 rounded-lg border border-[#8C4A4F]/40 hover:bg-[#8C4A4F]/10 text-[#8C4A4F] dark:text-[#C48A8E] text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                     >
                       {t('settings.resetSeedBtn')}
                     </button>
@@ -2726,16 +3017,16 @@ export const SettingsView: React.FC = () => {
                     <div
                       role="alertdialog"
                       aria-labelledby="confirm-reset-title"
-                      className="rounded-xl bg-rose-50/90 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 p-4 space-y-3"
+                      className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 p-4 space-y-3"
                     >
                       <div>
                         <p
                           id="confirm-reset-title"
-                          className="text-xs sm:text-sm font-bold text-rose-950 dark:text-rose-100"
+                          className="text-xs sm:text-sm font-semibold text-ink"
                         >
                           {t('settings.resetSeedConfirmTitle')}
                         </p>
-                        <p className="text-xs text-rose-900/90 dark:text-rose-200/90 mt-1 leading-relaxed">
+                        <p className="text-xs text-ink-secondary mt-1 leading-relaxed">
                           {t('settings.resetSeedConfirmBody')}
                         </p>
                       </div>
@@ -2743,14 +3034,14 @@ export const SettingsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleConfirmResetSeed}
-                          className="min-h-[42px] px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors cursor-pointer"
+                          className="min-h-[42px] px-4 py-1.5 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold transition-colors cursor-pointer"
                         >
                           {t('settings.resetSeedConfirmAction')}
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmResetOpen(false)}
-                          className="min-h-[42px] px-4 py-1.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white transition-colors cursor-pointer"
+                          className="min-h-[42px] px-4 py-1.5 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
                         >
                           {t('common.cancel')}
                         </button>
@@ -2773,14 +3064,14 @@ export const SettingsView: React.FC = () => {
               />
 
               {/* Onboarding Controls */}
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3.5">
                 <div>
-                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                  <h2 className="font-display text-lg font-semibold text-ink">
                     Onboarding Flow &amp; Preview
                   </h2>
-                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-ink-secondary mt-0.5">
                     Current onboarding status:{' '}
-                    <strong className="font-mono-tabular text-forest-900 dark:text-white">
+                    <strong className="font-mono-tabular text-ink">
                       {state.settings.onboarding?.status || 'pending'}
                     </strong>{' '}
                     · Step {state.settings.onboarding?.currentStep ?? 0} of 5
@@ -2792,7 +3083,7 @@ export const SettingsView: React.FC = () => {
                     type="button"
                     data-action="dev-preview-onboarding"
                     onClick={() => store.previewOnboarding()}
-                    className="min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-bold text-left inline-flex items-center justify-between gap-2 cursor-pointer transition-colors"
+                    className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold text-left inline-flex items-center justify-between gap-2 cursor-pointer transition-colors"
                   >
                     <span>{t('devTools.previewOnboardingBtn')}</span>
                     <Icon name="chevronRight" className="w-4 h-4 shrink-0" />
@@ -2802,7 +3093,7 @@ export const SettingsView: React.FC = () => {
                     type="button"
                     data-action="dev-restart-onboarding"
                     onClick={() => store.restartOnboarding()}
-                    className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white text-left inline-flex items-center justify-between gap-2 cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink text-left inline-flex items-center justify-between gap-2 cursor-pointer"
                   >
                     <span>{t('devTools.restartOnboardingBtn')}</span>
                     <Icon name="refresh" className="w-4 h-4 shrink-0" />
@@ -2812,7 +3103,7 @@ export const SettingsView: React.FC = () => {
                     type="button"
                     data-action="dev-reset-onboarding-flag"
                     onClick={() => store.resetOnboardingCompletionFlag()}
-                    className="min-h-[44px] px-4 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-50 dark:hover:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white text-left sm:col-span-2 cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg border border-edge hover:bg-surface-subtle text-xs font-semibold text-ink text-left sm:col-span-2 cursor-pointer"
                   >
                     {t('devTools.resetFlagBtn')}
                   </button>
@@ -2820,12 +3111,12 @@ export const SettingsView: React.FC = () => {
               </section>
 
               {/* Sample Data & QA User State Switching */}
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-3.5">
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3.5">
                 <div>
-                  <h2 className="font-display text-base font-bold text-forest-900 dark:text-white">
+                  <h2 className="font-display text-lg font-semibold text-ink">
                     User State Switching &amp; Sample Data
                   </h2>
-                  <p className="text-xs text-stone-ink dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-ink-secondary mt-0.5">
                     Test brand-new clean-slate onboarding or swap back to your backed-up household snapshot.
                   </p>
                 </div>
@@ -2835,7 +3126,7 @@ export const SettingsView: React.FC = () => {
                     type="button"
                     data-action="dev-switch-new-user"
                     onClick={() => store.switchToNewUserCleanSlate()}
-                    className="min-h-[44px] px-4 py-2 rounded-xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-800 text-amber-950 dark:text-amber-100 text-xs font-bold cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg bg-accent/15 hover:bg-accent/25 border border-accent/40 text-ink text-xs font-semibold cursor-pointer"
                   >
                     {t('devTools.switchNewUserBtn')}
                   </button>
@@ -2845,7 +3136,7 @@ export const SettingsView: React.FC = () => {
                     data-action="dev-restore-snapshot"
                     disabled={!hasQaSnapshot}
                     onClick={() => store.restoreExistingUserSnapshot()}
-                    className="min-h-[44px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-45 disabled:cursor-not-allowed dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge disabled:opacity-45 disabled:cursor-not-allowed text-xs font-semibold text-ink cursor-pointer"
                   >
                     {t('devTools.restoreSnapshotBtn')}
                   </button>
@@ -2854,7 +3145,7 @@ export const SettingsView: React.FC = () => {
                     type="button"
                     data-action="dev-add-sample-books"
                     onClick={() => store.importSampleCollectionAdditive()}
-                    className="min-h-[44px] px-4 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-50 dark:hover:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg border border-edge hover:bg-surface-subtle text-xs font-semibold text-ink cursor-pointer"
                   >
                     {t('devTools.loadSampleAdditiveBtn')}
                   </button>
@@ -2863,29 +3154,29 @@ export const SettingsView: React.FC = () => {
                     type="button"
                     data-action="dev-load-sample-household"
                     onClick={() => store.loadFullSampleHousehold()}
-                    className="min-h-[44px] px-4 py-2 rounded-xl border border-linen-200 dark:border-night-700 hover:bg-linen-50 dark:hover:bg-night-800 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-lg border border-edge hover:bg-surface-subtle text-xs font-semibold text-ink cursor-pointer"
                   >
                     {t('devTools.loadSampleHouseholdBtn')}
                   </button>
                 </div>
 
                 {/* Clear All Test Data with inline confirmation */}
-                <div className="pt-3 border-t border-linen-200/70 dark:border-night-800">
+                <div className="pt-3 border-t border-edge-subtle">
                   {!confirmClearAllOpen ? (
                     <button
                       type="button"
                       data-action="dev-clear-all-test-data"
                       onClick={() => setConfirmClearAllOpen(true)}
-                      className="min-h-[44px] px-4 py-2 rounded-xl border border-rose-300 dark:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 text-xs font-bold cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 rounded-lg border border-[#8C4A4F]/40 hover:bg-[#8C4A4F]/10 text-[#8C4A4F] dark:text-[#C48A8E] text-xs font-semibold cursor-pointer"
                     >
                       {t('devTools.clearAllBtn')}
                     </button>
                   ) : (
                     <div
                       role="alertdialog"
-                      className="rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 p-4 space-y-2.5"
+                      className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 p-4 space-y-2.5"
                     >
-                      <p className="text-xs font-bold text-rose-950 dark:text-rose-100">
+                      <p className="text-xs font-semibold text-ink">
                         Erase all local books, profiles, rotations, and saved QA snapshots?
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -2895,14 +3186,14 @@ export const SettingsView: React.FC = () => {
                             setConfirmClearAllOpen(false);
                             await store.clearAllTestData();
                           }}
-                          className="min-h-[40px] px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer"
+                          className="min-h-[40px] px-4 py-1.5 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold cursor-pointer"
                         >
                           Confirm Clear All
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirmClearAllOpen(false)}
-                          className="min-h-[40px] px-4 py-1.5 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-white cursor-pointer"
+                          className="min-h-[40px] px-4 py-1.5 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink cursor-pointer"
                         >
                           {t('common.cancel')}
                         </button>
@@ -2937,8 +3228,8 @@ export const SettingsView: React.FC = () => {
                 onBack={goBackToRoot}
               />
 
-              <section className="rounded-2xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-800 p-4 sm:p-5 shadow-xs space-y-4">
-                <p className="text-xs text-stone-ink dark:text-slate-300 leading-relaxed">
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-4">
+                <p className="text-xs text-ink-secondary leading-relaxed">
                   {t('settings.aboutStorageText', {
                     profiles: state.profiles.length,
                     rotations: state.rotations.length,
@@ -2980,17 +3271,17 @@ export const SettingsView: React.FC = () => {
                       href={doc.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="rounded-xl p-3.5 bg-linen-50 hover:bg-linen-100 dark:bg-night-950 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 transition-colors"
+                      className="rounded-lg p-3.5 bg-surface-subtle hover:bg-surface-elevated border border-edge flex items-center justify-between gap-3 transition-colors"
                     >
                       <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-semibold text-forest-900 dark:text-white">
+                        <p className="text-xs sm:text-sm font-semibold text-ink">
                           {doc.title}
                         </p>
-                        <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-0.5 truncate">
+                        <p className="text-[11px] text-ink-secondary mt-0.5 truncate">
                           {doc.desc}
                         </p>
                       </div>
-                      <span className="text-forest-700 dark:text-[#5ED3DA] shrink-0">
+                      <span className="text-primary shrink-0">
                         <Icon name="externalLink" className="w-4 h-4" />
                       </span>
                     </a>
@@ -3114,10 +3405,10 @@ export const SettingsView: React.FC = () => {
       {/* Header & Eyebrow */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
         <div>
-          <p className="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] uppercase tracking-[0.08em]">
+          <p className="text-[11px] font-semibold text-primary uppercase tracking-[0.12em]">
             {t('settings.eyebrow')}
           </p>
-          <h1 className="font-display text-2xl sm:text-[30px] font-bold tracking-tight text-forest-900 dark:text-white leading-tight mt-0.5">
+          <h1 className="font-display text-2xl sm:text-[32px] font-semibold tracking-tight text-ink leading-tight mt-0.5">
             {t('settings.heading')}
           </h1>
         </div>
@@ -3129,7 +3420,7 @@ export const SettingsView: React.FC = () => {
               ? 'Developer & Testing Tools unlocked'
               : 'Tap 5 times to unlock Development & Testing Tools'
           }
-          className="min-h-[44px] inline-flex items-center px-2.5 py-1.5 -mx-2.5 sm:mx-0 rounded-xl text-xs font-mono-tabular text-stone-ink dark:text-slate-300 hover:text-forest-900 hover:bg-linen-100/70 dark:hover:text-white dark:hover:bg-night-800/70 text-left sm:text-right cursor-pointer transition-colors"
+          className="min-h-[44px] inline-flex items-center px-2.5 py-1.5 -mx-2.5 sm:mx-0 rounded-lg text-xs font-mono-tabular text-ink-secondary hover:text-ink hover:bg-surface-subtle text-left sm:text-right cursor-pointer transition-colors"
         >
           <span>
             v{APP_VERSION} · {storageUsage.formatted}
@@ -3148,17 +3439,17 @@ export const SettingsView: React.FC = () => {
           <div
             role="alert"
             onClick={() => openSection('query-usage')}
-            className={`p-4 rounded-2xl border flex items-center justify-between gap-3 text-xs leading-relaxed cursor-pointer transition-transform hover:scale-[1.01] ${
+            className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs leading-relaxed cursor-pointer transition-colors ${
               alert.level === 'error'
-                ? 'bg-rose-50 border-rose-300 dark:bg-rose-950/50 dark:border-rose-800 text-rose-900 dark:text-rose-100'
-                : 'bg-amber-50 border-amber-300 dark:bg-amber-950/50 dark:border-amber-800 text-amber-900 dark:text-amber-100'
+                ? 'bg-[#8C4A4F]/10 border-[#8C4A4F]/35 text-[#8C4A4F] dark:text-[#C48A8E]'
+                : 'bg-accent/12 border-accent/35 text-ink'
             } shadow-xs`}
           >
             <div className="flex items-center gap-2.5">
-              <span className="text-lg shrink-0">{alert.level === 'error' ? '🛑' : '⚠️'}</span>
+              <Icon name="info" className="w-4 h-4 shrink-0" />
               <p className="font-semibold">{alert.message}</p>
             </div>
-            <span className="font-bold underline shrink-0 whitespace-nowrap">View Usage →</span>
+            <span className="font-semibold underline shrink-0 whitespace-nowrap">View Usage &rarr;</span>
           </div>
         );
       })()}
@@ -3186,7 +3477,7 @@ export const SettingsView: React.FC = () => {
               iconTone="amber"
               title={t('settings.appearanceHeading')}
               subtitle={t('settings.rowAppearanceSubtitle')}
-              value={`${themeLabel} · ${ratioLabel}`}
+              value={`${themeLabel} · ${detailStyleLabel} · ${ratioLabel}`}
               onClick={() => openSection('appearance')}
             />
             <SettingsMenuRow

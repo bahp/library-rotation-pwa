@@ -49,25 +49,25 @@ export const BookCover: React.FC<BookCoverProps> = ({
 
   const dims = isSquare
     ? isGrid
-      ? 'w-full aspect-square rounded-xl shadow-xs'
+      ? 'w-full aspect-square rounded-lg shadow-xs'
       : size === 'xs'
-        ? 'w-11 h-11 aspect-square rounded-lg'
+        ? 'w-11 h-11 aspect-square rounded-md'
         : size === 'sm'
-          ? 'w-14 h-14 aspect-square rounded-lg'
+          ? 'w-14 h-14 aspect-square rounded-md'
           : size === 'lg'
-            ? 'w-28 h-28 aspect-square rounded-xl'
-            : 'w-20 h-20 aspect-square rounded-xl'
+            ? 'w-28 h-28 aspect-square rounded-lg'
+            : 'w-20 h-20 aspect-square rounded-lg'
     : isGrid
-      ? 'w-full aspect-[3/4] rounded-xl shadow-xs'
+      ? 'w-full aspect-[3/4] rounded-lg shadow-xs'
       : size === 'xs'
-        ? 'w-11 h-[58px] rounded-lg'
+        ? 'w-11 h-[58px] rounded-md'
         : size === 'sm'
-          ? 'w-14 h-[74px] rounded-lg'
+          ? 'w-14 h-[74px] rounded-md'
           : size === 'lg'
-            ? 'w-28 h-[148px] rounded-xl'
-            : 'w-20 h-[106px] rounded-xl';
+            ? 'w-28 h-[148px] rounded-lg'
+            : 'w-20 h-[106px] rounded-lg';
 
-  const radiusClass = isGrid || size === 'md' || size === 'lg' ? 'rounded-xl' : 'rounded-lg';
+  const radiusClass = isGrid || size === 'md' || size === 'lg' ? 'rounded-lg' : 'rounded-md';
   const titleSnippet =
     book.title.length > 34 ? `${book.title.slice(0, 32).trim()}…` : book.title;
   const authorLast = (book.authors[0] || '').split(' ').pop() || '';
@@ -152,17 +152,17 @@ export const BookCover: React.FC<BookCoverProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`relative ${isGrid ? '' : 'shrink-0'} ${dims} overflow-hidden bg-linen-100 dark:bg-night-800 select-none ${className}`}
+      className={`relative ${isGrid ? '' : 'shrink-0'} ${dims} overflow-hidden bg-surface-subtle select-none ${className}`}
     >
       {/* Cloth-bound Fallback always underneath */}
       <div
-        className={`lr-cover-fallback absolute inset-0 flex overflow-hidden ${radiusClass} ${palette.bg} ${palette.text} border border-black/10 dark:border-white/10`}
+        className={`lr-cover-fallback absolute inset-0 flex overflow-hidden ${radiusClass} ${palette.bg} ${palette.text} border border-black/15 dark:border-white/10`}
       >
         <div className={`${isGrid ? 'w-3' : 'w-2'} h-full shrink-0 ${palette.spine}`} />
         <div className={`flex-1 ${isGrid ? 'p-2.5 sm:p-3' : 'p-2'} flex flex-col justify-between min-w-0 text-left`}>
           <span
             className={`font-display ${
-              isGrid ? 'text-xs sm:text-sm' : 'text-[10px]'
+              isGrid ? 'text-[13px] sm:text-sm' : 'text-[11px]'
             } leading-snug font-semibold line-clamp-3 break-words`}
           >
             {titleSnippet}
@@ -191,7 +191,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
       {catalogBadge && (
         <div className="pointer-events-none absolute top-1.5 left-1.5 z-20">
           <span
-            className={`inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded-md shadow-xs backdrop-blur-xs ${catalogBadge.styleClass}`}
+            className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded shadow-xs backdrop-blur-xs ${catalogBadge.styleClass}`}
           >
             {catalogBadge.label}
           </span>
@@ -203,9 +203,9 @@ export const BookCover: React.FC<BookCoverProps> = ({
         <div className="pointer-events-none absolute top-1.5 right-1.5 z-20">
           <span
             aria-label="Loved favorite"
-            className="w-5 h-5 rounded-full bg-rose-600/95 text-white flex items-center justify-center shadow-xs"
+            className="w-5 h-5 rounded-full bg-[#8C4A4F]/95 text-[#FFFCF5] flex items-center justify-center shadow-xs"
           >
-            <Icon name="heartFilled" className="w-3 h-3 text-white" />
+            <Icon name="heartFilled" className="w-3 h-3" />
           </span>
         </div>
       )}
@@ -214,7 +214,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
       {rotationAdorno && (
         <div className="pointer-events-none absolute bottom-1.5 left-1.5 z-20">
           <span
-            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md shadow-xs border ${rotationAdorno.pillClass}`}
+            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded shadow-xs border ${rotationAdorno.pillClass}`}
           >
             <Icon name={rotationAdorno.icon} className="w-2.5 h-2.5" />
             <span>{rotationAdorno.label}</span>
@@ -233,7 +233,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
               <span
                 key={ownerId}
                 title={profile?.name || ownerId}
-                className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs border border-white dark:border-night-950 ${toneClass}`}
+                className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center shadow-xs border border-surface ${toneClass}`}
               >
                 {initial}
               </span>

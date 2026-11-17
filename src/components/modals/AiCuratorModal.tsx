@@ -87,25 +87,25 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-curator-modal-title"
-      className="sheet-backdrop fixed inset-0 z-[70] bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="sheet-backdrop fixed inset-0 z-[70] bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-xl sm:max-w-2xl max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
+        className="animate-sheet-up w-full max-w-xl sm:max-w-2xl max-h-[90vh] flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
       >
-        <div className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
+        <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden" />
         {/* Header */}
-        <div className="px-5 pt-3.5 pb-2.5 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="w-8 h-8 rounded-xl bg-forest-50 dark:bg-forest-950/60 text-forest-700 dark:text-[#5ED3DA] flex items-center justify-center">
+        <div className="px-5 pt-3.5 pb-2.5 border-b border-edge-subtle flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
               <Icon name="sparkles" className="w-4 h-4" />
             </span>
             <div>
-              <h2 id="ai-curator-modal-title" className="font-display text-sm sm:text-base font-bold text-forest-900 dark:text-white">
+              <h2 id="ai-curator-modal-title" className="font-display text-lg font-semibold text-ink">
                 AI Rotation Shelf Curator
               </h2>
-              <p className="text-[11px] text-stone-ink dark:text-slate-400">
+              <p className="text-[11px] text-ink-secondary">
                 Curating shelf for {activeProfile?.name || 'Reader'}
               </p>
             </div>
@@ -115,7 +115,7 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="min-h-[48px] min-w-[48px] sm:min-h-0 sm:min-w-0 p-2 sm:p-1.5 rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center active:scale-95 transition-transform"
+            className="min-h-[44px] min-w-[44px] sm:min-h-[36px] sm:min-w-[36px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-subtle flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
           >
             <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
@@ -124,9 +124,9 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
         {/* Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
           {/* Query Form */}
-          <form onSubmit={handleCurate} className="space-y-3 bg-linen-50 dark:bg-night-800/60 p-3.5 rounded-2xl border border-linen-200/80 dark:border-night-700">
+          <form onSubmit={handleCurate} className="space-y-3 bg-surface-subtle p-3.5 rounded-xl border border-edge">
             <div>
-              <label className="block font-bold text-forest-900 dark:text-white uppercase tracking-wider text-[11px] mb-1">
+              <label className="block font-semibold text-ink-muted uppercase tracking-[0.08em] text-[11px] mb-1">
                 Shelf Theme or Objective
               </label>
               <ClearableInput
@@ -134,19 +134,19 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
                 value={objective}
                 onValueChange={setObjective}
                 placeholder="e.g. Bedtime routines, dinosaurs, seasons, emotional resilience"
-                className="px-3.5 py-2 rounded-xl bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs focus:outline-none focus:ring-1 focus:ring-forest-700"
+                className="px-3.5 py-2 rounded-lg bg-canvas border border-edge text-xs text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-primary"
               />
             </div>
 
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <label className="font-bold text-forest-900 dark:text-white text-xs">
+                <label className="font-semibold text-ink text-xs">
                   Books to pick:
                 </label>
                 <select
                   value={bookCount}
                   onChange={(e) => setBookCount(Number(e.target.value))}
-                  className="px-2.5 py-1 rounded-lg bg-white dark:bg-night-900 border border-linen-200 dark:border-night-700 text-xs font-semibold"
+                  className="px-2.5 py-1 rounded-lg bg-canvas border border-edge text-xs font-semibold text-ink"
                 >
                   {[3, 4, 5, 6, 7, 8, 10].map((n) => (
                     <option key={n} value={n}>
@@ -159,7 +159,7 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
               <button
                 type="submit"
                 disabled={isCurating}
-                className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
+                className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
               >
                 <Icon name="sparkles" className="w-3.5 h-3.5" />
                 <span>{isCurating ? 'Curating Shelf…' : 'Generate Shelf Plan'}</span>
@@ -169,7 +169,7 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
 
           {isCurating && (
             <div className="space-y-2 py-2">
-              <p className="text-xs font-semibold text-forest-900 dark:text-white px-1">
+              <p className="text-xs font-semibold text-ink px-1">
                 Reading your library and building custom shelf…
               </p>
               <AiListSkeleton rows={Math.min(Math.max(bookCount, 3), 5)} />
@@ -177,19 +177,19 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
           )}
 
           {error && (
-            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 text-xs text-rose-800 dark:text-rose-200">
+            <div className="p-3 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-xs text-[#8C4A4F] dark:text-[#C48A8E]">
               {error}
             </div>
           )}
 
           {curatorPlan && !isCurating && (
             <div className="space-y-3">
-              <div className="p-3.5 rounded-xl bg-forest-50 dark:bg-forest-950/40 border border-forest-200 dark:border-forest-800/70">
-                <h3 className="font-display font-bold text-sm text-forest-900 dark:text-white">
+              <div className="p-3.5 rounded-lg bg-secondary/12 border border-secondary/35">
+                <h3 className="font-display font-semibold text-base text-ink">
                   {curatorPlan.rotationTitle || 'Recommended Rotation'}
                 </h3>
                 {curatorPlan.rationale && (
-                  <p className="text-xs text-forest-800 dark:text-slate-300 mt-1 leading-relaxed">
+                  <p className="text-xs text-ink-secondary mt-1 leading-relaxed">
                     {curatorPlan.rationale}
                   </p>
                 )}
@@ -205,22 +205,22 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
                     <div
                       key={book.id}
                       onClick={() => handleToggleBook(book.id)}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                      className={`p-2.5 rounded-lg border flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                         isChecked
-                          ? 'border-forest-700 dark:border-[#5ED3DA] bg-forest-700/5 dark:bg-[#5ED3DA]/10'
-                          : 'border-linen-200 dark:border-night-800 opacity-60'
+                          ? 'border-primary bg-surface-elevated/60'
+                          : 'border-edge opacity-60'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <BookCover book={book} size="sm" aspectRatio="portrait" />
                         <div className="min-w-0">
-                          <h4 className="font-display text-xs font-bold text-forest-900 dark:text-white truncate">
+                          <h4 className="font-display text-sm font-semibold text-ink truncate">
                             {book.title}
                           </h4>
-                          <p className="text-[11px] text-stone-ink dark:text-slate-400 truncate">
+                          <p className="text-[11px] text-ink-secondary truncate">
                             {book.authors[0]}
                           </p>
-                          <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5 line-clamp-1">
+                          <p className="text-[10px] text-primary mt-0.5 line-clamp-1">
                             {slot.reason}
                           </p>
                         </div>
@@ -230,7 +230,7 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
                         type="checkbox"
                         checked={isChecked}
                         onChange={() => handleToggleBook(book.id)}
-                        className="w-4 h-4 rounded text-forest-700 shrink-0"
+                        className="w-4 h-4 rounded accent-primary shrink-0"
                       />
                     </div>
                   );
@@ -242,18 +242,18 @@ export const AiCuratorModal: React.FC<AiCuratorModalProps> = ({ isOpen, onClose 
 
         {/* Footer */}
         {curatorPlan && !isCurating && (
-          <div className="p-4 border-t border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
+          <div className="p-4 border-t border-edge-subtle flex items-center justify-between gap-2">
             <button
               type="button"
               onClick={() => handleSaveRotation(false)}
-              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 text-stone-800 dark:text-white font-semibold text-xs active:scale-[0.98] transition-all"
+              className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink font-semibold text-xs active:scale-[0.98] transition-all cursor-pointer"
             >
               Save Shelf
             </button>
             <button
               type="button"
               onClick={() => handleSaveRotation(true)}
-              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs shadow-xs active:scale-[0.98] transition-all"
+              className="min-h-[44px] sm:min-h-[38px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shadow-xs active:scale-[0.98] transition-all cursor-pointer"
             >
               Activate Shelf Now
             </button>

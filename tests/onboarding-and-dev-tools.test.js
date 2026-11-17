@@ -9,6 +9,18 @@ import {
   isValidAppState,
   migrateState,
 } from '../src/core/storage.js';
+import {
+  DARK_THEME_PRESET_IDS,
+  DEFAULT_DARK_THEME_PRESET,
+  DEFAULT_LIGHT_THEME_PRESET,
+  LIGHT_THEME_PRESET_IDS,
+  ONBOARDING_INTRO_SLIDES,
+  ONBOARDING_LANDING_DEFAULT_MODE,
+  THEME_PRESETS,
+  THEME_PRESET_IDS,
+  normalizeThemePresetId,
+  resolveEffectiveThemeConfig,
+} from '../src/config/index.js';
 import { createDefaultAppSettings } from '../src/config/defaults.js';
 import {
   computeAgeFromBirthDate,
@@ -362,6 +374,95 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(deletedAfterComplete, false);
     assert.equal(store.getState().profiles.length, 1);
   });
+
+  it('resolves theme presets, normalizes view/detail settings, clamps 0..6 onboarding steps, and persists book notes/verification', async () => {
+    // 1. Theme resolution & normalization across all 14 presets
+    assert.equal(DEFAULT_LIGHT_THEME_PRESET, 'sunlit-cream');
+    assert.equal(DEFAULT_DARK_THEME_PRESET, 'forest-brass');
+    assert.equal(THEME_PRESET_IDS.length, 14);
+    assert.equal(LIGHT_THEME_PRESET_IDS.length, 7);
+    assert.equal(DARK_THEME_PRESET_IDS.length, 7);
+
+    assert.equal(normalizeThemePresetId('classic-teal'), 'classic-teal');
+    assert.equal(normalizeThemePresetId('MIDNIGHT-LIBRARY'), 'midnight-library');
+    assert.equal(normalizeThemePresetId('forest-brass'), 'forest-brass');
+    assert.equal(normalizeThemePresetId('invalid-preset'), undefined);
+
+    for (const presetId of THEME_PRESET_IDS) {
+      const cfg = THEME_PRESETS[presetId];
+      assert.equal(resolveEffectiveThemeConfig(cfg.mode, cfg.id, false).id, cfg.id);
+    }
+
+    assert.equal(
+      resolveEffectiveThemeConfig('system', 'classic-teal', true).id,
+      DEFAULT_DARK_THEME_PRESET
+    );
+    assert.equal(
+      resolveEffectiveThemeConfig('system', 'midnight-ink', true).id,
+      'midnight-ink'
+    );
+    assert.equal(
+      resolveEffectiveThemeConfig('system', 'forest-brass', false).id,
+      DEFAULT_LIGHT_THEME_PRESET
+    );
+
+    // 2. Onboarding slides config & AppSettings normalization
+    assert.equal(ONBOARDING_LANDING_DEFAULT_MODE, 'slideshow');
+    assert.ok(ONBOARDING_INTRO_SLIDES.length >= 5);
+
+    const safeDefaults = createSafeDefaultSettings({
+      themePreset: 'midnight-library',
+      bookDetailStyle: 'editorial',
+      bookViewMode: 'list',
+      bookCardSize: 'large',
+      sidebarArtworkMode: 'illustration',
+      onboardingLandingMode: 'compact',
+      presetCornerArtSize: 'lg',
+      notificationsEnabled: true,
+    });
+    assert.equal(safeDefaults.theme, 'light');
+    assert.equal(safeDefaults.themePreset, 'midnight-library');
+    assert.equal(safeDefaults.bookDetailStyle, 'editorial');
+    assert.equal(safeDefaults.bookViewMode, 'list');
+    assert.equal(safeDefaults.bookCardSize, 'large');
+    assert.equal(safeDefaults.sidebarArtworkMode, 'illustration');
+    assert.equal(safeDefaults.onboardingLandingMode, 'compact');
+    assert.equal(safeDefaults.presetCornerArtSize, 'lg');
+    assert.equal(safeDefaults.notificationsEnabled, true);
+    assert.equal(
+      createSafeDefaultSettings({
+        presetCornerArtSize: /** @type {any} */ ('giant'),
+      }).presetCornerArtSize,
+      'md'
+    );
+
+    // 3. 0..6 onboarding step bounds & Book notes/verification persistence
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    await store.updateOnboarding({
+      status: 'in_progress',
+      currentStep: 6,
+      completedSteps: [0, 1, 2, 3, 4, 5, 99],
+      skippedSteps: [-1, 6],
+    });
+    assert.equal(store.getState().settings.onboarding?.currentStep, 6);
+    assert.deepEqual(store.getState().settings.onboarding?.completedSteps, [0, 1, 2, 3, 4, 5]);
+    assert.deepEqual(store.getState().settings.onboarding?.skippedSteps, [6]);
+
+    const firstBook = store.getState().books[0];
+    const verifiedTs = '2026-11-17T10:00:00.000Z';
+    const updated = await store.updateBook(firstBook.id, {
+      notes: 'Favorite bedtime quote on page 12.',
+      needsScanReview: false,
+      verifiedAt: verifiedTs,
+    });
+    assert.equal(updated?.notes, 'Favorite bedtime quote on page 12.');
+    assert.equal(updated?.needsScanReview, false);
+    assert.equal(updated?.verifiedAt, verifiedTs);
+  });
 });
+
 
 

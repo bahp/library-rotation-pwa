@@ -147,7 +147,7 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
       <section aria-labelledby="filter-group-shelf" className="space-y-2">
         <h3
           id="filter-group-shelf"
-          className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+          className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
         >
           Shelf
         </h3>
@@ -162,10 +162,10 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                 data-filter={opt.id}
                 aria-pressed={active ? 'true' : 'false'}
                 onClick={() => setCatalogFilter(opt.id)}
-                className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   active
-                    ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                    : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 hover:bg-linen-100 dark:hover:bg-night-800'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface-subtle border border-edge text-ink hover:bg-surface-elevated'
                 }`}
               >
                 {opt.label}
@@ -178,16 +178,16 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
       {/* Group 2: Format / Type (Multi-select) */}
       <section
         aria-labelledby="filter-group-format"
-        className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2"
+        className="pt-4 border-t border-edge-subtle space-y-2"
       >
         <div className="flex items-center justify-between gap-2">
           <h3
             id="filter-group-format"
-            className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+            className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
           >
             Book Type
           </h3>
-          <span className="text-[11px] text-stone-ink/80 dark:text-slate-400">Multi-select</span>
+          <span className="text-[11px] text-ink-muted">Multi-select</span>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {formatOptions.map((fmt) => {
@@ -200,10 +200,10 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                 data-format={fmt.id}
                 aria-pressed={active ? 'true' : 'false'}
                 onClick={() => toggleFormat(fmt.id)}
-                className={`min-h-[36px] px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={`min-h-[36px] px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   active
-                    ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                    : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 hover:bg-linen-100 dark:hover:bg-night-800'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface-subtle border border-edge text-ink hover:bg-surface-elevated'
                 }`}
               >
                 {fmt.label}
@@ -216,12 +216,12 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
       {/* Group 3: Owner / Reader */}
       <section
         aria-labelledby="filter-group-owner"
-        className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2"
+        className="pt-4 border-t border-edge-subtle space-y-2"
       >
         <div className="flex items-center justify-between gap-2">
           <h3
             id="filter-group-owner"
-            className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+            className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
           >
             Owner / Reader
           </h3>
@@ -234,12 +234,12 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                 setOwnerFilter('all');
                 setSelectedOwners([]);
               }}
-              className="text-[11px] font-semibold text-forest-700 dark:text-[#5ED3DA] hover:underline"
+              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
             >
               Include All
             </button>
           ) : (
-            <span className="text-[11px] text-stone-ink/80 dark:text-slate-400">All included</span>
+            <span className="text-[11px] text-ink-muted">All included</span>
           )}
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -255,10 +255,10 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                 data-owner={chip.key}
                 aria-pressed={active ? 'true' : 'false'}
                 onClick={() => toggleOwner(chip.key)}
-                className={`min-h-[36px] px-2.5 py-1.5 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                className={`min-h-[36px] px-2.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
                   active
-                    ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
-                    : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 hover:bg-linen-100 dark:hover:bg-night-800'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface-subtle border border-edge text-ink hover:bg-surface-elevated'
                 }`}
               >
                 <span
@@ -279,16 +279,16 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
       {availableThemes.length > 0 && (
         <section
           aria-labelledby="filter-group-themes"
-          className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2"
+          className="pt-4 border-t border-edge-subtle space-y-2"
         >
           <div className="flex items-center justify-between gap-2">
             <h3
               id="filter-group-themes"
-              className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
             >
               Themes &amp; Topics
             </h3>
-            <span className="text-[11px] text-stone-ink/80 dark:text-slate-400">Multi-select</span>
+            <span className="text-[11px] text-ink-muted">Multi-select</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {availableThemes.map((item) => {
@@ -303,10 +303,10 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                   data-theme-tag={item.tag}
                   aria-pressed={active ? 'true' : 'false'}
                   onClick={() => toggleTheme(item.tag)}
-                  className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
+                  className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
                     active
-                      ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                      : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                      ? 'bg-primary text-primary-fg shadow-2xs'
+                      : 'bg-surface-subtle border border-edge text-ink-secondary hover:text-ink hover:bg-surface-elevated'
                   }`}
                 >
                   <span>{item.tag}</span>
@@ -323,11 +323,11 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
         <>
           <section
             aria-labelledby="filter-group-freshness"
-            className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2"
+            className="pt-4 border-t border-edge-subtle space-y-2"
           >
             <h3
               id="filter-group-freshness"
-              className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
             >
               Shelf Freshness
             </h3>
@@ -342,10 +342,10 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                     data-freshness={opt.id}
                     aria-pressed={active ? 'true' : 'false'}
                     onClick={() => setFreshnessFilter(opt.id)}
-                    className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                    className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       active
-                        ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                        : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                        ? 'bg-primary text-primary-fg shadow-2xs'
+                        : 'bg-surface-subtle border border-edge text-ink-secondary hover:text-ink hover:bg-surface-elevated'
                     }`}
                   >
                     {opt.label}
@@ -357,11 +357,11 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
 
           <section
             aria-labelledby="filter-group-sort"
-            className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2"
+            className="pt-4 border-t border-edge-subtle space-y-2"
           >
             <h3
               id="filter-group-sort"
-              className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
             >
               Sort Order
             </h3>
@@ -376,10 +376,10 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                     data-sort={opt.id}
                     aria-pressed={active ? 'true' : 'false'}
                     onClick={() => setSortBy(opt.id)}
-                    className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                    className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                       active
-                        ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                        : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                        ? 'bg-primary text-primary-fg shadow-2xs'
+                        : 'bg-surface-subtle border border-edge text-ink-secondary hover:text-ink hover:bg-surface-elevated'
                     }`}
                   >
                     {opt.label}
@@ -394,11 +394,11 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
       {/* Group 7: Book Care / Condition */}
       <section
         aria-labelledby="filter-group-condition"
-        className="pt-4 border-t border-linen-200/70 dark:border-night-800 space-y-2"
+        className="pt-4 border-t border-edge-subtle space-y-2"
       >
         <h3
           id="filter-group-condition"
-          className="text-xs font-bold uppercase tracking-wider text-stone-ink dark:text-slate-400"
+          className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-muted"
         >
           Book Care
         </h3>
@@ -413,10 +413,10 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
                 data-condition-filter={cond.id}
                 aria-pressed={active ? 'true' : 'false'}
                 onClick={() => setConditionFilter(cond.id)}
-                className={`min-h-[34px] px-2.5 py-1 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={`min-h-[34px] px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   active
-                    ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                    : 'bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface-subtle border border-edge text-ink-secondary hover:text-ink hover:bg-surface-elevated'
                 }`}
               >
                 {cond.label}
@@ -453,7 +453,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
     <div
       data-library-filter-drawer="true"
       data-backdrop-action="close-library-filters"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex justify-start lg:hidden"
+      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex justify-start lg:hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="library-filter-drawer-title"
@@ -461,14 +461,14 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
     >
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="animate-drawer-left w-[94vw] sm:w-[440px] max-w-[95vw] h-full bg-ivory dark:bg-night-900 border-r border-linen-200 dark:border-night-700 shadow-2xl flex flex-col pt-safe"
+        className="animate-drawer-left w-[94vw] sm:w-[440px] max-w-[95vw] h-full bg-surface border-r border-edge shadow-2xl flex flex-col pt-safe"
       >
-        <div className="px-5 py-4 border-b border-linen-200/80 dark:border-night-800 flex items-center justify-between gap-2">
+        <div className="px-5 py-4 border-b border-edge-subtle flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Icon name="filter" className="w-4 h-4 text-forest-700 dark:text-[#5ED3DA]" />
+            <Icon name="filter" className="w-4 h-4 text-primary" />
             <h2
               id="library-filter-drawer-title"
-              className="font-display text-lg font-bold text-forest-900 dark:text-white"
+              className="font-display text-xl font-semibold text-ink"
             >
               Filter Library
             </h2>
@@ -479,7 +479,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
             data-action="close-library-filters"
             onClick={onClose}
             aria-label="Close filters sidebar"
-            className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 flex items-center justify-center transition-all active:scale-95"
+            className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-subtle flex items-center justify-center transition-all active:scale-95 cursor-pointer"
           >
             <Icon name="close" className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
@@ -489,13 +489,13 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
           <LibraryFilterControls {...controlProps} />
         </div>
 
-        <div className="p-4 pb-safe border-t border-linen-200/80 dark:border-night-800 bg-linen-50/80 dark:bg-night-950/60 flex items-center justify-between gap-2.5">
+        <div className="p-4 pb-safe border-t border-edge-subtle bg-surface-subtle flex items-center justify-between gap-2.5">
           <button
             type="button"
             data-action="reset-library-filters"
             disabled={activeFilterCount === 0}
             onClick={onResetAll}
-            className="min-h-[48px] sm:min-h-[44px] px-4 py-2 rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-45 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-all active:scale-[0.98] whitespace-nowrap"
+            className="min-h-[48px] sm:min-h-[44px] px-4 py-2 rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-45 border border-edge text-xs font-semibold text-ink transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
           >
             Reset
           </button>
@@ -504,7 +504,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
             type="button"
             data-action="close-library-filters"
             onClick={onClose}
-            className="flex-1 min-h-[48px] sm:min-h-[44px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] whitespace-nowrap"
+            className="flex-1 min-h-[48px] sm:min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
           >
             Show <span className="font-mono-tabular">{filteredCount}</span>{' '}
             {filteredCount === 1 ? 'Book' : 'Books'}

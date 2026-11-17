@@ -3,6 +3,8 @@
  *
  * QUICK CUSTOMIZATION DIRECTORY:
  * - `/src/config/defaults.js`          -> Default app settings & numeric bounds (no 15-book cap)
+ * - `/src/config/themes.js`            -> Multi-theme presets (Classic Teal, Antique Paper, Midnight Library, Forest Library)
+ * - `/src/config/onboarding-slides.js` -> Configurable onboarding intro slideshow highlights
  * - `/src/config/colors-and-badges.js` -> Spine palettes, avatar tones & 4-corner cover badge rules
  * - `/src/config/presets.js`           -> Built-in seasonal, milestone & thematic shelf presets
  * - `/src/config/play-apps.js`         -> Play Hub mini-app titles, icons & custom preview image URLs
@@ -18,6 +20,22 @@ export {
   normalizePositiveBookCount,
   createDefaultAppSettings,
 } from './defaults.js';
+
+export {
+  DEFAULT_LIGHT_THEME_PRESET,
+  DEFAULT_DARK_THEME_PRESET,
+  THEME_PRESETS,
+  THEME_PRESET_IDS,
+  LIGHT_THEME_PRESET_IDS,
+  DARK_THEME_PRESET_IDS,
+  normalizeThemePresetId,
+  resolveEffectiveThemeConfig,
+} from './themes.js';
+
+export {
+  ONBOARDING_LANDING_DEFAULT_MODE,
+  ONBOARDING_INTRO_SLIDES,
+} from './onboarding-slides.js';
 
 export {
   AVATAR_TONES,

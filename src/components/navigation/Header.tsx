@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
-import { AVATAR_TONES } from '../../config/index.js';
+import { AVATAR_TONES, resolveEffectiveThemeConfig } from '../../config/index.js';
 import { formatProfileAgeLabel } from '../../types/models.js';
 import type { ThemeMode } from '../../types/models.js';
 
@@ -56,11 +56,19 @@ export const Header: React.FC = () => {
     { id: 'play', label: t('nav.play') },
   ];
 
-  const currentTheme: ThemeMode = state.settings?.theme || 'light';
-  const nextTheme: ThemeMode =
-    currentTheme === 'light' ? 'dark' : currentTheme === 'dark' ? 'system' : 'light';
+  const prefersDark =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const effectiveTheme = resolveEffectiveThemeConfig(
+    state.settings?.theme,
+    state.settings?.themePreset,
+    prefersDark
+  );
+  const isCurrentlyDark = effectiveTheme.mode === 'dark';
+  const nextTheme: ThemeMode = isCurrentlyDark ? 'light' : 'dark';
 
-  const handleCycleTheme = async () => {
+  const handleToggleTheme = async () => {
     await store.updateSettings({ theme: nextTheme });
   };
 
@@ -72,7 +80,6 @@ export const Header: React.FC = () => {
   const handleSearchChange = (val: string) => {
     setGlobalSearchQuery(val);
     if (currentRoute === 'library') {
-      // Live-sync query while on Library without jumping scroll
       return;
     }
   };
@@ -80,18 +87,18 @@ export const Header: React.FC = () => {
   return (
     <header
       data-top-header="true"
-      className="fixed top-0 left-0 right-0 lg:left-64 z-30 bg-white/95 dark:bg-night-900/95 backdrop-blur-md border-b border-linen-200/90 dark:border-night-800 pt-safe px-safe transition-colors"
+      className="fixed top-0 left-0 right-0 lg:left-64 z-30 bg-surface/95 backdrop-blur-md border-b border-edge-subtle pt-safe px-safe transition-colors"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
         {/* Zone 1 (Mobile/Tablet): Brand Wordmark */}
         <a
           href="#/home"
-          className="flex lg:hidden items-center gap-2.5 text-forest-900 dark:text-white focus-visible:outline-2 focus-visible:outline-forest-700 rounded-lg whitespace-nowrap shrink-0"
+          className="flex lg:hidden items-center gap-2.5 text-ink focus-visible:outline-2 focus-visible:outline-primary rounded-lg whitespace-nowrap shrink-0"
         >
-          <span className="w-8 h-8 rounded-lg bg-brand dark:bg-brand-dark text-white dark:text-night-950 flex items-center justify-center shadow-2xs shrink-0">
+          <span className="w-8 h-8 rounded-lg bg-primary text-primary-fg flex items-center justify-center shadow-2xs shrink-0 border border-accent/30">
             <Icon name="book" className="w-4 h-4" />
           </span>
-          <span className="font-display text-base sm:text-lg font-bold tracking-tight whitespace-nowrap">
+          <span className="font-display text-[19px] sm:text-xl font-semibold tracking-tight whitespace-nowrap">
             Library Rotation
           </span>
         </a>
@@ -103,7 +110,7 @@ export const Header: React.FC = () => {
           aria-label="Global library search"
           className="hidden lg:flex items-center flex-1 max-w-md relative"
         >
-          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-stone-ink/75 dark:text-slate-400">
+          <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-ink-muted">
             <Icon name="search" className="w-4 h-4" />
           </span>
           <input
@@ -113,7 +120,7 @@ export const Header: React.FC = () => {
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search books, authors, ISBN, or topics…"
             aria-label="Search books, authors, ISBN, or topics"
-            className="w-full h-10 pl-10 pr-14 rounded-xl bg-linen-50/90 dark:bg-night-950 border border-linen-200/90 dark:border-night-700 text-[13px] text-forest-900 dark:text-white placeholder:text-stone-ink/65 dark:placeholder:text-slate-400 focus:bg-white dark:focus:bg-night-900 focus:outline-none focus:ring-2 focus:ring-forest-700/25 focus:border-forest-700 transition-all"
+            className="w-full h-10 pl-10 pr-14 rounded-lg bg-surface-subtle border border-edge text-[13px] text-ink placeholder:text-ink-muted focus:bg-surface focus:outline-none focus:border-primary transition-all"
           />
           {globalSearchQuery ? (
             <button
@@ -125,14 +132,14 @@ export const Header: React.FC = () => {
                 }
               }}
               aria-label="Clear search"
-              className="absolute right-2.5 p-1 rounded-md text-stone-ink/70 hover:text-forest-900 dark:text-slate-400 dark:hover:text-white cursor-pointer"
+              className="absolute right-2.5 p-1 rounded text-ink-muted hover:text-ink cursor-pointer"
             >
               <Icon name="close" className="w-3.5 h-3.5" />
             </button>
           ) : (
             <kbd
               aria-hidden="true"
-              className="hidden xl:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono font-semibold text-stone-ink/70 dark:text-slate-400 bg-white dark:bg-night-800 border border-linen-200 dark:border-night-700 rounded-md absolute right-2.5"
+              className="hidden xl:inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono font-medium text-ink-muted bg-surface border border-edge rounded absolute right-2.5"
             >
               /
             </kbd>
@@ -155,8 +162,8 @@ export const Header: React.FC = () => {
                 href={`#/${item.id}`}
                 className={`py-1.5 text-sm transition-colors whitespace-nowrap shrink-0 ${
                   isActive
-                    ? 'text-forest-900 dark:text-[#5ED3DA] font-semibold underline underline-offset-8 decoration-2 decoration-forest-700 dark:decoration-[#5ED3DA]'
-                    : 'font-medium text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                    ? 'text-primary font-semibold underline underline-offset-8 decoration-2 decoration-primary'
+                    : 'font-medium text-ink-secondary hover:text-ink'
                 }`}
                 aria-current={isActive ? 'page' : undefined}
               >
@@ -174,7 +181,7 @@ export const Header: React.FC = () => {
               e.preventDefault();
               navigate('scan');
             }}
-            className="hidden lg:inline-flex min-h-[38px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover dark:bg-brand-dark dark:text-night-950 dark:hover:bg-brand-dark-hover text-white text-xs font-semibold items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap"
+            className="hidden lg:inline-flex min-h-[38px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold items-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap"
           >
             <Icon name="plus" className="w-3.5 h-3.5" />
             <span>Add Book</span>
@@ -182,12 +189,12 @@ export const Header: React.FC = () => {
 
           <button
             type="button"
-            onClick={handleCycleTheme}
-            aria-label={`Theme: ${currentTheme}. Switch to ${nextTheme}`}
-            title={`Appearance: ${currentTheme} (click to switch to ${nextTheme})`}
-            className="hidden sm:flex min-h-[38px] min-w-[38px] rounded-xl border border-linen-200/90 dark:border-night-700 bg-linen-50/80 hover:bg-linen-100 dark:bg-night-800 dark:hover:bg-night-700 text-stone-ink hover:text-forest-900 dark:text-slate-300 dark:hover:text-white items-center justify-center transition-colors cursor-pointer shrink-0"
+            onClick={handleToggleTheme}
+            aria-label={`Theme: ${effectiveTheme.label}. Switch to ${nextTheme} mode`}
+            title={`Switch to ${nextTheme} mode (currently ${effectiveTheme.label})`}
+            className="hidden sm:flex min-h-[38px] min-w-[38px] rounded-lg border border-edge bg-surface-subtle hover:bg-surface-elevated text-ink-secondary hover:text-ink items-center justify-center transition-colors cursor-pointer shrink-0"
           >
-            <Icon name={currentTheme === 'dark' ? 'moon' : 'sun'} className="w-4 h-4" />
+            <Icon name={isCurrentlyDark ? 'moon' : 'sun'} className="w-4 h-4" />
           </button>
 
           <button
@@ -198,13 +205,13 @@ export const Header: React.FC = () => {
                 ? `Notifications (${unreadNotificationCount} unread)`
                 : 'Notifications'
             }
-            className="lg:hidden relative min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl text-stone-ink hover:text-forest-900 hover:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            className="lg:hidden relative min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <Icon name="bell" className="w-[18px] h-[18px]" />
             {unreadNotificationCount > 0 && (
               <span
                 aria-hidden="true"
-                className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-night-950 text-[9px] font-bold font-mono-tabular flex items-center justify-center ring-2 ring-white dark:ring-night-900"
+                className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-accent text-[#FFFCF5] text-[9px] font-bold font-mono-tabular flex items-center justify-center ring-2 ring-surface"
               >
                 {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
               </span>
@@ -216,7 +223,7 @@ export const Header: React.FC = () => {
               type="button"
               onClick={() => setIsProfileSwitcherOpen(true)}
               aria-label={`Switch reader profile, current reader is ${activeProfile.name}`}
-              className="min-h-[44px] sm:min-h-[38px] max-w-[190px] sm:max-w-[230px] flex items-center gap-1.5 px-2 sm:pl-1.5 sm:pr-2.5 rounded-xl bg-linen-50 hover:bg-linen-100 active:scale-[0.97] dark:bg-night-800 dark:hover:bg-night-700 border border-linen-200/90 dark:border-night-700 transition-all cursor-pointer shrink-0 overflow-hidden"
+              className="min-h-[44px] sm:min-h-[38px] max-w-[190px] sm:max-w-[230px] flex items-center gap-1.5 px-2 sm:pl-1.5 sm:pr-2.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated active:scale-[0.98] border border-edge transition-all cursor-pointer shrink-0 overflow-hidden"
             >
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${toneClass}`}
@@ -224,16 +231,16 @@ export const Header: React.FC = () => {
                 {initial}
               </span>
               <span className="hidden sm:flex items-baseline gap-1 min-w-0 text-left">
-                <span className="text-xs font-bold text-forest-900 dark:text-white leading-tight truncate max-w-[100px]">
+                <span className="text-xs font-semibold text-ink leading-tight truncate max-w-[100px]">
                   {activeProfile.name}
                 </span>
                 {ageLabel && (
-                  <span className="hidden xl:inline text-[10px] font-medium text-stone-ink/80 dark:text-slate-400 leading-tight shrink-0 whitespace-nowrap">
+                  <span className="hidden xl:inline text-[10px] font-medium text-ink-muted leading-tight shrink-0 whitespace-nowrap">
                     {ageLabel}
                   </span>
                 )}
               </span>
-              <Icon name="chevronDown" className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+              <Icon name="chevronDown" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
             </button>
           ) : (
             <button
@@ -242,7 +249,7 @@ export const Header: React.FC = () => {
                 setEditingProfileId(null);
                 setIsProfileFormOpen(true);
               }}
-              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 active:scale-[0.97] dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0"
+              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated active:scale-[0.98] border border-edge text-xs font-semibold text-ink flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Icon name="plus" className="w-3.5 h-3.5" />
               <span>{t('profiles.newReader')}</span>
@@ -254,10 +261,10 @@ export const Header: React.FC = () => {
             href="#/settings"
             aria-label={t('nav.settings')}
             aria-current={currentRoute === 'settings' ? 'page' : undefined}
-            className={`lg:hidden min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-xl flex items-center justify-center active:scale-95 transition-all shrink-0 ${
+            className={`lg:hidden min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-lg flex items-center justify-center active:scale-95 transition-all shrink-0 ${
               currentRoute === 'settings'
-                ? 'bg-brand text-white dark:bg-brand-dark dark:text-night-950'
-                : 'text-subtitle hover:text-title hover:bg-linen-100 active:bg-linen-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-night-800 dark:active:bg-night-800'
+                ? 'bg-primary text-primary-fg'
+                : 'text-ink-secondary hover:text-ink hover:bg-surface-elevated'
             }`}
           >
             <Icon name="settings" className="w-[18px] h-[18px]" />

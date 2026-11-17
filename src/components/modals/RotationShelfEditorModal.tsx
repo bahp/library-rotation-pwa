@@ -126,30 +126,30 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-rotation-sheet-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/45 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
       onClick={handleSaveAndClose}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet-up w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-ivory dark:bg-night-900 border border-linen-200 dark:border-night-700 shadow-2xl overflow-hidden pb-safe sm:pb-0"
+        className="animate-sheet-up w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
       >
         {/* Mobile handle indicator */}
         <div
-          className="w-10 h-1.5 bg-linen-200 dark:bg-night-700 rounded-full mx-auto mt-3 shrink-0 sm:hidden"
+          className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden"
           aria-hidden="true"
         />
 
         {/* Sticky Header */}
-        <div className="px-5 py-3.5 border-b border-linen-200 dark:border-night-700 flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-3.5 border-b border-edge flex items-center justify-between gap-3 shrink-0">
           <div className="min-w-0 flex-1">
             <h2
               id="edit-rotation-sheet-title"
-              className="font-display text-lg font-bold text-forest-900 dark:text-white truncate"
+              className="font-display text-lg font-semibold text-ink truncate"
             >
               Edit Shelf: {rotation.title}
             </h2>
-            <p className="text-xs text-stone-ink dark:text-slate-400 truncate mt-0.5">
-              Reader: <strong>{activeProfile?.name || 'Reader'}</strong> · {shelfBooks.length} books on shelf
+            <p className="text-xs text-ink-secondary truncate mt-0.5">
+              Reader: <strong className="font-semibold text-ink">{activeProfile?.name || 'Reader'}</strong> · <span className="font-mono-tabular">{shelfBooks.length}</span> books on shelf
             </p>
           </div>
 
@@ -157,7 +157,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
             <button
               type="button"
               onClick={handleSaveAndClose}
-              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
+              className="min-h-[48px] sm:min-h-[38px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
             >
               <Icon name="check" className="w-4 h-4" />
               <span>Done</span>
@@ -166,7 +166,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
               type="button"
               onClick={onClose}
               aria-label="Close edit shelf form"
-              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] p-2 rounded-xl text-stone-ink hover:bg-linen-100 dark:text-slate-300 dark:hover:bg-night-800 transition-all active:scale-95 flex items-center justify-center"
+              className="min-h-[48px] min-w-[48px] sm:min-h-[40px] sm:min-w-[40px] p-2 rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated transition-all active:scale-95 flex items-center justify-center"
             >
               <Icon name="close" className="w-5 h-5" />
             </button>
@@ -180,35 +180,35 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
             <div className="space-y-2 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 items-end">
                 <div className="sm:col-span-2">
-                  <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                  <label className="block font-semibold text-ink mb-1">
                     Shelf Title
                   </label>
                   <input
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    className="w-full h-10 px-3 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-sm font-bold text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400 focus:outline-2 focus:outline-forest-700"
+                    className="w-full h-10 px-3 rounded-lg bg-surface-subtle border border-edge text-sm font-semibold text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                  <label className="block font-semibold text-ink mb-1">
                     Shelf Status
                   </label>
                   <div
                     role="radiogroup"
                     aria-label="Rotation shelf status"
-                    className="grid grid-cols-2 p-0.5 rounded-xl bg-linen-100 dark:bg-night-950 border border-linen-200 dark:border-night-700 h-10"
+                    className="grid grid-cols-2 p-0.5 rounded-lg bg-surface-subtle border border-edge h-10"
                   >
                     <button
                       type="button"
                       role="radio"
                       aria-checked={editStatus === 'active'}
                       onClick={() => setEditStatus('active')}
-                      className={`rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                      className={`rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
                         editStatus === 'active'
-                          ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950 shadow-2xs'
-                          : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                          ? 'bg-primary text-primary-fg shadow-2xs'
+                          : 'text-ink-secondary hover:text-ink'
                       }`}
                     >
                       Active
@@ -218,10 +218,10 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                       role="radio"
                       aria-checked={editStatus === 'saved'}
                       onClick={() => setEditStatus('saved')}
-                      className={`rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                      className={`rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
                         editStatus === 'saved'
-                          ? 'bg-brand text-white dark:bg-slate-200 dark:text-night-950 shadow-2xs'
-                          : 'text-stone-ink dark:text-slate-300 hover:text-forest-900 dark:hover:text-white'
+                          ? 'bg-primary text-primary-fg shadow-2xs'
+                          : 'text-ink-secondary hover:text-ink'
                       }`}
                     >
                       Saved
@@ -231,7 +231,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
               </div>
 
               <div>
-                <label className="block font-bold text-forest-900 dark:text-slate-200 mb-1">
+                <label className="block font-semibold text-ink mb-1">
                   Description / Objective
                 </label>
                 <textarea
@@ -239,13 +239,13 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                   value={editObjective}
                   onChange={(e) => setEditObjective(e.target.value)}
                   placeholder="Description or theme note (optional)…"
-                  className="w-full px-3 py-2 rounded-xl bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-white placeholder:text-stone-ink/60 dark:placeholder:text-slate-400 focus:outline-2 focus:outline-forest-700"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-subtle border border-edge text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                  <label className="block text-[11px] font-medium text-ink-secondary mb-0.5">
                     Swap cycle (d)
                   </label>
                   <input
@@ -254,12 +254,12 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     max={90}
                     value={editSwapDays}
                     onChange={(e) => setEditSwapDays(Number(e.target.value))}
-                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200"
+                    className="w-full h-9 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-mono-tabular text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                  <label className="block text-[11px] font-medium text-ink-secondary mb-0.5">
                     Cooldown (d)
                   </label>
                   <input
@@ -268,12 +268,12 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     max={90}
                     value={editCooldownDays}
                     onChange={(e) => setEditCooldownDays(Number(e.target.value))}
-                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200"
+                    className="w-full h-9 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-mono-tabular text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                  <label className="block text-[11px] font-medium text-ink-secondary mb-0.5">
                     Target books
                   </label>
                   <input
@@ -282,18 +282,18 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     max={30}
                     value={editCount}
                     onChange={(e) => setEditCount(Number(e.target.value))}
-                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200"
+                    className="w-full h-9 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-mono-tabular text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                  <label className="block text-[11px] font-medium text-ink-secondary mb-0.5">
                     Binding
                   </label>
                   <select
                     value={editFormat}
                     onChange={(e) => setEditFormat(e.target.value as any)}
-                    className="w-full h-9 pl-2.5 pr-7 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200"
+                    className="w-full h-9 pl-2.5 pr-7 rounded-lg bg-surface-subtle border border-edge text-xs text-ink focus:outline-none focus:ring-1 focus:ring-primary"
                   >
                     <option value="any">Any binding</option>
                     <option value="hardcover">Hardcover</option>
@@ -305,7 +305,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                  <label className="block text-[11px] font-medium text-ink-secondary mb-0.5">
                     Topics (comma-separated)
                   </label>
                   <input
@@ -313,12 +313,12 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     value={editTags}
                     onChange={(e) => setEditTags(e.target.value)}
                     placeholder="bedtime, animals, winter"
-                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs text-forest-900 dark:text-slate-200 placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    className="w-full h-9 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-medium text-stone-ink dark:text-slate-400 mb-0.5">
+                  <label className="block text-[11px] font-medium text-ink-secondary mb-0.5">
                     Seed (optional)
                   </label>
                   <input
@@ -326,18 +326,18 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     value={editSeed}
                     onChange={(e) => setEditSeed(e.target.value)}
                     placeholder="Auto"
-                    className="w-full h-9 px-2.5 rounded-lg bg-linen-50 dark:bg-night-950 border border-linen-200 dark:border-night-700 text-xs font-mono-tabular text-forest-900 dark:text-slate-200 placeholder:text-stone-ink/60 dark:placeholder:text-slate-400"
+                    className="w-full h-9 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
 
               <div className="pt-0.5">
-                <label className="inline-flex items-center gap-2 text-xs text-stone-ink dark:text-slate-300 cursor-pointer select-none">
+                <label className="inline-flex items-center gap-2 text-xs text-ink-secondary cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={editVarietyMix}
                     onChange={(e) => setEditVarietyMix(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded accent-[#1F6E75]"
+                    className="h-3.5 w-3.5 rounded accent-primary"
                   />
                   <span>Balance author &amp; topic variety</span>
                 </label>
@@ -345,19 +345,19 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
             </div>
           </section>
 
-          <hr className="border-linen-200 dark:border-night-800" />
+          <hr className="border-edge-subtle" />
 
           {/* Section 2: Books on Shelf */}
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="font-display text-sm font-bold text-forest-900 dark:text-white uppercase tracking-wider">
-                Books on Shelf ({shelfBooks.length})
+              <h3 className="font-display text-base font-semibold text-ink">
+                Books on Shelf (<span className="font-mono-tabular">{shelfBooks.length}</span>)
               </h3>
               {onOpenPlacement && (
                 <button
                   type="button"
                   onClick={onOpenPlacement}
-                  className="min-h-[34px] px-3 py-1 rounded-xl bg-linen-100 hover:bg-linen-200 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                  className="min-h-[34px] px-3 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
                 >
                   <Icon name="checklist" className="w-3.5 h-3.5" />
                   <span>Stock Shelf</span>
@@ -388,7 +388,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                   <article
                     key={book.id}
                     data-book-card={`${rotation.id}-${book.id}`}
-                    className="rounded-2xl bg-linen-50/75 dark:bg-night-950/70 border border-linen-200 dark:border-night-800 p-3 flex flex-col justify-between gap-2.5 min-w-0"
+                    className="rounded-xl bg-surface-subtle border border-edge-subtle p-3 flex flex-col justify-between gap-2.5 min-w-0"
                   >
                     <div className="flex items-start gap-3 min-w-0">
                       <div className="relative shrink-0">
@@ -396,7 +396,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                           type="button"
                           onClick={() => setInspectedBookId(book.id)}
                           aria-label={`Inspect ${book.title}`}
-                          className="block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest-700 transition-transform active:scale-95"
+                          className="block rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-transform active:scale-95"
                         >
                           <BookCover book={book} size="sm" aspectRatio={coverAspect} />
                         </button>
@@ -415,7 +415,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                               return (
                                 <span
                                   key={ownerKey}
-                                  className={`w-4 h-4 rounded-full text-[8px] font-bold inline-flex items-center justify-center ring-1 ring-ivory dark:ring-night-950 ${tone}`}
+                                  className={`w-4 h-4 rounded-full text-[8px] font-bold inline-flex items-center justify-center ring-1 ring-surface ${tone}`}
                                 >
                                   {initial}
                                 </span>
@@ -429,34 +429,34 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                         <button
                           type="button"
                           onClick={() => setInspectedBookId(book.id)}
-                          className="text-left block w-full focus-visible:outline-2 focus-visible:outline-forest-700 rounded"
+                          className="text-left block w-full focus-visible:outline-2 focus-visible:outline-primary rounded"
                         >
                           <h4
-                            className={`font-display text-sm font-bold text-forest-900 dark:text-white leading-snug line-clamp-2 ${
+                            className={`font-display text-sm font-semibold text-ink leading-snug line-clamp-2 ${
                               isBookRead ? 'line-through opacity-70' : ''
                             }`}
                           >
                             {book.title}
                           </h4>
-                          <p className="text-xs text-stone-ink dark:text-slate-300 truncate mt-0.5">
+                          <p className="text-xs text-ink-secondary truncate mt-0.5">
                             {book.authors.join(', ')}
                           </p>
                         </button>
 
-                        <p className="text-[11px] text-stone-ink dark:text-slate-400 mt-1">
-                          Ages {book.ageMin}–{book.ageMax} · {formatBookBinding(book.format)} ·{' '}
+                        <p className="text-[11px] text-ink-secondary mt-1">
+                          Ages <span className="font-mono-tabular">{book.ageMin}–{book.ageMax}</span> · {formatBookBinding(book.format)} ·{' '}
                           {formatReadingStage(book.readingStage)}
                           {book.pageCount ? ` · ${book.pageCount} pp` : ''}
                         </p>
 
-                        <p className="text-[11px] text-forest-700 dark:text-[#5ED3DA] truncate mt-0.5">
+                        <p className="text-[11px] text-accent truncate mt-0.5">
                           Topics: {topicsLabel}
                         </p>
 
                         {isActive && usage.isStaleUnreadOnShelf && showStaleSpotlight ? (
                           <p
                             data-rotation-slot-usage="true"
-                            className="text-[11px] font-medium text-amber-800 dark:text-amber-300 truncate mt-0.5"
+                            className="text-[11px] font-medium text-accent truncate mt-0.5"
                           >
                             Sitting unread {usage.daysOnActiveShelf}d on shelf · Ready to read or swap
                           </p>
@@ -464,7 +464,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                           showRotationHistory && (
                             <p
                               data-rotation-slot-usage="true"
-                              className="text-[11px] text-stone-ink dark:text-slate-400 truncate mt-0.5"
+                              className="text-[11px] text-ink-muted truncate mt-0.5"
                             >
                               {usage.shortRecencyLabel}
                               {usage.rotationCount > 0 ? ` · Rotated ${usage.rotationCount}×` : ''}
@@ -475,7 +475,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     </div>
 
                     {/* 5-Icon Slot Control Strip spanning the full card width */}
-                    <div className="grid grid-cols-5 gap-1.5 pt-2 border-t border-linen-200/70 dark:border-night-800">
+                    <div className="grid grid-cols-5 gap-1.5 pt-2 border-t border-edge-subtle">
                       <button
                         type="button"
                         onClick={() => store.toggleRotationBookPicked(rotation.id, book.id)}
@@ -490,10 +490,10 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                             ? 'Picked in this rotation'
                             : 'Mark Picked (automatically marks read)'
                         }
-                        className={`min-h-[42px] rounded-xl transition-colors flex items-center justify-center ${
+                        className={`min-h-[42px] rounded-lg transition-colors flex items-center justify-center ${
                           isBookPicked
-                            ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                            : 'bg-ivory hover:bg-linen-100 text-stone-ink dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
+                            ? 'bg-primary text-primary-fg'
+                            : 'bg-surface hover:bg-surface-elevated text-ink-secondary hover:text-ink border border-edge-subtle'
                         }`}
                       >
                         <Icon
@@ -511,10 +511,10 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                           isBookRead ? `Mark ${book.title} unread` : `Mark ${book.title} read`
                         }
                         title={isBookRead ? 'Read' : 'Mark Read'}
-                        className={`min-h-[42px] rounded-xl transition-colors flex items-center justify-center ${
+                        className={`min-h-[42px] rounded-lg transition-colors flex items-center justify-center ${
                           isBookRead
-                            ? 'bg-forest-700 text-white dark:bg-[#5ED3DA] dark:text-night-950'
-                            : 'bg-ivory hover:bg-linen-100 text-stone-ink dark:bg-night-900 dark:hover:bg-night-800 dark:text-slate-300 border border-linen-200 dark:border-night-700'
+                            ? 'bg-primary text-primary-fg'
+                            : 'bg-surface hover:bg-surface-elevated text-ink-secondary hover:text-ink border border-edge-subtle'
                         }`}
                       >
                         <Icon name="check" className="w-4 h-4" />
@@ -530,7 +530,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                             : 'Swap with random eligible book'
                         }
                         aria-label={`Swap ${book.title} randomly`}
-                        className="min-h-[42px] rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-40 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
+                        className="min-h-[42px] rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-40 border border-edge-subtle text-ink transition-colors flex items-center justify-center"
                       >
                         <Icon name="shuffle" className="w-4 h-4" />
                       </button>
@@ -545,7 +545,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                             : 'Replace manually from catalog'
                         }
                         aria-label={`Replace ${book.title} manually`}
-                        className="min-h-[42px] rounded-xl bg-ivory hover:bg-linen-100 disabled:opacity-40 dark:bg-night-900 dark:hover:bg-night-800 border border-linen-200 dark:border-night-700 text-forest-900 dark:text-slate-200 transition-colors flex items-center justify-center"
+                        className="min-h-[42px] rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-40 border border-edge-subtle text-ink transition-colors flex items-center justify-center"
                       >
                         <Icon name="replace" className="w-4 h-4" />
                       </button>
@@ -556,7 +556,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                         disabled={!canRemove}
                         title={!canRemove ? 'At least one book required' : 'Remove from shelf'}
                         aria-label={`Remove ${book.title} from shelf`}
-                        className="min-h-[42px] rounded-xl bg-ivory hover:bg-rose-50 disabled:opacity-35 dark:bg-night-900 dark:hover:bg-rose-950/40 border border-linen-200 dark:border-night-700 text-stone-ink hover:text-rose-700 dark:text-slate-400 dark:hover:text-rose-300 transition-colors flex items-center justify-center"
+                        className="min-h-[42px] rounded-lg bg-surface hover:bg-[#8C4A4F]/10 disabled:opacity-35 border border-edge-subtle text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-colors flex items-center justify-center"
                       >
                         <Icon name="close" className="w-4 h-4" />
                       </button>
@@ -574,7 +574,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     type="button"
                     onClick={() => onAddRandom(1)}
                     disabled={!hasOffShelfBooks}
-                    className="min-h-[40px] px-3 py-1.5 rounded-xl bg-linen-100 hover:bg-linen-200 disabled:opacity-45 dark:bg-night-800 dark:hover:bg-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge disabled:opacity-45 text-xs font-semibold text-ink transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Icon name="shuffle" className="w-3.5 h-3.5" />
                     <span>+1 Random</span>
@@ -585,7 +585,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                     type="button"
                     onClick={onOpenAddModal}
                     disabled={!hasOffShelfBooks}
-                    className="min-h-[40px] px-3.5 py-1.5 rounded-xl bg-brand hover:bg-brand-hover disabled:opacity-45 text-white dark:bg-brand-dark dark:hover:bg-brand-dark-hover dark:text-night-950 text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-45 text-primary-fg text-xs font-semibold transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Icon name="plus" className="w-3.5 h-3.5" />
                     <span>Add Books</span>
@@ -598,14 +598,14 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="min-h-[40px] px-3 py-1.5 rounded-xl text-xs font-semibold text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Icon name="trash" className="w-3.5 h-3.5" />
                     <span>Delete Shelf</span>
                   </button>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-3 py-1.5">
-                    <span className="text-xs font-semibold text-rose-900 dark:text-rose-200">
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-1.5">
+                    <span className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
                       Delete this shelf?
                     </span>
                     <button
@@ -614,14 +614,14 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                         onDelete();
                         onClose();
                       }}
-                      className="min-h-[34px] px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors"
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold transition-colors"
                     >
                       Yes, Delete
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(false)}
-                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-ivory dark:bg-night-800 border border-linen-200 dark:border-night-700 text-xs font-semibold text-forest-900 dark:text-slate-200"
+                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink hover:bg-surface-elevated"
                     >
                       Cancel
                     </button>

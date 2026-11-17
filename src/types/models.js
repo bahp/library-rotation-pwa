@@ -12,6 +12,49 @@
  */
 
 /**
+ * @typedef {(
+ *   | 'sunlit-cream'
+ *   | 'classic-teal'
+ *   | 'antique-paper'
+ *   | 'sky-blue'
+ *   | 'sage-green'
+ *   | 'blush-pink'
+ *   | 'classic-light'
+ *   | 'forest-brass'
+ *   | 'midnight-ink'
+ *   | 'warm-library'
+ *   | 'plum-noir'
+ *   | 'slate-minimal'
+ *   | 'forest-library'
+ *   | 'midnight-library'
+ * )} ThemePresetId
+ */
+
+/**
+ * @typedef {'sm' | 'md' | 'lg'} PresetCornerArtSize
+ */
+
+/**
+ * @typedef {'compact' | 'editorial'} BookDetailStyle
+ */
+
+/**
+ * @typedef {'grid' | 'list'} BookViewMode
+ */
+
+/**
+ * @typedef {'compact' | 'regular' | 'large'} BookCardSize
+ */
+
+/**
+ * @typedef {'theme' | 'engraving' | 'illustration'} SidebarArtworkMode
+ */
+
+/**
+ * @typedef {'slideshow' | 'compact'} OnboardingLandingMode
+ */
+
+/**
  * @typedef {'barcode' | 'isbn-ocr' | 'cover'} ScanMode
  */
 
@@ -80,6 +123,9 @@
  * @property {number} [userRating] - Legacy single-user rating (1 to 5 stars)
  * @property {Record<string, number>} [userRatings] - Per-reader star ratings keyed by ChildProfile ID (1 to 5 stars)
  * @property {boolean} [excludeFromRotations] - Exclude from automated shelf rotations
+ * @property {string} [notes] - Parent/family quote or private reading note
+ * @property {boolean} [needsScanReview] - True when newly scanned book awaits user verification
+ * @property {string} [verifiedAt] - ISO-8601 timestamp when scan match was verified
  * @property {ProviderSource[]} sources - Metadata provenance list
  */
 
@@ -172,7 +218,7 @@ export function isBookReadInRotation(rotation, bookId) {
 /**
  * @typedef {Object} OnboardingProgressState
  * @property {OnboardingStatus} status - Current onboarding completion status
- * @property {number} currentStep - Active step index (0 = Welcome, 1..5 = Steps 1..5)
+ * @property {number} currentStep - Active step index (0 = Welcome, 1..6 = Steps 1..6)
  * @property {number[]} completedSteps - Completed step indices
  * @property {number[]} skippedSteps - Skipped step indices
  * @property {boolean} [previewMode] - Ephemeral QA/Dev preview mode (never overwrites backed-up library)
@@ -189,6 +235,13 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {boolean} [devModeUnlocked] - Unlocks Development & Testing tools in Settings
  * @property {boolean} [showMiniWizards] - Enable optional guided mini-wizards for new readers and new shelves
  * @property {ThemeMode} theme - UI color mode preference
+ * @property {ThemePresetId} [themePreset] - Selected centralized theme preset
+ * @property {BookDetailStyle} [bookDetailStyle] - Preferred Book Detail view ('compact' | 'editorial')
+ * @property {BookViewMode} [bookViewMode] - Default shelf & catalog view ('grid' | 'list')
+ * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large')
+ * @property {SidebarArtworkMode} [sidebarArtworkMode] - Sidebar decorative illustration style ('theme' | 'engraving' | 'illustration')
+ * @property {OnboardingLandingMode} [onboardingLandingMode] - Onboarding Step 0 layout ('slideshow' | 'compact')
+ * @property {boolean} [notificationsEnabled] - Opt-in flag for browser/swap reminders
  * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
  * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)
  * @property {boolean} retainRawProviderPayloads - Keep raw API responses for debugging/extension
@@ -202,6 +255,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {number} [presetAlertDaysBefore] - Days before an annual MM-DD preset start date to surface reminder (0-30, default: 2)
  * @property {number} [presetAlertDaysAfter] - Days after an annual MM-DD preset start date to keep showing unactioned reminder (0-30, default: 5)
  * @property {boolean} [showPresetDecorations] - Show subtle top-right motif corner decorations on preset cards (default: true)
+ * @property {PresetCornerArtSize} [presetCornerArtSize] - Corner decoration artwork size ('sm' | 'md' | 'lg', default: 'md')
  * @property {string} [presetIllustrationPromptTemplate] - Reusable AI image generation prompt template for preset corner artwork
  * @property {boolean} [enableRotationHistoryInsights] - Show per-book cooldown/rotation history badges & filters (default: true)
  * @property {boolean} [showCoverUsageAdornos] - Show compact icon+code usage/cooldown/read adornos over Library book covers (default: true)

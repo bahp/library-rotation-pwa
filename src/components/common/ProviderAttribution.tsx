@@ -62,7 +62,7 @@ const ProviderLogo: React.FC<{ providerId: string }> = ({ providerId }) => {
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="w-3.5 h-3.5 shrink-0 text-amber-700 dark:text-amber-300"
+        className="w-3.5 h-3.5 shrink-0 text-accent"
         aria-hidden="true"
         data-provider-logo="open-library"
       >
@@ -145,21 +145,21 @@ export const ProviderAttribution: React.FC<ProviderAttributionProps> = ({
       className={`inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[11px] leading-tight ${className}`}
     >
       {prefix && (
-        <span className="text-stone-ink dark:text-slate-400 mr-0.5">{prefix}</span>
+        <span className="text-ink-secondary mr-0.5">{prefix}</span>
       )}
       {displayEntries.map((entry, idx) => (
         <React.Fragment key={`${entry.id}-${idx}`}>
           {idx > 0 && (
-            <span aria-hidden="true" className="text-stone-ink/70 dark:text-slate-500 px-0.5">
+            <span aria-hidden="true" className="text-ink-muted px-0.5">
               +
             </span>
           )}
-          <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-forest-900 dark:text-slate-200">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-ink">
             <ProviderLogo providerId={entry.id} />
             <span>{entry.label}</span>
             {includeExternalIds && entry.externalId && (
               <span
-                className="font-mono-tabular text-[10px] text-stone-ink/75 dark:text-slate-400 select-all"
+                className="font-mono-tabular text-[10px] text-ink-muted select-all"
                 title={`${entry.label} ID: ${entry.externalId}`}
               >
                 ({entry.externalId})
