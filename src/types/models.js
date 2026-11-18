@@ -87,6 +87,27 @@
  */
 
 /**
+ * @typedef {Object} BookNote
+ * @property {string} id - Unique note ID
+ * @property {string} text - Quote or reading note text
+ * @property {string} [authorProfileId] - Profile ID of who wrote the note
+ * @property {string} [forProfileId] - Optional profile ID of the reader this note/quote is about
+ * @property {string} createdAt - ISO-8601 creation timestamp
+ * @property {string} [updatedAt] - ISO-8601 last edited timestamp
+ */
+
+/**
+ * @typedef {Object} BookAudioRecording
+ * @property {string} id - Unique recording ID (keyed in IndexedDB audio_blobs store)
+ * @property {string} [title] - Optional label for the recording
+ * @property {number} durationSec - Duration in seconds
+ * @property {string} mimeType - MIME type (e.g. 'audio/webm' or 'audio/mp4')
+ * @property {string} [authorProfileId] - Profile ID of who recorded
+ * @property {string} [forProfileId] - Optional profile ID of reader
+ * @property {string} createdAt - ISO-8601 creation timestamp
+ */
+
+/**
  * @typedef {Object} Book
  * @property {string} id - Stable internal UUID/slug
  * @property {string} isbn13 - Normalized 13-digit ISBN (or empty string if unnumbered vintage book)
@@ -116,6 +137,11 @@
  * @property {string} [lastReadAt] - ISO-8601 timestamp when most recently marked read
  * @property {string} [language] - Normalized non-English language tag ('spanish', 'italian', etc.)
  * @property {string | Record<string, unknown>} [dimensions] - Optional physical book dimensions
+ * @property {string} [edition] - Optional edition label (e.g. 'First edition', '20th Anniversary')
+ * @property {number} [estimatedValue] - User-entered estimated value of this copy
+ * @property {string} [estimatedCurrency] - ISO currency code for estimatedValue (default 'USD')
+ * @property {number} [listPriceAmount] - Publisher/catalog list or retail price amount
+ * @property {string} [listPriceCurrency] - ISO currency code for catalog list price
  * @property {number} [averageRating] - Average rating from provider (e.g. 4.5)
  * @property {number} [ratingsCount] - Total number of ratings/votes
  * @property {string} [publisher] - Publisher name
@@ -123,7 +149,9 @@
  * @property {number} [userRating] - Legacy single-user rating (1 to 5 stars)
  * @property {Record<string, number>} [userRatings] - Per-reader star ratings keyed by ChildProfile ID (1 to 5 stars)
  * @property {boolean} [excludeFromRotations] - Exclude from automated shelf rotations
- * @property {string} [notes] - Parent/family quote or private reading note
+ * @property {string} [notes] - Legacy primary quote or reading note summary
+ * @property {BookNote[]} [bookNotes] - Multi-entry family quotes and reading notes with attribution
+ * @property {BookAudioRecording[]} [recordings] - Family voice/reading audio clip metadata (blobs stored in IndexedDB)
  * @property {boolean} [needsScanReview] - True when newly scanned book awaits user verification
  * @property {string} [verifiedAt] - ISO-8601 timestamp when scan match was verified
  * @property {ProviderSource[]} sources - Metadata provenance list
@@ -392,7 +420,7 @@ function parseCalendarParts(input) {
   const year = Number(match[1]);
   const month = Number(match[2]);
   const day = Number(match[3]);
-  if (year < 1990 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+  if (year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
     return null;
   }
   const probe = new Date(Date.UTC(year, month - 1, day));

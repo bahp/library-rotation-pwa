@@ -418,7 +418,7 @@ export const LibraryView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 text-left">
+    <div className="space-y-5 text-left min-w-0 overflow-x-clip">
       {/* Header Row */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -859,7 +859,7 @@ export const LibraryView: React.FC = () => {
                     <article
                       key={book.id}
                       data-book-card={book.id}
-                      className="group rounded-xl bg-surface border border-edge hover:border-primary/45 p-2.5 sm:p-3 shadow-2xs transition-all"
+                      className="group min-w-0 rounded-xl bg-surface border border-edge hover:border-primary/45 p-2.5 sm:p-3 shadow-2xs transition-all"
                     >
                       <button
                         type="button"
@@ -867,7 +867,7 @@ export const LibraryView: React.FC = () => {
                         data-book-id={book.id}
                         onClick={() => setInspectedBookId(book.id)}
                         aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
-                        className="w-full flex items-center gap-3 text-left cursor-pointer"
+                        className="w-full min-w-0 flex items-center gap-3 text-left cursor-pointer"
                       >
                         <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle">
                           <BookCover

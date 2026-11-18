@@ -105,6 +105,7 @@ async function startServer() {
         q: typeof req.query.q === 'string' ? req.query.q : '',
         maxResults: typeof req.query.maxResults === 'string' ? req.query.maxResults : undefined,
         printType: typeof req.query.printType === 'string' ? req.query.printType : undefined,
+        hl: typeof req.query.hl === 'string' ? req.query.hl : 'en',
       },
       apiKey: process.env.GOOGLE_BOOKS_API_KEY || '',
     });

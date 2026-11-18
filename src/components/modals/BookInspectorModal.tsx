@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { StarRating } from '../common/StarRating.js';
@@ -6,6 +6,12 @@ import { Icon } from '../common/Icon.js';
 import { ToggleSwitch } from '../common/ToggleSwitch.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
+import {
+  EditorialFieldSheet,
+  formatBookDimensionsLabel,
+  type EditorialFieldKey,
+} from './EditorialFieldSheet.js';
+import { getBookAudioBlob } from '../../core/storage.js';
 import { compressImageFileToDataUrl } from '../../features/catalog/cover-image-utils.js';
 import { resolveBookCardTintHex } from '../../features/catalog/cover-color-extractor.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
@@ -31,6 +37,7 @@ import { AVATAR_TONES } from '../../config/index.js';
 import type {
   BookCondition,
   BookFormat,
+  BookNote,
   CollectionStatus,
   ReadingStage,
   TagOrigin,
@@ -95,8 +102,33 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const [editorialStatusMenuOpen, setEditorialStatusMenuOpen] = useState(false);
   const [editorialReadMenuOpen, setEditorialReadMenuOpen] = useState(false);
   const [editorialEditionExpanded, setEditorialEditionExpanded] = useState(true);
-  const [isEditingNote, setIsEditingNote] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(book?.notes || '');
+  const [activeEditorialField, setActiveEditorialField] = useState<EditorialFieldKey | null>(null);
+
+  // Quotes & Notes composer / inline editor states
+  const [isAddingNote, setIsAddingNote] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [noteAuthorId, setNoteAuthorId] = useState('');
+  const [noteForProfileId, setNoteForProfileId] = useState('');
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState('');
+  const [noteError, setNoteError] = useState('');
+
+  // Audio recording & playback states
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [recordingElapsedSec, setRecordingElapsedSec] = useState(0);
+  const [audioTitleDraft, setAudioTitleDraft] = useState('');
+  const [audioAuthorId, setAudioAuthorId] = useState('');
+  const [audioForProfileId, setAudioForProfileId] = useState('');
+  const [audioError, setAudioError] = useState('');
+  const [audioSaving, setAudioSaving] = useState(false);
+  const [audioObjectUrls, setAudioObjectUrls] = useState<Record<string, string>>({});
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<number | null>(null);
+  const recordStartedAtRef = useRef<number>(0);
+  const audioUrlsRef = useRef<Record<string, string>>({});
 
   // Form edit state
   const [editTitle, setEditTitle] = useState(book?.title || '');
@@ -114,8 +146,32 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     book?.coverUrl && book.coverUrl.startsWith('https://') ? book.coverUrl : ''
   );
 
+  const stopActiveRecorderResources = () => {
+    if (recordTimerRef.current !== null) {
+      window.clearInterval(recordTimerRef.current);
+      recordTimerRef.current = null;
+    }
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state !== 'inactive') {
+      try {
+        rec.onstop = null;
+        rec.stop();
+      } catch {
+        // ignore cleanup stop errors
+      }
+    }
+    mediaRecorderRef.current = null;
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((tr) => tr.stop());
+      mediaStreamRef.current = null;
+    }
+    setIsRecordingAudio(false);
+    setRecordingElapsedSec(0);
+  };
+
   // Sync draft state whenever inspected book changes
   useEffect(() => {
+    stopActiveRecorderResources();
     setIsEditing(false);
     setIsCoverPickerOpen(false);
     setCoverSearchError('');
@@ -127,9 +183,19 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     setEditorialStatusMenuOpen(false);
     setEditorialReadMenuOpen(false);
     setEditorialEditionExpanded(true);
-    setIsEditingNote(false);
+    setActiveEditorialField(null);
+    setIsAddingNote(false);
+    setNewNoteText('');
+    setEditingNoteId(null);
+    setEditingNoteText('');
+    setNoteError('');
+    setAudioError('');
+    setAudioTitleDraft('');
+    setNoteAuthorId(activeProfile?.id || state.profiles[0]?.id || '');
+    setNoteForProfileId('');
+    setAudioAuthorId(activeProfile?.id || state.profiles[0]?.id || '');
+    setAudioForProfileId('');
     if (book) {
-      setNoteDraft(book.notes || '');
       setCoverSearchQuery(`${book.title} ${book.authors[0] || ''}`.trim());
       setEditTitle(book.title);
       setEditAuthors((book.authors || []).join(', '));
@@ -148,6 +214,66 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     }
   }, [bookId]);
 
+  // Lazy-load IndexedDB audio blobs for playback & revoke stale object URLs
+  useEffect(() => {
+    let cancelled = false;
+    const recs = book?.recordings || [];
+    const activeIds = new Set(recs.map((r) => r.id));
+
+    // Revoke any URLs whose recordings were deleted or belong to another book
+    setAudioObjectUrls((prev) => {
+      let changed = false;
+      const next: Record<string, string> = {};
+      for (const [id, url] of Object.entries(prev)) {
+        if (activeIds.has(id)) {
+          next[id] = url;
+        } else {
+          URL.revokeObjectURL(url);
+          changed = true;
+        }
+      }
+      if (changed) audioUrlsRef.current = next;
+      return changed ? next : prev;
+    });
+
+    (async () => {
+      for (const rec of recs) {
+        if (audioUrlsRef.current[rec.id]) continue;
+        try {
+          const blob = await getBookAudioBlob(rec.id);
+          if (!blob || cancelled) continue;
+          const url = URL.createObjectURL(blob);
+          if (cancelled) {
+            URL.revokeObjectURL(url);
+            continue;
+          }
+          setAudioObjectUrls((prev) => {
+            const updated = { ...prev, [rec.id]: url };
+            audioUrlsRef.current = updated;
+            return updated;
+          });
+        } catch {
+          // ignore blob read errors for missing local clips
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [bookId, book?.recordings]);
+
+  // Stop active streams & revoke object URLs on unmount
+  useEffect(() => {
+    return () => {
+      stopActiveRecorderResources();
+      for (const url of Object.values(audioUrlsRef.current)) {
+        URL.revokeObjectURL(url);
+      }
+      audioUrlsRef.current = {};
+    };
+  }, []);
+
   useBodyScrollLock(Boolean(book));
 
   if (!book) return null;
@@ -161,8 +287,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       ? state.profiles.find((p) => p.id === activeRot.profileId) || state.profiles[0] || null
       : state.profiles[0] || null);
 
-  const handleRatingChange = async (rating: number) => {
-    await store.setUserRating(book.id, rating, effectiveReader?.id);
+  const handleRatingChange = async (rating: number, targetProfileId?: string) => {
+    await store.setUserRating(book.id, rating, targetProfileId || effectiveReader?.id);
   };
 
   const handleToggleLoved = async () => {
@@ -336,10 +462,142 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     }
   };
 
-  const handleSaveNote = async (e: React.FormEvent) => {
+  const handleAddFamilyNote = async (e: React.FormEvent) => {
     e.preventDefault();
-    await store.updateBook(book.id, { notes: noteDraft.trim() });
-    setIsEditingNote(false);
+    setNoteError('');
+    if (!newNoteText.trim()) {
+      setNoteError('Write a quote or note before saving.');
+      return;
+    }
+    try {
+      await store.addBookNote(book.id, {
+        text: newNoteText.trim(),
+        authorProfileId: noteAuthorId || effectiveReader?.id || undefined,
+        forProfileId: noteForProfileId || undefined,
+      });
+      setNewNoteText('');
+      setIsAddingNote(false);
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleSaveEditedNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNoteId) return;
+    setNoteError('');
+    try {
+      if (editingNoteId === `legacy_${book.id}`) {
+        await store.updateBook(book.id, { notes: editingNoteText.trim() });
+      } else {
+        await store.updateBookNote(book.id, editingNoteId, { text: editingNoteText.trim() });
+      }
+      setEditingNoteId(null);
+      setEditingNoteText('');
+    } catch (err) {
+      setNoteError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const handleDeleteNoteItem = async (noteId: string) => {
+    if (noteId === `legacy_${book.id}`) {
+      await store.updateBook(book.id, { notes: '' });
+    } else {
+      await store.deleteBookNote(book.id, noteId);
+    }
+  };
+
+  const handleStartAudioRecording = async () => {
+    setAudioError('');
+    if (
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === 'undefined'
+    ) {
+      setAudioError('Audio recording is not supported in this browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      recordStartedAtRef.current = Date.now();
+      setRecordingElapsedSec(0);
+      setIsRecordingAudio(true);
+
+      recordTimerRef.current = window.setInterval(() => {
+        setRecordingElapsedSec(
+          Math.max(0, Math.floor((Date.now() - recordStartedAtRef.current) / 1000))
+        );
+      }, 250);
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data && ev.data.size > 0) {
+          audioChunksRef.current.push(ev.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        if (recordTimerRef.current !== null) {
+          window.clearInterval(recordTimerRef.current);
+          recordTimerRef.current = null;
+        }
+        const elapsedSec = Math.max(
+          0.5,
+          (Date.now() - recordStartedAtRef.current) / 1000
+        );
+        const mimeType = recorder.mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        audioChunksRef.current = [];
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((tr) => tr.stop());
+          mediaStreamRef.current = null;
+        }
+        mediaRecorderRef.current = null;
+        setIsRecordingAudio(false);
+        setRecordingElapsedSec(0);
+
+        if (blob.size > 0) {
+          setAudioSaving(true);
+          try {
+            await store.addBookRecording(book.id, {
+              title: audioTitleDraft.trim() || undefined,
+              durationSec: elapsedSec,
+              mimeType: blob.type || mimeType,
+              blob,
+              authorProfileId: audioAuthorId || effectiveReader?.id || undefined,
+              forProfileId: audioForProfileId || undefined,
+            });
+            setAudioTitleDraft('');
+          } catch (err) {
+            setAudioError(err instanceof Error ? err.message : String(err));
+          } finally {
+            setAudioSaving(false);
+          }
+        }
+      };
+
+      recorder.start();
+    } catch (err) {
+      stopActiveRecorderResources();
+      setAudioError(
+        err instanceof Error
+          ? `Microphone unavailable: ${err.message}`
+          : 'Microphone permission denied or unavailable.'
+      );
+    }
+  };
+
+  const handleStopAudioRecording = () => {
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state !== 'inactive') {
+      rec.stop();
+    } else {
+      stopActiveRecorderResources();
+    }
   };
 
   const handleVerifyScanMatch = async () => {
@@ -481,6 +739,54 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       return '';
     }
   })();
+
+  const primaryGenreLabel =
+    book.tags.length > 0
+      ? book.tags[0]
+          .split('-')
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ')
+      : '';
+  const dimensionsLabel = formatBookDimensionsLabel(book.dimensions);
+  const displayedNotes: BookNote[] =
+    Array.isArray(book.bookNotes) && book.bookNotes.length > 0
+      ? book.bookNotes
+      : book.notes
+        ? [
+            {
+              id: `legacy_${book.id}`,
+              text: book.notes,
+              createdAt: book.addedAt || '',
+            },
+          ]
+        : [];
+  const recordingsList = Array.isArray(book.recordings) ? book.recordings : [];
+
+  const titleAuthorQuery = `${book.title} ${book.authors[0] || ''}`.trim();
+  const encodedQuery = encodeURIComponent(isbnVal || titleAuthorQuery);
+  const olSource = (book.sources || []).find((s) => s.provider === 'open-library');
+  const gbSource = (book.sources || []).find((s) => s.provider === 'google-books');
+  const googleBooksUrl =
+    book.previewLink && /^https?:\/\//i.test(book.previewLink)
+      ? book.previewLink
+      : gbSource?.externalId
+        ? `https://books.google.com/books?id=${encodeURIComponent(gbSource.externalId)}`
+        : isbnVal
+          ? `https://books.google.com/books?vid=ISBN${encodeURIComponent(isbnVal)}`
+          : `https://www.google.com/search?tbm=bks&q=${encodeURIComponent(titleAuthorQuery)}`;
+  const openLibraryUrl = olSource?.externalId
+    ? olSource.externalId.startsWith('/')
+      ? `https://openlibrary.org${olSource.externalId}`
+      : `https://openlibrary.org/books/${encodeURIComponent(olSource.externalId)}`
+    : isbnVal
+      ? `https://openlibrary.org/isbn/${encodeURIComponent(isbnVal)}`
+      : `https://openlibrary.org/search?q=${encodeURIComponent(titleAuthorQuery)}`;
+  const externalBookLinks = [
+    { label: 'Google Books', url: googleBooksUrl },
+    { label: 'Open Library', url: openLibraryUrl },
+    { label: 'Goodreads', url: `https://www.goodreads.com/search?q=${encodedQuery}` },
+    { label: 'Amazon', url: `https://www.amazon.com/s?k=${encodedQuery}` },
+  ];
 
   const coverStudioSection = isCoverPickerOpen && (
     <section
@@ -1001,7 +1307,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </button>
               </div>
 
-              {/* Centered Bold Title + Italic Serif Author */}
+              {/* Centered Bold Title + Italic Serif Author + Inline Active Reader Rating */}
               <div className="mt-5 text-center px-2">
                 <h2
                   id="inspect-book-title"
@@ -1012,6 +1318,30 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 <p className="mt-1 font-serif-italic italic text-base text-ink-secondary">
                   by {book.authors.join(', ')}
                 </p>
+                <div
+                  data-editorial-active-rating="true"
+                  className="mt-2.5 inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-surface-subtle/75 border border-edge/70"
+                >
+                  {effectiveReader && (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-secondary">
+                      <span
+                        className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center shrink-0 ${
+                          AVATAR_TONES[effectiveReader.avatarTone || 'teal'] || AVATAR_TONES.teal
+                        }`}
+                      >
+                        {computeOwnerInitials(effectiveReader.name)}
+                      </span>
+                      <span>{effectiveReader.name}</span>
+                    </span>
+                  )}
+                  <StarRating
+                    rating={readerRating}
+                    onChange={(r) => handleRatingChange(r, effectiveReader?.id)}
+                    size="sm"
+                    compact
+                    dataInspectorCoverStars
+                  />
+                </div>
               </div>
 
               {/* Dual Action Pill Row */}
@@ -1186,25 +1516,36 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               {coverStudioSection}
               {editBookSection}
 
-              {/* Bento Metadata Grid */}
+              {/* Bento Metadata Grid (Every tile opens 1-tap EditorialFieldSheet) */}
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
-                    onClick={() => setIsEditing(true)}
+                    data-editorial-field="genre"
+                    onClick={() => setActiveEditorialField('genre')}
                     className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3.5 text-center transition-colors cursor-pointer"
                   >
                     <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Stage
+                      Genre
                     </span>
-                    <Icon name="layers" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span className="mt-1.5 block font-display text-base font-medium text-ink truncate">
-                      {formatReadingStage(book.readingStage)}
+                    <Icon name="tag" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span
+                      className={`mt-1.5 block font-display text-base font-medium truncate ${
+                        primaryGenreLabel ? 'text-ink' : 'italic text-ink-muted'
+                      }`}
+                    >
+                      {primaryGenreLabel
+                        ? book.tags.length > 1
+                          ? `${primaryGenreLabel} +${book.tags.length - 1}`
+                          : primaryGenreLabel
+                        : 'Set genre'}
                     </span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => setIsEditing(true)}
+                    data-editorial-field="format"
+                    onClick={() => setActiveEditorialField('format')}
                     className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3.5 text-center transition-colors cursor-pointer"
                   >
                     <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
@@ -1212,7 +1553,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     </span>
                     <Icon name="bookmark" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
                     <span className="mt-1.5 block font-display text-base font-medium text-ink truncate">
-                      {formatBookBinding(book.format)}
+                      {formatBookBinding(book.format) || 'Set format'}
                     </span>
                   </button>
                 </div>
@@ -1220,101 +1561,167 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     type="button"
-                    onClick={() => setIsEditing(true)}
+                    data-editorial-field="publishedYear"
+                    onClick={() => setActiveEditorialField('publishedYear')}
                     className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
                   >
                     <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                       Pub. Year
                     </span>
                     <Icon name="calendar" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span className="mt-1.5 block font-display text-base font-medium text-ink font-mono-tabular">
-                      {book.publishedYear || '—'}
+                    <span
+                      className={`mt-1.5 block font-display text-base font-medium ${
+                        book.publishedYear
+                          ? 'text-ink font-mono-tabular'
+                          : 'italic text-ink-muted text-sm'
+                      }`}
+                    >
+                      {book.publishedYear || 'Set year'}
                     </span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => setIsEditing(true)}
+                    data-editorial-field="pageCount"
+                    onClick={() => setActiveEditorialField('pageCount')}
                     className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
                   >
                     <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                       Pages
                     </span>
                     <Icon name="fileText" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span className="mt-1.5 block font-display text-base font-medium text-ink font-mono-tabular">
-                      {book.pageCount || '—'}
+                    <span
+                      className={`mt-1.5 block font-display text-base font-medium ${
+                        book.pageCount
+                          ? 'text-ink font-mono-tabular'
+                          : 'italic text-ink-muted text-sm'
+                      }`}
+                    >
+                      {book.pageCount || 'Set pages'}
                     </span>
                   </button>
+
                   <button
                     type="button"
-                    onClick={() => setIsEditing(true)}
+                    data-editorial-field="estimatedValue"
+                    onClick={() => setActiveEditorialField('estimatedValue')}
+                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
+                  >
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Est. Value
+                    </span>
+                    <Icon name="award" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span
+                      className={`mt-1.5 block font-display font-medium truncate ${
+                        book.estimatedValue !== undefined
+                          ? 'text-base text-ink font-mono-tabular'
+                          : 'text-sm italic text-ink-muted'
+                      }`}
+                    >
+                      {book.estimatedValue !== undefined
+                        ? `${book.estimatedCurrency || 'USD'} ${Number(book.estimatedValue).toFixed(2)}`
+                        : book.listPriceAmount !== undefined
+                          ? `${book.listPriceCurrency || 'USD'} ${Number(book.listPriceAmount).toFixed(2)}`
+                          : 'Set value'}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    data-editorial-field="readingStage"
+                    onClick={() => setActiveEditorialField('readingStage')}
+                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
+                  >
+                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                      Stage
+                    </span>
+                    <Icon name="layers" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
+                    <span className="mt-1.5 block font-display text-sm font-medium text-ink truncate">
+                      {formatReadingStage(book.readingStage)}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    data-editorial-field="ages"
+                    onClick={() => setActiveEditorialField('ages')}
                     className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
                   >
                     <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                       Ages
                     </span>
                     <Icon name="profiles" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span className="mt-1.5 block font-display text-base font-medium text-ink font-mono-tabular">
-                      {book.ageMin}–{book.ageMax}
+                    <span className="mt-1.5 block font-display text-sm font-medium text-ink font-mono-tabular">
+                      {book.ageMax >= 99 ? `${book.ageMin}+ yrs` : `${book.ageMin}–${book.ageMax} yrs`}
                     </span>
                   </button>
                 </div>
               </div>
 
-              {/* Collapsible EDITION Card */}
+              {/* Collapsible EDITION Card (shows Publisher · ISBN summary when collapsed) */}
               <section className="rounded-2xl bg-surface-subtle/90 border border-edge/90 overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setEditorialEditionExpanded((p) => !p)}
                   aria-expanded={editorialEditionExpanded}
-                  className="w-full px-4 py-3.5 flex items-center justify-between gap-2 text-left cursor-pointer hover:bg-surface-elevated/40 transition-colors"
+                  className="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-surface-elevated/40 transition-colors"
                 >
-                  <span className="inline-flex items-center gap-2.5">
+                  <span className="inline-flex items-center gap-2.5 shrink-0">
                     <Icon name="fileText" className="w-4 h-4 text-ink-secondary" />
                     <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-secondary">
                       Edition
                     </span>
                   </span>
-                  <Icon
-                    name="chevronDown"
-                    className={`w-4 h-4 text-ink-secondary transition-transform ${
-                      editorialEditionExpanded ? 'rotate-180' : ''
-                    }`}
-                  />
+
+                  <span className="flex items-center gap-2 min-w-0">
+                    {!editorialEditionExpanded && (book.publisher || isbnVal) && (
+                      <span className="text-[11px] text-ink-muted truncate font-mono-tabular">
+                        {[book.publisher, isbnVal].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                    <Icon
+                      name="chevronDown"
+                      className={`w-4 h-4 text-ink-secondary shrink-0 transition-transform ${
+                        editorialEditionExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </span>
                 </button>
 
                 {editorialEditionExpanded && (
                   <div className="px-4 pb-3.5 divide-y divide-edge-subtle text-xs">
-                    <div className="py-2.5 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      data-editorial-field="isbn"
+                      onClick={() => setActiveEditorialField('isbn')}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
                       <span className="inline-flex items-center gap-2.5 text-ink-secondary">
                         <Icon name="qrcode" className="w-4 h-4" />
                         <span>ISBN</span>
                       </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono-tabular text-ink select-all">
-                          {isbnVal || 'Not set'}
+                      <span className="inline-flex items-center gap-1.5 font-medium truncate">
+                        <span className={isbnVal ? 'font-mono-tabular text-ink' : 'italic text-ink-muted'}>
+                          {isbnVal || 'Add ISBN'}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsEditing(true)}
-                          aria-label="Edit ISBN"
-                          className="text-primary hover:opacity-80 cursor-pointer"
-                        >
-                          <Icon name="qrcode" className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
 
                     <button
                       type="button"
-                      onClick={() => setIsEditing(true)}
+                      data-editorial-field="publisher"
+                      onClick={() => setActiveEditorialField('publisher')}
                       className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
                     >
                       <span className="inline-flex items-center gap-2.5 text-ink-secondary">
                         <Icon name="building" className="w-4 h-4" />
                         <span>Publisher</span>
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-ink font-medium truncate">
-                        <span className={book.publisher ? 'text-ink' : 'text-ink-muted'}>
+                      <span className="inline-flex items-center gap-1.5 font-medium truncate">
+                        <span className={book.publisher ? 'text-ink' : 'italic text-ink-muted'}>
                           {book.publisher || 'Add publisher'}
                         </span>
                         <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
@@ -1323,7 +1730,44 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => setIsEditing(true)}
+                      data-editorial-field="edition"
+                      onClick={() => setActiveEditorialField('edition')}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="bookmark" className="w-4 h-4" />
+                        <span>Edition</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 font-medium truncate">
+                        <span className={book.edition ? 'text-ink' : 'italic text-ink-muted'}>
+                          {book.edition || 'Add edition'}
+                        </span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-editorial-field="language"
+                      onClick={() => setActiveEditorialField('language')}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="globe" className="w-4 h-4" />
+                        <span>Language</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 font-medium">
+                        <span className={book.language ? 'text-ink capitalize' : 'italic text-ink-muted'}>
+                          {book.language || 'Add language'}
+                        </span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-editorial-field="condition"
+                      onClick={() => setActiveEditorialField('condition')}
                       className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
                     >
                       <span className="inline-flex items-center gap-2.5 text-ink-secondary">
@@ -1338,15 +1782,18 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
                     <button
                       type="button"
-                      onClick={() => setIsEditing(true)}
+                      data-editorial-field="dimensions"
+                      onClick={() => setActiveEditorialField('dimensions')}
                       className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
                     >
                       <span className="inline-flex items-center gap-2.5 text-ink-secondary">
-                        <Icon name="globe" className="w-4 h-4" />
-                        <span>Language</span>
+                        <Icon name="ruler" className="w-4 h-4" />
+                        <span>Dimensions</span>
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-ink font-medium capitalize">
-                        <span>{book.language || 'English'}</span>
+                      <span className="inline-flex items-center gap-1.5 font-medium truncate">
+                        <span className={dimensionsLabel ? 'font-mono-tabular text-ink' : 'italic text-ink-muted'}>
+                          {dimensionsLabel || 'Add dimensions'}
+                        </span>
                         <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
                       </span>
                     </button>
@@ -1380,38 +1827,209 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 />
               </div>
 
-              {/* Quote & Note Inline Block */}
-              <div className="border-l-2 border-primary/70 pl-3.5 py-1 space-y-2">
-                <div className="flex items-center justify-between gap-2">
+              {/* Community Rating + See More External Book Links */}
+              <section
+                aria-label="Community rating and external catalog links"
+                className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs"
+              >
+                <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                    Quote &amp; Note
+                    Community &amp; Catalog
                   </span>
-                  {!isEditingNote && (
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingNote(true)}
-                      className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-                    >
-                      {book.notes ? 'Edit' : 'Add'}
-                    </button>
+                  {book.averageRating ? (
+                    <span className="inline-flex items-center gap-1 font-mono-tabular font-semibold text-ink">
+                      <span className="text-accent">★</span>
+                      <span>{book.averageRating}</span>
+                      {book.ratingsCount ? (
+                        <span className="text-ink-muted font-normal">
+                          ({book.ratingsCount} ratings)
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="italic text-ink-muted">No community rating yet</span>
                   )}
                 </div>
 
-                {isEditingNote ? (
-                  <form onSubmit={handleSaveNote} className="space-y-2">
+                <div>
+                  <p className="text-[11px] font-semibold text-ink-secondary mb-2">
+                    See more about this book
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {externalBookLinks.map((ext) => (
+                      <a
+                        key={ext.label}
+                        href={ext.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-h-[32px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink inline-flex items-center gap-1 transition-colors"
+                      >
+                        <span>{ext.label}</span>
+                        <span aria-hidden="true" className="text-ink-muted">↗</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              {/* Compact Other Readers' Ratings + Owners */}
+              {(() => {
+                const otherProfiles = effectiveReader
+                  ? state.profiles.filter((p) => p.id !== effectiveReader.id)
+                  : state.profiles;
+                return (
+                  <section className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-3.5 space-y-2.5 text-xs">
+                    {otherProfiles.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                          Other Readers
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                          {otherProfiles.map((prof) => {
+                            const profRating = getBookUserRating(book, prof.id);
+                            const tone = AVATAR_TONES[prof.avatarTone || 'teal'] || AVATAR_TONES.teal;
+                            return (
+                              <div
+                                key={prof.id}
+                                className="flex items-center justify-between gap-2 py-0.5"
+                              >
+                                <span className="inline-flex items-center gap-1.5 min-w-0">
+                                  <span
+                                    className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center shrink-0 ${tone}`}
+                                  >
+                                    {computeOwnerInitials(prof.name)}
+                                  </span>
+                                  <span className="font-medium text-ink truncate">{prof.name}</span>
+                                </span>
+                                <StarRating
+                                  rating={profRating}
+                                  onChange={(r) => handleRatingChange(r, prof.id)}
+                                  size="sm"
+                                  compact
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      className={`${
+                        otherProfiles.length > 0 ? 'pt-2.5 border-t border-edge-subtle ' : ''
+                      }flex flex-wrap items-center justify-between gap-2`}
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                        Owners
+                      </span>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        {ownerToggleChips.map((chip) => {
+                          const active = currentOwners.some(
+                            (o) => o.toLowerCase() === chip.key.toLowerCase()
+                          );
+                          const tone = AVATAR_TONES[chip.tone] || AVATAR_TONES.teal;
+                          return (
+                            <button
+                              key={chip.key}
+                              type="button"
+                              onClick={() => handleToggleOwner(chip.key)}
+                              aria-pressed={active}
+                              className={`min-h-[30px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+                                active
+                                  ? 'bg-primary text-primary-fg'
+                                  : 'bg-surface border border-edge text-ink-secondary hover:text-ink'
+                              }`}
+                            >
+                              <span
+                                className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center ${tone}`}
+                              >
+                                {chip.initial}
+                              </span>
+                              <span>{chip.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </section>
+                );
+              })()}
+
+              {/* Multi-Entry Family Quotes & Notes */}
+              <section aria-label="Quotes and notes" className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    <Icon name="quote" className="w-3.5 h-3.5 text-primary" />
+                    <span>Quotes &amp; Notes ({displayedNotes.length})</span>
+                  </span>
+                  <button
+                    type="button"
+                    data-action="open-add-quote-note"
+                    onClick={() => {
+                      setIsAddingNote((prev) => !prev);
+                      setNoteError('');
+                    }}
+                    className="min-h-[30px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary cursor-pointer"
+                  >
+                    {isAddingNote ? 'Close' : '+ Add Quote / Note'}
+                  </button>
+                </div>
+
+                {noteError && (
+                  <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+                    {noteError}
+                  </p>
+                )}
+
+                {isAddingNote && (
+                  <form onSubmit={handleAddFamilyNote} className="rounded-xl bg-surface border border-edge p-3 space-y-2.5">
                     <textarea
                       rows={3}
-                      value={noteDraft}
-                      onChange={(e) => setNoteDraft(e.target.value)}
+                      value={newNoteText}
+                      onChange={(e) => setNewNoteText(e.target.value)}
                       placeholder="Write a favorite quote, reading memory, or bedtime note…"
                       className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
                     />
+                    {state.profiles.length > 0 && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="text-[11px] text-ink-secondary space-y-1">
+                          <span className="block font-semibold">By reader</span>
+                          <select
+                            value={noteAuthorId}
+                            onChange={(e) => setNoteAuthorId(e.target.value)}
+                            className="w-full h-9 px-2 rounded-lg bg-surface-subtle border border-edge text-xs text-ink"
+                          >
+                            <option value="">Household</option>
+                            {state.profiles.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="text-[11px] text-ink-secondary space-y-1">
+                          <span className="block font-semibold">About / for</span>
+                          <select
+                            value={noteForProfileId}
+                            onChange={(e) => setNoteForProfileId(e.target.value)}
+                            className="w-full h-9 px-2 rounded-lg bg-surface-subtle border border-edge text-xs text-ink"
+                          >
+                            <option value="">Everyone</option>
+                            {state.profiles.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    )}
                     <div className="flex items-center justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => {
-                          setNoteDraft(book.notes || '');
-                          setIsEditingNote(false);
+                          setIsAddingNote(false);
+                          setNewNoteText('');
                         }}
                         className="min-h-[34px] px-3 py-1 rounded-lg bg-surface-subtle border border-edge text-xs font-semibold text-ink-secondary cursor-pointer"
                       >
@@ -1425,71 +2043,229 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                       </button>
                     </div>
                   </form>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingNote(true)}
-                    className="w-full text-left font-serif-italic italic text-sm text-ink-secondary hover:text-ink transition-colors cursor-pointer"
-                  >
-                    {book.notes || 'Add a quote or note'}
-                  </button>
                 )}
-              </div>
 
-              {/* Per-Reader Star Rating + Readers + Condition */}
-              <section className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <span className="font-semibold text-ink block">
-                      {effectiveReader ? `${effectiveReader.name}’s Rating` : 'Reader Rating'}
-                    </span>
-                    {book.averageRating && (
-                      <span className="text-[11px] text-ink-muted font-mono-tabular">
-                        Catalog ★ {book.averageRating}
-                        {book.ratingsCount ? ` (${book.ratingsCount})` : ''}
-                      </span>
-                    )}
-                  </div>
-                  <StarRating
-                    rating={readerRating}
-                    onChange={handleRatingChange}
-                    size="sm"
-                    compact
-                    dataInspectorCoverStars
-                  />
-                </div>
-
-                <div className="pt-2.5 border-t border-edge-subtle flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-ink-secondary font-semibold">Owners</span>
-                  <div className="flex flex-wrap items-center justify-end gap-1.5">
-                    {ownerToggleChips.map((chip) => {
-                      const active = currentOwners.some(
-                        (o) => o.toLowerCase() === chip.key.toLowerCase()
-                      );
-                      const tone = AVATAR_TONES[chip.tone] || AVATAR_TONES.teal;
+                {displayedNotes.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {displayedNotes.map((entry) => {
+                      const authorProf = state.profiles.find((p) => p.id === entry.authorProfileId);
+                      const forProf = state.profiles.find((p) => p.id === entry.forProfileId);
+                      const isEditingThis = editingNoteId === entry.id;
+                      const formattedDate = entry.createdAt
+                        ? formatShortShelfDate(entry.createdAt)
+                        : '';
                       return (
-                        <button
-                          key={chip.key}
-                          type="button"
-                          onClick={() => handleToggleOwner(chip.key)}
-                          aria-pressed={active}
-                          className={`min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
-                            active
-                              ? 'bg-primary text-primary-fg'
-                              : 'bg-surface border border-edge text-ink-secondary hover:text-ink'
-                          }`}
+                        <div
+                          key={entry.id}
+                          className="border-l-2 border-primary/70 pl-3 py-1 space-y-1.5"
                         >
-                          <span
-                            className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center ${tone}`}
-                          >
-                            {chip.initial}
-                          </span>
-                          <span>{chip.label}</span>
-                        </button>
+                          {isEditingThis ? (
+                            <form onSubmit={handleSaveEditedNote} className="space-y-2">
+                              <textarea
+                                rows={2}
+                                value={editingNoteText}
+                                onChange={(e) => setEditingNoteText(e.target.value)}
+                                className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
+                              />
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingNoteId(null)}
+                                  className="px-2.5 py-1 rounded bg-surface border border-edge text-[11px] font-semibold text-ink-secondary cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="submit"
+                                  className="px-2.5 py-1 rounded bg-primary text-primary-fg text-[11px] font-semibold cursor-pointer"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </form>
+                          ) : (
+                            <>
+                              <p className="font-serif-italic italic text-sm text-ink leading-relaxed">
+                                “{entry.text}”
+                              </p>
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-muted">
+                                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                                  {authorProf && (
+                                    <span className="font-semibold text-ink-secondary">
+                                      By {authorProf.name}
+                                    </span>
+                                  )}
+                                  {forProf && (
+                                    <span>· For {forProf.name}</span>
+                                  )}
+                                  {formattedDate && <span>· {formattedDate}</span>}
+                                </span>
+                                <span className="inline-flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingNoteId(entry.id);
+                                      setEditingNoteText(entry.text);
+                                    }}
+                                    className="font-semibold text-primary hover:underline cursor-pointer"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteNoteItem(entry.id)}
+                                    className="font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:underline cursor-pointer"
+                                  >
+                                    Delete
+                                  </button>
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
+                ) : !isAddingNote && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNote(true)}
+                    className="w-full text-left font-serif-italic italic text-sm text-ink-muted hover:text-ink transition-colors cursor-pointer"
+                  >
+                    Add a quote or family reading memory…
+                  </button>
+                )}
+              </section>
+
+              {/* Audio Clips & Read-Aloud Recordings (IndexedDB Persisted) */}
+              <section
+                aria-label="Audio clips and read-aloud recordings"
+                className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    <Icon name="volume2" className="w-3.5 h-3.5 text-primary" />
+                    <span>Voice Notes &amp; Read-Alouds ({recordingsList.length})</span>
+                  </span>
+
+                  {!isRecordingAudio ? (
+                    <button
+                      type="button"
+                      data-action="start-audio-recording"
+                      disabled={audioSaving}
+                      onClick={handleStartAudioRecording}
+                      className="min-h-[32px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-55 text-primary-fg text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Icon name="mic" className="w-3.5 h-3.5" />
+                      <span>{audioSaving ? 'Saving…' : 'Record Audio'}</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      data-action="stop-audio-recording"
+                      onClick={handleStopAudioRecording}
+                      className="min-h-[32px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Icon name="square" className="w-3 h-3" />
+                      <span className="font-mono-tabular">
+                        Stop · {String(Math.floor(recordingElapsedSec / 60)).padStart(2, '0')}:
+                        {String(recordingElapsedSec % 60).padStart(2, '0')}
+                      </span>
+                    </button>
+                  )}
                 </div>
+
+                {audioError && (
+                  <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+                    {audioError}
+                  </p>
+                )}
+
+                {state.profiles.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input
+                      type="text"
+                      value={audioTitleDraft}
+                      onChange={(e) => setAudioTitleDraft(e.target.value)}
+                      placeholder="Clip label (optional)"
+                      className="h-9 px-2.5 rounded-lg bg-surface border border-edge text-xs text-ink placeholder:text-ink-muted"
+                    />
+                    <select
+                      aria-label="Recorded by"
+                      value={audioAuthorId}
+                      onChange={(e) => setAudioAuthorId(e.target.value)}
+                      className="h-9 px-2 rounded-lg bg-surface border border-edge text-xs text-ink"
+                    >
+                      <option value="">Recorded by: Household</option>
+                      {state.profiles.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          By: {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="For reader"
+                      value={audioForProfileId}
+                      onChange={(e) => setAudioForProfileId(e.target.value)}
+                      className="h-9 px-2 rounded-lg bg-surface border border-edge text-xs text-ink"
+                    >
+                      <option value="">For: Everyone</option>
+                      {state.profiles.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          For: {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {recordingsList.length > 0 ? (
+                  <div className="space-y-2">
+                    {recordingsList.map((rec) => {
+                      const recAuthor = state.profiles.find((p) => p.id === rec.authorProfileId);
+                      const recFor = state.profiles.find((p) => p.id === rec.forProfileId);
+                      const mins = Math.floor((rec.durationSec || 0) / 60);
+                      const secs = Math.round((rec.durationSec || 0) % 60);
+                      const blobUrl = audioObjectUrls[rec.id];
+                      return (
+                        <div
+                          key={rec.id}
+                          className="rounded-xl bg-surface border border-edge p-2.5 space-y-2"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-ink truncate">
+                                {rec.title || (recAuthor ? `Voice clip by ${recAuthor.name}` : 'Voice recording')}
+                              </p>
+                              <p className="text-[11px] text-ink-muted">
+                                <span className="font-mono-tabular">
+                                  {mins}:{String(secs).padStart(2, '0')}
+                                </span>
+                                {recFor ? ` · For ${recFor.name}` : ''}
+                                {rec.createdAt ? ` · ${formatShortShelfDate(rec.createdAt)}` : ''}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => store.deleteBookRecording(book.id, rec.id)}
+                              aria-label="Delete recording"
+                              className="min-h-[32px] min-w-[32px] rounded-lg text-ink-muted hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] flex items-center justify-center cursor-pointer"
+                            >
+                              <Icon name="trash" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {blobUrl && (
+                            <audio controls src={blobUrl} className="w-full h-8" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="italic text-ink-muted">
+                    Record a bedtime read-aloud or child voice reaction saved privately on device.
+                  </p>
+                )}
               </section>
 
               {/* Topics & Themes Curation */}
@@ -1616,6 +2392,22 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Dedicated Single-Field Mobile Slide-Up / Desktop Modal Sheet */}
+        <EditorialFieldSheet
+          field={activeEditorialField}
+          book={book}
+          onClose={() => setActiveEditorialField(null)}
+          onPatchBook={async (patch) => {
+            await store.updateBook(book.id, patch);
+          }}
+          onAddTag={async (tag) => {
+            await store.addBookTag(book.id, tag);
+          }}
+          onRemoveTag={async (tag) => {
+            await store.removeBookTag(book.id, tag);
+          }}
+        />
       </div>
     );
   }

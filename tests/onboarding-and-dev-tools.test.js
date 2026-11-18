@@ -5,9 +5,12 @@ import {
   createEmptyOnboardingState,
   createSafeDefaultSettings,
   createStorageAdapter,
+  deleteBookAudioBlob,
+  getBookAudioBlob,
   hasQaUserSnapshot,
   isValidAppState,
   migrateState,
+  saveBookAudioBlob,
 } from '../src/core/storage.js';
 import {
   DARK_THEME_PRESET_IDS,
@@ -18,6 +21,7 @@ import {
   ONBOARDING_LANDING_DEFAULT_MODE,
   THEME_PRESETS,
   THEME_PRESET_IDS,
+  detectDeviceLanguage,
   normalizeThemePresetId,
   resolveEffectiveThemeConfig,
 } from '../src/config/index.js';
@@ -462,7 +466,158 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(updated?.needsScanReview, false);
     assert.equal(updated?.verifiedAt, verifiedTs);
   });
+
+  it('supports pre-1990 adult birth dates and adding 3+ readers during onboarding', async () => {
+    const pre1990Age = computeAgeFromBirthDate('1984-05-10');
+    assert.ok(pre1990Age !== null && pre1990Age >= 40);
+
+    const storage = createStorageAdapter({ forceMemory: true, seedOnEmpty: false });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const child1 = await store.addProfile({
+      name: 'Maya',
+      birthDate: '2021-03-14',
+      favoriteTopics: ['animals', 'bedtime'],
+      defaultRotationSize: 5,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+    });
+    const child2 = await store.addProfile({
+      name: 'Leo',
+      birthDate: '2018-09-02',
+      favoriteTopics: ['space', 'dinosaurs'],
+      defaultRotationSize: 5,
+      cooldownDays: 14,
+      avatarTone: 'amber',
+    });
+    const parent3 = await store.addProfile({
+      name: 'Elena',
+      birthDate: '1984-05-10',
+      readingStage: 'adult',
+      favoriteTopics: ['history', 'cooking'],
+      defaultRotationSize: 5,
+      cooldownDays: 14,
+      avatarTone: 'indigo',
+    });
+
+    assert.equal(store.getState().profiles.length, 3);
+    assert.equal(child1.name, 'Maya');
+    assert.equal(child2.name, 'Leo');
+    assert.equal(parent3.birthDate, '1984-05-10');
+    assert.ok(parent3.age >= 40);
+  });
+
+  it('detects device language with device-settings-first, region-second, and English fallback', () => {
+    assert.equal(
+      detectDeviceLanguage({ languages: ['es-AR', 'en-US'], language: 'en-US', timeZone: 'America/New_York' }),
+      'es'
+    );
+    assert.equal(
+      detectDeviceLanguage({ languages: ['it-CH'], language: 'de-CH', timeZone: 'Europe/Zurich' }),
+      'it'
+    );
+    assert.equal(
+      detectDeviceLanguage({ languages: ['fr-FR', 'es-ES'], language: 'fr-FR', timeZone: 'Europe/Paris' }),
+      'es'
+    );
+    // Region subtag fallback when primary subtag is unsupported
+    assert.equal(
+      detectDeviceLanguage({ languages: ['ca-ES'], language: 'ca-ES', timeZone: 'UTC' }),
+      'es'
+    );
+    // Timezone region fallback
+    assert.equal(
+      detectDeviceLanguage({ languages: ['de-DE'], language: 'de-DE', timeZone: 'America/Buenos_Aires' }),
+      'es'
+    );
+    assert.equal(
+      detectDeviceLanguage({ languages: ['de-DE'], language: 'de-DE', timeZone: 'Europe/Rome' }),
+      'it'
+    );
+    // Default fallback
+    assert.equal(
+      detectDeviceLanguage({ languages: ['ja-JP'], language: 'ja-JP', timeZone: 'Asia/Tokyo' }),
+      'en'
+    );
+  });
+
+  it('persists editorial metadata, multi-entry bookNotes, and audio recordings with deleteBook blob cleanup', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const book = store.getState().books[0];
+    const profiles = store.getState().profiles;
+    const readerA = profiles[0].id;
+    const readerB = profiles[1].id;
+
+    // 1. Extended editorial fields
+    const edited = await store.updateBook(book.id, {
+      edition: 'First illustrated edition',
+      estimatedValue: 18.5,
+      estimatedCurrency: 'EUR',
+      dimensions: { height: '24 cm', width: '19 cm', thickness: '1.2 cm' },
+    });
+    assert.equal(edited?.edition, 'First illustrated edition');
+    assert.equal(edited?.estimatedValue, 18.5);
+    assert.equal(edited?.estimatedCurrency, 'EUR');
+    assert.deepEqual(edited?.dimensions, {
+      height: '24 cm',
+      width: '19 cm',
+      thickness: '1.2 cm',
+    });
+
+    // 2. Multi-entry bookNotes CRUD & legacy notes sync
+    const note1 = await store.addBookNote(book.id, {
+      text: 'Loved the watercolor moon illustration.',
+      authorProfileId: readerA,
+      forProfileId: readerB,
+    });
+    assert.ok(note1);
+    assert.equal(store.getState().books.find((b) => b.id === book.id)?.bookNotes?.length, 1);
+    assert.equal(
+      store.getState().books.find((b) => b.id === book.id)?.notes,
+      'Loved the watercolor moon illustration.'
+    );
+
+    await store.updateBookNote(book.id, note1.id, {
+      text: 'Updated bedtime memory on page 8.',
+    });
+    assert.equal(
+      store.getState().books.find((b) => b.id === book.id)?.bookNotes?.[0]?.text,
+      'Updated bedtime memory on page 8.'
+    );
+
+    await store.deleteBookNote(book.id, note1.id);
+    assert.equal(store.getState().books.find((b) => b.id === book.id)?.bookNotes?.length ?? 0, 0);
+
+    // 3. Audio recordings metadata + blob storage & cleanup on deleteBook
+    const sampleBlob = new Blob(['mock-audio-bytes'], { type: 'audio/webm' });
+    const rec = await store.addBookRecording(book.id, {
+      title: 'Grandma Read-Aloud',
+      durationSec: 42,
+      mimeType: 'audio/webm',
+      blob: sampleBlob,
+      authorProfileId: readerA,
+      forProfileId: 'shared',
+    });
+    assert.ok(rec);
+    assert.equal(store.getState().books.find((b) => b.id === book.id)?.recordings?.length, 1);
+    const storedBlob = await getBookAudioBlob(rec.id);
+    assert.ok(storedBlob);
+
+    await saveBookAudioBlob('extra_orphan_test', new Blob(['extra'], { type: 'audio/webm' }));
+    assert.ok(await getBookAudioBlob('extra_orphan_test'));
+    await deleteBookAudioBlob('extra_orphan_test');
+    assert.equal(await getBookAudioBlob('extra_orphan_test'), null);
+
+    // Deleting the book also cleans up its audio blobs
+    await store.deleteBook(book.id);
+    assert.equal(await getBookAudioBlob(rec.id), null);
+  });
 });
+
 
 
 

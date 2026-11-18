@@ -67,6 +67,7 @@ export { parseSimpleYaml } from './yaml-lite.js';
 export {
   SUPPORTED_LANGUAGES,
   normalizeLanguage,
+  detectDeviceLanguage,
   getLocaleDictionary,
   t,
 } from './i18n.js';

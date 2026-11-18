@@ -15,16 +15,21 @@ import {
   DEFAULT_LIGHT_THEME_PRESET,
   DEFAULT_PRESET_ILLUSTRATION_PROMPT,
   NUMERIC_BOUNDS,
+  detectDeviceLanguage,
   normalizeLanguage,
   normalizeThemePresetId,
 } from '../config/index.js';
 
 const DB_NAME = 'library_rotation_db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'app_state';
+const AUDIO_STORE_NAME = 'audio_blobs';
 const RECORD_KEY = 'primary_v1';
 const LOCAL_STORAGE_KEY = 'library_rotation_state_v1';
 export const QA_SNAPSHOT_STORAGE_KEY = 'lr_qa_existing_user_snapshot_v1';
+
+/** @type {Map<string, any>} */
+const memoryAudioBlobs = new Map();
 
 const AUXILIARY_STORAGE_KEYS = [
   'lr_theme_pref',
@@ -360,6 +365,10 @@ export function createSafeDefaultSettings(overrides = {}) {
  */
 export function createEmptyOnboardingState(settingsOverrides = {}) {
   const now = new Date().toISOString();
+  const initialLanguage =
+    settingsOverrides.language !== undefined
+      ? normalizeLanguage(settingsOverrides.language)
+      : detectDeviceLanguage();
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     activeProfileId: '',
@@ -372,6 +381,7 @@ export function createEmptyOnboardingState(settingsOverrides = {}) {
     settings: createSafeDefaultSettings({
       coverAspectRatio: 'portrait',
       ...settingsOverrides,
+      language: initialLanguage,
       onboarding: {
         status: 'pending',
         currentStep: 0,
@@ -543,6 +553,65 @@ export function migrateState(state, referenceDate = new Date()) {
             delete nextBook.tagOrigins;
           }
         }
+        if (Array.isArray(book.bookNotes)) {
+          const cleanNotes = book.bookNotes
+            .filter((n) => n && typeof n === 'object' && typeof n.text === 'string' && n.text.trim())
+            .map((n) => ({
+              id: String(n.id || `note_${book.id}`),
+              text: n.text.trim().slice(0, 1500),
+              ...(typeof n.authorProfileId === 'string' && n.authorProfileId
+                ? { authorProfileId: n.authorProfileId }
+                : {}),
+              ...(typeof n.forProfileId === 'string' && n.forProfileId
+                ? { forProfileId: n.forProfileId }
+                : {}),
+              createdAt:
+                typeof n.createdAt === 'string' && n.createdAt
+                  ? n.createdAt
+                  : book.addedAt || new Date().toISOString(),
+              ...(typeof n.updatedAt === 'string' && n.updatedAt ? { updatedAt: n.updatedAt } : {}),
+            }));
+          if (cleanNotes.length > 0) {
+            nextBook.bookNotes = cleanNotes;
+          } else {
+            delete nextBook.bookNotes;
+          }
+        } else if (typeof book.notes === 'string' && book.notes.trim()) {
+          nextBook.bookNotes = [
+            {
+              id: `note_legacy_${book.id}`,
+              text: book.notes.trim().slice(0, 1500),
+              createdAt: book.addedAt || new Date().toISOString(),
+            },
+          ];
+        }
+        if (Array.isArray(book.recordings)) {
+          const cleanRecs = book.recordings
+            .filter((r) => r && typeof r === 'object' && typeof r.id === 'string' && r.id)
+            .map((r) => ({
+              id: String(r.id),
+              ...(typeof r.title === 'string' && r.title.trim()
+                ? { title: r.title.trim().slice(0, 80) }
+                : {}),
+              durationSec: Math.max(0, Number(r.durationSec) || 0),
+              mimeType: typeof r.mimeType === 'string' && r.mimeType ? r.mimeType : 'audio/webm',
+              ...(typeof r.authorProfileId === 'string' && r.authorProfileId
+                ? { authorProfileId: r.authorProfileId }
+                : {}),
+              ...(typeof r.forProfileId === 'string' && r.forProfileId
+                ? { forProfileId: r.forProfileId }
+                : {}),
+              createdAt:
+                typeof r.createdAt === 'string' && r.createdAt
+                  ? r.createdAt
+                  : new Date().toISOString(),
+            }));
+          if (cleanRecs.length > 0) {
+            nextBook.recordings = cleanRecs;
+          } else {
+            delete nextBook.recordings;
+          }
+        }
         return nextBook;
       })
     : [];
@@ -624,10 +693,81 @@ function openIndexedDb() {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
       }
+      if (!db.objectStoreNames.contains(AUDIO_STORE_NAME)) {
+        db.createObjectStore(AUDIO_STORE_NAME);
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error || new Error('Failed to open IndexedDB'));
   });
+}
+
+/**
+ * Persists an audio recording Blob into IndexedDB `audio_blobs` (with memory fallback).
+ * @param {string} recordingId
+ * @param {any} blob
+ * @returns {Promise<void>}
+ */
+export async function saveBookAudioBlob(recordingId, blob) {
+  if (!recordingId || !blob) return;
+  memoryAudioBlobs.set(recordingId, blob);
+  try {
+    const db = await openIndexedDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE_NAME, 'readwrite');
+      tx.objectStore(AUDIO_STORE_NAME).put(blob, recordingId);
+      tx.oncomplete = () => resolve(undefined);
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (_) {
+    // Keep memory fallback seamlessly
+  }
+}
+
+/**
+ * Retrieves an audio recording Blob from IndexedDB `audio_blobs` (or memory fallback).
+ * @param {string} recordingId
+ * @returns {Promise<Blob | null>}
+ */
+export async function getBookAudioBlob(recordingId) {
+  if (!recordingId) return null;
+  try {
+    const db = await openIndexedDb();
+    const res = await new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE_NAME, 'readonly');
+      const req = tx.objectStore(AUDIO_STORE_NAME).get(recordingId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+    db.close();
+    if (res) return res;
+  } catch (_) {
+    // Fallback below
+  }
+  return memoryAudioBlobs.get(recordingId) || null;
+}
+
+/**
+ * Deletes an audio recording Blob from IndexedDB `audio_blobs` and memory fallback.
+ * @param {string} recordingId
+ * @returns {Promise<void>}
+ */
+export async function deleteBookAudioBlob(recordingId) {
+  if (!recordingId) return;
+  memoryAudioBlobs.delete(recordingId);
+  try {
+    const db = await openIndexedDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(AUDIO_STORE_NAME, 'readwrite');
+      tx.objectStore(AUDIO_STORE_NAME).delete(recordingId);
+      tx.oncomplete = () => resolve(undefined);
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (_) {
+    // Best-effort cleanup
+  }
 }
 
 /**

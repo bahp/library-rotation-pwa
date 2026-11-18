@@ -169,6 +169,16 @@ export const PresetCard: React.FC<PresetCardProps> = ({
               alt=""
               referrerPolicy="no-referrer"
               onError={handleArtError}
+              style={
+                cornerArtSize === 'sm'
+                  ? undefined
+                  : {
+                      maskImage:
+                        'linear-gradient(to top right, transparent 4%, rgba(0,0,0,0.45) 30%, rgba(0,0,0,1) 66%)',
+                      WebkitMaskImage:
+                        'linear-gradient(to top right, transparent 4%, rgba(0,0,0,0.45) 30%, rgba(0,0,0,1) 66%)',
+                    }
+              }
               className="w-full h-full object-contain object-right-top opacity-92 dark:opacity-88 drop-shadow-[0_1px_2px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
             />
           </div>
@@ -213,11 +223,13 @@ export const PresetCard: React.FC<PresetCardProps> = ({
 
         <p
           className={`text-xs text-ink-secondary leading-relaxed line-clamp-2 ${
-            showCornerDecoration && activeArtworkUrl && !activeIsLegacyOpaque && cornerArtSize === 'lg'
-              ? 'pr-24 sm:pr-28'
-              : showCornerDecoration && activeArtworkUrl && !activeIsLegacyOpaque
-                ? 'pr-16 sm:pr-20'
-                : ''
+            showCornerDecoration && activeArtworkUrl && !activeIsLegacyOpaque
+              ? cornerArtSize === 'lg'
+                ? 'pr-28 sm:pr-32'
+                : cornerArtSize === 'md'
+                  ? 'pr-20 sm:pr-24'
+                  : 'pr-14 sm:pr-16'
+              : ''
           }`}
         >
           {preset.description}
@@ -244,8 +256,8 @@ export const PresetCard: React.FC<PresetCardProps> = ({
           {matchCounts.thematicMatchCount > 0
             ? `${matchCounts.thematicMatchCount} thematic ${
                 matchCounts.thematicMatchCount === 1 ? 'match' : 'matches'
-              } in library (${matchCounts.rotatableTotalCount} eligible)`
-            : `${matchCounts.rotatableTotalCount} eligible books in library`}
+              } in your library`
+            : `No direct tag matches · draws from ${matchCounts.rotatableTotalCount} rotatable books`}
         </p>
 
         {preset.preferredTags && preset.preferredTags.length > 0 && (

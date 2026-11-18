@@ -92,7 +92,7 @@ export function explainGoogleBooksQuotaError(rawMessage, opts = {}) {
  * Executes a validated, server-side proxied query to Google Books Volumes API v1.
  *
  * @param {{
- *   query: { q?: string, maxResults?: string, printType?: string },
+ *   query: { q?: string, maxResults?: string, printType?: string, hl?: string },
  *   apiKey?: string,
  *   fetchImpl?: typeof fetch,
  *   timeoutMs?: number
@@ -122,6 +122,9 @@ export async function proxyGoogleBooksVolumes({
   const parsedMax = Number.parseInt(String(query?.maxResults || '8'), 10);
   const clampedMax = Number.isFinite(parsedMax) ? String(Math.min(20, Math.max(1, parsedMax))) : '8';
   const printType = query?.printType === 'magazines' ? 'magazines' : 'books';
+  const hl = typeof query?.hl === 'string' && /^[a-z]{2}$/i.test(query.hl.trim())
+    ? query.hl.trim().toLowerCase()
+    : 'en';
 
   const trimmedKey = String(apiKey || '').trim();
   const keyConfigured = Boolean(trimmedKey);
@@ -130,6 +133,7 @@ export async function proxyGoogleBooksVolumes({
     q,
     maxResults: clampedMax,
     printType,
+    hl,
   });
   if (keyConfigured) {
     upstreamParams.set('key', trimmedKey);

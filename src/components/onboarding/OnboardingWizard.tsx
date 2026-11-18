@@ -12,11 +12,14 @@ import {
   ONBOARDING_INTRO_SLIDES,
   ONBOARDING_LANDING_DEFAULT_MODE,
   PROFILE_AVATAR_TONE_OPTIONS,
+  SUPPORTED_LANGUAGES,
   THEME_PRESETS,
   LIGHT_THEME_PRESET_IDS,
   DARK_THEME_PRESET_IDS,
+  normalizeLanguage,
   resolveEffectiveThemeConfig,
 } from '../../config/index.js';
+import type { AppLanguage } from '../../config/i18n.js';
 import {
   computeAgeFromBirthDate,
   formatReadingStage,
@@ -31,27 +34,39 @@ import {
   type ThemePresetId,
 } from '../../types/models.js';
 
-const READER_TOPIC_OPTIONS: Array<{ id: string; label: string; icon: string }> = [
-  { id: 'bedtime', label: 'Bedtime', icon: 'moon' },
-  { id: 'animals', label: 'Animals', icon: 'paw' },
-  { id: 'dinosaurs', label: 'Dinosaurs', icon: 'footprints' },
-  { id: 'vehicles', label: 'Vehicles', icon: 'truck' },
-  { id: 'space', label: 'Space', icon: 'rocket' },
-  { id: 'nature', label: 'Nature', icon: 'leaf' },
-  { id: 'stem', label: 'STEM', icon: 'flask' },
-  { id: 'adventure', label: 'Adventure', icon: 'compass' },
-  { id: 'feelings', label: 'Feelings', icon: 'heart' },
-  { id: 'humor', label: 'Humor', icon: 'smile' },
-  { id: 'friendship', label: 'Friendship', icon: 'profiles' },
-  { id: 'fairy-tales', label: 'Fairy Tales', icon: 'castle' },
+const READER_TOPIC_OPTIONS: Array<{
+  id: string;
+  label: string;
+  labelKey: string;
+  icon: string;
+}> = [
+  { id: 'bedtime', label: 'Bedtime', labelKey: 'onboarding.topicBedtime', icon: 'moon' },
+  { id: 'animals', label: 'Animals', labelKey: 'onboarding.topicAnimals', icon: 'paw' },
+  { id: 'dinosaurs', label: 'Dinosaurs', labelKey: 'onboarding.topicDinosaurs', icon: 'footprints' },
+  { id: 'vehicles', label: 'Vehicles', labelKey: 'onboarding.topicVehicles', icon: 'truck' },
+  { id: 'space', label: 'Space', labelKey: 'onboarding.topicSpace', icon: 'rocket' },
+  { id: 'nature', label: 'Nature', labelKey: 'onboarding.topicNature', icon: 'leaf' },
+  { id: 'stem', label: 'STEM', labelKey: 'onboarding.topicStem', icon: 'flask' },
+  { id: 'adventure', label: 'Adventure', labelKey: 'onboarding.topicAdventure', icon: 'compass' },
+  { id: 'feelings', label: 'Feelings', labelKey: 'onboarding.topicFeelings', icon: 'heart' },
+  { id: 'humor', label: 'Humor', labelKey: 'onboarding.topicHumor', icon: 'smile' },
+  { id: 'friendship', label: 'Friendship', labelKey: 'onboarding.topicFriendship', icon: 'profiles' },
+  { id: 'fairy-tales', label: 'Fairy Tales', labelKey: 'onboarding.topicFairyTales', icon: 'castle' },
 ];
 
-const TOPIC_LABEL_MAP: Record<string, { label: string; icon: string }> = Object.fromEntries(
-  READER_TOPIC_OPTIONS.map((item) => [item.id, { label: item.label, icon: item.icon }])
-);
+const TOPIC_LABEL_MAP: Record<string, { label: string; labelKey: string; icon: string }> =
+  Object.fromEntries(
+    READER_TOPIC_OPTIONS.map((item) => [
+      item.id,
+      { label: item.label, labelKey: item.labelKey, icon: item.icon },
+    ])
+  );
 
-function formatTopicLabel(topicId: string): string {
-  if (TOPIC_LABEL_MAP[topicId]) return TOPIC_LABEL_MAP[topicId].label;
+function formatTopicLabel(topicId: string, t?: (key: string) => string): string {
+  const mapped = TOPIC_LABEL_MAP[topicId];
+  if (mapped) {
+    return t ? t(mapped.labelKey) : mapped.label;
+  }
   return topicId
     .split(/[-_\s]+/)
     .filter(Boolean)
@@ -61,38 +76,63 @@ function formatTopicLabel(topicId: string): string {
 
 const BOOK_TYPE_OPTIONS: Array<{
   id: string;
-  label: string;
-  hint: string;
+  labelKey: string;
+  hintKey: string;
   icon: string;
   fullWidth?: boolean;
 }> = [
-  { id: 'picture-books', label: 'Picture Books', hint: 'Illustrated read-alouds', icon: 'image' },
-  { id: 'board-books', label: 'Board Books', hint: 'Sturdy toddler pages', icon: 'book' },
-  { id: 'early-readers', label: 'Early Readers', hint: 'First solo reading', icon: 'bookOpen' },
+  {
+    id: 'picture-books',
+    labelKey: 'onboarding.bookTypePictureBooks',
+    hintKey: 'onboarding.bookTypePictureBooksHint',
+    icon: 'image',
+  },
+  {
+    id: 'board-books',
+    labelKey: 'onboarding.bookTypeBoardBooks',
+    hintKey: 'onboarding.bookTypeBoardBooksHint',
+    icon: 'book',
+  },
+  {
+    id: 'early-readers',
+    labelKey: 'onboarding.bookTypeEarlyReaders',
+    hintKey: 'onboarding.bookTypeEarlyReadersHint',
+    icon: 'bookOpen',
+  },
   {
     id: 'illustrated-non-fiction',
-    label: 'Illustrated Non-Fiction',
-    hint: 'Facts & visual discovery',
+    labelKey: 'onboarding.bookTypeNonFiction',
+    hintKey: 'onboarding.bookTypeNonFictionHint',
     icon: 'compass',
   },
-  { id: 'chapter-books', label: 'Chapter Books', hint: 'Longer nightly stories', icon: 'layers' },
-  { id: 'graphic-novels', label: 'Graphic Novels', hint: 'Comics & visual panels', icon: 'grid' },
+  {
+    id: 'chapter-books',
+    labelKey: 'onboarding.bookTypeChapterBooks',
+    hintKey: 'onboarding.bookTypeChapterBooksHint',
+    icon: 'layers',
+  },
+  {
+    id: 'graphic-novels',
+    labelKey: 'onboarding.bookTypeGraphicNovels',
+    hintKey: 'onboarding.bookTypeGraphicNovelsHint',
+    icon: 'grid',
+  },
   {
     id: 'bilingual',
-    label: 'Bilingual / Foreign Language',
-    hint: 'Dual-language & heritage shelves',
+    labelKey: 'onboarding.bookTypeBilingual',
+    hintKey: 'onboarding.bookTypeBilingualHint',
     icon: 'globe',
     fullWidth: true,
   },
 ];
 
 const STEP_META = [
-  { step: 1, label: 'Household' },
-  { step: 2, label: 'Readers' },
-  { step: 3, label: 'Topics' },
-  { step: 4, label: 'Book Types' },
-  { step: 5, label: 'Initial Shelf' },
-  { step: 6, label: 'Preferences' },
+  { step: 1, labelKey: 'onboarding.stepNames.household' },
+  { step: 2, labelKey: 'onboarding.stepNames.readers' },
+  { step: 3, labelKey: 'onboarding.stepNames.interests' },
+  { step: 4, labelKey: 'onboarding.stepNames.bookTypes' },
+  { step: 5, labelKey: 'onboarding.stepNames.library' },
+  { step: 6, labelKey: 'onboarding.stepNames.ready' },
 ];
 
 const TOTAL_SETUP_STEPS = STEP_META.length;
@@ -116,6 +156,7 @@ interface WizardState {
   readerTone: string;
   step2Error: string;
   sheetError: string;
+  savingReader: boolean;
   activeTopicsReaderId: string;
   customTopicDraft: string;
   customTopicsByReaderId: Record<string, string[]>;
@@ -156,6 +197,13 @@ export const OnboardingWizard: React.FC = () => {
   );
   const landingMode: OnboardingLandingMode =
     state.settings.onboardingLandingMode || ONBOARDING_LANDING_DEFAULT_MODE;
+  const currentLanguage = normalizeLanguage(state.settings.language);
+  const currentLanguageMeta =
+    SUPPORTED_LANGUAGES.find((item) => item.code === currentLanguage) || SUPPORTED_LANGUAGES[0];
+
+  const handleLanguageChange = async (lang: AppLanguage) => {
+    await store.updateSettings({ language: normalizeLanguage(lang) });
+  };
 
   const householdInputRef = useRef<HTMLInputElement>(null);
   const readerNameInputRef = useRef<HTMLInputElement>(null);
@@ -179,6 +227,7 @@ export const OnboardingWizard: React.FC = () => {
       'teal',
     step2Error: '',
     sheetError: '',
+    savingReader: false,
     activeTopicsReaderId: state.profiles[0]?.id || '',
     customTopicDraft: '',
     customTopicsByReaderId: {},
@@ -285,6 +334,7 @@ export const OnboardingWizard: React.FC = () => {
         readerStage: 'picture-book',
         readerTone: pickNextTone(state.profiles.length),
         sheetError: '',
+        savingReader: false,
         step2Error: '',
       },
     });
@@ -304,6 +354,7 @@ export const OnboardingWizard: React.FC = () => {
         readerStage: p.readingStage,
         readerTone: p.avatarTone || 'teal',
         sheetError: '',
+        savingReader: false,
         step2Error: '',
       },
     });
@@ -316,19 +367,21 @@ export const OnboardingWizard: React.FC = () => {
         isReaderSheetOpen: false,
         editingReaderId: null,
         sheetError: '',
+        savingReader: false,
       },
     });
   };
 
   const handleSaveReaderFromSheet = async (e?: React.FormEvent): Promise<boolean> => {
     if (e) e.preventDefault();
+    if (wizard.savingReader) return false;
     dispatch({ type: 'SET_FIELD', field: 'sheetError', value: '' });
     const name = wizard.readerName.trim();
     if (!name) {
       dispatch({
         type: 'SET_FIELD',
         field: 'sheetError',
-        value: 'Enter a reader name first.',
+        value: t('onboarding.enterReaderNameError'),
       });
       readerNameInputRef.current?.focus();
       return false;
@@ -342,32 +395,44 @@ export const OnboardingWizard: React.FC = () => {
       ? state.profiles.find((p) => p.id === wizard.editingReaderId)
       : null;
 
-    if (existing) {
-      await store.updateProfile(existing.id, {
-        name,
-        birthDate,
-        age: resolvedAge,
-        readingStage: wizard.readerStage,
-        avatarTone: wizard.readerTone,
-      });
-    } else {
-      const created = await store.addProfile({
-        name,
-        birthDate,
-        age: resolvedAge,
-        readingStage: wizard.readerStage,
-        avatarTone: wizard.readerTone,
-        favoriteTopics: ['bedtime', 'animals'],
-        defaultRotationSize: resolvedAge <= 3 ? 4 : 5,
-        cooldownDays: 14,
-      });
-      if (!wizard.activeTopicsReaderId && created?.id) {
-        dispatch({ type: 'SET_FIELD', field: 'activeTopicsReaderId', value: created.id });
+    dispatch({ type: 'SET_FIELD', field: 'savingReader', value: true });
+    try {
+      if (existing) {
+        await store.updateProfile(existing.id, {
+          name,
+          birthDate,
+          age: resolvedAge,
+          readingStage: wizard.readerStage,
+          avatarTone: wizard.readerTone,
+        });
+      } else {
+        const created = await store.addProfile({
+          name,
+          birthDate,
+          age: resolvedAge,
+          readingStage: wizard.readerStage,
+          avatarTone: wizard.readerTone,
+          favoriteTopics: ['bedtime', 'animals'],
+          defaultRotationSize: resolvedAge <= 3 ? 4 : 5,
+          cooldownDays: 14,
+        });
+        if (!wizard.activeTopicsReaderId && created?.id) {
+          dispatch({ type: 'SET_FIELD', field: 'activeTopicsReaderId', value: created.id });
+        }
       }
-    }
 
-    closeReaderSheet();
-    return true;
+      closeReaderSheet();
+      return true;
+    } catch (err) {
+      dispatch({
+        type: 'SET_FIELD',
+        field: 'sheetError',
+        value: err instanceof Error ? err.message : String(err),
+      });
+      return false;
+    } finally {
+      dispatch({ type: 'SET_FIELD', field: 'savingReader', value: false });
+    }
   };
 
   const handleRemoveReader = async (profileId: string) => {
@@ -383,7 +448,7 @@ export const OnboardingWizard: React.FC = () => {
       dispatch({
         type: 'SET_FIELD',
         field: 'step2Error',
-        value: 'Add at least one reader to personalize shelves.',
+        value: t('onboarding.step2MinReaderError'),
       });
       openAddReaderSheet();
       return;
@@ -451,7 +516,7 @@ export const OnboardingWizard: React.FC = () => {
         type: 'PATCH',
         patch: {
           activeTopicsReaderId: missingTopicsProfile.id,
-          step3Error: `Select at least 1 topic for ${missingTopicsProfile.name} before continuing.`,
+          step3Error: t('onboarding.step3MinTopicInline', { name: missingTopicsProfile.name }),
         },
       });
       return;
@@ -579,13 +644,17 @@ export const OnboardingWizard: React.FC = () => {
               <BotanicalIllustration variant="hero-library" className="w-full h-full max-w-[260px]" />
             </div>
             <div className="grid grid-cols-3 gap-2 pt-1">
-              {['Bedtime', 'Animals', 'Wonder'].map((label, idx) => (
+              {[
+                t('onboarding.topicBedtime'),
+                t('onboarding.topicAnimals'),
+                t('onboarding.topicNature'),
+              ].map((label, idx) => (
                 <div
                   key={label}
                   className="rounded-lg bg-surface-subtle border border-edge-subtle px-2.5 py-2 text-left"
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">
-                    Shelf 0{idx + 1}
+                    0{idx + 1}
                   </p>
                   <p className="font-display text-xs sm:text-sm font-semibold text-ink truncate mt-0.5">
                     {label}
@@ -605,29 +674,29 @@ export const OnboardingWizard: React.FC = () => {
                 </span>
                 <div>
                   <p className="font-display text-base font-semibold text-ink">
-                    Reader Passport
+                    {t('onboarding.feature2Title')}
                   </p>
                   <p className="text-[11px] text-ink-secondary">
-                    Collect stamps & play together
+                    {t('onboarding.feature2Desc')}
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] font-mono-tabular font-semibold text-primary">
-                12 Stamps
+              <span className="text-[11px] font-mono-tabular font-semibold text-primary shrink-0">
+                12
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { icon: 'search', name: 'Book Hunt' },
-                { icon: 'sparkles', name: 'Picker' },
-                { icon: 'bookOpen', name: 'Printable' },
+                { icon: 'search', name: t('onboarding.slide2Eyebrow') },
+                { icon: 'sparkles', name: t('nav.play') },
+                { icon: 'bookOpen', name: t('nav.rotations') },
               ].map((item) => (
                 <div
                   key={item.name}
                   className="rounded-lg bg-surface-subtle border border-edge-subtle p-2.5 flex flex-col items-center text-center gap-1"
                 >
                   <Icon name={item.icon} className="w-4 h-4 text-primary" />
-                  <span className="text-[11px] font-semibold text-ink">{item.name}</span>
+                  <span className="text-[11px] font-semibold text-ink truncate w-full">{item.name}</span>
                 </div>
               ))}
             </div>
@@ -644,7 +713,7 @@ export const OnboardingWizard: React.FC = () => {
                 978 · 0 · 064 · 40055 · 8
               </p>
               <span className="text-[11px] font-semibold text-primary">
-                Matched title, cover & reading stage
+                {t('onboarding.slide3Caption')}
               </span>
             </div>
           </div>
@@ -658,19 +727,19 @@ export const OnboardingWizard: React.FC = () => {
               </span>
               <div>
                 <p className="font-display text-lg font-semibold text-ink">
-                  100% Private & Local-First
+                  {t('onboarding.slide4Eyebrow')}
                 </p>
                 <p className="text-xs text-ink-secondary">
-                  Zero accounts, zero cloud tracking, works offline.
+                  {t('onboarding.slide4Metric')}
                 </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink">
-                On-Device Storage
+              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
+                {t('onboarding.slide4Metric')}
               </div>
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink">
-                JSON Backup Export
+              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
+                {t('settings.exportBtn')}
               </div>
             </div>
           </div>
@@ -685,19 +754,19 @@ export const OnboardingWizard: React.FC = () => {
               </span>
               <div>
                 <p className="font-display text-lg font-semibold text-ink">
-                  Always Free for Families
+                  {t('onboarding.slide5Eyebrow')}
                 </p>
                 <p className="text-xs text-ink-secondary">
-                  No subscriptions, no paywalls, and no ads.
+                  {t('onboarding.slide5Metric')}
                 </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink">
-                Unlimited Readers
+              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
+                {t('nav.rotations')}
               </div>
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink">
-                Unlimited Books
+              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
+                {t('nav.library')}
               </div>
             </div>
           </div>
@@ -738,7 +807,27 @@ export const OnboardingWizard: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Detected Language Switcher Pill */}
+              <label className="relative inline-flex items-center gap-1 min-h-[34px] px-2 py-1 rounded-lg bg-surface-subtle border border-edge text-[11px] font-semibold text-ink hover:border-primary/50 cursor-pointer">
+                <span aria-hidden="true">{currentLanguageMeta.flag}</span>
+                <span className="uppercase">{currentLanguageMeta.code}</span>
+                <Icon name="chevronDown" className="w-3 h-3 text-ink-muted" />
+                <select
+                  aria-label={t('settings.languageLabel')}
+                  data-action="onboarding-header-language"
+                  value={currentLanguage}
+                  onChange={(e) => handleLanguageChange(e.target.value as AppLanguage)}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.code} value={lang.code}>
+                      {lang.flag} {lang.nativeLabel}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               {/* Landing Mode Switcher (Interactive Tour | Overview) */}
               <div
                 role="group"
@@ -783,9 +872,9 @@ export const OnboardingWizard: React.FC = () => {
                       dispatch({ type: 'SET_FIELD', field: 'confirmSkipOpen', value: true });
                     }
                   }}
-                  className="min-h-[44px] px-2.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-ink hover:bg-surface-elevated whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+                  className="min-h-[44px] px-2 rounded-lg text-xs font-semibold text-ink-secondary hover:text-ink hover:bg-surface-elevated whitespace-nowrap shrink-0 cursor-pointer transition-colors"
                 >
-                  {isOnboardingPreview ? t('onboarding.exitPreview') : 'Skip'}
+                  {isOnboardingPreview ? t('onboarding.exitPreview') : t('onboarding.skipTour')}
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5">
@@ -794,7 +883,7 @@ export const OnboardingWizard: React.FC = () => {
                     onClick={handleSkipAllConfirmed}
                     className="min-h-[38px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap cursor-pointer"
                   >
-                    Skip Setup
+                    {t('onboarding.skipConfirmBtn')}
                   </button>
                   <button
                     type="button"
@@ -803,7 +892,7 @@ export const OnboardingWizard: React.FC = () => {
                     }
                     className="min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold text-ink-secondary whitespace-nowrap cursor-pointer"
                   >
-                    Stay
+                    {t('onboarding.stayBtn')}
                   </button>
                 </div>
               )}
@@ -817,7 +906,7 @@ export const OnboardingWizard: React.FC = () => {
             <button
               type="button"
               onClick={() => goToStep(currentStep - 1)}
-              aria-label="Go back"
+              aria-label={t('onboarding.backBtn')}
               className="min-h-[44px] min-w-[44px] rounded-lg text-ink hover:bg-surface-elevated active:scale-95 flex items-center justify-center shrink-0 cursor-pointer transition-all"
             >
               <Icon name="chevronLeft" className="w-5 h-5" />
@@ -829,7 +918,10 @@ export const OnboardingWizard: React.FC = () => {
               aria-valuenow={currentStep}
               aria-valuemin={1}
               aria-valuemax={TOTAL_SETUP_STEPS}
-              aria-label={`Setup step ${currentStep} of ${TOTAL_SETUP_STEPS}`}
+              aria-label={t('onboarding.stepProgress', {
+                current: currentStep,
+                total: TOTAL_SETUP_STEPS,
+              })}
               className="flex items-center justify-center gap-2 flex-1"
             >
               {STEP_META.map((m) => {
@@ -838,7 +930,7 @@ export const OnboardingWizard: React.FC = () => {
                 return (
                   <span
                     key={m.step}
-                    title={m.label}
+                    title={t(m.labelKey)}
                     className={`rounded-full transition-all duration-300 ${
                       isCurrent
                         ? 'w-6 h-2.5 bg-primary'
@@ -868,7 +960,7 @@ export const OnboardingWizard: React.FC = () => {
                   }}
                   className="min-h-[44px] px-2.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-ink whitespace-nowrap shrink-0 cursor-pointer transition-colors"
                 >
-                  {isOnboardingPreview ? 'Exit' : 'Skip'}
+                  {isOnboardingPreview ? t('onboarding.exitPreview') : t('onboarding.skipTour')}
                 </button>
               ) : (
                 <div className="flex items-center gap-1">
@@ -877,7 +969,7 @@ export const OnboardingWizard: React.FC = () => {
                     onClick={handleSkipAllConfirmed}
                     className="min-h-[36px] px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-[11px] font-semibold whitespace-nowrap cursor-pointer"
                   >
-                    Confirm
+                    {t('onboarding.skipConfirmBtn')}
                   </button>
                   <button
                     type="button"
@@ -886,7 +978,7 @@ export const OnboardingWizard: React.FC = () => {
                     }
                     className="min-h-[36px] px-2 py-1 rounded-lg text-[11px] font-semibold text-ink-secondary whitespace-nowrap cursor-pointer"
                   >
-                    Stay
+                    {t('onboarding.stayBtn')}
                   </button>
                 </div>
               )}
@@ -933,26 +1025,36 @@ export const OnboardingWizard: React.FC = () => {
 
                         <div className="space-y-2 max-w-xl mx-auto px-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-                            {currentSlide.eyebrow}
+                            {currentSlide.eyebrowKey
+                              ? t(currentSlide.eyebrowKey)
+                              : currentSlide.eyebrow}
                           </p>
                           <h1 className="font-display text-2xl sm:text-4xl font-semibold leading-[1.1] tracking-tight text-ink text-balance">
-                            {currentSlide.title}
+                            {currentSlide.titleKey ? t(currentSlide.titleKey) : currentSlide.title}
                           </h1>
                           <p className="text-xs sm:text-base text-ink-secondary leading-relaxed">
-                            {currentSlide.description}
+                            {currentSlide.descriptionKey
+                              ? t(currentSlide.descriptionKey)
+                              : currentSlide.description}
                           </p>
                           <p className="text-[11px] sm:text-xs font-medium text-ink-muted pt-1">
                             <span className="font-semibold text-primary">
-                              {currentSlide.highlightMetric}
+                              {currentSlide.highlightMetricKey
+                                ? t(currentSlide.highlightMetricKey)
+                                : currentSlide.highlightMetric}
                             </span>
                             <span aria-hidden="true" className="mx-1.5">·</span>
-                            <span>{currentSlide.highlightCaption}</span>
+                            <span>
+                              {currentSlide.highlightCaptionKey
+                                ? t(currentSlide.highlightCaptionKey)
+                                : currentSlide.highlightCaption}
+                            </span>
                           </p>
                         </div>
                       </motion.div>
                     </AnimatePresence>
 
-                    <div className="text-center pt-3">
+                    <div className="text-center pt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
                       <button
                         type="button"
                         data-action="onboarding-explore-sample"
@@ -965,6 +1067,17 @@ export const OnboardingWizard: React.FC = () => {
                         <Icon name="book" className="w-3.5 h-3.5 text-accent" />
                         <span>{t('onboarding.exploreSampleCta')}</span>
                       </button>
+                      <span
+                        data-onboarding-detected-lang={currentLanguage}
+                        className="text-[11px] text-ink-muted inline-flex items-center gap-1"
+                      >
+                        <span>{currentLanguageMeta.flag}</span>
+                        <span>
+                          {t('onboarding.detectedLanguageLabel', {
+                            lang: currentLanguageMeta.nativeLabel,
+                          })}
+                        </span>
+                      </span>
                     </div>
                   </div>
 
@@ -986,7 +1099,7 @@ export const OnboardingWizard: React.FC = () => {
                             type="button"
                             role="tab"
                             aria-selected={idx === activeSlideIndex}
-                            aria-label={`Slide ${idx + 1}: ${s.eyebrow}`}
+                            aria-label={`${idx + 1}: ${s.eyebrowKey ? t(s.eyebrowKey) : s.eyebrow}`}
                             onClick={() => dispatch({ type: 'SET_FIELD', field: 'slideIndex', value: idx })}
                             className="py-2 flex items-center cursor-pointer"
                           >
@@ -1049,11 +1162,10 @@ export const OnboardingWizard: React.FC = () => {
 
                       <div className="text-center space-y-1.5 px-1">
                         <h1 className="font-display text-[26px] leading-[1.08] font-semibold tracking-tight text-ink text-balance">
-                          Your family’s personal library, rotated weekly.
+                          {t('onboarding.welcomeTitle')}
                         </h1>
                         <p className="text-[12.5px] leading-snug text-ink-secondary max-w-sm mx-auto">
-                          Automatic themed book rotations, kid reading passports, and effortless ISBN
-                          scanning in one calm space.
+                          {t('onboarding.welcomeSubtitle')}
                         </p>
                         <div aria-hidden="true" className="w-12 h-px bg-accent/60 mx-auto pt-0.5" />
                       </div>
@@ -1062,18 +1174,18 @@ export const OnboardingWizard: React.FC = () => {
                         {[
                           {
                             icon: 'rotations',
-                            title: 'Smart Rotations',
-                            desc: 'Fresh weekly shelves from books you own',
+                            title: t('onboarding.feature1Title'),
+                            desc: t('onboarding.feature1Desc'),
                           },
                           {
                             icon: 'profiles',
-                            title: 'Kid Reading Passports',
-                            desc: 'Printable keepsakes & reading stamps',
+                            title: t('onboarding.feature2Title'),
+                            desc: t('onboarding.feature2Desc'),
                           },
                           {
                             icon: 'scan',
-                            title: 'Instant Barcode Scan',
-                            desc: 'Catalog books in seconds with your camera',
+                            title: t('onboarding.feature3Title'),
+                            desc: t('onboarding.feature3Desc'),
                           },
                         ].map((feat) => (
                           <div
@@ -1103,7 +1215,7 @@ export const OnboardingWizard: React.FC = () => {
                         onClick={() => goToStep(1, 0)}
                         className="w-full min-h-[48px] px-6 py-2.5 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
-                        <span>Start Family Setup</span>
+                        <span>{t('onboarding.beginSetupCta')}</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </button>
 
@@ -1117,7 +1229,7 @@ export const OnboardingWizard: React.FC = () => {
                         className="w-full min-h-[44px] px-5 py-2 rounded-lg bg-surface hover:bg-surface-elevated active:scale-[0.98] border border-edge text-ink font-semibold text-sm inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
                       >
                         <Icon name="book" className="w-4 h-4 text-accent" />
-                        <span>Explore Sample Family</span>
+                        <span>{t('onboarding.exploreSampleCta')}</span>
                       </button>
                     </div>
                   </div>
@@ -1133,11 +1245,10 @@ export const OnboardingWizard: React.FC = () => {
 
                     <div className="text-center space-y-2.5 max-w-2xl mx-auto">
                       <h1 className="font-display text-3xl md:text-4xl lg:text-[44px] font-semibold text-ink leading-[1.08] tracking-tight text-balance">
-                        Your family’s personal library, rotated weekly.
+                        {t('onboarding.welcomeTitle')}
                       </h1>
                       <p className="text-sm sm:text-base text-ink-secondary leading-relaxed max-w-xl mx-auto">
-                        Automatic themed book rotations, kid reading passports, and effortless ISBN
-                        scanning in one calm space.
+                        {t('onboarding.welcomeSubtitle')}
                       </p>
                       <div aria-hidden="true" className="w-16 h-px bg-accent/65 mx-auto pt-0.5" />
                     </div>
@@ -1146,18 +1257,18 @@ export const OnboardingWizard: React.FC = () => {
                       {[
                         {
                           icon: 'rotations',
-                          title: 'Smart Rotations',
-                          desc: 'Fresh weekly shelves from books you own',
+                          title: t('onboarding.feature1Title'),
+                          desc: t('onboarding.feature1Desc'),
                         },
                         {
                           icon: 'profiles',
-                          title: 'Kid Reading Passports',
-                          desc: 'Printable keepsakes & reading stamps',
+                          title: t('onboarding.feature2Title'),
+                          desc: t('onboarding.feature2Desc'),
                         },
                         {
                           icon: 'scan',
-                          title: 'Instant Barcode Scan',
-                          desc: 'Catalog books in seconds with your camera',
+                          title: t('onboarding.feature3Title'),
+                          desc: t('onboarding.feature3Desc'),
                         },
                       ].map((feat) => (
                         <div
@@ -1186,7 +1297,7 @@ export const OnboardingWizard: React.FC = () => {
                         onClick={() => goToStep(1, 0)}
                         className="min-h-[48px] px-7 py-3 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
-                        <span>Start Family Setup</span>
+                        <span>{t('onboarding.beginSetupCta')}</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </button>
 
@@ -1200,7 +1311,7 @@ export const OnboardingWizard: React.FC = () => {
                         className="min-h-[48px] px-6 py-3 rounded-lg bg-surface hover:bg-surface-elevated active:scale-[0.98] border border-edge text-ink font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-2xs transition-all cursor-pointer"
                       >
                         <Icon name="book" className="w-4 h-4 text-accent" />
-                        <span>Explore Sample Family</span>
+                        <span>{t('onboarding.exploreSampleCta')}</span>
                       </button>
                     </div>
                   </div>
@@ -1227,7 +1338,7 @@ export const OnboardingWizard: React.FC = () => {
               <aside className="hidden lg:block lg:col-span-4 space-y-5 sticky top-24">
                 <div className="rounded-xl bg-surface border border-edge p-5 space-y-4">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
-                    Guided Setup
+                    {t('onboarding.guidedSetup')}
                   </p>
                   <ol className="space-y-2">
                     {STEP_META.map((m) => {
@@ -1250,7 +1361,7 @@ export const OnboardingWizard: React.FC = () => {
                           >
                             <span className="flex items-center gap-2.5">
                               <span className="font-mono-tabular w-4 text-center">{m.step}.</span>
-                              <span>{m.label}</span>
+                              <span>{t(m.labelKey)}</span>
                             </span>
                             {isDone && !isCurrent && <Icon name="check" className="w-3.5 h-3.5 text-primary" />}
                           </button>
@@ -1262,11 +1373,10 @@ export const OnboardingWizard: React.FC = () => {
 
                 <div className="rounded-xl bg-surface-subtle border border-edge p-4 text-xs text-ink-secondary leading-relaxed space-y-1.5">
                   <p className="font-semibold text-ink">
-                    Need to adjust anything later?
+                    {t('onboarding.adjustLaterTitle')}
                   </p>
                   <p>
-                    Every reader profile, topic, format preference, and appearance setting can be
-                    changed anytime in Profiles or Settings.
+                    {t('onboarding.adjustLaterDesc')}
                   </p>
                 </div>
               </aside>
@@ -1274,7 +1384,7 @@ export const OnboardingWizard: React.FC = () => {
               {/* Interactive Step Body + Sticky Bottom Bar */}
               <section className="flex-1 min-h-0 flex flex-col justify-between lg:col-span-8 lg:block lg:space-y-6">
                 {/* ---------------------------------------------------------- */}
-                {/* STEP 1: HOUSEHOLD IDENTITY                                 */}
+                {/* STEP 1: HOUSEHOLD IDENTITY & EXPLICIT LANGUAGE SELECTOR    */}
                 {/* ---------------------------------------------------------- */}
                 {currentStep === 1 && (
                   <form
@@ -1284,10 +1394,10 @@ export const OnboardingWizard: React.FC = () => {
                     <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 pt-6 pb-3 lg:p-0 flex flex-col justify-center lg:block space-y-5 text-left">
                       <div className="space-y-2">
                         <h1 className="font-display text-[28px] sm:text-3xl font-semibold leading-tight tracking-tight text-ink">
-                          What is your household or family name?
+                          {t('onboarding.step1HouseholdQuestion')}
                         </h1>
                         <p className="text-sm text-ink-secondary">
-                          This personalizes your family library and reading passports.
+                          {t('onboarding.step1HouseholdSubtitle')}
                         </p>
                       </div>
 
@@ -1305,11 +1415,53 @@ export const OnboardingWizard: React.FC = () => {
                               value: e.target.value,
                             })
                           }
-                          placeholder="e.g., The Garcia Family or Casa Leo"
+                          placeholder={t('onboarding.householdNamePlaceholder')}
                           className="w-full min-h-[52px] px-4 py-3 rounded-lg bg-surface border border-edge focus:border-primary text-base sm:text-lg font-medium text-ink placeholder:text-ink-muted shadow-2xs focus:outline-none transition-colors"
                         />
                         <p className="text-xs text-ink-muted px-1">
-                          Optional · Stored privately on this device.
+                          {t('onboarding.step1OptionalNote')}
+                        </p>
+                      </div>
+
+                      {/* Explicit Language Selector inside Step 1 so every user confirms language */}
+                      <div className="rounded-xl bg-surface border border-edge p-3.5 space-y-2.5 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-secondary inline-flex items-center gap-1.5">
+                            <Icon name="globe" className="w-3.5 h-3.5 text-primary" />
+                            <span>{t('onboarding.languageCardTitle')}</span>
+                          </span>
+                          <span className="text-[11px] text-ink-muted">
+                            {currentLanguageMeta.flag} {currentLanguageMeta.nativeLabel}
+                          </span>
+                        </div>
+                        <div
+                          role="group"
+                          aria-label={t('onboarding.languageCardTitle')}
+                          className="grid grid-cols-3 gap-2"
+                        >
+                          {SUPPORTED_LANGUAGES.map((lang) => {
+                            const selected = currentLanguage === lang.code;
+                            return (
+                              <button
+                                key={lang.code}
+                                type="button"
+                                data-action={`onboarding-lang-${lang.code}`}
+                                aria-pressed={selected}
+                                onClick={() => handleLanguageChange(lang.code as AppLanguage)}
+                                className={`min-h-[42px] px-2.5 py-2 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                                  selected
+                                    ? 'bg-primary text-primary-fg shadow-2xs'
+                                    : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
+                                }`}
+                              >
+                                <span>{lang.flag}</span>
+                                <span className="truncate">{lang.nativeLabel}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[11px] text-ink-muted">
+                          {t('onboarding.languageCardHint')}
                         </p>
                       </div>
                     </div>
@@ -1320,7 +1472,7 @@ export const OnboardingWizard: React.FC = () => {
                         data-action="onboarding-step1-next"
                         className="w-full lg:w-auto min-h-[48px] px-7 py-3 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
-                        <span>Continue</span>
+                        <span>{t('onboarding.continueBtn')}</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </button>
                     </div>
@@ -1335,10 +1487,10 @@ export const OnboardingWizard: React.FC = () => {
                     <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 pt-4 pb-2 lg:p-0 space-y-4 text-left">
                       <div>
                         <h1 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight text-ink">
-                          Who is reading in your home?
+                          {t('onboarding.step2ReadersQuestion')}
                         </h1>
                         <p className="text-xs sm:text-sm text-ink-secondary mt-1">
-                          Add each reader to tailor stages and weekly shelves.
+                          {t('onboarding.step2ReadersSubtitle')}
                         </p>
                       </div>
 
@@ -1376,7 +1528,7 @@ export const OnboardingWizard: React.FC = () => {
                                       {p.name}
                                     </p>
                                     <p className="text-xs text-ink-secondary truncate">
-                                      {age >= 18 ? 'Adult' : `${age} yrs`} ·{' '}
+                                      {age >= 18 ? '18+' : `${age} ${t('onboarding.yearsSuffix')}`} ·{' '}
                                       {formatReadingStage(p.readingStage)}
                                     </p>
                                   </div>
@@ -1386,7 +1538,7 @@ export const OnboardingWizard: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => openEditReaderSheet(p.id)}
-                                    aria-label={`Edit ${p.name}`}
+                                    aria-label={`${t('common.edit')} ${p.name}`}
                                     className="min-h-[44px] min-w-[44px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated flex items-center justify-center cursor-pointer"
                                   >
                                     <Icon name="edit" className="w-4 h-4" />
@@ -1394,7 +1546,7 @@ export const OnboardingWizard: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveReader(p.id)}
-                                    aria-label={`Remove ${p.name}`}
+                                    aria-label={`${t('common.remove')} ${p.name}`}
                                     className="min-h-[44px] min-w-[44px] rounded-lg text-ink-muted hover:text-ink hover:bg-surface-elevated flex items-center justify-center cursor-pointer"
                                   >
                                     <Icon name="close" className="w-4 h-4" />
@@ -1410,10 +1562,10 @@ export const OnboardingWizard: React.FC = () => {
                             <Icon name="profiles" className="w-5 h-5" />
                           </span>
                           <p className="font-display text-lg font-semibold text-ink">
-                            No readers added yet
+                            {t('onboarding.step2NoReadersTitle')}
                           </p>
                           <p className="text-xs text-ink-secondary max-w-xs mx-auto">
-                            Tap below to add your first reader with their birth date and color.
+                            {t('onboarding.step2NoReadersHint')}
                           </p>
                         </div>
                       )}
@@ -1426,7 +1578,9 @@ export const OnboardingWizard: React.FC = () => {
                       >
                         <Icon name="plus" className="w-4 h-4 text-primary" />
                         <span>
-                          {state.profiles.length > 0 ? 'Add Another Reader' : 'Add Reader'}
+                          {state.profiles.length > 0
+                            ? t('onboarding.addReaderCta')
+                            : t('onboarding.addReaderModalTitle')}
                         </span>
                       </button>
                     </div>
@@ -1438,7 +1592,7 @@ export const OnboardingWizard: React.FC = () => {
                         onClick={handleStep2Continue}
                         className="w-full lg:w-auto min-h-[48px] px-7 py-3 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
-                        <span>Continue</span>
+                        <span>{t('onboarding.continueBtn')}</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </button>
                     </div>
@@ -1473,11 +1627,13 @@ export const OnboardingWizard: React.FC = () => {
                         <div>
                           <h1 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight text-ink">
                             {topicsTargetProfile
-                              ? `What topics does ${topicsTargetProfile.name} love?`
-                              : 'What topics spark curiosity?'}
+                              ? t('onboarding.step3TopicQuestion', {
+                                  name: topicsTargetProfile.name,
+                                })
+                              : t('onboarding.step3TopicGenericQuestion')}
                           </h1>
                           <p className="text-xs sm:text-sm text-ink-secondary mt-1">
-                            Pick at least 1 topic per reader ({selectedTopics.length} selected).
+                            {t('onboarding.step3TopicCountHint', { count: selectedTopics.length })}
                           </p>
                         </div>
 
@@ -1561,7 +1717,7 @@ export const OnboardingWizard: React.FC = () => {
                                         selected ? 'text-primary' : 'text-ink-muted'
                                       }`}
                                     />
-                                    <span>{topic.label}</span>
+                                    <span>{t(topic.labelKey)}</span>
                                     {selected && (
                                       <Icon name="check" className="w-3 h-3 text-primary shrink-0" />
                                     )}
@@ -1590,7 +1746,7 @@ export const OnboardingWizard: React.FC = () => {
                                         selected ? 'text-primary' : 'text-ink-muted'
                                       }`}
                                     />
-                                    <span>{formatTopicLabel(topicId)}</span>
+                                    <span>{formatTopicLabel(topicId, t)}</span>
                                     {selected && (
                                       <Icon name="check" className="w-3 h-3 text-primary shrink-0" />
                                     )}
@@ -1599,9 +1755,11 @@ export const OnboardingWizard: React.FC = () => {
                               })}
                             </div>
 
-                            {selectedTopics.length === 0 && (
+                            {selectedTopics.length === 0 && topicsTargetProfile && (
                               <p className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
-                                Pick at least 1 topic for {topicsTargetProfile?.name} to continue.
+                                {t('onboarding.step3MinTopicInline', {
+                                  name: topicsTargetProfile.name,
+                                })}
                               </p>
                             )}
 
@@ -1623,7 +1781,7 @@ export const OnboardingWizard: React.FC = () => {
                                     handleAddCustomReaderTopic();
                                   }
                                 }}
-                                placeholder={`Add custom topic for ${topicsTargetProfile?.name || 'reader'}…`}
+                                placeholder={t('onboarding.addCustomTopicPlaceholder')}
                                 className="flex-1 min-h-[42px] px-3.5 py-2 rounded-lg bg-surface border border-edge text-xs sm:text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
                               />
                               <button
@@ -1631,21 +1789,21 @@ export const OnboardingWizard: React.FC = () => {
                                 onClick={handleAddCustomReaderTopic}
                                 className="min-h-[42px] px-3.5 py-2 rounded-lg bg-surface-elevated hover:bg-edge/60 border border-edge text-xs font-semibold text-ink cursor-pointer transition-colors"
                               >
-                                Add
+                                {t('onboarding.addBtn')}
                               </button>
                             </div>
                           </>
                         ) : (
                           <div className="rounded-xl bg-surface border border-edge p-4 space-y-2.5">
                             <p className="text-xs text-ink-secondary">
-                              Add a reader first so favorite topics can be saved to their profile.
+                              {t('onboarding.step3AddReaderFirst')}
                             </p>
                             <button
                               type="button"
                               onClick={() => goToStep(2)}
                               className="min-h-[42px] px-4 py-2 rounded-lg bg-surface-elevated hover:bg-edge/60 border border-edge text-xs font-semibold text-ink cursor-pointer"
                             >
-                              Go to Readers
+                              {t('onboarding.step3GoToReaders')}
                             </button>
                           </div>
                         )}
@@ -1663,7 +1821,7 @@ export const OnboardingWizard: React.FC = () => {
                               : 'bg-edge text-ink-muted cursor-not-allowed opacity-70'
                           }`}
                         >
-                          <span>Continue</span>
+                          <span>{t('onboarding.continueBtn')}</span>
                           <Icon name="chevronRight" className="w-4 h-4" />
                         </button>
                       </div>
@@ -1679,10 +1837,10 @@ export const OnboardingWizard: React.FC = () => {
                     <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 pt-4 pb-2 lg:p-0 space-y-4 text-left">
                       <div>
                         <h1 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight text-ink">
-                          Which book formats do you want in your rotations?
+                          {t('onboarding.step4BookTypesQuestion')}
                         </h1>
                         <p className="text-xs sm:text-sm text-ink-secondary mt-1">
-                          Select the formats your family enjoys most.
+                          {t('onboarding.step4BookTypesSubtitle')}
                         </p>
                       </div>
 
@@ -1713,14 +1871,14 @@ export const OnboardingWizard: React.FC = () => {
                                 </span>
                                 <div className="min-w-0">
                                   <p className="text-xs sm:text-sm font-semibold leading-tight">
-                                    {opt.label}
+                                    {t(opt.labelKey)}
                                   </p>
                                   <p
                                     className={`text-[11px] leading-tight mt-0.5 truncate ${
                                       selected ? 'opacity-85' : 'text-ink-secondary'
                                     }`}
                                   >
-                                    {opt.hint}
+                                    {t(opt.hintKey)}
                                   </p>
                                 </div>
                               </div>
@@ -1746,7 +1904,7 @@ export const OnboardingWizard: React.FC = () => {
                         onClick={handleStep4Continue}
                         className="w-full lg:w-auto min-h-[48px] px-7 py-3 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
-                        <span>Continue</span>
+                        <span>{t('onboarding.continueBtn')}</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </button>
                     </div>
@@ -1754,17 +1912,17 @@ export const OnboardingWizard: React.FC = () => {
                 )}
 
                 {/* ---------------------------------------------------------- */}
-                {/* STEP 5: BUILD YOUR INITIAL SHELF (UNCHANGED BEHAVIOR)      */}
+                {/* STEP 5: BUILD YOUR INITIAL SHELF                           */}
                 {/* ---------------------------------------------------------- */}
                 {currentStep === 5 && (
                   <div className="flex-1 min-h-0 flex flex-col justify-between lg:block lg:space-y-5">
                     <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 pt-4 pb-2 lg:p-0 space-y-4 text-left">
                       <div>
                         <h1 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight text-ink">
-                          Add your first few books to kick off your library.
+                          {t('onboarding.step5ShelfTitle')}
                         </h1>
                         <p className="text-xs sm:text-sm text-ink-secondary mt-1">
-                          Scan a back-cover barcode, search titles, or start with classics.
+                          {t('onboarding.step5ShelfSubtitle')}
                         </p>
                       </div>
 
@@ -1780,7 +1938,7 @@ export const OnboardingWizard: React.FC = () => {
                         onClick={() => goToStep(6, 5)}
                         className="w-full lg:w-auto min-h-[48px] px-7 py-3 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                       >
-                        <span>Continue</span>
+                        <span>{t('onboarding.continueBtn')}</span>
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </button>
                     </div>
@@ -1795,7 +1953,7 @@ export const OnboardingWizard: React.FC = () => {
                     <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 pt-4 pb-2 lg:p-0 space-y-4 text-left">
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
-                          Parent &amp; Organizer View
+                          {t('onboarding.parentOrganizerLabel')}
                         </p>
                         <h1 className="font-display text-2xl sm:text-3xl font-semibold leading-tight tracking-tight text-ink mt-0.5">
                           {t('onboarding.step6Title')}
@@ -1999,7 +2157,7 @@ export const OnboardingWizard: React.FC = () => {
                       >
                         <span>
                           {wizard.finishing
-                            ? 'Opening Library…'
+                            ? t('onboarding.openingLibraryProgress')
                             : t('onboarding.finishSetupCta')}
                         </span>
                         <Icon name="arrowRight" className="w-4 h-4" />
@@ -2021,7 +2179,11 @@ export const OnboardingWizard: React.FC = () => {
           className="sheet-backdrop fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
           role="dialog"
           aria-modal="true"
-          aria-label={wizard.editingReaderId ? 'Edit reader' : 'Add reader'}
+          aria-label={
+            wizard.editingReaderId
+              ? t('onboarding.editReaderModalTitle')
+              : t('onboarding.addReaderModalTitle')
+          }
           onClick={closeReaderSheet}
         >
           <div
@@ -2035,12 +2197,14 @@ export const OnboardingWizard: React.FC = () => {
 
             <div className="px-5 py-3.5 border-b border-edge-subtle flex items-center justify-between gap-3 shrink-0">
               <h2 className="font-display text-lg font-semibold text-ink">
-                {wizard.editingReaderId ? 'Edit Reader' : 'Add Reader'}
+                {wizard.editingReaderId
+                  ? t('onboarding.editReaderModalTitle')
+                  : t('onboarding.addReaderModalTitle')}
               </h2>
               <button
                 type="button"
                 onClick={closeReaderSheet}
-                aria-label="Close reader sheet"
+                aria-label={t('common.close')}
                 className="min-h-[44px] min-w-[44px] rounded-lg text-ink-secondary hover:bg-surface-elevated flex items-center justify-center cursor-pointer"
               >
                 <Icon name="close" className="w-5 h-5" />
@@ -2063,7 +2227,7 @@ export const OnboardingWizard: React.FC = () => {
                   htmlFor="onboarding-reader-name"
                   className="block text-[11px] font-semibold uppercase tracking-wider text-ink-secondary mb-1.5"
                 >
-                  Reader Name
+                  {t('onboarding.readerNameLabel')}
                 </label>
                 <input
                   ref={readerNameInputRef}
@@ -2077,7 +2241,7 @@ export const OnboardingWizard: React.FC = () => {
                       value: e.target.value,
                     })
                   }
-                  placeholder="e.g., Maya, Leo, or Sofia"
+                  placeholder={t('onboarding.readerNamePlaceholder')}
                   className="w-full min-h-[46px] px-3.5 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
                 />
               </div>
@@ -2088,7 +2252,7 @@ export const OnboardingWizard: React.FC = () => {
                   htmlFor="onboarding-reader-birthdate"
                   className="block text-[11px] font-semibold uppercase tracking-wider text-ink-secondary mb-1.5"
                 >
-                  Birth Date
+                  {t('onboarding.dobLabel')}
                 </label>
                 <input
                   id="onboarding-reader-birthdate"
@@ -2119,7 +2283,7 @@ export const OnboardingWizard: React.FC = () => {
                   htmlFor="onboarding-reader-stage"
                   className="block text-[11px] font-semibold uppercase tracking-wider text-ink-secondary mb-1.5"
                 >
-                  Reading Stage
+                  {t('onboarding.ageOrStageLabel')}
                 </label>
                 <select
                   id="onboarding-reader-stage"
@@ -2133,20 +2297,20 @@ export const OnboardingWizard: React.FC = () => {
                   }
                   className="w-full min-h-[46px] px-3 py-2.5 rounded-lg bg-surface-subtle border border-edge text-sm font-medium text-ink"
                 >
-                  <option value="board-toddler">Board Books (0–2 yrs)</option>
-                  <option value="picture-book">Picture Books (3–5 yrs)</option>
-                  <option value="early-reader">Early Reader (6–8 yrs)</option>
-                  <option value="chapter-book">Chapter Books (7–10 yrs)</option>
-                  <option value="middle-grade">Middle Grade (9–12 yrs)</option>
-                  <option value="teen-ya">Teen / YA (13–17 yrs)</option>
-                  <option value="adult">Adult Reader (18+)</option>
+                  <option value="board-toddler">{formatReadingStage('board-toddler')} (0–2)</option>
+                  <option value="picture-book">{formatReadingStage('picture-book')} (3–5)</option>
+                  <option value="early-reader">{formatReadingStage('early-reader')} (6–8)</option>
+                  <option value="chapter-book">{formatReadingStage('chapter-book')} (7–10)</option>
+                  <option value="middle-grade">{formatReadingStage('middle-grade')} (9–12)</option>
+                  <option value="teen-ya">{formatReadingStage('teen-ya')} (13–17)</option>
+                  <option value="adult">{formatReadingStage('adult')} (18+)</option>
                 </select>
               </div>
 
               {/* 4. Avatar Color (Swatches placed below the label) */}
               <div className="space-y-2">
                 <span className="block text-[11px] font-semibold uppercase tracking-wider text-ink-secondary">
-                  Avatar Color
+                  {t('onboarding.badgeColorLabel')}
                 </span>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   {PROFILE_AVATAR_TONE_OPTIONS.map((opt) => {
@@ -2163,7 +2327,7 @@ export const OnboardingWizard: React.FC = () => {
                             value: opt.id,
                           })
                         }
-                        aria-label={`Select ${opt.label} avatar color`}
+                        aria-label={`${opt.label}`}
                         aria-pressed={isSelected}
                         className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${toneStyle} ${
                           isSelected
@@ -2190,15 +2354,20 @@ export const OnboardingWizard: React.FC = () => {
                   onClick={closeReaderSheet}
                   className="min-h-[48px] px-4 py-2.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-sm font-semibold text-ink cursor-pointer"
                 >
-                  Cancel
+                  {t('onboarding.cancelBtn')}
                 </button>
                 <button
                   type="submit"
+                  disabled={wizard.savingReader}
                   data-action="onboarding-add-reader"
-                  className="flex-1 min-h-[48px] px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                  className="flex-1 min-h-[48px] px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] disabled:opacity-60 text-primary-fg text-sm font-semibold inline-flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
                 >
                   <Icon name={wizard.editingReaderId ? 'check' : 'plus'} className="w-4 h-4" />
-                  <span>{wizard.editingReaderId ? 'Save Reader' : 'Add Reader'}</span>
+                  <span>
+                    {wizard.editingReaderId
+                      ? t('onboarding.saveReaderBtn')
+                      : t('onboarding.addReaderModalTitle')}
+                  </span>
                 </button>
               </div>
             </form>

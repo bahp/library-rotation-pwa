@@ -16,7 +16,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { pwaStatus } = useApp();
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-canvas text-ink transition-colors selection:bg-primary selection:text-primary-fg">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-canvas text-ink transition-colors selection:bg-primary selection:text-primary-fg overflow-x-clip">
       {/* Fixed iOS/PWA Top Safe-Area Curtain */}
       <div
         aria-hidden="true"
@@ -58,11 +58,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         )}
 
         {/* Main Landmark */}
-        <div className="flex-1 w-full px-safe flex flex-col">
+        <div className="flex-1 w-full min-w-0 px-safe flex flex-col">
           <main
             id="main-content"
             tabIndex={-1}
-            className="flex-1 w-full max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8 mb-safe-nav focus:outline-none"
+            className="flex-1 w-full min-w-0 max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8 mb-safe-nav focus:outline-none"
           >
             {children}
           </main>

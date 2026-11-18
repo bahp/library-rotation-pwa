@@ -175,4 +175,54 @@ describe('Catalog & Metadata Providers Suite', () => {
     assert.equal(health.matchedTitle, 'Corduroy');
     assert.equal(health.hasCover, true);
   });
+
+  it('requests Google Books with hl=en without langRestrict and extracts retail/list price', async () => {
+    /** @type {string[]} */
+    const requestedUrls = [];
+    const pricedVolume = {
+      ...MOCK_GOOGLE_VOLUME,
+      volumeInfo: {
+        ...MOCK_GOOGLE_VOLUME.volumeInfo,
+        language: 'es',
+      },
+      saleInfo: {
+        listPrice: { amount: 16.5, currencyCode: 'EUR' },
+        retailPrice: { amount: 14.95, currencyCode: 'EUR' },
+      },
+    };
+
+    const mockHttp = createHttpClient({
+      fetchImpl: async (url) => {
+        requestedUrls.push(String(url));
+        return new Response(
+          JSON.stringify({
+            totalItems: 1,
+            items: [pricedVolume],
+          }),
+          { status: 200 }
+        );
+      },
+      disablePersistentCache: true,
+      maxRetries: 0,
+    });
+
+    const provider = createGoogleBooksProvider(mockHttp);
+    const searchCandidates = await provider.searchBooks({ query: 'Corduroy' });
+    assert.ok(searchCandidates.length >= 1);
+    assert.ok(requestedUrls.length >= 1);
+    const parsedUrl = new URL(requestedUrls[0]);
+    assert.equal(parsedUrl.searchParams.get('hl'), 'en');
+    assert.equal(parsedUrl.searchParams.has('langRestrict'), false);
+
+    const normalized = normalizeGoogleBooksItem(pricedVolume);
+    assert.ok(normalized);
+    assert.equal(normalized.language, 'spanish');
+    assert.equal(normalized.listPriceAmount, 14.95);
+    assert.equal(normalized.listPriceCurrency, 'EUR');
+
+    const book = candidateToBook(normalized);
+    assert.equal(book.listPriceAmount, 14.95);
+    assert.equal(book.listPriceCurrency, 'EUR');
+  });
 });
+

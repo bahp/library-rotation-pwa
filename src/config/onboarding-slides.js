@@ -18,6 +18,11 @@ export const ONBOARDING_LANDING_DEFAULT_MODE = 'slideshow';
  * @property {string} highlightMetric
  * @property {string} highlightCaption
  * @property {'rotations' | 'passport' | 'scan' | 'privacy' | 'free'} visualKind
+ * @property {string} [eyebrowKey]
+ * @property {string} [titleKey]
+ * @property {string} [descriptionKey]
+ * @property {string} [highlightMetricKey]
+ * @property {string} [highlightCaptionKey]
  */
 
 /** @type {readonly OnboardingSlideConfig[]} */
@@ -32,6 +37,11 @@ export const ONBOARDING_INTRO_SLIDES = Object.freeze([
     highlightMetric: '14-day rhythm',
     highlightCaption: 'Balanced themes, authors & cooldown rest',
     visualKind: 'rotations',
+    eyebrowKey: 'onboarding.slide1Eyebrow',
+    titleKey: 'onboarding.slide1Title',
+    descriptionKey: 'onboarding.slide1Desc',
+    highlightMetricKey: 'onboarding.slide1Metric',
+    highlightCaptionKey: 'onboarding.slide1Caption',
   }),
   Object.freeze({
     id: 'passports-play',
@@ -43,6 +53,11 @@ export const ONBOARDING_INTRO_SLIDES = Object.freeze([
     highlightMetric: '3 Play Tools',
     highlightCaption: 'Book Hunt · Storytime Picker · Printable Passport',
     visualKind: 'passport',
+    eyebrowKey: 'onboarding.slide2Eyebrow',
+    titleKey: 'onboarding.slide2Title',
+    descriptionKey: 'onboarding.slide2Desc',
+    highlightMetricKey: 'onboarding.slide2Metric',
+    highlightCaptionKey: 'onboarding.slide2Caption',
   }),
   Object.freeze({
     id: 'instant-scan',
@@ -54,6 +69,11 @@ export const ONBOARDING_INTRO_SLIDES = Object.freeze([
     highlightMetric: 'Barcode & Photo',
     highlightCaption: 'Smart age ranges & topic tags included',
     visualKind: 'scan',
+    eyebrowKey: 'onboarding.slide3Eyebrow',
+    titleKey: 'onboarding.slide3Title',
+    descriptionKey: 'onboarding.slide3Desc',
+    highlightMetricKey: 'onboarding.slide3Metric',
+    highlightCaptionKey: 'onboarding.slide3Caption',
   }),
   Object.freeze({
     id: 'private-local',
@@ -65,6 +85,11 @@ export const ONBOARDING_INTRO_SLIDES = Object.freeze([
     highlightMetric: 'On-Device Storage',
     highlightCaption: 'Full JSON backup & portable restore anytime',
     visualKind: 'privacy',
+    eyebrowKey: 'onboarding.slide4Eyebrow',
+    titleKey: 'onboarding.slide4Title',
+    descriptionKey: 'onboarding.slide4Desc',
+    highlightMetricKey: 'onboarding.slide4Metric',
+    highlightCaptionKey: 'onboarding.slide4Caption',
   }),
   Object.freeze({
     id: 'free-forever',
@@ -76,5 +101,10 @@ export const ONBOARDING_INTRO_SLIDES = Object.freeze([
     highlightMetric: 'Zero Paywalls',
     highlightCaption: 'Unlimited profiles, shelves & offline access',
     visualKind: 'free',
+    eyebrowKey: 'onboarding.slide5Eyebrow',
+    titleKey: 'onboarding.slide5Title',
+    descriptionKey: 'onboarding.slide5Desc',
+    highlightMetricKey: 'onboarding.slide5Metric',
+    highlightCaptionKey: 'onboarding.slide5Caption',
   }),
 ]);

@@ -332,6 +332,20 @@ export function normalizeGoogleBooksItem(item, options = {}) {
   const ratingsCount = typeof info.ratingsCount === 'number' ? Math.trunc(info.ratingsCount) : undefined;
   const publisher = typeof info.publisher === 'string' ? info.publisher.trim() : undefined;
   const previewLink = typeof info.previewLink === 'string' ? info.previewLink.trim() : undefined;
+  const salePriceObj =
+    item?.saleInfo?.retailPrice && typeof item.saleInfo.retailPrice.amount === 'number'
+      ? item.saleInfo.retailPrice
+      : item?.saleInfo?.listPrice && typeof item.saleInfo.listPrice.amount === 'number'
+        ? item.saleInfo.listPrice
+        : null;
+  const listPriceAmount =
+    salePriceObj && Number.isFinite(salePriceObj.amount) && salePriceObj.amount > 0
+      ? Number(salePriceObj.amount)
+      : undefined;
+  const listPriceCurrency =
+    salePriceObj && typeof salePriceObj.currencyCode === 'string' && salePriceObj.currencyCode.trim()
+      ? salePriceObj.currencyCode.trim().toUpperCase()
+      : undefined;
 
   /** @type {import('../../types/models.js').ProviderSource} */
   const source = {
@@ -361,6 +375,8 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     ...(categories.length ? { subjects: categories.slice(0, 12) } : {}),
     ...(language ? { language } : {}),
     ...(dimensions ? { dimensions } : {}),
+    ...(listPriceAmount !== undefined ? { listPriceAmount } : {}),
+    ...(listPriceCurrency ? { listPriceCurrency } : {}),
     ...(averageRating !== undefined ? { averageRating } : {}),
     ...(ratingsCount !== undefined ? { ratingsCount } : {}),
     ...(publisher ? { publisher } : {}),
@@ -620,6 +636,10 @@ export function mergeBookCandidates(primary, secondary) {
   const ratingsCount = primary.ratingsCount !== undefined ? primary.ratingsCount : secondary.ratingsCount;
   const publisher = primary.publisher || secondary.publisher;
   const previewLink = primary.previewLink || secondary.previewLink;
+  const edition = primary.edition || secondary.edition;
+  const listPriceAmount =
+    primary.listPriceAmount !== undefined ? primary.listPriceAmount : secondary.listPriceAmount;
+  const listPriceCurrency = primary.listPriceCurrency || secondary.listPriceCurrency;
   const mergedSubjects = Array.from(
     new Set([...(primary.subjects || []), ...(secondary.subjects || [])])
   ).slice(0, 14);
@@ -651,6 +671,9 @@ export function mergeBookCandidates(primary, secondary) {
     ...(mergedSubjects.length ? { subjects: mergedSubjects } : {}),
     ...(language ? { language } : {}),
     ...(dimensions ? { dimensions } : {}),
+    ...(edition ? { edition } : {}),
+    ...(listPriceAmount !== undefined ? { listPriceAmount } : {}),
+    ...(listPriceCurrency ? { listPriceCurrency } : {}),
     ...(averageRating !== undefined ? { averageRating } : {}),
     ...(ratingsCount !== undefined ? { ratingsCount } : {}),
     ...(publisher ? { publisher } : {}),
@@ -704,6 +727,11 @@ export function candidateToBook(candidate, options = {}) {
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),
     ...(candidate.language ? { language: candidate.language } : {}),
     ...(candidate.dimensions ? { dimensions: candidate.dimensions } : {}),
+    ...(candidate.edition ? { edition: candidate.edition } : {}),
+    ...(candidate.listPriceAmount !== undefined
+      ? { listPriceAmount: candidate.listPriceAmount }
+      : {}),
+    ...(candidate.listPriceCurrency ? { listPriceCurrency: candidate.listPriceCurrency } : {}),
     ...(candidate.averageRating !== undefined ? { averageRating: candidate.averageRating } : {}),
     ...(candidate.ratingsCount !== undefined ? { ratingsCount: candidate.ratingsCount } : {}),
     ...(candidate.publisher ? { publisher: candidate.publisher } : {}),

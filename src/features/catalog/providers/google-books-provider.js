@@ -171,6 +171,7 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
       q,
       maxResults,
       printType: 'books',
+      hl: 'en',
     });
 
     try {

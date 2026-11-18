@@ -21,9 +21,11 @@ import {
   clearQaUserSnapshot,
   createEmptyOnboardingState,
   createSafeDefaultSettings,
+  deleteBookAudioBlob,
   isValidAppState,
   loadQaUserSnapshot,
   migrateState,
+  saveBookAudioBlob,
   saveQaUserSnapshot,
 } from './storage.js';
 import {
@@ -696,7 +698,13 @@ export function createAppStore(storage, deps = {}) {
    *   needsScanReview?: boolean,
    *   verifiedAt?: string | null,
    *   language?: string | null,
-   *   publisher?: string | null
+   *   publisher?: string | null,
+   *   edition?: string | null,
+   *   estimatedValue?: number | null,
+   *   estimatedCurrency?: string | null,
+   *   listPriceAmount?: number | null,
+   *   listPriceCurrency?: string | null,
+   *   dimensions?: string | Record<string, unknown> | null
    * }} patch
    */
   async function updateBook(bookId, patch) {
@@ -837,6 +845,72 @@ export function createAppStore(storage, deps = {}) {
       patch.publisher !== undefined
         ? String(patch.publisher || '').trim() || undefined
         : existing.publisher;
+    const nextEdition =
+      patch.edition !== undefined
+        ? String(patch.edition || '').trim().slice(0, 120) || undefined
+        : existing.edition;
+
+    let nextEstimatedValue = existing.estimatedValue;
+    if (patch.estimatedValue !== undefined) {
+      if (patch.estimatedValue === null || Number.isNaN(Number(patch.estimatedValue))) {
+        nextEstimatedValue = undefined;
+      } else {
+        const val = Number(patch.estimatedValue);
+        nextEstimatedValue = val >= 0 ? Math.round(val * 100) / 100 : undefined;
+      }
+    }
+    const nextEstimatedCurrency =
+      patch.estimatedCurrency !== undefined
+        ? String(patch.estimatedCurrency || '').trim().toUpperCase().slice(0, 6) || undefined
+        : existing.estimatedCurrency;
+
+    let nextListPriceAmount = existing.listPriceAmount;
+    if (patch.listPriceAmount !== undefined) {
+      const val = Number(patch.listPriceAmount);
+      nextListPriceAmount =
+        patch.listPriceAmount !== null && Number.isFinite(val) && val >= 0
+          ? Math.round(val * 100) / 100
+          : undefined;
+    }
+    const nextListPriceCurrency =
+      patch.listPriceCurrency !== undefined
+        ? String(patch.listPriceCurrency || '').trim().toUpperCase().slice(0, 6) || undefined
+        : existing.listPriceCurrency;
+
+    let nextDimensions = existing.dimensions;
+    if (patch.dimensions !== undefined) {
+      if (patch.dimensions === null) {
+        nextDimensions = undefined;
+      } else if (typeof patch.dimensions === 'string') {
+        nextDimensions = patch.dimensions.trim().slice(0, 80) || undefined;
+      } else if (typeof patch.dimensions === 'object') {
+        nextDimensions = patch.dimensions;
+      }
+    }
+
+    // Keep multi-entry bookNotes synchronized when legacy patch.notes is set directly
+    let nextBookNotes = Array.isArray(existing.bookNotes) ? [...existing.bookNotes] : undefined;
+    if (patch.notes !== undefined) {
+      if (!nextNotes) {
+        if (nextBookNotes && nextBookNotes.length <= 1) {
+          nextBookNotes = undefined;
+        }
+      } else if (nextBookNotes && nextBookNotes.length > 0) {
+        nextBookNotes = [
+          { ...nextBookNotes[0], text: nextNotes, updatedAt: new Date().toISOString() },
+          ...nextBookNotes.slice(1),
+        ];
+      } else {
+        nextBookNotes = [
+          {
+            id: createId('note'),
+            text: nextNotes,
+            ...(state.activeProfileId ? { authorProfileId: state.activeProfileId } : {}),
+            createdAt: new Date().toISOString(),
+          },
+        ];
+      }
+    }
 
     /** @type {import('../types/models.js').Book} */
     const updatedBook = {
@@ -862,6 +936,10 @@ export function createAppStore(storage, deps = {}) {
       ...(nextDominantColor ? { dominantColor: nextDominantColor } : {}),
       ...(nextExcludeFromRotations ? { excludeFromRotations: true } : {}),
       ...(nextNotes ? { notes: nextNotes } : {}),
+      ...(nextBookNotes && nextBookNotes.length > 0 ? { bookNotes: nextBookNotes } : {}),
+      ...(Array.isArray(existing.recordings) && existing.recordings.length > 0
+        ? { recordings: existing.recordings }
+        : {}),
       ...(nextNeedsScanReview !== undefined ? { needsScanReview: nextNeedsScanReview } : {}),
       ...(nextVerifiedAt ? { verifiedAt: nextVerifiedAt } : {}),
       ...(typeof existing.userRating === 'number' ? { userRating: existing.userRating } : {}),
@@ -871,9 +949,14 @@ export function createAppStore(storage, deps = {}) {
       ...(typeof existing.averageRating === 'number' ? { averageRating: existing.averageRating } : {}),
       ...(typeof existing.ratingsCount === 'number' ? { ratingsCount: existing.ratingsCount } : {}),
       ...(nextPublisher ? { publisher: nextPublisher } : {}),
+      ...(nextEdition ? { edition: nextEdition } : {}),
+      ...(nextEstimatedValue !== undefined ? { estimatedValue: nextEstimatedValue } : {}),
+      ...(nextEstimatedCurrency ? { estimatedCurrency: nextEstimatedCurrency } : {}),
+      ...(nextListPriceAmount !== undefined ? { listPriceAmount: nextListPriceAmount } : {}),
+      ...(nextListPriceCurrency ? { listPriceCurrency: nextListPriceCurrency } : {}),
       ...(existing.previewLink ? { previewLink: existing.previewLink } : {}),
       ...(nextLanguage ? { language: nextLanguage } : {}),
-      ...(existing.dimensions ? { dimensions: existing.dimensions } : {}),
+      ...(nextDimensions ? { dimensions: nextDimensions } : {}),
       spineColor: existing.spineColor,
       addedAt: existing.addedAt,
       ...(existing.lastRotatedAt ? { lastRotatedAt: existing.lastRotatedAt } : {}),
@@ -960,6 +1043,210 @@ export function createAppStore(storage, deps = {}) {
       'info'
     );
     return updatedBook;
+  }
+
+  /**
+   * Appends a quote or reading note with reader attribution onto a catalog book.
+   * @param {string} bookId
+   * @param {{ text: string, authorProfileId?: string, forProfileId?: string }} input
+   */
+  async function addBookNote(bookId, input) {
+    const cleanText = String(input?.text || '').trim().slice(0, 1500);
+    if (!cleanText) {
+      throw new Error('Enter a quote or note before saving.');
+    }
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+
+    const existingList = Array.isArray(target.bookNotes)
+      ? [...target.bookNotes]
+      : target.notes
+        ? [
+            {
+              id: `note_legacy_${target.id}`,
+              text: target.notes,
+              createdAt: target.addedAt || new Date().toISOString(),
+            },
+          ]
+        : [];
+
+    /** @type {import('../types/models.js').BookNote} */
+    const newNote = {
+      id: createId('note'),
+      text: cleanText,
+      ...(input.authorProfileId ? { authorProfileId: String(input.authorProfileId) } : {}),
+      ...(input.forProfileId ? { forProfileId: String(input.forProfileId) } : {}),
+      createdAt: new Date().toISOString(),
+    };
+
+    const nextList = [newNote, ...existingList];
+    const updatedBook = {
+      ...target,
+      bookNotes: nextList,
+      notes: nextList[0].text.slice(0, 1000),
+    };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(`Saved note for "${target.title}".`, 'success');
+    return newNote;
+  }
+
+  /**
+   * Updates an existing attributed quote or note on a catalog book.
+   * @param {string} bookId
+   * @param {string} noteId
+   * @param {{ text?: string, authorProfileId?: string, forProfileId?: string }} patch
+   */
+  async function updateBookNote(bookId, noteId, patch) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+    const existingList = Array.isArray(target.bookNotes) ? target.bookNotes : [];
+    const noteIndex = existingList.findIndex((n) => n.id === noteId);
+    if (noteIndex === -1) throw new Error('Note not found.');
+
+    const current = existingList[noteIndex];
+    const nextText =
+      patch.text !== undefined ? String(patch.text || '').trim().slice(0, 1500) : current.text;
+    if (!nextText) throw new Error('Note text cannot be empty.');
+
+    /** @type {import('../types/models.js').BookNote} */
+    const nextNote = {
+      ...current,
+      text: nextText,
+      ...(patch.authorProfileId !== undefined
+        ? patch.authorProfileId
+          ? { authorProfileId: String(patch.authorProfileId) }
+          : {}
+        : current.authorProfileId
+          ? { authorProfileId: current.authorProfileId }
+          : {}),
+      ...(patch.forProfileId !== undefined
+        ? patch.forProfileId
+          ? { forProfileId: String(patch.forProfileId) }
+          : {}
+        : current.forProfileId
+          ? { forProfileId: current.forProfileId }
+          : {}),
+      updatedAt: new Date().toISOString(),
+    };
+    if (patch.authorProfileId === '') delete nextNote.authorProfileId;
+    if (patch.forProfileId === '') delete nextNote.forProfileId;
+
+    const nextList = existingList.map((n, idx) => (idx === noteIndex ? nextNote : n));
+    const updatedBook = {
+      ...target,
+      bookNotes: nextList,
+      notes: nextList[0]?.text?.slice(0, 1000) || undefined,
+    };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify('Updated quote & note.', 'success');
+    return nextNote;
+  }
+
+  /**
+   * Deletes an attributed quote or note from a catalog book.
+   * @param {string} bookId
+   * @param {string} noteId
+   */
+  async function deleteBookNote(bookId, noteId) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) return false;
+    const existingList = Array.isArray(target.bookNotes) ? target.bookNotes : [];
+    const nextList = existingList.filter((n) => n.id !== noteId);
+    if (nextList.length === existingList.length) return false;
+
+    const updatedBook = { ...target };
+    if (nextList.length > 0) {
+      updatedBook.bookNotes = nextList;
+      updatedBook.notes = nextList[0].text.slice(0, 1000);
+    } else {
+      delete updatedBook.bookNotes;
+      delete updatedBook.notes;
+    }
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify('Removed note.', 'info');
+    return true;
+  }
+
+  /**
+   * Saves a voice/reading audio clip in IndexedDB and attaches its metadata to the book.
+   * @param {string} bookId
+   * @param {{
+   *   blob: any,
+   *   durationSec: number,
+   *   mimeType?: string,
+   *   title?: string,
+   *   authorProfileId?: string,
+   *   forProfileId?: string
+   * }} input
+   */
+  async function addBookRecording(bookId, input) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+    if (!input || !input.blob) throw new Error('Missing audio recording data.');
+
+    const recId = createId('rec');
+    await saveBookAudioBlob(recId, input.blob);
+
+    /** @type {import('../types/models.js').BookAudioRecording} */
+    const recording = {
+      id: recId,
+      ...(input.title && String(input.title).trim()
+        ? { title: String(input.title).trim().slice(0, 80) }
+        : {}),
+      durationSec: Math.max(0, Math.round((Number(input.durationSec) || 0) * 10) / 10),
+      mimeType: String(input.mimeType || input.blob.type || 'audio/webm'),
+      ...(input.authorProfileId ? { authorProfileId: String(input.authorProfileId) } : {}),
+      ...(input.forProfileId ? { forProfileId: String(input.forProfileId) } : {}),
+      createdAt: new Date().toISOString(),
+    };
+
+    const existingRecs = Array.isArray(target.recordings) ? target.recordings : [];
+    const updatedBook = {
+      ...target,
+      recordings: [recording, ...existingRecs],
+    };
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify(`Saved audio recording for "${target.title}".`, 'success');
+    return recording;
+  }
+
+  /**
+   * Removes an audio recording metadata entry and deletes its binary blob from IndexedDB.
+   * @param {string} bookId
+   * @param {string} recordingId
+   */
+  async function deleteBookRecording(bookId, recordingId) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) return false;
+    const existingRecs = Array.isArray(target.recordings) ? target.recordings : [];
+    const nextRecs = existingRecs.filter((r) => r.id !== recordingId);
+    if (nextRecs.length === existingRecs.length) return false;
+
+    await deleteBookAudioBlob(recordingId);
+    const updatedBook = { ...target };
+    if (nextRecs.length > 0) {
+      updatedBook.recordings = nextRecs;
+    } else {
+      delete updatedBook.recordings;
+    }
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
+    });
+    notify('Deleted audio recording.', 'info');
+    return true;
   }
 
   /**
@@ -1774,6 +2061,13 @@ export function createAppStore(storage, deps = {}) {
   async function deleteBook(bookId) {
     const target = state.books.find((b) => b.id === bookId);
     if (!target) return;
+    if (Array.isArray(target.recordings)) {
+      for (const rec of target.recordings) {
+        if (rec?.id) {
+          await deleteBookAudioBlob(rec.id);
+        }
+      }
+    }
     await commit({
       ...state,
       books: state.books.filter((b) => b.id !== bookId),
@@ -3653,6 +3947,11 @@ export function createAppStore(storage, deps = {}) {
     toggleBookLoved,
     setBookDominantColor,
     setUserRating,
+    addBookNote,
+    updateBookNote,
+    deleteBookNote,
+    addBookRecording,
+    deleteBookRecording,
     toggleBookRotationEligibility,
     addBookTag,
     removeBookTag,

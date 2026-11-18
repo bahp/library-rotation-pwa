@@ -43,6 +43,144 @@ export function normalizeLanguage(raw) {
   return 'en';
 }
 
+const SPANISH_REGION_CODES = new Set([
+  'ES', 'MX', 'AR', 'CO', 'CL', 'PE', 'VE', 'EC', 'GT', 'CU', 'DO',
+  'HN', 'PY', 'SV', 'NI', 'CR', 'PA', 'UY', 'PR', 'BO', 'GQ',
+]);
+const ITALIAN_REGION_CODES = new Set(['IT', 'SM', 'VA']);
+
+const SPANISH_TIMEZONES = new Set([
+  'Europe/Madrid',
+  'Atlantic/Canary',
+  'Africa/Ceuta',
+  'America/Mexico_City',
+  'America/Cancun',
+  'America/Merida',
+  'America/Monterrey',
+  'America/Tijuana',
+  'America/Bogota',
+  'America/Lima',
+  'America/Santiago',
+  'America/Caracas',
+  'America/Havana',
+  'America/Guatemala',
+  'America/Costa_Rica',
+  'America/Montevideo',
+  'America/Buenos_Aires',
+  'America/La_Paz',
+  'America/Asuncion',
+  'America/Managua',
+  'America/Tegucigalpa',
+  'America/El_Salvador',
+  'America/Panama',
+  'America/Santo_Domingo',
+  'America/Puerto_Rico',
+  'America/Guayaquil',
+]);
+const ITALIAN_TIMEZONES = new Set([
+  'Europe/Rome',
+  'Europe/San_Marino',
+  'Europe/Vatican',
+]);
+
+/**
+ * Extracts a 2-letter supported app language only when the locale's primary subtag matches
+ * (`en`, `es`, or `it`). Returns null for unsupported primary languages so subsequent
+ * preference entries or region fallbacks can be evaluated.
+ * @param {unknown} rawLocale
+ * @returns {AppLanguage | null}
+ */
+function matchSupportedPrimarySubtag(rawLocale) {
+  const token = String(rawLocale || '').trim().toLowerCase();
+  if (!token) return null;
+  const primary = token.split(/[-_]/)[0];
+  if (primary === 'es' || primary === 'it' || primary === 'en') {
+    return primary;
+  }
+  return null;
+}
+
+/**
+ * Infers language from a locale's region subtag (e.g. `ca-ES`, `en-ES`, `fr-IT`).
+ * @param {unknown} rawLocale
+ * @returns {AppLanguage | null}
+ */
+function matchLocaleRegion(rawLocale) {
+  const parts = String(rawLocale || '').trim().split(/[-_]/);
+  for (let i = 1; i < parts.length; i++) {
+    const sub = parts[i].toUpperCase();
+    if (sub.length === 2) {
+      if (SPANISH_REGION_CODES.has(sub)) return 'es';
+      if (ITALIAN_REGION_CODES.has(sub)) return 'it';
+    }
+  }
+  return null;
+}
+
+/**
+ * Detects the best initial UI language on first launch:
+ * 1. Device/browser language settings (`navigator.languages` / `navigator.language`)
+ * 2. Device region subtag or IANA timezone (`Europe/Madrid`, `Europe/Rome`, Latin America)
+ * 3. Safe fallback to `'en'`
+ *
+ * Accepts an optional injected environment object for deterministic unit testing.
+ *
+ * @param {{ languages?: readonly string[], language?: string, timeZone?: string }} [env]
+ * @returns {AppLanguage}
+ */
+export function detectDeviceLanguage(env) {
+  /** @type {string[]} */
+  let candidateLocales = [];
+  if (env) {
+    if (Array.isArray(env.languages)) {
+      candidateLocales.push(...env.languages.map((l) => String(l || '')));
+    }
+    if (env.language) {
+      candidateLocales.push(String(env.language));
+    }
+  } else if (typeof navigator !== 'undefined') {
+    if (Array.isArray(navigator.languages)) {
+      candidateLocales.push(...navigator.languages);
+    }
+    if (navigator.language) {
+      candidateLocales.push(navigator.language);
+    }
+  }
+
+  // 1. Device language preferences first
+  for (const locale of candidateLocales) {
+    const matched = matchSupportedPrimarySubtag(locale);
+    if (matched) return matched;
+  }
+
+  // 2a. Region subtag from locale(s)
+  for (const locale of candidateLocales) {
+    const regionMatched = matchLocaleRegion(locale);
+    if (regionMatched) return regionMatched;
+  }
+
+  // 2b. Device timezone region (only if browser/env actually provides one cleanly)
+  let tz = env?.timeZone;
+  if (tz === undefined && !env && typeof navigator !== 'undefined') {
+    try {
+      tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch (_) {
+      tz = '';
+    }
+  }
+  if (typeof tz === 'string' && tz) {
+    if (SPANISH_TIMEZONES.has(tz) || tz.startsWith('America/Argentina/')) {
+      return 'es';
+    }
+    if (ITALIAN_TIMEZONES.has(tz)) {
+      return 'it';
+    }
+  }
+
+  // 3. Default English
+  return 'en';
+}
+
 /**
  * Loads raw YAML text for a locale code across both Vite browser bundles and Node ESM test runners.
  * @param {AppLanguage} code
