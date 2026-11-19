@@ -55,7 +55,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
         : size === 'sm'
           ? 'w-14 h-14 aspect-square rounded-md'
           : size === 'lg'
-            ? 'w-28 h-28 aspect-square rounded-lg'
+            ? 'w-32 h-32 aspect-square rounded-xl'
             : 'w-20 h-20 aspect-square rounded-lg'
     : isGrid
       ? 'w-full aspect-[3/4] rounded-lg shadow-xs'
@@ -64,10 +64,11 @@ export const BookCover: React.FC<BookCoverProps> = ({
         : size === 'sm'
           ? 'w-14 h-[74px] rounded-md'
           : size === 'lg'
-            ? 'w-28 h-[148px] rounded-lg'
+            ? 'w-32 h-[170px] rounded-xl'
             : 'w-20 h-[106px] rounded-lg';
 
-  const radiusClass = isGrid || size === 'md' || size === 'lg' ? 'rounded-lg' : 'rounded-md';
+  const radiusClass =
+    size === 'lg' ? 'rounded-xl' : isGrid || size === 'md' ? 'rounded-lg' : 'rounded-md';
   const titleSnippet =
     book.title.length > 34 ? `${book.title.slice(0, 32).trim()}…` : book.title;
   const authorLast = (book.authors[0] || '').split(' ').pop() || '';

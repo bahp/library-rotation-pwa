@@ -7,10 +7,14 @@ import {
   type PresetArtworkOption,
 } from '../../ui/preset-artwork.js';
 
-type PickerCategoryFilter = 'all' | ArtworkLibraryCategory;
+export type PickerCategoryFilter = 'all' | ArtworkLibraryCategory;
 
 const PICKER_CATEGORIES: ReadonlyArray<{ id: PickerCategoryFilter; label: string }> = [
   { id: 'all', label: 'All Artwork' },
+  { id: 'reading-corners', label: 'Reading Corners' },
+  { id: 'childrens-library', label: "Children's Library" },
+  { id: 'literary-lifestyle', label: 'Literary Lifestyle' },
+  { id: 'whimsical', label: 'Whimsical' },
   { id: 'seasonal-holidays', label: 'Seasonal & Holidays' },
   { id: 'cultural-traditions', label: 'Cultural Traditions' },
   { id: 'evergreen', label: 'Everyday & Learning' },
@@ -22,6 +26,9 @@ interface ArtworkPickerModalProps {
   selectedArtworkId: string;
   suggestedArtworkId: string;
   collectionTitle?: string;
+  modalTitle?: string;
+  modalSubtitle?: string;
+  defaultCategory?: PickerCategoryFilter;
   onSelect: (artwork: PresetArtworkOption) => void;
   onClose: () => void;
 }
@@ -31,11 +38,14 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
   selectedArtworkId,
   suggestedArtworkId,
   collectionTitle = '',
+  modalTitle,
+  modalSubtitle,
+  defaultCategory = 'all',
   onSelect,
   onClose,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<PickerCategoryFilter>('all');
+  const [selectedCategory, setSelectedCategory] = useState<PickerCategoryFilter>(defaultCategory);
   const [pendingId, setPendingId] = useState<string>(selectedArtworkId || suggestedArtworkId || 'winter-cozy');
   const [previewSurface, setPreviewSurface] = useState<'light' | 'dark'>('light');
 
@@ -43,8 +53,8 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
     if (!isOpen) return;
     setPendingId(selectedArtworkId || suggestedArtworkId || ALL_ARTWORK_LIBRARY[0].id);
     setSearchQuery('');
-    setSelectedCategory('all');
-  }, [isOpen, selectedArtworkId, suggestedArtworkId]);
+    setSelectedCategory(defaultCategory || 'all');
+  }, [isOpen, selectedArtworkId, suggestedArtworkId, defaultCategory]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -119,12 +129,14 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
               id="artwork-picker-title"
               className="font-display text-xl font-semibold text-ink truncate"
             >
-              Browse Collection Artwork
+              {modalTitle || 'Browse Collection Artwork'}
             </h2>
             <p className="text-xs text-ink-secondary mt-0.5 truncate">
-              {collectionTitle
-                ? `Pick any illustration for "${collectionTitle}" · ${filteredArtwork.length} shown`
-                : `42 storybook transparent illustrations & 6 classic watercolors · ${filteredArtwork.length} shown`}
+              {modalSubtitle
+                ? `${modalSubtitle} · ${filteredArtwork.length} shown`
+                : collectionTitle
+                  ? `Pick any illustration for "${collectionTitle}" · ${filteredArtwork.length} shown`
+                  : `${ALL_ARTWORK_LIBRARY.length} illustrations & classic watercolors · ${filteredArtwork.length} shown`}
             </p>
           </div>
 
@@ -328,9 +340,17 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
                         <p className="text-[10px] text-ink-muted truncate mt-0.5">
                           {isSuggested
                             ? 'Suggested match'
-                            : item.isTransparent
-                              ? 'Storybook transparent'
-                              : 'Classic watercolor'}
+                            : item.category === 'reading-corners'
+                              ? 'Reading corners'
+                              : item.category === 'childrens-library'
+                                ? "Children's library"
+                                : item.category === 'literary-lifestyle'
+                                  ? 'Literary lifestyle'
+                                  : item.category === 'whimsical'
+                                    ? 'Whimsical'
+                                    : item.isTransparent
+                                      ? 'Collection artwork'
+                                      : 'Classic watercolor'}
                         </p>
                       </div>
                     </button>

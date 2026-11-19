@@ -48,6 +48,12 @@ import {
 } from './settings/SettingsInfoSections.js';
 import { QueryUsageSubView } from './settings/QueryUsageSubView.js';
 import { queryLogger } from '../../features/telemetry/query-logger.js';
+import { ArtworkPickerModal } from '../presets/ArtworkPickerModal.js';
+import {
+  DEFAULT_SIDEBAR_ARTWORK_ID,
+  resolveSidebarArtworkInfo,
+} from '../../ui/preset-artwork.js';
+import sidebarArtworkImg from '../../assets/images/sidebar_reading_artwork_1794694074246.jpg';
 
 const VALID_SECTIONS = new Set<SettingsSectionId>([
   'profiles',
@@ -271,6 +277,7 @@ export const SettingsView: React.FC = () => {
   const [copiedLlmScript, setCopiedLlmScript] = useState(false);
   const [copiedBooksScript, setCopiedBooksScript] = useState(false);
   const [refreshingApp, setRefreshingApp] = useState(false);
+  const [isSidebarArtworkPickerOpen, setIsSidebarArtworkPickerOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -369,6 +376,10 @@ export const SettingsView: React.FC = () => {
 
   const handleToggleDynamicTint = async () => {
     await store.updateSettings({ dynamicCoverTint: state.settings.dynamicCoverTint === false });
+  };
+
+  const handleToggleNativeAppStyle = async () => {
+    await store.updateSettings({ nativeAppStyle: state.settings.nativeAppStyle === false });
   };
 
   const [presetPromptDraft, setPresetPromptDraft] = useState(
@@ -1038,39 +1049,103 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Sidebar Artwork Mode */}
-                <div className="pt-4 border-t border-edge-subtle">
-                  <p className="text-sm font-semibold text-ink">
-                    {t('settings.sidebarArtworkLabel')}
-                  </p>
-                  <p className="text-xs text-ink-secondary mt-0.5">
-                    Choose between the theme’s default footer art, vintage botanical line engraving, or the reading lamp illustration.
-                  </p>
-                  <div className="mt-2.5 flex flex-wrap sm:flex-nowrap items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
-                    {[
-                      { id: 'theme' as const, label: t('settings.sidebarArtworkTheme') },
-                      { id: 'engraving' as const, label: t('settings.sidebarArtworkEngraving') },
-                      { id: 'illustration' as const, label: t('settings.sidebarArtworkIllustration') },
-                    ].map((item) => {
-                      const active = (state.settings.sidebarArtworkMode || 'theme') === item.id;
-                      return (
+                {/* Sidebar Artwork Mode & Gallery Selector */}
+                {(() => {
+                  const selectedSidebarArtwork = resolveSidebarArtworkInfo(
+                    state.settings,
+                    sidebarArtworkImg
+                  );
+                  const activeMode = state.settings.sidebarArtworkMode || 'theme';
+                  const themeUsesIllustration =
+                    effectiveThemeConfig.sidebarArtworkDefault === 'illustration';
+                  const illustrationActiveInSidebar =
+                    activeMode === 'illustration' ||
+                    (activeMode === 'theme' && themeUsesIllustration);
+
+                  return (
+                    <div className="pt-4 border-t border-edge-subtle space-y-3">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">
+                          {t('settings.sidebarArtworkLabel')}
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          Choose the theme default, botanical line engraving, or any library and collection illustration.
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                        {[
+                          { id: 'theme' as const, label: t('settings.sidebarArtworkTheme') },
+                          { id: 'engraving' as const, label: t('settings.sidebarArtworkEngraving') },
+                          { id: 'illustration' as const, label: t('settings.sidebarArtworkIllustration') },
+                        ].map((item) => {
+                          const active = activeMode === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleSidebarArtworkChange(item.id)}
+                              aria-pressed={active}
+                              className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                active
+                                  ? 'bg-primary text-primary-fg shadow-xs'
+                                  : 'text-ink-secondary hover:text-ink'
+                              }`}
+                            >
+                              {item.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Selected Sidebar Illustration Card + Explorer Button */}
+                      <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-20 aspect-[4/3] rounded-lg bg-[#FAF7F2] border border-[#E3DDD1] overflow-hidden flex items-center justify-center p-1 shrink-0">
+                            <img
+                              src={selectedSidebarArtwork.src}
+                              alt={selectedSidebarArtwork.label}
+                              className={`w-full h-full ${
+                                selectedSidebarArtwork.isTransparent
+                                  ? 'object-contain'
+                                  : 'object-cover rounded'
+                              }`}
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="text-xs font-semibold text-ink truncate">
+                                {selectedSidebarArtwork.label}
+                              </p>
+                              <span
+                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                  illustrationActiveInSidebar
+                                    ? 'bg-primary/15 text-primary'
+                                    : 'bg-surface border border-edge text-ink-muted'
+                                }`}
+                              >
+                                {illustrationActiveInSidebar ? 'Shown in Sidebar' : 'Engraving Active'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-ink-secondary line-clamp-1 mt-0.5">
+                              {selectedSidebarArtwork.subject}
+                            </p>
+                          </div>
+                        </div>
+
                         <button
-                          key={item.id}
                           type="button"
-                          onClick={() => handleSidebarArtworkChange(item.id)}
-                          aria-pressed={active}
-                          className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                            active
-                              ? 'bg-primary text-primary-fg shadow-xs'
-                              : 'text-ink-secondary hover:text-ink'
-                          }`}
+                          data-action="open-sidebar-artwork-picker"
+                          onClick={() => setIsSidebarArtworkPickerOpen(true)}
+                          className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 shrink-0 cursor-pointer transition-colors"
                         >
-                          {item.label}
+                          <Icon name="image" className="w-3.5 h-3.5 text-primary" />
+                          <span>Browse Illustrations</span>
                         </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="pt-4 border-t border-edge-subtle">
                   <p className="text-sm font-semibold text-ink">
@@ -1121,6 +1196,29 @@ export const SettingsView: React.FC = () => {
                     checked={state.settings.dynamicCoverTint !== false}
                     onChange={handleToggleDynamicTint}
                     ariaLabelledBy="label-dynamic-tint"
+                    onLabel={t('common.on')}
+                    offLabel={t('common.off')}
+                  />
+                </div>
+
+                {/* Native Mobile App Chrome Switch */}
+                <div className="pt-4 border-t border-edge-subtle flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p
+                      id="label-native-app-style"
+                      className="text-sm font-semibold text-ink"
+                    >
+                      {t('settings.nativeAppStyleLabel')}
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      {t('settings.nativeAppStyleHint')}
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    checked={state.settings.nativeAppStyle !== false}
+                    onChange={handleToggleNativeAppStyle}
+                    ariaLabelledBy="label-native-app-style"
+                    dataAction="toggle-native-app-style"
                     onLabel={t('common.on')}
                     offLabel={t('common.off')}
                   />
@@ -3373,13 +3471,37 @@ export const SettingsView: React.FC = () => {
       }
     };
 
+    const currentSidebarArtworkId =
+      state.settings.sidebarArtworkId || DEFAULT_SIDEBAR_ARTWORK_ID;
+
     return (
-      <div
-        key={`subview-${activeSection}`}
-        className="w-full space-y-5 text-left max-w-3xl mx-auto pb-12 animate-slide-in-right"
-      >
-        {renderSubViewBody()}
-      </div>
+      <>
+        <div
+          key={`subview-${activeSection}`}
+          className={`w-full space-y-5 text-left ${
+            activeSection === 'profiles' ? 'max-w-5xl' : 'max-w-3xl'
+          } mx-auto pb-12 animate-slide-in-right`}
+        >
+          {renderSubViewBody()}
+        </div>
+
+        <ArtworkPickerModal
+          isOpen={isSidebarArtworkPickerOpen}
+          selectedArtworkId={currentSidebarArtworkId}
+          suggestedArtworkId={DEFAULT_SIDEBAR_ARTWORK_ID}
+          modalTitle="Browse Sidebar Illustrations"
+          modalSubtitle="15 library & reading-corner illustrations + 42 collection pieces"
+          defaultCategory="all"
+          onSelect={async (artwork) => {
+            await store.updateSettings({
+              sidebarArtworkMode: 'illustration',
+              sidebarArtworkId: artwork.id,
+            });
+            store.notify(`Sidebar artwork updated to "${artwork.label}".`, 'success');
+          }}
+          onClose={() => setIsSidebarArtworkPickerOpen(false)}
+        />
+      </>
     );
   }
 

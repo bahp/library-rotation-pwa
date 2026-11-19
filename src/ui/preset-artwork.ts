@@ -15,15 +15,20 @@ import bedtimeArt from '../assets/images/preset_corner_bedtime_1794779892315.jpg
 import wonderArt from '../assets/images/preset_corner_wonder_1794779892751.jpg';
 import {
   COLLECTION_ILLUSTRATIONS,
+  SIDEBAR_ILLUSTRATIONS,
   PRESET_ILLUSTRATION_MAP,
   getIllustrationById,
   getSuggestedIllustrationForPreset,
   isLegacyOpaqueArtworkUrl,
 } from '../config/illustrations.js';
 import { DEFAULT_ROTATION_PRESETS } from '../config/presets.js';
-import type { PresetCategory } from '../types/models.js';
+import type { AppSettings, PresetCategory } from '../types/models.js';
 
 export type ArtworkLibraryCategory =
+  | 'reading-corners'
+  | 'childrens-library'
+  | 'literary-lifestyle'
+  | 'whimsical'
   | 'seasonal-holidays'
   | 'cultural-traditions'
   | 'evergreen'
@@ -148,6 +153,17 @@ const PRESET_TITLES_BY_ILLUSTRATION_ID = (() => {
 })();
 
 export const ALL_ARTWORK_LIBRARY: ReadonlyArray<PresetArtworkOption> = [
+  ...SIDEBAR_ILLUSTRATIONS.map((item) => ({
+    id: item.id,
+    label: item.label,
+    subject: item.subject,
+    src: resolvePublicAssetUrl(item.path),
+    path: item.path,
+    category: item.category as ArtworkLibraryCategory,
+    keywords: [...item.keywords],
+    isTransparent: true,
+    associatedPresetTitles: [],
+  })),
   ...COLLECTION_ILLUSTRATIONS.map((item) => ({
     id: item.id,
     label: item.label,
@@ -352,4 +368,59 @@ export function resolvePresetArtworkUrl(preset: {
   preferredTags?: string[];
 }): string {
   return resolvePresetArtworkInfo(preset).primaryUrl;
+}
+
+export const DEFAULT_SIDEBAR_ARTWORK_ID = 'books-reading-lamp';
+export const LEGACY_SIDEBAR_LAMP_ARTWORK_ID = 'legacy-reading-lamp';
+
+export interface ResolvedSidebarArtworkInfo {
+  artworkId: string;
+  label: string;
+  subject: string;
+  src: string;
+  isTransparent: boolean;
+}
+
+/**
+ * Resolves the active sidebar footer illustration from `settings.sidebarArtworkId`
+ * across all sidebar illustrations, preset illustrations, and classic watercolors.
+ */
+export function resolveSidebarArtworkInfo(
+  settings: Pick<AppSettings, 'sidebarArtworkId'> | null | undefined,
+  legacyFallbackSrc: string
+): ResolvedSidebarArtworkInfo {
+  const requestedId =
+    typeof settings?.sidebarArtworkId === 'string'
+      ? settings.sidebarArtworkId.trim().toLowerCase()
+      : '';
+
+  if (requestedId === LEGACY_SIDEBAR_LAMP_ARTWORK_ID) {
+    return {
+      artworkId: LEGACY_SIDEBAR_LAMP_ARTWORK_ID,
+      label: 'Classic Reading Lamp',
+      subject: 'Warm vintage botanical desk lamp & book pile card',
+      src: legacyFallbackSrc,
+      isTransparent: false,
+    };
+  }
+
+  const targetId = requestedId || DEFAULT_SIDEBAR_ARTWORK_ID;
+  const found = ARTWORK_BY_ID.get(targetId) || ARTWORK_BY_ID.get(DEFAULT_SIDEBAR_ARTWORK_ID);
+  if (found) {
+    return {
+      artworkId: found.id,
+      label: found.label,
+      subject: found.subject,
+      src: found.src,
+      isTransparent: found.isTransparent,
+    };
+  }
+
+  return {
+    artworkId: LEGACY_SIDEBAR_LAMP_ARTWORK_ID,
+    label: 'Classic Reading Lamp',
+    subject: 'Warm vintage botanical desk lamp & book pile card',
+    src: legacyFallbackSrc,
+    isTransparent: false,
+  };
 }

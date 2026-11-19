@@ -426,7 +426,9 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
       bookViewMode: 'list',
       bookCardSize: 'large',
       sidebarArtworkMode: 'illustration',
+      sidebarArtworkId: 'library-cat',
       onboardingLandingMode: 'compact',
+      nativeAppStyle: false,
       presetCornerArtSize: 'lg',
       notificationsEnabled: true,
     });
@@ -436,7 +438,9 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(safeDefaults.bookViewMode, 'list');
     assert.equal(safeDefaults.bookCardSize, 'large');
     assert.equal(safeDefaults.sidebarArtworkMode, 'illustration');
+    assert.equal(safeDefaults.sidebarArtworkId, 'library-cat');
     assert.equal(safeDefaults.onboardingLandingMode, 'compact');
+    assert.equal(safeDefaults.nativeAppStyle, false);
     assert.equal(safeDefaults.presetCornerArtSize, 'lg');
     assert.equal(safeDefaults.notificationsEnabled, true);
     assert.equal(
@@ -452,6 +456,8 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(globalFallback.bookCardSize, 'compact');
     assert.equal(globalFallback.coverAspectRatio, 'square');
     assert.equal(globalFallback.presetCornerArtSize, 'sm');
+    assert.equal(globalFallback.sidebarArtworkId, 'books-reading-lamp');
+    assert.equal(globalFallback.nativeAppStyle, true);
 
     // 3. 0..6 onboarding step bounds & Book notes/verification persistence
     const storage = createStorageAdapter({ forceMemory: true });

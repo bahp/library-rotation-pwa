@@ -6,6 +6,7 @@ import { AVATAR_TONES, resolveEffectiveThemeConfig } from '../../config/index.js
 import { formatProfileAgeLabel } from '../../types/models.js';
 import type { RouteId } from '../../types/models.js';
 import sidebarArtworkImg from '../../assets/images/sidebar_reading_artwork_1794694074246.jpg';
+import { resolveSidebarArtworkInfo } from '../../ui/preset-artwork.js';
 
 export const Sidebar: React.FC = () => {
   const {
@@ -86,6 +87,7 @@ export const Sidebar: React.FC = () => {
     state.settings?.sidebarArtworkMode === 'illustration'
       ? state.settings.sidebarArtworkMode
       : effectiveTheme.sidebarArtworkDefault;
+  const sidebarArtwork = resolveSidebarArtworkInfo(state.settings, sidebarArtworkImg);
 
   const renderNavLink = (item: {
     id: RouteId;
@@ -317,14 +319,30 @@ export const Sidebar: React.FC = () => {
             }
           >
             {artworkMode === 'illustration' ? (
-              <div className="relative overflow-hidden rounded-xl border border-sidebar-border/80 bg-sidebar-surface/50 shadow-sm">
-                <img
-                  src={sidebarArtworkImg}
-                  alt=""
-                  className="w-full h-32 object-cover opacity-90"
-                />
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sidebar/70 via-transparent to-transparent" />
-              </div>
+              sidebarArtwork.isTransparent ? (
+                <div
+                  className="relative rounded-xl p-2 flex items-center justify-center"
+                  style={{
+                    background:
+                      'radial-gradient(ellipse 90% 85% at 50% 50%, rgba(250, 247, 242, 0.94) 55%, rgba(250, 247, 242, 0.22) 88%, transparent 100%)',
+                  }}
+                >
+                  <img
+                    src={sidebarArtwork.src}
+                    alt=""
+                    className="w-full h-32 object-contain drop-shadow-xs opacity-95"
+                  />
+                </div>
+              ) : (
+                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/80 bg-sidebar-surface/50 shadow-sm">
+                  <img
+                    src={sidebarArtwork.src}
+                    alt=""
+                    className="w-full h-32 object-cover opacity-90"
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sidebar/70 via-transparent to-transparent" />
+                </div>
+              )
             ) : (
               <BotanicalIllustration variant="hero-library" className="w-full h-32 opacity-85" />
             )}

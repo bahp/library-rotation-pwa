@@ -11,6 +11,8 @@ import {
 } from '../../types/models.js';
 
 export type EditorialFieldKey =
+  | 'title'
+  | 'authors'
   | 'genre'
   | 'format'
   | 'readingStage'
@@ -136,6 +138,12 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
     setSaving(false);
     setGenreSearch('');
     switch (field) {
+      case 'title':
+        setTextValue(book.title || '');
+        break;
+      case 'authors':
+        setTextValue((book.authors || []).join(', '));
+        break;
       case 'isbn':
         setTextValue(book.isbn13 || book.isbn10 || '');
         break;
@@ -226,6 +234,23 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
     if (saving) return;
 
     switch (field) {
+      case 'title': {
+        const cleanTitle = textValue.trim();
+        if (!cleanTitle) {
+          setError('Book title is required.');
+          return;
+        }
+        await commitAndClose({ title: cleanTitle });
+        return;
+      }
+      case 'authors': {
+        const list = textValue
+          .split(',')
+          .map((a) => a.trim())
+          .filter(Boolean);
+        await commitAndClose({ authors: list.length > 0 ? list : ['Unknown Author'] });
+        return;
+      }
       case 'isbn': {
         const clean = textValue.replace(/[-\s]/g, '').toUpperCase();
         if (clean && clean.length !== 10 && clean.length !== 13) {
@@ -302,6 +327,12 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
   const isbnDigitsCount = textValue.replace(/[^0-9Xx]/g, '').length;
 
   const metaByField: Record<EditorialFieldKey, { eyebrow: string; question: string; hint?: string }> = {
+    title: { eyebrow: 'Title', question: "What's the book's title?" },
+    authors: {
+      eyebrow: 'Authors',
+      question: 'Who wrote or illustrated it?',
+      hint: 'Separate multiple names with commas.',
+    },
     genre: { eyebrow: 'Genre', question: 'Pick a genre' },
     format: { eyebrow: 'Format', question: 'Which format is this copy?' },
     readingStage: { eyebrow: 'Reading Stage', question: 'Which reading stage fits best?' },
@@ -775,7 +806,9 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
               </div>
             )}
 
-            {(field === 'publisher' ||
+            {(field === 'title' ||
+              field === 'authors' ||
+              field === 'publisher' ||
               field === 'edition' ||
               field === 'pageCount' ||
               field === 'dimensions') && (
@@ -789,13 +822,17 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                     value={textValue}
                     onChange={(e) => setTextValue(e.target.value)}
                     placeholder={
-                      field === 'edition'
-                        ? 'e.g. First edition'
-                        : field === 'publisher'
-                          ? 'e.g. Candlewick Press'
-                          : field === 'pageCount'
-                            ? 'e.g. 48'
-                            : 'e.g. 22 × 22 × 1 cm'
+                      field === 'title'
+                        ? 'e.g. Goodnight Moon'
+                        : field === 'authors'
+                          ? 'e.g. Margaret Wise Brown, Clement Hurd'
+                          : field === 'edition'
+                            ? 'e.g. First edition'
+                            : field === 'publisher'
+                              ? 'e.g. Candlewick Press'
+                              : field === 'pageCount'
+                                ? 'e.g. 48'
+                                : 'e.g. 22 × 22 × 1 cm'
                     }
                     className="w-full bg-transparent text-xl font-display text-ink placeholder:text-ink-muted placeholder:font-serif-italic placeholder:italic focus:outline-none"
                   />

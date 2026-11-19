@@ -49,13 +49,13 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
         aria-hidden="true"
         className={`lr-switch-track relative inline-flex items-center rounded-full transition-colors duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] active:scale-95 md:active:scale-100 md:group-hover:ring-4 ${
           checked
-            ? 'bg-primary md:group-hover:ring-primary/15'
-            : 'bg-edge md:group-hover:ring-edge/60'
+            ? 'bg-primary ring-1 ring-primary/40 md:group-hover:ring-primary/20'
+            : 'bg-edge/90 ring-1 ring-inset ring-ink-muted/35 md:group-hover:ring-edge/70'
         }`}
       >
         <span
-          className={`lr-switch-thumb inline-block rounded-full shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            checked ? 'bg-primary-fg' : 'bg-surface'
+          className={`lr-switch-thumb inline-block rounded-full transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            checked ? 'bg-primary-fg shadow-md' : 'bg-surface shadow-sm ring-1 ring-black/15'
           }`}
         />
       </span>

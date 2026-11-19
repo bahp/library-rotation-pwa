@@ -270,7 +270,9 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {BookViewMode} [bookViewMode] - Default shelf & catalog view ('grid' | 'list')
  * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large')
  * @property {SidebarArtworkMode} [sidebarArtworkMode] - Sidebar decorative illustration style ('theme' | 'engraving' | 'illustration')
+ * @property {string} [sidebarArtworkId] - Selected sidebar illustration ID from the unified artwork library
  * @property {OnboardingLandingMode} [onboardingLandingMode] - Onboarding Step 0 layout ('slideshow' | 'compact')
+ * @property {boolean} [nativeAppStyle] - Translucent frosted app bars and floating bottom dock chrome (default: true)
  * @property {boolean} [notificationsEnabled] - Opt-in flag for browser/swap reminders
  * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
  * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)

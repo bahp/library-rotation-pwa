@@ -250,7 +250,7 @@ export const ReaderProfilesSection: React.FC<ReaderProfilesSectionProps> = ({
           No child reader profiles yet. Tap “Add Reader Profile” above to add your first reader.
         </section>
       ) : viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
           {state.profiles.map((profile) => {
             const isActive = profile.id === state.activeProfileId;
             const isConfirmingDelete = confirmDeleteProfileId === profile.id;

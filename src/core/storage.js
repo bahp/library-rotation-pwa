@@ -442,7 +442,12 @@ export function createSafeDefaultSettings(overrides = {}) {
         overrides.sidebarArtworkMode === 'illustration'
           ? overrides.sidebarArtworkMode
           : 'theme',
+      sidebarArtworkId:
+        typeof overrides.sidebarArtworkId === 'string' && overrides.sidebarArtworkId.trim()
+          ? overrides.sidebarArtworkId.trim().toLowerCase()
+          : 'books-reading-lamp',
       onboardingLandingMode: overrides.onboardingLandingMode === 'compact' ? 'compact' : 'slideshow',
+      nativeAppStyle: overrides.nativeAppStyle !== false,
       notificationsEnabled: Boolean(overrides.notificationsEnabled),
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,

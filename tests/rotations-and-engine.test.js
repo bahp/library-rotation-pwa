@@ -36,6 +36,7 @@ import {
 import { DEFAULT_ROTATION_PRESETS } from '../src/config/presets.js';
 import {
   COLLECTION_ILLUSTRATIONS,
+  SIDEBAR_ILLUSTRATIONS,
   PRESET_ILLUSTRATION_MAP,
   getIllustrationById,
   getSuggestedIllustrationForPreset,
@@ -527,5 +528,44 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     );
     assert.equal(restored?.illustrationId, undefined);
     assert.equal(restored?.isBuiltInOverride, false);
+  });
+
+  it('includes 15 verified 640x480 transparent PNG sidebar/library illustrations across 4 categories', () => {
+    assert.equal(SIDEBAR_ILLUSTRATIONS.length, 15);
+    const categories = new Set(SIDEBAR_ILLUSTRATIONS.map((item) => item.category));
+    assert.deepEqual(
+      Array.from(categories).sort(),
+      ['childrens-library', 'literary-lifestyle', 'reading-corners', 'whimsical']
+    );
+
+    for (const meta of SIDEBAR_ILLUSTRATIONS) {
+      assert.equal(getIllustrationById(meta.id)?.id, meta.id);
+      assert.equal(isLegacyOpaqueArtworkUrl(meta.path), false);
+
+      const filePath = path.resolve(process.cwd(), 'public', meta.path);
+      assert.ok(fs.existsSync(filePath), `Missing sidebar PNG on disk: ${filePath}`);
+
+      const buf = fs.readFileSync(filePath);
+      assert.equal(buf.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+      const width = buf.readUInt32BE(16);
+      const height = buf.readUInt32BE(20);
+      const colorType = buf.readUInt8(25);
+      assert.equal(width, 640, `${meta.filename} width should be 640`);
+      assert.equal(height, 480, `${meta.filename} height should be 480`);
+      assert.equal(colorType, 6, `${meta.filename} must be RGBA (colorType 6)`);
+
+      let offset = 8;
+      const idatChunks = [];
+      while (offset < buf.length) {
+        const len = buf.readUInt32BE(offset);
+        const type = buf.subarray(offset + 4, offset + 8).toString('ascii');
+        if (type === 'IDAT') {
+          idatChunks.push(buf.subarray(offset + 8, offset + 8 + len));
+        }
+        offset += 12 + len;
+      }
+      const raw = zlib.inflateSync(Buffer.concat(idatChunks));
+      assert.equal(raw[4], 0, `${meta.filename} top-left pixel must be transparent`);
+    }
   });
 });

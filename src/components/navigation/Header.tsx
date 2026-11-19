@@ -85,12 +85,24 @@ export const Header: React.FC = () => {
     }
   };
 
+  const useNativeChrome = state.settings?.nativeAppStyle !== false;
+
   return (
     <header
       data-top-header="true"
+      data-native-chrome={useNativeChrome ? 'true' : 'false'}
+      style={
+        useNativeChrome
+          ? { backgroundColor: 'color-mix(in srgb, var(--surface) 76%, transparent)' }
+          : undefined
+      }
       className={`fixed top-0 left-0 right-0 ${
         sidebarCollapsed ? 'lg:left-[76px]' : 'lg:left-64'
-      } z-30 bg-surface/95 backdrop-blur-md border-b border-edge-subtle pt-safe px-safe transition-[left,background-color,border-color] duration-200 ease-out`}
+      } z-30 ${
+        useNativeChrome
+          ? 'backdrop-blur-xl border-b border-edge/60 shadow-[0_4px_20px_-6px_rgba(0,0,0,0.22)]'
+          : 'bg-surface border-b border-edge-subtle'
+      } pt-safe px-safe transition-[left,background-color,border-color] duration-200 ease-out`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
         {/* Zone 1 (Mobile/Tablet): Brand Wordmark */}

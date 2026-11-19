@@ -10,7 +10,7 @@
  */
 
 /**
- * @typedef {'seasonal-holidays' | 'cultural-traditions' | 'evergreen'} IllustrationCategory
+ * @typedef {'seasonal-holidays' | 'cultural-traditions' | 'evergreen' | 'reading-corners' | 'childrens-library' | 'literary-lifestyle' | 'whimsical'} IllustrationCategory
  */
 
 /**
@@ -509,17 +509,187 @@ export const PRESET_ILLUSTRATION_MAP = Object.freeze({
   'preset-cooking-food': 'cooking-food',
 });
 
-const ILLUSTRATIONS_BY_ID = new Map(COLLECTION_ILLUSTRATIONS.map((item) => [item.id, item]));
+/**
+ * Dedicated transparent library & reading-corner illustrations created for the Sidebar
+ * and Explorer Gallery, tagged by category (`reading-corners`, `childrens-library`,
+ * `literary-lifestyle`, `whimsical`).
+ *
+ * @type {ReadonlyArray<CollectionIllustrationMeta>}
+ */
+export const SIDEBAR_ILLUSTRATIONS = Object.freeze([
+  // ── Reading Corners ────────────────────────────────────────────────────────
+  {
+    id: 'cosy-reading-nook',
+    label: 'The Cosy Reading Nook',
+    subject: 'Vintage armchair with sage cushion, stacked books, tea cup & brass floor lamp',
+    category: 'reading-corners',
+    filename: 'cosy-reading-nook.png',
+    path: 'assets/illustrations/sidebar/cosy-reading-nook.png',
+    keywords: ['sidebar', 'reading corner', 'armchair', 'lamp', 'tea', 'botanical', 'cozy', 'nook'],
+    legacyFallbackId: 'wonder',
+  },
+  {
+    id: 'miniature-library',
+    label: 'The Miniature Library',
+    subject: 'Antique wooden bookshelf filled with colourful old books, wooden ladder & trailing ivy',
+    category: 'reading-corners',
+    filename: 'miniature-library.png',
+    path: 'assets/illustrations/sidebar/miniature-library.png',
+    keywords: ['sidebar', 'bookshelf', 'library', 'ladder', 'ivy', 'wooden', 'antique', 'corner'],
+    legacyFallbackId: 'wonder',
+  },
+  {
+    id: 'books-reading-lamp',
+    label: 'Books & Reading Lamp',
+    subject: 'Vintage hardcover book pile, reading glasses, brass desk lamp & botanical bookmark',
+    category: 'reading-corners',
+    filename: 'books-reading-lamp.png',
+    path: 'assets/illustrations/sidebar/books-reading-lamp.png',
+    keywords: ['sidebar', 'lamp', 'glasses', 'hardcover', 'pile', 'desk lamp', 'bookmark'],
+    legacyFallbackId: 'wonder',
+  },
+  {
+    id: 'window-reading-corner',
+    label: 'The Window Reading Corner',
+    subject: 'Cushioned window seat with stacked books, knitted blanket, tea cup & potted plants',
+    category: 'reading-corners',
+    filename: 'window-reading-corner.png',
+    path: 'assets/illustrations/sidebar/window-reading-corner.png',
+    keywords: ['sidebar', 'window seat', 'blanket', 'pillows', 'tea', 'plants', 'peaceful'],
+    legacyFallbackId: 'bedtime',
+  },
+
+  // ── Children's Library ─────────────────────────────────────────────────────
+  {
+    id: 'childrens-bookshelf',
+    label: "The Children's Bookshelf",
+    subject: 'Low wooden bookshelf with colourful picture books, teddy bear, blocks & toy rabbit',
+    category: 'childrens-library',
+    filename: 'childrens-bookshelf.png',
+    path: 'assets/illustrations/sidebar/childrens-bookshelf.png',
+    keywords: ['sidebar', 'children', 'nursery', 'teddy bear', 'blocks', 'rabbit', 'bookshelf'],
+    legacyFallbackId: 'spring',
+  },
+  {
+    id: 'little-reader',
+    label: 'Little Reader',
+    subject: 'Young child reading a colourful picture book on a round rug with cushions & teddy bear',
+    category: 'childrens-library',
+    filename: 'little-reader.png',
+    path: 'assets/illustrations/sidebar/little-reader.png',
+    keywords: ['sidebar', 'child', 'reader', 'rug', 'picture book', 'cushions', 'teddy bear'],
+    legacyFallbackId: 'spring',
+  },
+  {
+    id: 'book-trolley',
+    label: 'The Book Trolley',
+    subject: 'Miniature wooden library cart with two shelves of picture books, wooden toy & potted plant',
+    category: 'childrens-library',
+    filename: 'book-trolley.png',
+    path: 'assets/illustrations/sidebar/book-trolley.png',
+    keywords: ['sidebar', 'trolley', 'cart', 'nursery', 'picture books', 'wooden toy', 'plant'],
+    legacyFallbackId: 'spring',
+  },
+  {
+    id: 'storytime-collection',
+    label: 'Storytime Collection',
+    subject: 'Whimsical stack of children picture books with a friendly fox, tiny stars & wildflowers',
+    category: 'childrens-library',
+    filename: 'storytime-collection.png',
+    path: 'assets/illustrations/sidebar/storytime-collection.png',
+    keywords: ['sidebar', 'storytime', 'fox', 'stars', 'flowers', 'picture books', 'whimsical'],
+    legacyFallbackId: 'autumn',
+  },
+
+  // ── Literary Lifestyle ─────────────────────────────────────────────────────
+  {
+    id: 'coffee-and-books',
+    label: 'Coffee & Books',
+    subject: 'Handmade ceramic coffee cup with steam, vintage hardcover stack, glasses & biscuit',
+    category: 'literary-lifestyle',
+    filename: 'coffee-and-books.png',
+    path: 'assets/illustrations/sidebar/coffee-and-books.png',
+    keywords: ['sidebar', 'coffee', 'ceramic cup', 'glasses', 'biscuit', 'cafe', 'literary'],
+    legacyFallbackId: 'autumn',
+  },
+  {
+    id: 'open-book-flowers',
+    label: 'Open Book & Flowers',
+    subject: 'Open antique storybook with pressed wildflowers, delicate branches & green botanical leaves',
+    category: 'literary-lifestyle',
+    filename: 'open-book-flowers.png',
+    path: 'assets/illustrations/sidebar/open-book-flowers.png',
+    keywords: ['sidebar', 'open book', 'flowers', 'wildflowers', 'botanical', 'pressed', 'leaves'],
+    legacyFallbackId: 'spring',
+  },
+  {
+    id: 'readers-desk',
+    label: "The Reader's Desk",
+    subject: 'Vintage wooden writing desk with stacked books, brass desk lamp, fountain pen & notebook',
+    category: 'literary-lifestyle',
+    filename: 'readers-desk.png',
+    path: 'assets/illustrations/sidebar/readers-desk.png',
+    keywords: ['sidebar', 'desk', 'writing', 'notebook', 'fountain pen', 'brass lamp', 'study'],
+    legacyFallbackId: 'wonder',
+  },
+  {
+    id: 'literary-explorer',
+    label: 'The Literary Explorer',
+    subject: 'Vintage leather satchel beside an old world globe, travel books, brass compass & botanical leaves',
+    category: 'literary-lifestyle',
+    filename: 'literary-explorer.png',
+    path: 'assets/illustrations/sidebar/literary-explorer.png',
+    keywords: ['sidebar', 'explorer', 'globe', 'satchel', 'compass', 'travel', 'adventure'],
+    legacyFallbackId: 'wonder',
+  },
+
+  // ── Whimsical Illustrations ────────────────────────────────────────────────
+  {
+    id: 'library-cat',
+    label: 'The Library Cat',
+    subject: 'Cozy sleeping cat curled atop a colourful stack of vintage books with delicate botanical leaves',
+    category: 'whimsical',
+    filename: 'library-cat.png',
+    path: 'assets/illustrations/sidebar/library-cat.png',
+    keywords: ['sidebar', 'cat', 'sleeping cat', 'books', 'botanical', 'whimsical', 'cozy'],
+    legacyFallbackId: 'bedtime',
+  },
+  {
+    id: 'reading-fox',
+    label: 'The Reading Fox',
+    subject: 'Gentle woodland fox wearing reading glasses while holding an open book among soft wildflowers',
+    category: 'whimsical',
+    filename: 'reading-fox.png',
+    path: 'assets/illustrations/sidebar/reading-fox.png',
+    keywords: ['sidebar', 'fox', 'glasses', 'reading', 'woodland', 'wildflowers', 'whimsical'],
+    legacyFallbackId: 'autumn',
+  },
+  {
+    id: 'magical-library',
+    label: 'The Magical Library',
+    subject: 'Glowing antique books floating gently with tiny golden stars, soft light & trailing botanical leaves',
+    category: 'whimsical',
+    filename: 'magical-library.png',
+    path: 'assets/illustrations/sidebar/magical-library.png',
+    keywords: ['sidebar', 'magic', 'magical', 'floating books', 'stars', 'glowing', 'whimsical'],
+    legacyFallbackId: 'bedtime',
+  },
+]);
+
+const ALL_ILLUSTRATIONS_BY_ID = new Map(
+  [...COLLECTION_ILLUSTRATIONS, ...SIDEBAR_ILLUSTRATIONS].map((item) => [item.id, item])
+);
+const ILLUSTRATIONS_BY_ID = ALL_ILLUSTRATIONS_BY_ID;
 
 /**
- * Looks up a collection illustration by its stable ID.
+ * Looks up any collection or sidebar illustration by its stable ID.
  * @param {string | undefined | null} id
  * @returns {CollectionIllustrationMeta | undefined}
  */
 export function getIllustrationById(id) {
   const key = String(id || '').trim().toLowerCase();
   if (!key) return undefined;
-  return ILLUSTRATIONS_BY_ID.get(key);
+  return ALL_ILLUSTRATIONS_BY_ID.get(key);
 }
 
 /**
@@ -597,7 +767,7 @@ export function getSuggestedIllustrationForPreset(preset) {
 export function isLegacyOpaqueArtworkUrl(url) {
   const val = String(url || '').trim().toLowerCase();
   if (!val) return false;
-  if (val.includes('assets/illustrations/presets/')) return false;
+  if (val.includes('assets/illustrations/')) return false;
   if (val.startsWith('data:image/jpeg') || val.startsWith('data:image/jpg')) return true;
   if (/\.jpe?g(\?|$)/i.test(val)) return true;
   // AI generator returns warm-cream-paper PNG data URLs
