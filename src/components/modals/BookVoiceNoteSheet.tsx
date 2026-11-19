@@ -181,7 +181,7 @@ interface VoiceWaveformPlayerProps {
   srcUrl?: string;
   authorProfile?: ChildProfile | null;
   forProfile?: ChildProfile | null;
-  onDelete: (recordingId: string) => Promise<void>;
+  onSelect?: () => void;
 }
 
 export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
@@ -189,13 +189,12 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
   srcUrl,
   authorProfile,
   forProfile,
-  onDelete,
+  onSelect,
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [resolvedDuration, setResolvedDuration] = useState(recording.durationSec || 0);
-  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     setResolvedDuration(recording.durationSec || 0);
@@ -253,7 +252,25 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
   };
 
   return (
-    <div className="rounded-2xl bg-surface-subtle/85 border border-edge/85 px-3.5 py-2.5 flex items-center gap-2.5 sm:gap-3 min-w-0">
+    <div
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      aria-label={onSelect ? `Edit or delete voice note ${titleLabel}` : undefined}
+      onClick={onSelect}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                onSelect();
+              }
+            }
+          : undefined
+      }
+      className={`rounded-2xl bg-surface-subtle/85 border border-edge/85 px-3.5 py-2.5 flex items-center gap-2.5 sm:gap-3 min-w-0 ${
+        onSelect ? 'hover:bg-surface-elevated/60 transition-colors cursor-pointer' : ''
+      }`}
+    >
       {srcUrl && (
         <audio
           ref={audioRef}
@@ -281,7 +298,10 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
       {/* Left: Play / Pause Circle */}
       <button
         type="button"
-        onClick={handleTogglePlay}
+        onClick={(e) => {
+          e.stopPropagation();
+          void handleTogglePlay();
+        }}
         disabled={!srcUrl}
         aria-label={isPlaying ? `Pause ${titleLabel}` : `Play ${titleLabel}`}
         className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-95 cursor-pointer disabled:opacity-45 ${
@@ -325,10 +345,19 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
           aria-valuemin={0}
           aria-valuemax={Math.round(effectiveDuration)}
           aria-valuenow={Math.round(currentTime)}
-          onClick={handleBarContainerClick}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleBarContainerClick(e);
+          }}
           onKeyDown={(e) => {
-            if (e.key === 'ArrowRight') handleSeekAtRatio(progress + 0.1);
-            if (e.key === 'ArrowLeft') handleSeekAtRatio(progress - 0.1);
+            if (e.key === 'ArrowRight') {
+              e.stopPropagation();
+              handleSeekAtRatio(progress + 0.1);
+            }
+            if (e.key === 'ArrowLeft') {
+              e.stopPropagation();
+              handleSeekAtRatio(progress - 0.1);
+            }
           }}
           className="w-12 sm:w-20 h-7 flex items-center gap-[2px] cursor-pointer select-none py-1 shrink-0"
         >
@@ -353,32 +382,8 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
             : formatAudioTime(effectiveDuration)}
         </span>
 
-        {!confirmDelete ? (
-          <button
-            type="button"
-            onClick={() => setConfirmDelete(true)}
-            aria-label={`Delete voice note ${titleLabel}`}
-            className="min-h-[30px] min-w-[30px] rounded-lg text-ink-muted hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] hover:bg-surface flex items-center justify-center shrink-0 cursor-pointer transition-colors"
-          >
-            <Icon name="trash" className="w-3.5 h-3.5" />
-          </button>
-        ) : (
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => setConfirmDelete(false)}
-              className="px-1.5 py-1 rounded bg-surface border border-edge text-[10px] font-semibold text-ink cursor-pointer"
-            >
-              No
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(recording.id)}
-              className="px-1.5 py-1 rounded bg-[#8C4A4F] text-[#FFFCF5] text-[10px] font-semibold cursor-pointer"
-            >
-              Del
-            </button>
-          </div>
+        {onSelect && (
+          <Icon name="chevronRight" className="w-4 h-4 text-ink-muted shrink-0" />
         )}
       </div>
     </div>
@@ -908,6 +913,270 @@ export const BookVoiceNoteSheet: React.FC<BookVoiceNoteSheetProps> = ({
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
+
+interface BookVoiceRecordingEditSheetProps {
+  recording: BookAudioRecording | null;
+  srcUrl?: string;
+  profiles: ChildProfile[];
+  onClose: () => void;
+  onSave: (
+    recordingId: string,
+    patch: { title: string; authorProfileId: string; forProfileId: string }
+  ) => Promise<void>;
+  onDelete: (recordingId: string) => Promise<void>;
+}
+
+export const BookVoiceRecordingEditSheet: React.FC<BookVoiceRecordingEditSheetProps> = ({
+  recording,
+  srcUrl,
+  profiles,
+  onClose,
+  onSave,
+  onDelete,
+}) => {
+  const [titleDraft, setTitleDraft] = useState('');
+  const [authorId, setAuthorId] = useState('');
+  const [forProfileId, setForProfileId] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!recording) return;
+    setTitleDraft(recording.title || '');
+    setAuthorId(recording.authorProfileId || '');
+    setForProfileId(recording.forProfileId || '');
+    setConfirmDelete(false);
+    setSaving(false);
+    setError('');
+  }, [recording]);
+
+  if (!recording) return null;
+
+  const selectedAuthor = profiles.find((p) => p.id === authorId);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await onSave(recording.id, {
+        title: titleDraft.trim(),
+        authorProfileId: authorId,
+        forProfileId,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await onDelete(recording.id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      data-backdrop-action="close-voice-edit-sheet"
+      className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit voice note"
+        onClick={(e) => e.stopPropagation()}
+        className="animate-sheet-up w-full max-w-lg max-h-[88dvh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
+      >
+        <div
+          className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden"
+          aria-hidden="true"
+        />
+
+        <div className="px-5 pt-4 pb-2 flex items-start justify-between gap-3 shrink-0">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted inline-flex items-center gap-1.5">
+              <Icon name="mic" className="w-3.5 h-3.5 text-primary" />
+              <span>Voice Note</span>
+            </p>
+            <h3 className="font-display text-2xl font-semibold text-ink mt-1 leading-tight">
+              Edit voice recording
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close voice note editor"
+            className="min-h-[40px] min-w-[40px] rounded-full text-ink-muted hover:text-ink hover:bg-surface-elevated flex items-center justify-center shrink-0 cursor-pointer"
+          >
+            <Icon name="close" className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 pb-5 pt-2 space-y-4">
+          {error && (
+            <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+              {error}
+            </p>
+          )}
+
+          <div className="rounded-xl bg-surface-subtle border border-edge p-3">
+            <WaveformScrubber
+              seedId={recording.id}
+              srcUrl={srcUrl}
+              durationSec={recording.durationSec}
+              label={titleDraft.trim() || 'Voice note'}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="voice-edit-title"
+              className="block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1"
+            >
+              Clip label
+            </label>
+            <input
+              id="voice-edit-title"
+              type="text"
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              placeholder="e.g. Bedtime read-aloud, funny voice"
+              className="w-full h-10 px-3 rounded-lg bg-surface-subtle border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          {profiles.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label
+                  htmlFor="voice-edit-author"
+                  className="block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1"
+                >
+                  Recorded by
+                </label>
+                <div className="flex items-center gap-2">
+                  {selectedAuthor ? (
+                    <span
+                      className={`w-8 h-8 rounded-full text-xs font-bold inline-flex items-center justify-center shrink-0 ${
+                        AVATAR_TONES[selectedAuthor.avatarTone || 'teal'] || AVATAR_TONES.teal
+                      }`}
+                    >
+                      {computeOwnerInitials(selectedAuthor.name)}
+                    </span>
+                  ) : (
+                    <span className="w-8 h-8 rounded-full bg-surface-subtle border border-edge text-ink-muted text-xs font-bold inline-flex items-center justify-center shrink-0">
+                      H
+                    </span>
+                  )}
+                  <select
+                    id="voice-edit-author"
+                    value={authorId}
+                    onChange={(e) => setAuthorId(e.target.value)}
+                    className="flex-1 h-10 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-medium text-ink focus:outline-none focus:border-primary"
+                  >
+                    <option value="">Household</option>
+                    {profiles.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="voice-edit-for"
+                  className="block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1"
+                >
+                  For reader
+                </label>
+                <select
+                  id="voice-edit-for"
+                  value={forProfileId}
+                  onChange={(e) => setForProfileId(e.target.value)}
+                  className="w-full h-10 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-medium text-ink focus:outline-none focus:border-primary"
+                >
+                  <option value="">Everyone</option>
+                  {profiles.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2 border-t border-edge-subtle">
+            {!confirmDelete ? (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Icon name="trash" className="w-3.5 h-3.5" />
+                <span>Delete recording</span>
+              </button>
+            ) : (
+              <div className="rounded-xl bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                  Delete this recording permanently?
+                </span>
+                <div className="flex items-center gap-2 ml-auto">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(false)}
+                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={handleDeleteConfirmed}
+                    className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold cursor-pointer"
+                  >
+                    Confirm Delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="pt-2 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[44px] px-4 py-2 text-sm font-medium text-ink-secondary hover:text-ink cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="min-h-[44px] min-w-[120px] px-5 py-2 rounded-xl bg-primary hover:bg-primary-hover disabled:opacity-55 text-primary-fg text-sm font-semibold shadow-sm transition-colors cursor-pointer"
+            >
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

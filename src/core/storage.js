@@ -493,6 +493,34 @@ export function createSafeDefaultSettings(overrides = {}) {
       llmApiKey: typeof overrides.llmApiKey === 'string' ? overrides.llmApiKey.trim() : '',
       llmCustomPromptHint:
         typeof overrides.llmCustomPromptHint === 'string' ? overrides.llmCustomPromptHint.trim() : '',
+      enabledGiftStores: Array.isArray(overrides.enabledGiftStores)
+        ? Array.from(
+            new Set(
+              overrides.enabledGiftStores.filter((id) => id === 'bookshop' || id === 'amazon')
+            )
+          )
+        : ['bookshop', 'amazon'],
+      amazonDomain:
+        typeof overrides.amazonDomain === 'string' &&
+        [
+          'amazon.com',
+          'amazon.co.uk',
+          'amazon.es',
+          'amazon.it',
+          'amazon.de',
+          'amazon.fr',
+          'amazon.ca',
+        ].includes(overrides.amazonDomain.trim().toLowerCase())
+          ? overrides.amazonDomain.trim().toLowerCase()
+          : 'amazon.com',
+      customGiftStoreName:
+        typeof overrides.customGiftStoreName === 'string'
+          ? overrides.customGiftStoreName.trim().slice(0, 60)
+          : '',
+      customGiftStoreUrl:
+        typeof overrides.customGiftStoreUrl === 'string'
+          ? overrides.customGiftStoreUrl.trim().slice(0, 300)
+          : '',
     };
   }
 
@@ -572,11 +600,22 @@ export function migrateState(state, referenceDate = new Date()) {
           new Set(profile.readHistoryBookIds.filter((id) => typeof id === 'string' && id))
         )
       : [];
+    const readHistorySet = new Set(cleanReadHistory);
+    const cleanCurrentlyReading = Array.isArray(profile.currentlyReadingBookIds)
+      ? Array.from(
+          new Set(
+            profile.currentlyReadingBookIds.filter(
+              (id) => typeof id === 'string' && id && !readHistorySet.has(id)
+            )
+          )
+        )
+      : [];
     return {
       ...profile,
       ...(cleanDob ? { birthDate: cleanDob } : {}),
       age: effectiveAge,
       readHistoryBookIds: cleanReadHistory,
+      currentlyReadingBookIds: cleanCurrentlyReading,
     };
   });
 

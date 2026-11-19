@@ -3,16 +3,20 @@ import { Icon } from '../common/Icon.js';
 import { ClearableInput } from '../common/ClearableInput.js';
 import {
   formatBookCondition,
+  formatCollectionStatus,
   formatReadingStage,
+  normalizeCollectionStatus,
   type Book,
   type BookCondition,
   type BookFormat,
+  type CollectionStatus,
   type ReadingStage,
 } from '../../types/models.js';
 
 export type EditorialFieldKey =
   | 'title'
   | 'authors'
+  | 'collectionStatus'
   | 'genre'
   | 'format'
   | 'readingStage'
@@ -85,6 +89,33 @@ const CONDITION_OPTIONS: Array<{ id: BookCondition; label: string; desc: string 
   { id: 'torn', label: formatBookCondition('torn'), desc: 'Minor wear, taped pages, still readable' },
   { id: 'broken', label: formatBookCondition('broken'), desc: 'Needs spine or page repair (off rotations)' },
   { id: 'retired', label: formatBookCondition('retired'), desc: 'Archived keepsake (off rotations)' },
+];
+
+const COLLECTION_STATUS_OPTIONS: Array<{ id: CollectionStatus; label: string; desc: string; icon: string }> = [
+  {
+    id: 'owned',
+    label: formatCollectionStatus('owned'),
+    desc: 'In your home catalog and eligible for shelf rotations',
+    icon: 'book',
+  },
+  {
+    id: 'library',
+    label: formatCollectionStatus('library'),
+    desc: 'Borrowed from a public or school library',
+    icon: 'building',
+  },
+  {
+    id: 'wishlist',
+    label: formatCollectionStatus('wishlist'),
+    desc: 'Books you plan to buy or gift',
+    icon: 'heart',
+  },
+  {
+    id: 'interested',
+    label: formatCollectionStatus('interested'),
+    desc: 'Saved ideas for future reading',
+    icon: 'bookmark',
+  },
 ];
 
 export function formatBookDimensionsLabel(dimensions: Book['dimensions']): string {
@@ -213,7 +244,11 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
   if (!field) return null;
 
   const isSelectListField =
-    field === 'format' || field === 'readingStage' || field === 'condition' || field === 'genre';
+    field === 'collectionStatus' ||
+    field === 'format' ||
+    field === 'readingStage' ||
+    field === 'condition' ||
+    field === 'genre';
 
   const commitAndClose = async (patch: Record<string, unknown>) => {
     if (saving) return;
@@ -333,6 +368,7 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
       question: 'Who wrote or illustrated it?',
       hint: 'Separate multiple names with commas.',
     },
+    collectionStatus: { eyebrow: 'Collection Status', question: 'Where does this book belong?' },
     genre: { eyebrow: 'Genre', question: 'Pick a genre' },
     format: { eyebrow: 'Format', question: 'Which format is this copy?' },
     readingStage: { eyebrow: 'Reading Stage', question: 'Which reading stage fits best?' },
@@ -568,6 +604,33 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                           {opt.label}
                         </span>
                         <span className="block text-[11px] text-ink-muted">{opt.ages}</span>
+                      </span>
+                      {active && <Icon name="check" className="w-4 h-4 text-primary shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {field === 'collectionStatus' && (
+              <div className="divide-y divide-edge-subtle">
+                {COLLECTION_STATUS_OPTIONS.map((opt) => {
+                  const active = normalizeCollectionStatus(book.collectionStatus) === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => commitAndClose({ collectionStatus: opt.id })}
+                      className="w-full py-3.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-surface-elevated/40 px-1 rounded-lg transition-colors"
+                    >
+                      <span className="flex items-center gap-3 min-w-0">
+                        <Icon name={opt.icon} className="w-4 h-4 text-ink-secondary shrink-0" />
+                        <span className="min-w-0">
+                          <span className={`block font-display text-base ${active ? 'font-semibold text-primary' : 'text-ink'}`}>
+                            {opt.label}
+                          </span>
+                          <span className="block text-[11px] text-ink-muted">{opt.desc}</span>
+                        </span>
                       </span>
                       {active && <Icon name="check" className="w-4 h-4 text-primary shrink-0" />}
                     </button>

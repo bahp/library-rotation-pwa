@@ -127,5 +127,9 @@ export function createDefaultAppSettings() {
     llmBaseUrl: '',
     llmApiKey: '',
     llmCustomPromptHint: '',
+    enabledGiftStores: ['bookshop', 'amazon'],
+    amazonDomain: 'amazon.com',
+    customGiftStoreName: '',
+    customGiftStoreUrl: '',
   };
 }

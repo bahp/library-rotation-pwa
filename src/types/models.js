@@ -77,6 +77,10 @@
  */
 
 /**
+ * @typedef {'to-read' | 'reading' | 'read'} BookReadingStatus
+ */
+
+/**
  * @typedef {Object} ProviderSource
  * @property {string} provider - Identifier such as 'manual', 'seed', 'google-books', 'open-library'
  * @property {string} [externalId] - Provider-specific record ID
@@ -171,6 +175,7 @@
  * @property {number} cooldownDays - Minimum days before repeating a rotated book
  * @property {string} avatarTone - Palette identifier ('teal' | 'amber' | 'indigo' | 'rose')
  * @property {string[]} readHistoryBookIds - Book IDs marked read by/with this child
+ * @property {string[]} [currentlyReadingBookIds] - Book IDs currently in progress with this reader
  * @property {string} createdAt - ISO-8601 timestamp
  */
 
@@ -300,6 +305,10 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {string} [llmBaseUrl] - Custom base URL for OpenAI-compatible endpoints
  * @property {string} [llmApiKey] - Personal API key for BYOK or protected proxy
  * @property {string} [llmCustomPromptHint] - Optional parenting / curriculum style guidelines (e.g. Montessori, bilingual)
+ * @property {string[]} [enabledGiftStores] - Enabled bookstores for Gift or Buy links ('bookshop' | 'amazon')
+ * @property {string} [amazonDomain] - Preferred Amazon store domain (e.g. 'amazon.com', 'amazon.co.uk', 'amazon.es')
+ * @property {string} [customGiftStoreName] - Optional custom/local bookstore label
+ * @property {string} [customGiftStoreUrl] - Optional custom/local bookstore search URL (supports {query})
  */
 
 /**

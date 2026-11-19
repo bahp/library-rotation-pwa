@@ -1104,8 +1104,22 @@ export function createAppStore(storage, deps = {}) {
   async function updateBookNote(bookId, noteId, patch) {
     const target = state.books.find((b) => b.id === bookId);
     if (!target) throw new Error('Book not found.');
-    const existingList = Array.isArray(target.bookNotes) ? target.bookNotes : [];
-    const noteIndex = existingList.findIndex((n) => n.id === noteId);
+    const existingList = Array.isArray(target.bookNotes)
+      ? [...target.bookNotes]
+      : target.notes
+        ? [
+            {
+              id: `note_legacy_${target.id}`,
+              text: target.notes,
+              createdAt: target.addedAt || new Date().toISOString(),
+            },
+          ]
+        : [];
+    const legacyAliasId = `legacy_${target.id}`;
+    const canonicalLegacyId = `note_legacy_${target.id}`;
+    const noteIndex = existingList.findIndex(
+      (n) => n.id === noteId || (noteId === legacyAliasId && n.id === canonicalLegacyId)
+    );
     if (noteIndex === -1) throw new Error('Note not found.');
 
     const current = existingList[noteIndex];
@@ -1158,8 +1172,22 @@ export function createAppStore(storage, deps = {}) {
   async function deleteBookNote(bookId, noteId) {
     const target = state.books.find((b) => b.id === bookId);
     if (!target) return false;
-    const existingList = Array.isArray(target.bookNotes) ? target.bookNotes : [];
-    const nextList = existingList.filter((n) => n.id !== noteId);
+    const existingList = Array.isArray(target.bookNotes)
+      ? [...target.bookNotes]
+      : target.notes
+        ? [
+            {
+              id: `note_legacy_${target.id}`,
+              text: target.notes,
+              createdAt: target.addedAt || new Date().toISOString(),
+            },
+          ]
+        : [];
+    const legacyAliasId = `legacy_${target.id}`;
+    const canonicalLegacyId = `note_legacy_${target.id}`;
+    const nextList = existingList.filter(
+      (n) => n.id !== noteId && !(noteId === legacyAliasId && n.id === canonicalLegacyId)
+    );
     if (nextList.length === existingList.length) return false;
 
     const updatedBook = { ...target };
@@ -1222,6 +1250,54 @@ export function createAppStore(storage, deps = {}) {
     });
     notify(`Saved audio recording for "${target.title}".`, 'success');
     return recording;
+  }
+
+  /**
+   * Updates metadata (title, recorder attribution, target reader) on an existing audio clip.
+   * @param {string} bookId
+   * @param {string} recordingId
+   * @param {{ title?: string, authorProfileId?: string, forProfileId?: string }} patch
+   */
+  async function updateBookRecording(bookId, recordingId, patch) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) throw new Error('Book not found.');
+    const existingRecs = Array.isArray(target.recordings) ? target.recordings : [];
+    const recIdx = existingRecs.findIndex((r) => r.id === recordingId);
+    if (recIdx === -1) throw new Error('Recording not found.');
+
+    const current = existingRecs[recIdx];
+    /** @type {import('../types/models.js').BookAudioRecording} */
+    const nextRec = { ...current };
+    if (patch.title !== undefined) {
+      const cleanTitle = String(patch.title || '').trim().slice(0, 80);
+      if (cleanTitle) {
+        nextRec.title = cleanTitle;
+      } else {
+        delete nextRec.title;
+      }
+    }
+    if (patch.authorProfileId !== undefined) {
+      if (patch.authorProfileId) {
+        nextRec.authorProfileId = String(patch.authorProfileId);
+      } else {
+        delete nextRec.authorProfileId;
+      }
+    }
+    if (patch.forProfileId !== undefined) {
+      if (patch.forProfileId) {
+        nextRec.forProfileId = String(patch.forProfileId);
+      } else {
+        delete nextRec.forProfileId;
+      }
+    }
+
+    const nextRecs = existingRecs.map((r, idx) => (idx === recIdx ? nextRec : r));
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? { ...target, recordings: nextRecs } : b)),
+    });
+    notify('Updated audio recording.', 'success');
+    return nextRec;
   }
 
   /**
@@ -2238,12 +2314,18 @@ export function createAppStore(storage, deps = {}) {
     const nextProfiles = state.profiles.map((p) => {
       if (p.id !== rotation.profileId) return p;
       const historySet = new Set(p.readHistoryBookIds);
+      const readingSet = new Set(Array.isArray(p.currentlyReadingBookIds) ? p.currentlyReadingBookIds : []);
       if (nextReadBool) {
         historySet.add(bookId);
+        readingSet.delete(bookId);
       } else if (!stillReadOnProfileShelf) {
         historySet.delete(bookId);
       }
-      return { ...p, readHistoryBookIds: Array.from(historySet) };
+      return {
+        ...p,
+        readHistoryBookIds: Array.from(historySet),
+        currentlyReadingBookIds: Array.from(readingSet),
+      };
     });
 
     const anyProfileStillRead = nextProfiles.some(
@@ -2421,12 +2503,18 @@ export function createAppStore(storage, deps = {}) {
     const nextProfiles = state.profiles.map((p) => {
       if (p.id !== profile.id) return p;
       const historySet = new Set(p.readHistoryBookIds);
+      const readingSet = new Set(Array.isArray(p.currentlyReadingBookIds) ? p.currentlyReadingBookIds : []);
       if (isCurrentlyRead) {
         historySet.delete(bookId);
       } else {
         historySet.add(bookId);
+        readingSet.delete(bookId);
       }
-      return { ...p, readHistoryBookIds: Array.from(historySet) };
+      return {
+        ...p,
+        readHistoryBookIds: Array.from(historySet),
+        currentlyReadingBookIds: Array.from(readingSet),
+      };
     });
 
     const nextRotations = state.rotations.map((r) => {
@@ -2460,6 +2548,97 @@ export function createAppStore(storage, deps = {}) {
     const nextBooks = state.books.map((b) => {
       if (b.id !== bookId) return b;
       if (!isCurrentlyRead) {
+        return { ...b, lastReadAt: now };
+      }
+      if (!anyProfileStillRead) {
+        const { lastReadAt: _cleared, ...rest } = b;
+        return rest;
+      }
+      return b;
+    });
+
+    await commit({
+      ...state,
+      books: nextBooks,
+      profiles: nextProfiles,
+      rotations: nextRotations,
+    });
+  }
+
+  /**
+   * Explicitly sets a reader's reading progress state for any book (`to-read` | `reading` | `read`),
+   * keeping `currentlyReadingBookIds`, `readHistoryBookIds`, active rotation `completedBookIds`,
+   * and `book.lastReadAt` cleanly synchronized.
+   *
+   * @param {string | undefined} profileId
+   * @param {string} bookId
+   * @param {import('../types/models.js').BookReadingStatus} status
+   */
+  async function setProfileBookReadingStatus(profileId, bookId, status) {
+    const profile =
+      state.profiles.find((p) => p.id === (profileId || state.activeProfileId)) ||
+      state.profiles[0];
+    if (!profile) return;
+    const bookExists = state.books.some((b) => b.id === bookId);
+    if (!bookExists) return;
+
+    const cleanStatus = status === 'read' || status === 'reading' ? status : 'to-read';
+    const now = new Date().toISOString();
+
+    const nextProfiles = state.profiles.map((p) => {
+      if (p.id !== profile.id) return p;
+      const historySet = new Set(p.readHistoryBookIds);
+      const readingSet = new Set(Array.isArray(p.currentlyReadingBookIds) ? p.currentlyReadingBookIds : []);
+      if (cleanStatus === 'read') {
+        historySet.add(bookId);
+        readingSet.delete(bookId);
+      } else if (cleanStatus === 'reading') {
+        readingSet.add(bookId);
+        historySet.delete(bookId);
+      } else {
+        readingSet.delete(bookId);
+        historySet.delete(bookId);
+      }
+      return {
+        ...p,
+        readHistoryBookIds: Array.from(historySet),
+        currentlyReadingBookIds: Array.from(readingSet),
+      };
+    });
+
+    const nextRotations = state.rotations.map((r) => {
+      if (r.profileId !== profile.id) return r;
+      if (cleanStatus === 'read') {
+        if (
+          r.status === 'active' &&
+          r.bookIds.includes(bookId) &&
+          !r.completedBookIds.includes(bookId)
+        ) {
+          return {
+            ...r,
+            completedBookIds: [...r.completedBookIds, bookId],
+            updatedAt: now,
+          };
+        }
+        return r;
+      }
+      if (r.completedBookIds.includes(bookId)) {
+        return {
+          ...r,
+          completedBookIds: r.completedBookIds.filter((id) => id !== bookId),
+          updatedAt: now,
+        };
+      }
+      return r;
+    });
+
+    const anyProfileStillRead = nextProfiles.some(
+      (p) => Array.isArray(p.readHistoryBookIds) && p.readHistoryBookIds.includes(bookId)
+    );
+
+    const nextBooks = state.books.map((b) => {
+      if (b.id !== bookId) return b;
+      if (cleanStatus === 'read') {
         return { ...b, lastReadAt: now };
       }
       if (!anyProfileStillRead) {
@@ -4038,6 +4217,7 @@ export function createAppStore(storage, deps = {}) {
     updateBookNote,
     deleteBookNote,
     addBookRecording,
+    updateBookRecording,
     deleteBookRecording,
     toggleBookRotationEligibility,
     addBookTag,
@@ -4052,6 +4232,7 @@ export function createAppStore(storage, deps = {}) {
     toggleRotationBookPlaced,
     setRotationBooksPlaced,
     toggleProfileBookRead,
+    setProfileBookReadingStatus,
     generateRotation,
     createStarterRotation,
     replaceRotationBookRandom,

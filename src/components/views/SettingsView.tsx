@@ -247,6 +247,18 @@ export const SettingsView: React.FC = () => {
   const [catalogSyncReport, setCatalogSyncReport] = useState('');
   const [catalogSyncTone, setCatalogSyncTone] = useState<'idle' | 'success' | 'error'>('idle');
 
+  // Gift & Bookstore Links state
+  const [customStoreNameDraft, setCustomStoreNameDraft] = useState(
+    state.settings.customGiftStoreName || ''
+  );
+  const [customStoreUrlDraft, setCustomStoreUrlDraft] = useState(
+    state.settings.customGiftStoreUrl || ''
+  );
+  useEffect(() => {
+    setCustomStoreNameDraft(state.settings.customGiftStoreName || '');
+    setCustomStoreUrlDraft(state.settings.customGiftStoreUrl || '');
+  }, [state.settings.customGiftStoreName, state.settings.customGiftStoreUrl]);
+
   // LLM State
   const [selectedLlmProvider, setSelectedLlmProvider] = useState<LlmProvider>(
     state.settings.llmProvider || 'server-gemini'
@@ -469,6 +481,35 @@ export const SettingsView: React.FC = () => {
     await store.updateSettings({
       searchWhileTyping: !state.settings.searchWhileTyping,
     });
+  };
+
+  // Gift & Bookstore links handlers
+  const handleToggleGiftStore = async (storeId: 'bookshop' | 'amazon') => {
+    const current = Array.isArray(state.settings.enabledGiftStores)
+      ? state.settings.enabledGiftStores
+      : ['bookshop', 'amazon'];
+    const updated = current.includes(storeId)
+      ? current.filter((id) => id !== storeId)
+      : [...current, storeId];
+    await store.updateSettings({ enabledGiftStores: updated });
+  };
+
+  const handleAmazonDomainChange = async (amazonDomain: string) => {
+    await store.updateSettings({ amazonDomain: amazonDomain as any });
+  };
+
+  const handleSaveCustomGiftStore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanUrl = customStoreUrlDraft.trim();
+    if (cleanUrl && !/^https?:\/\//i.test(cleanUrl)) {
+      store.notify('Custom bookstore URL must start with https:// or http://', 'error');
+      return;
+    }
+    await store.updateSettings({
+      customGiftStoreName: customStoreNameDraft.trim().slice(0, 60),
+      customGiftStoreUrl: cleanUrl.slice(0, 300),
+    });
+    store.notify('Saved bookstore preferences.', 'success');
   };
 
   // Google Books verification
@@ -2149,6 +2190,120 @@ export const SettingsView: React.FC = () => {
                       </div>
                     )}
                   </div>
+                </div>
+              </section>
+
+              {/* Gift or Buy a Copy — Bookstore Links Configuration */}
+              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3">
+                <div>
+                  <h3 className="font-display text-lg font-semibold text-ink">
+                    Gift &amp; Bookstore Links
+                  </h3>
+                  <p className="text-xs text-ink-secondary mt-0.5 leading-relaxed">
+                    Choose which bookstores appear in “Gift or Buy a Copy” on each book detail page.
+                  </p>
+                </div>
+
+                <div className="divide-y divide-edge-subtle">
+                  <div className="py-3 first:pt-1 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p id="label-gift-bookshop" className="text-sm font-semibold text-ink">
+                        Bookshop.org
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        Supports local independent bookstores via title or ISBN search.
+                      </p>
+                    </div>
+                    <ToggleSwitch
+                      checked={(state.settings.enabledGiftStores ?? ['bookshop', 'amazon']).includes('bookshop')}
+                      onChange={() => handleToggleGiftStore('bookshop')}
+                      ariaLabelledBy="label-gift-bookshop"
+                      onLabel={t('common.on')}
+                      offLabel={t('common.off')}
+                    />
+                  </div>
+
+                  <div className="py-3 space-y-2.5">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p id="label-gift-amazon" className="text-sm font-semibold text-ink">
+                          Amazon
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          Quick gift link using your preferred regional Amazon storefront.
+                        </p>
+                      </div>
+                      <ToggleSwitch
+                        checked={(state.settings.enabledGiftStores ?? ['bookshop', 'amazon']).includes('amazon')}
+                        onChange={() => handleToggleGiftStore('amazon')}
+                        ariaLabelledBy="label-gift-amazon"
+                        onLabel={t('common.on')}
+                        offLabel={t('common.off')}
+                      />
+                    </div>
+
+                    {(state.settings.enabledGiftStores ?? ['bookshop', 'amazon']).includes('amazon') && (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <label
+                          htmlFor="setting-amazon-domain"
+                          className="text-xs font-semibold text-ink-secondary"
+                        >
+                          Amazon storefront
+                        </label>
+                        <select
+                          id="setting-amazon-domain"
+                          value={state.settings.amazonDomain || 'amazon.com'}
+                          onChange={(e) => handleAmazonDomainChange(e.target.value)}
+                          className="h-9 px-2.5 rounded-lg bg-surface-subtle border border-edge text-xs font-medium text-ink focus:outline-2 focus:outline-primary"
+                        >
+                          <option value="amazon.com">amazon.com (US)</option>
+                          <option value="amazon.co.uk">amazon.co.uk (UK)</option>
+                          <option value="amazon.es">amazon.es (ES)</option>
+                          <option value="amazon.it">amazon.it (IT)</option>
+                          <option value="amazon.de">amazon.de (DE)</option>
+                          <option value="amazon.fr">amazon.fr (FR)</option>
+                          <option value="amazon.ca">amazon.ca (CA)</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  <form onSubmit={handleSaveCustomGiftStore} className="pt-3 space-y-2.5">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        Custom or Local Bookstore (Optional)
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5 leading-relaxed">
+                        Add any shop search URL. Use <code className="font-mono-tabular">{'{query}'}</code> where the ISBN or title should go, or leave a base search URL.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <input
+                        type="text"
+                        aria-label="Custom bookstore name"
+                        value={customStoreNameDraft}
+                        onChange={(e) => setCustomStoreNameDraft(e.target.value)}
+                        placeholder="e.g. Powell's Books"
+                        className="h-10 px-3 rounded-lg bg-surface-subtle border border-edge text-xs text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-primary"
+                      />
+                      <input
+                        type="url"
+                        aria-label="Custom bookstore search URL"
+                        value={customStoreUrlDraft}
+                        onChange={(e) => setCustomStoreUrlDraft(e.target.value)}
+                        placeholder="https://example.com/search?q={query}"
+                        className="h-10 px-3 rounded-lg bg-surface-subtle border border-edge text-xs font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-primary"
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        className="min-h-[38px] px-4 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        Save Storefront
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </section>
             </>

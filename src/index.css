@@ -1147,6 +1147,21 @@
   border-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 34%, var(--border));
 }
 
+/* Native App Card Volume & Elevation (subtle top bevel + soft grounded drop shadow) */
+.lr-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 6px 18px -6px rgba(20, 35, 33, 0.12),
+    0 2px 5px -1px rgba(20, 35, 33, 0.06);
+}
+
+.dark .lr-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 12px 26px -8px rgba(0, 0, 0, 0.58),
+    0 3px 8px -2px rgba(0, 0, 0, 0.34);
+}
+
 /* Settings hierarchical sub-menu slide transitions (compositor-only transform + opacity) */
 @keyframes lr-slide-in-right {
   from {

@@ -86,10 +86,10 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   return (
     <>
       <section
-        className={`rounded-xl bg-surface border p-4 sm:p-6 shadow-2xs space-y-4 transition-shadow ${
+        className={`rounded-xl bg-surface border p-4 sm:p-5 lr-card space-y-3.5 transition-shadow ${
           isActive
             ? 'border-primary/50 ring-1 ring-primary/15'
-            : 'border-edge hover:shadow-md'
+            : 'border-edge hover:border-secondary'
         }`}
       >
         {/* Header */}
@@ -115,19 +115,19 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               </span>
             </div>
 
-            <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-snug truncate mt-1.5">
+            <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-tight truncate mt-1">
               {rotation.title}
             </h2>
 
             {rotation.rules?.objective && (
-              <p className="font-sans text-xs text-ink-secondary mt-1 line-clamp-2 leading-relaxed">
+              <p className="font-sans text-xs text-ink-secondary mt-0.5 line-clamp-2 leading-snug">
                 {rotation.rules.objective}
               </p>
             )}
 
             <p
               data-rotation-schedule={isActive ? 'active' : 'saved'}
-              className={`font-sans text-xs mt-1.5 truncate flex items-center gap-1.5 ${
+              className={`font-sans text-xs mt-0.5 truncate flex items-center gap-1.5 leading-tight ${
                 isActive && schedule.isDue
                   ? 'font-semibold text-accent'
                   : isActive && schedule.isDueSoon
@@ -252,10 +252,10 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-display text-sm font-semibold text-ink truncate">
+                      <p className="font-sans text-sm font-semibold text-ink leading-tight truncate">
                         {book.title}
                       </p>
-                      <p className="text-[11px] text-ink-secondary truncate">
+                      <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
                         {primaryAuthor}
                         {isBookRead ? ' · Read' : isBookPicked ? ' · Picked' : ''}
                       </p>

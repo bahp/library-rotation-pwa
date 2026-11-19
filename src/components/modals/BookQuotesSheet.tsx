@@ -65,8 +65,8 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
     try {
       await onSave({
         text: text.trim(),
-        authorProfileId: authorProfileId || undefined,
-        forProfileId: forProfileId || undefined,
+        authorProfileId: editingNote ? authorProfileId : authorProfileId || undefined,
+        forProfileId: editingNote ? forProfileId : forProfileId || undefined,
       });
       onClose();
     } catch (err) {

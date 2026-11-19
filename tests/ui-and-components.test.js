@@ -11,7 +11,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createStorageAdapter } from '../src/core/storage.js';
+import { createSafeDefaultSettings, createStorageAdapter } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import { renderAppShell } from '../src/ui/components/app-shell.js';
 import { renderBookInspectorModal } from '../src/ui/components/book-inspector-modal.js';
@@ -318,5 +318,157 @@ describe('UI & Components Suite', () => {
         assert.ok(val && val !== key, `Missing ${lang} translation for ${key}`);
       }
     }
+  });
+
+  it('updateBookNote and deleteBookNote handle modern and legacy notes and clear attribution cleanly', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+    const p1 = st.profiles[0];
+    const p2 = st.profiles[1];
+    const book = st.books[0];
+
+    // Legacy note conversion via legacy_${id} alias + clearing attribution
+    await store.updateBook(book.id, { notes: 'Legacy bedtime memory' });
+    let current = store.getState().books.find((b) => b.id === book.id);
+    // Simulate purely legacy state without bookNotes array
+    await store.importBackupJson(
+      JSON.stringify({
+        ...store.getState(),
+        books: store.getState().books.map((b) =>
+          b.id === book.id
+            ? (() => {
+                const { bookNotes: _drop, ...rest } = b;
+                return { ...rest, notes: 'Legacy bedtime memory' };
+              })()
+            : b
+        ),
+      })
+    );
+
+    const updatedLegacy = await store.updateBookNote(book.id, `legacy_${book.id}`, {
+      text: 'Updated legacy memory',
+      authorProfileId: p1.id,
+      forProfileId: p2.id,
+    });
+    assert.equal(updatedLegacy.text, 'Updated legacy memory');
+    assert.equal(updatedLegacy.authorProfileId, p1.id);
+    assert.equal(updatedLegacy.forProfileId, p2.id);
+
+    // Clear attribution back to Household/Everyone using empty string ''
+    const clearedNote = await store.updateBookNote(book.id, updatedLegacy.id, {
+      text: 'Shared household quote',
+      authorProfileId: '',
+      forProfileId: '',
+    });
+    assert.equal(clearedNote.authorProfileId, undefined);
+    assert.equal(clearedNote.forProfileId, undefined);
+
+    // Delete via deleteBookNote on modern note and also via legacy_${id}
+    const deleted = await store.deleteBookNote(book.id, updatedLegacy.id);
+    assert.equal(deleted, true);
+    current = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(current?.bookNotes, undefined);
+    assert.equal(current?.notes, undefined);
+
+    await store.importBackupJson(
+      JSON.stringify({
+        ...store.getState(),
+        books: store.getState().books.map((b) =>
+          b.id === book.id ? { ...b, notes: 'Another legacy note' } : b
+        ),
+      })
+    );
+    const deletedLegacy = await store.deleteBookNote(book.id, `legacy_${book.id}`);
+    assert.equal(deletedLegacy, true);
+    current = store.getState().books.find((b) => b.id === book.id);
+    assert.equal(current?.notes, undefined);
+  });
+
+  it('updateBookRecording edits clip title and clears or updates profile attribution', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+    const p1 = st.profiles[0];
+    const p2 = st.profiles[1];
+    const book = st.books[0];
+
+    const fakeBlob = new Blob(['audio-data'], { type: 'audio/webm' });
+    const rec = await store.addBookRecording(book.id, {
+      title: 'Original clip',
+      durationSec: 4.2,
+      mimeType: 'audio/webm',
+      blob: fakeBlob,
+      authorProfileId: p1.id,
+      forProfileId: p2.id,
+    });
+
+    const edited = await store.updateBookRecording(book.id, rec.id, {
+      title: 'Bedtime voice clip',
+      authorProfileId: '',
+      forProfileId: p1.id,
+    });
+    assert.equal(edited.title, 'Bedtime voice clip');
+    assert.equal(edited.authorProfileId, undefined);
+    assert.equal(edited.forProfileId, p1.id);
+  });
+
+  it('setProfileBookReadingStatus transitions sync currentlyReadingBookIds, readHistoryBookIds, active rotation, and lastReadAt', async () => {
+    const store = await createTestStore();
+    const st = store.getState();
+    const p1 = st.profiles[0];
+    const activeRot = st.rotations.find((r) => r.profileId === p1.id && r.status === 'active');
+    assert.ok(activeRot && activeRot.bookIds.length > 0);
+    const shelfBookId = activeRot.bookIds[0];
+
+    await store.setProfileBookReadingStatus(p1.id, shelfBookId, 'to-read');
+    let afterToRead = store.getState();
+    let prof = afterToRead.profiles.find((p) => p.id === p1.id);
+    let rot = afterToRead.rotations.find((r) => r.id === activeRot.id);
+    assert.equal(prof?.currentlyReadingBookIds?.includes(shelfBookId), false);
+    assert.equal(prof?.readHistoryBookIds.includes(shelfBookId), false);
+    assert.equal(rot?.completedBookIds.includes(shelfBookId), false);
+
+    await store.setProfileBookReadingStatus(p1.id, shelfBookId, 'reading');
+    let afterReading = store.getState();
+    prof = afterReading.profiles.find((p) => p.id === p1.id);
+    assert.equal(prof?.currentlyReadingBookIds?.includes(shelfBookId), true);
+    assert.equal(prof?.readHistoryBookIds.includes(shelfBookId), false);
+
+    await store.setProfileBookReadingStatus(p1.id, shelfBookId, 'read');
+    let afterRead = store.getState();
+    prof = afterRead.profiles.find((p) => p.id === p1.id);
+    rot = afterRead.rotations.find((r) => r.id === activeRot.id);
+    let bookAfterRead = afterRead.books.find((b) => b.id === shelfBookId);
+    assert.equal(prof?.currentlyReadingBookIds?.includes(shelfBookId), false);
+    assert.equal(prof?.readHistoryBookIds.includes(shelfBookId), true);
+    assert.equal(rot?.completedBookIds.includes(shelfBookId), true);
+    assert.ok(bookAfterRead?.lastReadAt);
+
+    await store.setProfileBookReadingStatus(p1.id, shelfBookId, 'to-read');
+    let afterReset = store.getState();
+    prof = afterReset.profiles.find((p) => p.id === p1.id);
+    rot = afterReset.rotations.find((r) => r.id === activeRot.id);
+    assert.equal(prof?.currentlyReadingBookIds?.includes(shelfBookId), false);
+    assert.equal(prof?.readHistoryBookIds.includes(shelfBookId), false);
+    assert.equal(rot?.completedBookIds.includes(shelfBookId), false);
+  });
+
+  it('createSafeDefaultSettings normalizes gift bookstore preferences including empty arrays and regional domains', () => {
+    const defaults = createSafeDefaultSettings();
+    assert.deepEqual(defaults.enabledGiftStores, ['bookshop', 'amazon']);
+    assert.equal(defaults.amazonDomain, 'amazon.com');
+
+    const disabled = createSafeDefaultSettings({
+      enabledGiftStores: [],
+      amazonDomain: 'amazon.es',
+      customGiftStoreName: '  Local Indie Shop  ',
+      customGiftStoreUrl: '  https://shop.example/search?q={query}  ',
+    });
+    assert.deepEqual(disabled.enabledGiftStores, []);
+    assert.equal(disabled.amazonDomain, 'amazon.es');
+    assert.equal(disabled.customGiftStoreName, 'Local Indie Shop');
+    assert.equal(disabled.customGiftStoreUrl, 'https://shop.example/search?q={query}');
+
+    const invalidDomain = createSafeDefaultSettings({ amazonDomain: 'evil.example' });
+    assert.equal(invalidDomain.amazonDomain, 'amazon.com');
   });
 });

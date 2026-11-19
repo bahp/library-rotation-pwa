@@ -278,7 +278,7 @@ export const RotationsView: React.FC = () => {
             >
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="animate-sheet-up sm:animate-none w-full max-h-[90dvh] sm:max-h-none flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl sm:shadow-sm overflow-hidden pb-safe sm:pb-0"
+                className="animate-sheet-up sm:animate-none w-full max-h-[90dvh] sm:max-h-none flex flex-col rounded-t-2xl sm:rounded-xl bg-surface border border-edge shadow-2xl sm:lr-card overflow-hidden pb-safe sm:pb-0"
               >
                 <div
                   className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 shrink-0 sm:hidden"
@@ -828,7 +828,7 @@ export const RotationsView: React.FC = () => {
               })}
             </div>
           ) : (
-            <div className="p-8 text-center rounded-xl bg-surface border border-edge space-y-3">
+            <div className="p-8 text-center rounded-xl bg-surface border border-edge space-y-3 lr-card">
               <BotanicalIllustration variant="empty-shelf" className="w-40 h-auto mx-auto" />
               <h2 className="font-display text-xl font-semibold text-ink">
                 No shelf rotations yet for {activeProfile?.name || 'this reader'}.

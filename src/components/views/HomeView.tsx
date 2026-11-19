@@ -225,7 +225,7 @@ export const HomeView: React.FC = () => {
           <div
             role="region"
             aria-label="Library Swap Day reminder"
-            className="rounded-xl border border-accent/45 bg-surface p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+            className="rounded-xl border border-accent/45 bg-surface p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card"
           >
             <div className="flex items-start gap-3 min-w-0">
               <span className="p-2 rounded-lg bg-surface-elevated border border-accent/30 text-accent shrink-0">
@@ -268,7 +268,7 @@ export const HomeView: React.FC = () => {
             role="region"
             aria-label="Seasonal collection preset reminder"
             data-preset-alert-banner="true"
-            className="rounded-xl border border-edge bg-surface p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+            className="rounded-xl border border-edge bg-surface p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card"
           >
             <div className="flex items-start gap-3 min-w-0">
               <span className="p-2 rounded-lg bg-surface-elevated border border-edge-subtle text-primary shrink-0">
@@ -319,7 +319,7 @@ export const HomeView: React.FC = () => {
           <div
             role="status"
             data-stale-spotlight-banner="true"
-            className="rounded-xl border border-edge bg-surface p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+            className="rounded-xl border border-edge bg-surface p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card"
           >
             <div className="flex items-start gap-3 min-w-0">
               <span className="p-2 rounded-lg bg-surface-elevated border border-edge-subtle text-accent shrink-0">
@@ -381,27 +381,27 @@ export const HomeView: React.FC = () => {
       {/* Editorial Hero + Circular Reading Progress Ring Card */}
       {activeRotation ? (
         <section aria-labelledby="active-shelf-heading" className="space-y-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-2 border-b border-edge-subtle">
-            <div className="min-w-0 flex-1 space-y-1.5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-edge-subtle">
+            <div className="min-w-0 flex-1 space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
                 {householdLabel ? `${householdLabel} · ` : ''}
                 {t('home.booksInRotation')}
               </p>
               <h1
                 id="active-shelf-heading"
-                className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-[1.08] tracking-tight"
+                className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-[1.06] tracking-tight"
               >
                 {activeRotation.title}
               </h1>
               {activeRotation.rules?.objective && (
-                <p className="text-sm text-ink-secondary leading-relaxed line-clamp-2 max-w-2xl">
+                <p className="text-sm text-ink-secondary leading-snug line-clamp-2 max-w-2xl">
                   {activeRotation.rules.objective}
                 </p>
               )}
               {activeSchedule && (
                 <p
                   data-rotation-schedule="active"
-                  className={`flex items-center gap-1.5 text-xs sm:text-[13px] pt-0.5 ${
+                  className={`flex items-center gap-1.5 text-xs sm:text-[13px] leading-tight ${
                     activeSchedule.isDue
                       ? 'font-semibold text-accent'
                       : activeSchedule.isDueSoon
@@ -416,7 +416,7 @@ export const HomeView: React.FC = () => {
             </div>
 
             {/* Elevated Circular Progress Ring Widget */}
-            <div className="rounded-xl bg-surface border border-edge px-4 py-3.5 shadow-2xs flex items-center justify-between sm:justify-start gap-4 shrink-0">
+            <div className="rounded-xl bg-surface border border-edge px-4 py-3 lr-card flex items-center justify-between sm:justify-start gap-4 shrink-0">
               <div className="flex items-center gap-3.5">
                 <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
                   <svg className="w-14 h-14 -rotate-90" viewBox="0 0 60 60" aria-hidden="true">
@@ -558,10 +558,10 @@ export const HomeView: React.FC = () => {
                     <article
                       key={book.id}
                       data-book-card={book.id}
-                      className={`group flex items-center justify-between gap-3 rounded-xl border p-2.5 sm:p-3 transition-all ${
+                      className={`group flex items-center justify-between gap-3 rounded-xl border p-2 sm:p-2.5 lr-card transition-all ${
                         isRead || isPicked
-                          ? 'bg-surface border-primary/45 shadow-2xs'
-                          : 'bg-surface border-edge shadow-2xs hover:border-secondary'
+                          ? 'bg-surface border-primary/45'
+                          : 'bg-surface border-edge hover:border-secondary'
                       }`}
                     >
                       <button
@@ -585,16 +585,16 @@ export const HomeView: React.FC = () => {
                         </div>
                         <div className="min-w-0 flex-1">
                           <h2
-                            className={`font-display text-sm sm:text-base font-semibold text-ink leading-snug truncate ${
+                            className={`font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate ${
                               isRead ? 'opacity-75' : ''
                             }`}
                           >
                             {book.title}
                           </h2>
-                          <p className="text-xs text-ink-secondary truncate mt-0.5">
+                          <p className="text-xs text-ink-secondary truncate leading-tight mt-0.5">
                             {primaryAuthor}
                           </p>
-                          <p className="text-[11px] text-ink-muted truncate mt-1">
+                          <p className="text-[11px] text-ink-muted truncate leading-tight mt-0.5">
                             {isRead
                               ? 'Read in this rotation'
                               : isPicked
@@ -630,7 +630,7 @@ export const HomeView: React.FC = () => {
                 })}
 
                 {/* Compact List Anchor Bar: Manage Your Rotation */}
-                <div className="rounded-xl bg-surface-elevated border border-edge p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="rounded-xl bg-surface-elevated border border-edge p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card">
                   <div className="flex items-center gap-3 min-w-0">
                     <span className="w-9 h-9 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shrink-0">
                       <Icon name="rotations" className="w-4 h-4" />
@@ -684,11 +684,11 @@ export const HomeView: React.FC = () => {
                     key={book.id}
                     data-book-card={book.id}
                     className={`group flex flex-col justify-between min-w-0 rounded-xl border ${
-                      cardSize === 'compact' ? 'p-2' : cardSize === 'large' ? 'p-3 sm:p-3.5' : 'p-2.5 sm:p-3'
-                    } transition-all ${
+                      cardSize === 'compact' ? 'p-1.5 sm:p-2' : cardSize === 'large' ? 'p-3 sm:p-3.5' : 'p-2.5 sm:p-3'
+                    } lr-card transition-all ${
                       isRead || isPicked
-                        ? 'bg-surface border-primary/45 shadow-2xs'
-                        : 'bg-surface border-edge shadow-2xs hover:border-secondary'
+                        ? 'bg-surface border-primary/45'
+                        : 'bg-surface border-edge hover:border-secondary'
                     }`}
                   >
                     <div>
@@ -749,22 +749,22 @@ export const HomeView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setInspectedBookId(book.id)}
-                        className="mt-2.5 w-full text-left min-w-0 rounded cursor-pointer"
+                        className="mt-1.5 w-full text-left min-w-0 rounded cursor-pointer"
                       >
                         <h2
-                          className={`font-display ${
+                          className={`font-sans ${
                             cardSize === 'compact'
-                              ? 'text-xs sm:text-sm'
+                              ? 'text-xs sm:text-[13px]'
                               : cardSize === 'large'
-                                ? 'text-base sm:text-lg'
-                                : 'text-[15px] sm:text-base'
-                          } font-semibold text-ink leading-snug line-clamp-2 ${
+                                ? 'text-sm sm:text-base'
+                                : 'text-[13px] sm:text-sm'
+                          } font-semibold text-ink leading-tight line-clamp-2 ${
                             isRead ? 'opacity-75' : ''
                           }`}
                         >
                           {book.title}
                         </h2>
-                        <p className="text-[11px] sm:text-xs text-ink-secondary truncate mt-0.5">
+                        <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
                           {primaryAuthor}
                         </p>
                       </button>
@@ -774,7 +774,7 @@ export const HomeView: React.FC = () => {
               })}
 
               {/* Dedicated Editorial Anchor Card: Manage Your Rotation */}
-              <div className="rounded-xl bg-surface-elevated border border-edge p-4 sm:p-5 flex flex-col items-center justify-between text-center min-h-[210px] shadow-2xs">
+              <div className="rounded-xl bg-surface-elevated border border-edge p-4 sm:p-5 flex flex-col items-center justify-between text-center min-h-[210px] lr-card">
                 <div className="space-y-2.5 my-auto">
                   <span className="w-10 h-10 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shadow-2xs">
                     <Icon name="rotations" className="w-5 h-5" />
@@ -810,7 +810,7 @@ export const HomeView: React.FC = () => {
             </div>
             )
           ) : (
-            <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 shadow-2xs">
+            <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 lr-card">
               <BotanicalIllustration variant="empty-shelf" className="w-40 h-auto mx-auto" />
               <h2 className="font-display text-xl font-semibold text-ink">
                 This shelf doesn’t have any books placed yet
@@ -838,7 +838,7 @@ export const HomeView: React.FC = () => {
           )}
         </section>
       ) : (
-        <section className="rounded-xl bg-surface border border-edge p-6 sm:p-10 text-center space-y-3 shadow-2xs">
+        <section className="rounded-xl bg-surface border border-edge p-6 sm:p-10 text-center space-y-3 lr-card">
           <BotanicalIllustration variant="empty-shelf" className="w-44 h-auto mx-auto" />
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
             {householdLabel ? `${householdLabel} · ` : ''}
@@ -885,14 +885,14 @@ export const HomeView: React.FC = () => {
       {recommendations.length > 0 && (
         <section
           aria-labelledby="up-next-heading"
-          className="rounded-xl bg-surface border border-edge p-4 sm:p-5 space-y-4 shadow-2xs"
+          className="rounded-xl bg-surface border border-edge p-3.5 sm:p-4 space-y-2.5 lr-card"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Icon name="starFilled" className="w-4 h-4 text-accent shrink-0" />
               <h2
                 id="up-next-heading"
-                className="font-display text-xl font-semibold text-ink"
+                className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight"
               >
                 Suggested next for {activeProfile?.name || 'Reader'}
               </h2>
@@ -947,15 +947,15 @@ export const HomeView: React.FC = () => {
           <div
             className={
               viewMode === 'list'
-                ? 'space-y-2'
-                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3'
+                ? 'space-y-1.5'
+                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2'
             }
           >
             {recommendations.map(({ book, matchReasons }) => (
               <div
                 key={book.id}
                 data-book-card={`rec-${book.id}`}
-                className="rounded-lg bg-surface-subtle border border-edge-subtle p-2.5 flex items-center justify-between gap-2.5"
+                className="rounded-lg bg-surface-subtle border border-edge-subtle p-2 flex items-center justify-between gap-2 lr-card"
               >
                 <button
                   type="button"
@@ -963,14 +963,14 @@ export const HomeView: React.FC = () => {
                   className="flex items-center gap-2.5 min-w-0 text-left flex-1 cursor-pointer"
                 >
                   <BookCover book={book} size="xs" aspectRatio={coverAspectRatio} />
-                  <span className="min-w-0">
-                    <span className="block font-display text-sm font-semibold text-ink truncate">
+                  <span className="min-w-0 space-y-0.5">
+                    <span className="block font-sans text-[13px] font-semibold text-ink truncate leading-tight">
                       {book.title}
                     </span>
-                    <span className="block text-[11px] text-ink-secondary truncate">
-                      {book.authors[0] || ''}
+                    <span className="block text-[11px] text-ink-secondary truncate leading-tight">
+                      {book.authors[0] || 'Unknown Author'}
                     </span>
-                    <span className="block text-[10px] text-primary truncate mt-0.5 font-medium">
+                    <span className="inline-block text-[10px] text-primary truncate leading-tight font-semibold">
                       {matchReasons[0] || 'Fresh pick'}
                     </span>
                   </span>
@@ -984,7 +984,7 @@ export const HomeView: React.FC = () => {
                     }}
                     aria-label={`Add ${book.title} to active shelf`}
                     title="Add to active shelf"
-                    className="min-h-[38px] min-w-[38px] rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    className="min-h-[36px] min-w-[36px] rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink flex items-center justify-center shrink-0 transition-colors cursor-pointer"
                   >
                     <Icon name="plus" className="w-4 h-4" />
                   </button>
@@ -996,11 +996,11 @@ export const HomeView: React.FC = () => {
       )}
 
       {/* Lower Two-Column Row: Saved Rotations Switcher & Household Collection Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
         {profileRotations.length > 0 && (
           <section
             aria-labelledby="saved-rotations-heading"
-            className="lg:col-span-7 rounded-xl bg-surface border border-edge p-4 sm:p-5 space-y-3 shadow-2xs"
+            className="lg:col-span-7 rounded-xl bg-surface border border-edge p-3.5 sm:p-4 space-y-2.5 lr-card"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">
@@ -1048,13 +1048,13 @@ export const HomeView: React.FC = () => {
                 return (
                   <div
                     key={rot.id}
-                    className="py-2.5 first:pt-1 last:pb-0 flex items-center justify-between gap-3"
+                    className="py-2 first:pt-0.5 last:pb-0 flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0">
-                      <p className="font-display text-base font-semibold text-ink truncate">
+                      <p className="font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate">
                         {rot.title}
                       </p>
-                      <p className="text-[11px] text-ink-secondary truncate">
+                      <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
                         <span>
                           {rot.bookIds.length} {rot.bookIds.length === 1 ? 'book' : 'books'}
                         </span>
@@ -1089,7 +1089,7 @@ export const HomeView: React.FC = () => {
           aria-label="Active collection summary"
           className={`${
             profileRotations.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'
-          } rounded-xl bg-surface border border-edge p-4 sm:p-5 flex flex-col justify-between gap-4 shadow-2xs`}
+          } rounded-xl bg-surface border border-edge p-3.5 sm:p-4 flex flex-col justify-between gap-3.5 lr-card`}
         >
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">

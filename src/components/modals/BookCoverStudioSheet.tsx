@@ -258,34 +258,38 @@ export const BookCoverStudioSheet: React.FC<BookCoverStudioSheetProps> = ({
 
             {loading ? (
               <div className="pt-1">
-                <CoverGridSkeleton count={4} />
+                <CoverGridSkeleton count={6} />
+              </div>
+            ) : results.length > 0 ? (
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2.5 pt-1">
+                {results.map((res, i) => (
+                  <button
+                    key={`${res.coverUrl}-${i}`}
+                    type="button"
+                    onClick={async () => {
+                      await onSelectCover(res.coverUrl);
+                      onClose();
+                    }}
+                    className="group flex flex-col items-center text-left rounded-xl p-1.5 bg-surface-subtle hover:bg-surface-elevated border border-edge transition-transform active:scale-95 cursor-pointer"
+                  >
+                    <div className="w-full aspect-[3/4] rounded-lg overflow-hidden bg-surface-elevated shadow-sm">
+                      <img
+                        src={res.coverUrl}
+                        alt={res.title}
+                        referrerPolicy="no-referrer"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <span className="mt-1.5 text-[10px] font-medium text-ink-secondary truncate w-full text-center">
+                      {res.source}
+                    </span>
+                  </button>
+                ))}
               </div>
             ) : (
-              results.length > 0 && (
-                <div className="grid grid-cols-4 gap-2 pt-0.5">
-                  {results.map((res, i) => (
-                    <button
-                      key={`${res.coverUrl}-${i}`}
-                      type="button"
-                      onClick={async () => {
-                        await onSelectCover(res.coverUrl);
-                        onClose();
-                      }}
-                      className="group flex flex-col items-center text-left rounded-xl p-1.5 bg-surface-subtle hover:bg-surface-elevated border border-edge transition-transform active:scale-95 cursor-pointer"
-                    >
-                      <div className="w-full aspect-[3/4] rounded-lg overflow-hidden bg-surface-elevated shadow-sm">
-                        <img
-                          src={res.coverUrl}
-                          alt={res.title}
-                          referrerPolicy="no-referrer"
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <span className="mt-1 text-[10px] text-ink-secondary truncate w-full text-center">
-                        {res.source}
-                      </span>
-                    </button>
-                  ))}
+              !error && (
+                <div className="rounded-xl bg-surface-subtle/75 border border-edge-subtle px-3.5 py-3 text-xs text-ink-secondary leading-relaxed">
+                  Tap <strong className="text-ink">Search</strong> above to fetch cover options from Google Books and Open Library, or upload a photo of your copy.
                 </div>
               )
             )}
@@ -318,8 +322,8 @@ export const BookCoverStudioSheet: React.FC<BookCoverStudioSheetProps> = ({
             </div>
           </form>
 
-          {book.coverUrl && (
-            <div className="pt-1 flex justify-between items-center">
+          <div className="pt-2 border-t border-edge-subtle flex items-center justify-between gap-2">
+            {book.coverUrl ? (
               <button
                 type="button"
                 data-action="clear-book-cover"
@@ -331,15 +335,17 @@ export const BookCoverStudioSheet: React.FC<BookCoverStudioSheetProps> = ({
               >
                 Reset to Cloth Cover
               </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="min-h-[38px] px-4 py-1.5 rounded-xl bg-surface-subtle border border-edge text-xs font-semibold text-ink cursor-pointer"
-              >
-                Done
-              </button>
-            </div>
-          )}
+            ) : (
+              <span />
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="min-h-[38px] px-4 py-1.5 rounded-xl bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink ml-auto cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>

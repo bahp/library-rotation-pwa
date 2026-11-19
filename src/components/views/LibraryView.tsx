@@ -859,7 +859,7 @@ export const LibraryView: React.FC = () => {
                     <article
                       key={book.id}
                       data-book-card={book.id}
-                      className="group min-w-0 rounded-xl bg-surface border border-edge hover:border-primary/45 p-2.5 sm:p-3 shadow-2xs transition-all"
+                      className="group min-w-0 rounded-xl bg-surface border border-edge hover:border-primary/45 p-2 sm:p-2.5 lr-card transition-all"
                     >
                       <button
                         type="button"
@@ -880,7 +880,7 @@ export const LibraryView: React.FC = () => {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 min-w-0">
-                            <h2 className="font-display text-base font-semibold text-ink truncate group-hover:text-primary transition-colors">
+                            <h2 className="font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate group-hover:text-primary transition-colors">
                               {book.title}
                             </h2>
                             {statusLabel && (
@@ -889,10 +889,10 @@ export const LibraryView: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-ink-secondary truncate mt-0.5">
+                          <p className="text-xs text-ink-secondary truncate leading-tight mt-0.5">
                             {primaryAuthor}
                           </p>
-                          <p className="text-[11px] text-ink-muted truncate mt-1">
+                          <p className="text-[11px] text-ink-muted truncate leading-tight mt-0.5">
                             <span>Ages {book.ageMin}–{book.ageMax}</span>
                             <span aria-hidden="true" className="mx-1">·</span>
                             <span>{formatBookBinding(book.format)}</span>
@@ -1013,8 +1013,8 @@ export const LibraryView: React.FC = () => {
                     key={book.id}
                     data-book-card={book.id}
                     className={`group flex flex-col min-w-0 rounded-xl bg-surface border border-edge ${
-                      cardSize === 'compact' ? 'p-2' : cardSize === 'large' ? 'p-3' : 'p-2.5'
-                    } shadow-2xs hover:border-secondary transition-all`}
+                      cardSize === 'compact' ? 'p-1.5 sm:p-2' : cardSize === 'large' ? 'p-3' : 'p-2.5'
+                    } lr-card hover:border-secondary transition-all`}
                   >
                     <div className="relative">
                       <button
@@ -1091,33 +1091,33 @@ export const LibraryView: React.FC = () => {
                       data-action="inspect-book"
                       data-book-id={book.id}
                       onClick={() => setInspectedBookId(book.id)}
-                      className="mt-2.5 px-0.5 pb-0.5 text-left min-w-0 rounded flex-1 flex flex-col justify-between cursor-pointer"
+                      className="mt-1.5 px-0.5 pb-0.5 text-left min-w-0 rounded flex-1 flex flex-col justify-between cursor-pointer"
                     >
                       <div>
                         <h2
-                          className={`font-display ${
+                          className={`font-sans ${
                             cardSize === 'compact'
-                              ? 'text-[13px]'
+                              ? 'text-xs sm:text-[13px]'
                               : cardSize === 'large'
-                                ? 'text-base sm:text-lg'
-                                : 'text-[15px]'
-                          } font-semibold text-ink leading-snug line-clamp-2 group-hover:text-primary transition-colors`}
+                                ? 'text-sm sm:text-base'
+                                : 'text-[13px] sm:text-sm'
+                          } font-semibold text-ink leading-tight line-clamp-2 group-hover:text-primary transition-colors`}
                         >
                           {book.title}
                         </h2>
-                        <p className="text-[11px] text-ink-secondary truncate mt-0.5">
+                        <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
                           {primaryAuthor}
                         </p>
                       </div>
-                      <div className="mt-1.5 pt-1.5 border-t border-edge-subtle space-y-0.5">
-                        <p className="text-[10px] text-ink-secondary truncate">
+                      <div className="mt-1 pt-1 border-t border-edge-subtle space-y-0.5">
+                        <p className="text-[10px] text-ink-secondary truncate leading-tight">
                           Ages {book.ageMin}–{book.ageMax} · {formatBookBinding(book.format)}
                         </p>
                         {showRotationHistory && isBookRotatable(book) && usage && (
                           <p
                             data-library-usage-line="true"
                             title={usage.shortRecencyLabel}
-                            className={`text-[10px] truncate ${
+                            className={`text-[10px] truncate leading-tight ${
                               usage.inCooldown
                                 ? 'text-accent font-medium'
                                 : usage.isCurrentlyOnActiveShelf
@@ -1136,7 +1136,7 @@ export const LibraryView: React.FC = () => {
             </div>
             )
           ) : (
-            <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3">
+            <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 lr-card">
               <BotanicalIllustration variant="empty-library" className="w-40 h-auto mx-auto" />
               <h2 className="font-display text-xl font-semibold text-ink">
                 {state.books.length === 0 ? 'Your household library is ready for its first books' : 'No books match these filters'}
