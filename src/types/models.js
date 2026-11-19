@@ -13,6 +13,7 @@
 
 /**
  * @typedef {(
+ *   | 'darker-teal'
  *   | 'sunlit-cream'
  *   | 'classic-teal'
  *   | 'antique-paper'
@@ -21,6 +22,7 @@
  *   | 'blush-pink'
  *   | 'classic-light'
  *   | 'forest-brass'
+ *   | 'hylle-editorial'
  *   | 'midnight-ink'
  *   | 'warm-library'
  *   | 'plum-noir'

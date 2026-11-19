@@ -14,7 +14,13 @@ import assert from 'node:assert/strict';
 
 import { normalizeIsbn, escapeHtml } from '../src/types/models.js';
 import { parseHashRoute } from '../src/core/router.js';
-import { createStorageAdapter, isValidAppState, migrateState } from '../src/core/storage.js';
+import {
+  createStorageAdapter,
+  getDetailedStorageBreakdown,
+  isValidAppState,
+  migrateState,
+  saveBookAudioBlob,
+} from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import { createDefaultAppSettings, NUMERIC_BOUNDS } from '../src/config/defaults.js';
 
@@ -215,5 +221,102 @@ describe('Core Foundation & Storage Suite', () => {
     assert.equal(defaults.searchWhileTyping, false);
     assert.equal(defaults.aiEnrichmentOptIn, false);
     assert.equal(NUMERIC_BOUNDS.rotationBooksMin, 1);
+  });
+
+  it('deduplicates repeated preset-upcoming and swap-due notifications across syncs and migrations', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const state = store.getState();
+    const duplicated = migrateState({
+      ...state,
+      notifications: [
+        {
+          id: 'notif_1',
+          kind: 'preset-upcoming',
+          title: 'Autumn Harvest soon',
+          message: 'Starts in 3 days',
+          presetId: 'autumn-harvest',
+          alertKey: 'preset::autumn-harvest::2026-10-01',
+          createdAt: '2026-09-28T09:00:00.000Z',
+        },
+        {
+          id: 'notif_2',
+          kind: 'preset-upcoming',
+          title: 'Autumn Harvest soon',
+          message: 'Starts in 3 days',
+          presetId: 'autumn-harvest',
+          alertKey: 'preset::autumn-harvest::2026-10-02',
+          createdAt: '2026-09-29T09:00:00.000Z',
+        },
+        {
+          id: 'notif_swap_1',
+          kind: 'swap-due',
+          title: 'Swap due',
+          message: 'Ready to rotate',
+          rotationId: 'rot_1',
+          profileId: 'profile_maya',
+          alertKey: 'swap::rot_1::2026-10-01',
+          createdAt: '2026-10-01T09:00:00.000Z',
+        },
+        {
+          id: 'notif_swap_2',
+          kind: 'swap-due',
+          title: 'Swap due',
+          message: 'Ready to rotate',
+          rotationId: 'rot_1',
+          profileId: 'profile_maya',
+          alertKey: 'swap::rot_1::2026-10-01',
+          createdAt: '2026-10-01T10:00:00.000Z',
+        },
+      ],
+    });
+
+    const migratedNotifs = duplicated.notifications || [];
+    const presetMatches = migratedNotifs.filter((n) => n.presetId === 'autumn-harvest');
+    const swapMatches = migratedNotifs.filter((n) => n.rotationId === 'rot_1');
+    assert.equal(presetMatches.length, 1);
+    assert.equal(swapMatches.length, 1);
+
+    // Concurrent syncNotifications calls serialize via queue without duplicating alerts
+    const refDate = new Date('2026-11-18T12:00:00.000Z');
+    await Promise.all([
+      store.syncNotifications(refDate),
+      store.syncNotifications(refDate),
+      store.syncNotifications(refDate),
+    ]);
+    const afterSync = store.getState().notifications || [];
+    const presetIds = afterSync
+      .filter((n) => n.kind === 'preset-upcoming')
+      .map((n) => `${n.presetId}::${n.profileId || ''}`);
+    assert.equal(new Set(presetIds).size, presetIds.length);
+  });
+
+  it('getDetailedStorageBreakdown separates cover photos, audio blobs, catalog metadata, and aux localStorage', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const firstBook = store.getState().books[0];
+    await store.updateBook(firstBook.id, {
+      coverUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB',
+    });
+    await saveBookAudioBlob('audio_test_1', new Blob(['hello-voice-note'], { type: 'audio/webm' }));
+
+    const breakdown = await getDetailedStorageBreakdown(store.getState());
+    assert.ok(breakdown.coverPhotoCount >= 1);
+    assert.ok(breakdown.coverPhotoBytes > 0);
+    assert.ok(breakdown.audioClipCount >= 1);
+    assert.ok(breakdown.audioBytes > 0);
+    assert.ok(breakdown.catalogMetadataBytes > 0);
+    assert.equal(
+      breakdown.totalAppBytes,
+      breakdown.coverPhotoBytes +
+        breakdown.audioBytes +
+        breakdown.customPresetArtBytes +
+        breakdown.catalogMetadataBytes +
+        breakdown.auxLocalStorageBytes
+    );
   });
 });

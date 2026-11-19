@@ -73,6 +73,11 @@ export interface AppContextType {
       targetBookId: string | null;
     }>
   >;
+
+  // Desktop sidebar collapse state
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
+  toggleSidebarCollapsed: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -95,6 +100,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return typeof localStorage !== 'undefined' && localStorage.getItem('lr_sidebar_collapsed') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('lr_sidebar_collapsed', next ? '1' : '0');
+        }
+      } catch {
+        // ignore storage errors
+      }
+      return next;
+    });
+  }, []);
 
   // AI modals
   const [aiTagModal, setAiTagModal] = useState<{ isOpen: boolean; bookId: string | null }>({
@@ -282,6 +308,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAiRecsModal,
     rotationEditor,
     setRotationEditor,
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    toggleSidebarCollapsed,
   };
 
   if (!isReady) {

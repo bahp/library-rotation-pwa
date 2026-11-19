@@ -1105,7 +1105,7 @@ export const ScanView: React.FC = () => {
                             <BookCover
                               book={pseudoBook as any}
                               size="sm"
-                              aspectRatio={state.settings?.coverAspectRatio || 'portrait'}
+                              aspectRatio={state.settings?.coverAspectRatio || 'square'}
                             />
                             <div className="min-w-0">
                               <h3 className="font-display font-semibold text-base text-ink leading-snug">

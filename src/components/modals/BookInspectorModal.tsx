@@ -11,6 +11,8 @@ import {
   formatBookDimensionsLabel,
   type EditorialFieldKey,
 } from './EditorialFieldSheet.js';
+import { BookQuotesSheet } from './BookQuotesSheet.js';
+import { BookVoiceNoteSheet, VoiceWaveformPlayer } from './BookVoiceNoteSheet.js';
 import { getBookAudioBlob } from '../../core/storage.js';
 import { compressImageFileToDataUrl } from '../../features/catalog/cover-image-utils.js';
 import { resolveBookCardTintHex } from '../../features/catalog/cover-color-extractor.js';
@@ -82,7 +84,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const { state, store, catalogService, activeProfile, setAiTagModal, navigate } = useApp();
 
   const book = state.books.find((b) => b.id === bookId);
-  const detailStyle = state.settings?.bookDetailStyle || 'compact';
+  const detailStyle = state.settings?.bookDetailStyle || 'editorial';
 
   const [isEditing, setIsEditing] = useState(false);
   const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
@@ -97,6 +99,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const [newOwnerInput, setNewOwnerInput] = useState('');
   const [editError, setEditError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [quickRulesFeedback, setQuickRulesFeedback] = useState('');
 
   // Editorial layout interactive states
   const [editorialStatusMenuOpen, setEditorialStatusMenuOpen] = useState(false);
@@ -104,30 +107,15 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const [editorialEditionExpanded, setEditorialEditionExpanded] = useState(true);
   const [activeEditorialField, setActiveEditorialField] = useState<EditorialFieldKey | null>(null);
 
-  // Quotes & Notes composer / inline editor states
-  const [isAddingNote, setIsAddingNote] = useState(false);
-  const [newNoteText, setNewNoteText] = useState('');
-  const [noteAuthorId, setNoteAuthorId] = useState('');
-  const [noteForProfileId, setNoteForProfileId] = useState('');
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteText, setEditingNoteText] = useState('');
-  const [noteError, setNoteError] = useState('');
+  // Quotes & Notes slide-up sheet state
+  const [quoteSheetState, setQuoteSheetState] = useState<{
+    isOpen: boolean;
+    note: BookNote | null;
+  }>({ isOpen: false, note: null });
 
-  // Audio recording & playback states
-  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
-  const [recordingElapsedSec, setRecordingElapsedSec] = useState(0);
-  const [audioTitleDraft, setAudioTitleDraft] = useState('');
-  const [audioAuthorId, setAudioAuthorId] = useState('');
-  const [audioForProfileId, setAudioForProfileId] = useState('');
-  const [audioError, setAudioError] = useState('');
-  const [audioSaving, setAudioSaving] = useState(false);
+  // Voice Note slide-up sheet & blob playback URLs
+  const [isVoiceNoteSheetOpen, setIsVoiceNoteSheetOpen] = useState(false);
   const [audioObjectUrls, setAudioObjectUrls] = useState<Record<string, string>>({});
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-  const recordTimerRef = useRef<number | null>(null);
-  const recordStartedAtRef = useRef<number>(0);
   const audioUrlsRef = useRef<Record<string, string>>({});
 
   // Form edit state
@@ -146,32 +134,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     book?.coverUrl && book.coverUrl.startsWith('https://') ? book.coverUrl : ''
   );
 
-  const stopActiveRecorderResources = () => {
-    if (recordTimerRef.current !== null) {
-      window.clearInterval(recordTimerRef.current);
-      recordTimerRef.current = null;
-    }
-    const rec = mediaRecorderRef.current;
-    if (rec && rec.state !== 'inactive') {
-      try {
-        rec.onstop = null;
-        rec.stop();
-      } catch {
-        // ignore cleanup stop errors
-      }
-    }
-    mediaRecorderRef.current = null;
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((tr) => tr.stop());
-      mediaStreamRef.current = null;
-    }
-    setIsRecordingAudio(false);
-    setRecordingElapsedSec(0);
-  };
-
   // Sync draft state whenever inspected book changes
   useEffect(() => {
-    stopActiveRecorderResources();
     setIsEditing(false);
     setIsCoverPickerOpen(false);
     setCoverSearchError('');
@@ -180,21 +144,13 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     setConfirmDelete(false);
     setNewTagInput('');
     setNewOwnerInput('');
+    setQuickRulesFeedback('');
     setEditorialStatusMenuOpen(false);
     setEditorialReadMenuOpen(false);
     setEditorialEditionExpanded(true);
     setActiveEditorialField(null);
-    setIsAddingNote(false);
-    setNewNoteText('');
-    setEditingNoteId(null);
-    setEditingNoteText('');
-    setNoteError('');
-    setAudioError('');
-    setAudioTitleDraft('');
-    setNoteAuthorId(activeProfile?.id || state.profiles[0]?.id || '');
-    setNoteForProfileId('');
-    setAudioAuthorId(activeProfile?.id || state.profiles[0]?.id || '');
-    setAudioForProfileId('');
+    setQuoteSheetState({ isOpen: false, note: null });
+    setIsVoiceNoteSheetOpen(false);
     if (book) {
       setCoverSearchQuery(`${book.title} ${book.authors[0] || ''}`.trim());
       setEditTitle(book.title);
@@ -263,10 +219,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     };
   }, [bookId, book?.recordings]);
 
-  // Stop active streams & revoke object URLs on unmount
+  // Revoke audio blob object URLs on unmount
   useEffect(() => {
     return () => {
-      stopActiveRecorderResources();
       for (const url of Object.values(audioUrlsRef.current)) {
         URL.revokeObjectURL(url);
       }
@@ -462,40 +417,26 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     }
   };
 
-  const handleAddFamilyNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setNoteError('');
-    if (!newNoteText.trim()) {
-      setNoteError('Write a quote or note before saving.');
-      return;
-    }
-    try {
+  const handleSaveQuoteSheet = async (payload: {
+    text: string;
+    authorProfileId?: string;
+    forProfileId?: string;
+  }) => {
+    const editing = quoteSheetState.note;
+    if (!editing) {
       await store.addBookNote(book.id, {
-        text: newNoteText.trim(),
-        authorProfileId: noteAuthorId || effectiveReader?.id || undefined,
-        forProfileId: noteForProfileId || undefined,
+        text: payload.text,
+        authorProfileId: payload.authorProfileId || effectiveReader?.id || undefined,
+        forProfileId: payload.forProfileId || undefined,
       });
-      setNewNoteText('');
-      setIsAddingNote(false);
-    } catch (err) {
-      setNoteError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const handleSaveEditedNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingNoteId) return;
-    setNoteError('');
-    try {
-      if (editingNoteId === `legacy_${book.id}`) {
-        await store.updateBook(book.id, { notes: editingNoteText.trim() });
-      } else {
-        await store.updateBookNote(book.id, editingNoteId, { text: editingNoteText.trim() });
-      }
-      setEditingNoteId(null);
-      setEditingNoteText('');
-    } catch (err) {
-      setNoteError(err instanceof Error ? err.message : String(err));
+    } else if (editing.id === `legacy_${book.id}`) {
+      await store.updateBook(book.id, { notes: payload.text });
+    } else {
+      await store.updateBookNote(book.id, editing.id, {
+        text: payload.text,
+        authorProfileId: payload.authorProfileId || undefined,
+        forProfileId: payload.forProfileId || undefined,
+      });
     }
   };
 
@@ -507,97 +448,22 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     }
   };
 
-  const handleStartAudioRecording = async () => {
-    setAudioError('');
-    if (
-      typeof navigator === 'undefined' ||
-      !navigator.mediaDevices?.getUserMedia ||
-      typeof MediaRecorder === 'undefined'
-    ) {
-      setAudioError('Audio recording is not supported in this browser.');
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-      audioChunksRef.current = [];
-      const recorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = recorder;
-      recordStartedAtRef.current = Date.now();
-      setRecordingElapsedSec(0);
-      setIsRecordingAudio(true);
-
-      recordTimerRef.current = window.setInterval(() => {
-        setRecordingElapsedSec(
-          Math.max(0, Math.floor((Date.now() - recordStartedAtRef.current) / 1000))
-        );
-      }, 250);
-
-      recorder.ondataavailable = (ev) => {
-        if (ev.data && ev.data.size > 0) {
-          audioChunksRef.current.push(ev.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        if (recordTimerRef.current !== null) {
-          window.clearInterval(recordTimerRef.current);
-          recordTimerRef.current = null;
-        }
-        const elapsedSec = Math.max(
-          0.5,
-          (Date.now() - recordStartedAtRef.current) / 1000
-        );
-        const mimeType = recorder.mimeType || 'audio/webm';
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        audioChunksRef.current = [];
-        if (mediaStreamRef.current) {
-          mediaStreamRef.current.getTracks().forEach((tr) => tr.stop());
-          mediaStreamRef.current = null;
-        }
-        mediaRecorderRef.current = null;
-        setIsRecordingAudio(false);
-        setRecordingElapsedSec(0);
-
-        if (blob.size > 0) {
-          setAudioSaving(true);
-          try {
-            await store.addBookRecording(book.id, {
-              title: audioTitleDraft.trim() || undefined,
-              durationSec: elapsedSec,
-              mimeType: blob.type || mimeType,
-              blob,
-              authorProfileId: audioAuthorId || effectiveReader?.id || undefined,
-              forProfileId: audioForProfileId || undefined,
-            });
-            setAudioTitleDraft('');
-          } catch (err) {
-            setAudioError(err instanceof Error ? err.message : String(err));
-          } finally {
-            setAudioSaving(false);
-          }
-        }
-      };
-
-      recorder.start();
-    } catch (err) {
-      stopActiveRecorderResources();
-      setAudioError(
-        err instanceof Error
-          ? `Microphone unavailable: ${err.message}`
-          : 'Microphone permission denied or unavailable.'
-      );
-    }
-  };
-
-  const handleStopAudioRecording = () => {
-    const rec = mediaRecorderRef.current;
-    if (rec && rec.state !== 'inactive') {
-      rec.stop();
-    } else {
-      stopActiveRecorderResources();
-    }
+  const handleSaveVoiceNote = async (payload: {
+    title?: string;
+    durationSec: number;
+    mimeType: string;
+    blob: Blob;
+    authorProfileId?: string;
+    forProfileId?: string;
+  }) => {
+    await store.addBookRecording(book.id, {
+      title: payload.title,
+      durationSec: payload.durationSec,
+      mimeType: payload.mimeType,
+      blob: payload.blob,
+      authorProfileId: payload.authorProfileId || effectiveReader?.id || undefined,
+      forProfileId: payload.forProfileId || undefined,
+    });
   };
 
   const handleVerifyScanMatch = async () => {
@@ -740,13 +606,6 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     }
   })();
 
-  const primaryGenreLabel =
-    book.tags.length > 0
-      ? book.tags[0]
-          .split('-')
-          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ')
-      : '';
   const dimensionsLabel = formatBookDimensionsLabel(book.dimensions);
   const displayedNotes: BookNote[] =
     Array.isArray(book.bookNotes) && book.bookNotes.length > 0
@@ -1154,6 +1013,293 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     </form>
   );
 
+  // Shared Quotes & Notes section (used consistently with slide-up BookQuotesSheet)
+  const quotesAndNotesSection = (
+    <section
+      aria-label="Quotes and notes"
+      className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+          <Icon name="quote" className="w-3.5 h-3.5 text-primary" />
+          <span>Quotes &amp; Notes ({displayedNotes.length})</span>
+        </span>
+        <button
+          type="button"
+          data-action="open-add-quote-note"
+          onClick={() => setQuoteSheetState({ isOpen: true, note: null })}
+          className="min-h-[32px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary cursor-pointer"
+        >
+          + Add Quote / Note
+        </button>
+      </div>
+
+      {displayedNotes.length > 0 ? (
+        <div className="space-y-2">
+          {displayedNotes.map((entry) => {
+            const authorProf = state.profiles.find((p) => p.id === entry.authorProfileId);
+            const forProf = state.profiles.find((p) => p.id === entry.forProfileId);
+            const authorName = authorProf?.name || 'Household';
+            const authorTone = AVATAR_TONES[authorProf?.avatarTone || 'teal'] || AVATAR_TONES.teal;
+            const authorInitial = authorProf ? computeOwnerInitials(authorProf.name) : 'H';
+            const formattedDate = entry.createdAt ? formatShortShelfDate(entry.createdAt) : '';
+
+            return (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => setQuoteSheetState({ isOpen: true, note: entry })}
+                aria-label={`Edit note by ${authorName}`}
+                className="w-full text-left rounded-xl bg-surface hover:bg-surface-elevated/70 border border-edge hover:border-primary/45 p-3 space-y-2 transition-colors cursor-pointer"
+              >
+                <p className="font-serif-italic italic text-sm text-ink leading-relaxed">
+                  “{entry.text}”
+                </p>
+                <div className="flex items-center justify-between gap-2 text-[11px] text-ink-muted">
+                  <span className="inline-flex items-center gap-1.5 min-w-0 flex-wrap">
+                    <span
+                      className={`w-5 h-5 rounded-full text-[9px] font-bold inline-flex items-center justify-center shrink-0 ${
+                        authorProf
+                          ? authorTone
+                          : 'bg-surface-subtle border border-edge text-ink-secondary'
+                      }`}
+                    >
+                      {authorInitial}
+                    </span>
+                    <span className="font-semibold text-ink-secondary truncate">
+                      By {authorName}
+                    </span>
+                    {forProf && <span>· For {forProf.name}</span>}
+                    {formattedDate && <span>· {formattedDate}</span>}
+                  </span>
+                  <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setQuoteSheetState({ isOpen: true, note: null })}
+          className="w-full text-left font-serif-italic italic text-sm text-ink-muted hover:text-ink transition-colors cursor-pointer"
+        >
+          Tap to save a favorite quote or bedtime memory…
+        </button>
+      )}
+    </section>
+  );
+
+  // Shared Voice Notes & Read-Alouds section (slide-up recorder studio + waveform player)
+  const voiceNotesSection = (
+    <section
+      aria-label="Audio clips and read-aloud recordings"
+      className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+          <Icon name="volume2" className="w-3.5 h-3.5 text-primary" />
+          <span>Voice Notes &amp; Read-Alouds ({recordingsList.length})</span>
+        </span>
+
+        <button
+          type="button"
+          data-action="open-voice-note-sheet"
+          onClick={() => setIsVoiceNoteSheetOpen(true)}
+          className="min-h-[32px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
+        >
+          <Icon name="mic" className="w-3.5 h-3.5" />
+          <span>Record Voice Note</span>
+        </button>
+      </div>
+
+      {recordingsList.length > 0 ? (
+        <div className="space-y-2">
+          {recordingsList.map((rec) => {
+            const recAuthor = state.profiles.find((p) => p.id === rec.authorProfileId) || null;
+            const recFor = state.profiles.find((p) => p.id === rec.forProfileId) || null;
+            return (
+              <VoiceWaveformPlayer
+                key={rec.id}
+                recording={rec}
+                srcUrl={audioObjectUrls[rec.id]}
+                authorProfile={recAuthor}
+                forProfile={recFor}
+                onDelete={async (recId) => {
+                  await store.deleteBookRecording(book.id, recId);
+                }}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsVoiceNoteSheetOpen(true)}
+          className="w-full text-left font-serif-italic italic text-sm text-ink-muted hover:text-ink transition-colors cursor-pointer"
+        >
+          Tap to record a bedtime read-aloud or child voice reaction…
+        </button>
+      )}
+    </section>
+  );
+
+  // Unified Genres, Topics & Tagging Section
+  const genresAndTopicsSection = (
+    <section
+      aria-label="Genres and topics"
+      className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs text-ink-secondary"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <strong className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+          Genres &amp; Topics
+        </strong>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            data-editorial-field="genre"
+            onClick={() => setActiveEditorialField('genre')}
+            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            <Icon name="tag" className="w-3.5 h-3.5 text-primary" />
+            <span>Browse Genres</span>
+          </button>
+          <button
+            type="button"
+            data-action="open-ai-tag-modal"
+            onClick={() => setAiTagModal({ isOpen: true, bookId: book.id })}
+            title="Query LLM for interactive features, developmental themes & story tags"
+            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            <Icon name="sparkles" className="w-3.5 h-3.5" />
+            <span>AI Tag Assistant</span>
+          </button>
+          <button
+            type="button"
+            data-action="enrich-book-tags"
+            onClick={handleEnrichRules}
+            title="Auto-detect genres, age pacing, and themes from book details"
+            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+          >
+            <Icon name="compass" className="w-3.5 h-3.5 text-ink-secondary" />
+            <span>Quick Rules</span>
+          </button>
+        </div>
+      </div>
+
+      {quickRulesFeedback && (
+        <p className="text-[11px] font-medium text-primary bg-surface border border-primary/30 rounded-lg px-3 py-1.5">
+          {quickRulesFeedback}
+        </p>
+      )}
+
+      {book.tags.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {book.tags.map((tag) => {
+              const origin = resolveBookTagOrigin(book, tag);
+              const meta = TAG_ORIGIN_META[origin];
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  data-tag-origin={origin}
+                  onClick={() => handleRemoveTag(tag)}
+                  title={`${meta.badgeTitle} — tap to remove "${tag}"`}
+                  aria-label={`Remove topic ${tag} (${meta.label})`}
+                  className="min-h-[32px] px-2.5 py-1 rounded-md bg-surface hover:bg-[#8C4A4F]/10 border border-edge text-xs font-medium text-ink hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  <Icon name={meta.icon} className="w-3 h-3 opacity-60 shrink-0" />
+                  <span>{tag}</span>
+                  <span aria-hidden="true" className="opacity-55">×</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted pt-0.5"
+            aria-label="Topic origin legend"
+          >
+            {(['provider', 'ai', 'rules', 'manual'] as TagOrigin[]).map((originKey) => {
+              const meta = TAG_ORIGIN_META[originKey];
+              return (
+                <span
+                  key={originKey}
+                  className="inline-flex items-center gap-1 whitespace-nowrap"
+                  title={meta.badgeTitle}
+                >
+                  <Icon name={meta.icon} className="w-2.5 h-2.5 opacity-75" />
+                  <span>{meta.label}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="text-ink-muted">
+          No genres or topics yet. Tap Browse Genres, Quick Rules, or add one below.
+        </p>
+      )}
+
+      <form onSubmit={handleAddTag} className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <ClearableInput
+            id="inspector-new-tag-input"
+            value={newTagInput}
+            onValueChange={setNewTagInput}
+            placeholder="Add genre or topic (e.g., bedtime, dinosaurs)"
+            className="w-full h-10 pl-3 pr-8 rounded-lg bg-surface border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <button
+          type="submit"
+          className="h-10 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+        >
+          Add Tag
+        </button>
+      </form>
+    </section>
+  );
+
+  // Shared slide-up editor overlays mounted across both Editorial & Compact modes
+  const sharedOverlaySheets = (
+    <>
+      <EditorialFieldSheet
+        field={activeEditorialField}
+        book={book}
+        onClose={() => setActiveEditorialField(null)}
+        onPatchBook={async (patch) => {
+          await store.updateBook(book.id, patch);
+        }}
+        onAddTag={async (tag) => {
+          await store.addBookTag(book.id, tag);
+        }}
+        onRemoveTag={async (tag) => {
+          await store.removeBookTag(book.id, tag);
+        }}
+      />
+
+      <BookQuotesSheet
+        isOpen={quoteSheetState.isOpen}
+        editingNote={quoteSheetState.note}
+        profiles={state.profiles}
+        defaultAuthorId={effectiveReader?.id || state.profiles[0]?.id || ''}
+        onClose={() => setQuoteSheetState({ isOpen: false, note: null })}
+        onSave={handleSaveQuoteSheet}
+        onDelete={handleDeleteNoteItem}
+      />
+
+      <BookVoiceNoteSheet
+        isOpen={isVoiceNoteSheetOpen}
+        profiles={state.profiles}
+        defaultAuthorId={effectiveReader?.id || state.profiles[0]?.id || ''}
+        onClose={() => setIsVoiceNoteSheetOpen(false)}
+        onSaveRecording={handleSaveVoiceNote}
+      />
+    </>
+  );
+
   // =========================================================================
   // EDITORIAL BOOK DETAIL VIEW (Option B — Matching Midnight Library Reference)
   // =========================================================================
@@ -1296,7 +1442,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   <BookCover
                     book={book}
                     size="lg"
-                    aspectRatio={state.settings?.coverAspectRatio || 'portrait'}
+                    aspectRatio={state.settings?.coverAspectRatio || 'square'}
                   />
                   <span
                     className="absolute top-2 right-2 w-7 h-7 rounded-full bg-canvas/85 backdrop-blur-xs border border-edge/70 text-ink flex items-center justify-center shadow-sm"
@@ -1516,157 +1662,78 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               {coverStudioSection}
               {editBookSection}
 
-              {/* Bento Metadata Grid (Every tile opens 1-tap EditorialFieldSheet) */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    data-editorial-field="genre"
-                    onClick={() => setActiveEditorialField('genre')}
-                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3.5 text-center transition-colors cursor-pointer"
-                  >
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Genre
-                    </span>
-                    <Icon name="tag" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span
-                      className={`mt-1.5 block font-display text-base font-medium truncate ${
-                        primaryGenreLabel ? 'text-ink' : 'italic text-ink-muted'
-                      }`}
-                    >
-                      {primaryGenreLabel
-                        ? book.tags.length > 1
-                          ? `${primaryGenreLabel} +${book.tags.length - 1}`
-                          : primaryGenreLabel
-                        : 'Set genre'}
-                    </span>
-                  </button>
+              {/* Compact Single-Strip Metadata Bento (Format · Stage · Ages · Pages) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-edge-subtle rounded-2xl bg-surface-subtle/90 border border-edge/90 overflow-hidden">
+                <button
+                  type="button"
+                  data-editorial-field="format"
+                  onClick={() => setActiveEditorialField('format')}
+                  className="p-3 text-center hover:bg-surface-elevated/60 transition-colors cursor-pointer"
+                >
+                  <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    Format
+                  </span>
+                  <span className="mt-1 block font-display text-sm font-medium text-ink truncate">
+                    {formatBookBinding(book.format) || 'Set format'}
+                  </span>
+                </button>
 
-                  <button
-                    type="button"
-                    data-editorial-field="format"
-                    onClick={() => setActiveEditorialField('format')}
-                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3.5 text-center transition-colors cursor-pointer"
-                  >
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Format
-                    </span>
-                    <Icon name="bookmark" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span className="mt-1.5 block font-display text-base font-medium text-ink truncate">
-                      {formatBookBinding(book.format) || 'Set format'}
-                    </span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  data-editorial-field="readingStage"
+                  onClick={() => setActiveEditorialField('readingStage')}
+                  className="p-3 text-center hover:bg-surface-elevated/60 transition-colors cursor-pointer border-l border-edge-subtle sm:border-l-0"
+                >
+                  <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    Stage
+                  </span>
+                  <span className="mt-1 block font-display text-sm font-medium text-ink truncate">
+                    {formatReadingStage(book.readingStage)}
+                  </span>
+                </button>
 
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    type="button"
-                    data-editorial-field="publishedYear"
-                    onClick={() => setActiveEditorialField('publishedYear')}
-                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
-                  >
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Pub. Year
-                    </span>
-                    <Icon name="calendar" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span
-                      className={`mt-1.5 block font-display text-base font-medium ${
-                        book.publishedYear
-                          ? 'text-ink font-mono-tabular'
-                          : 'italic text-ink-muted text-sm'
-                      }`}
-                    >
-                      {book.publishedYear || 'Set year'}
-                    </span>
-                  </button>
+                <button
+                  type="button"
+                  data-editorial-field="ages"
+                  onClick={() => setActiveEditorialField('ages')}
+                  className="p-3 text-center hover:bg-surface-elevated/60 transition-colors cursor-pointer"
+                >
+                  <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    Ages
+                  </span>
+                  <span className="mt-1 block font-display text-sm font-medium text-ink font-mono-tabular">
+                    {book.ageMax >= 99 ? `${book.ageMin}+ yrs` : `${book.ageMin}–${book.ageMax} yrs`}
+                  </span>
+                </button>
 
-                  <button
-                    type="button"
-                    data-editorial-field="pageCount"
-                    onClick={() => setActiveEditorialField('pageCount')}
-                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
+                <button
+                  type="button"
+                  data-editorial-field="pageCount"
+                  onClick={() => setActiveEditorialField('pageCount')}
+                  className="p-3 text-center hover:bg-surface-elevated/60 transition-colors cursor-pointer border-l border-edge-subtle sm:border-l-0"
+                >
+                  <span className="block text-[9px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+                    Pages
+                  </span>
+                  <span
+                    className={`mt-1 block font-display text-sm font-medium ${
+                      book.pageCount
+                        ? 'text-ink font-mono-tabular'
+                        : 'italic text-ink-muted text-xs'
+                    }`}
                   >
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Pages
-                    </span>
-                    <Icon name="fileText" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span
-                      className={`mt-1.5 block font-display text-base font-medium ${
-                        book.pageCount
-                          ? 'text-ink font-mono-tabular'
-                          : 'italic text-ink-muted text-sm'
-                      }`}
-                    >
-                      {book.pageCount || 'Set pages'}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    data-editorial-field="estimatedValue"
-                    onClick={() => setActiveEditorialField('estimatedValue')}
-                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
-                  >
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Est. Value
-                    </span>
-                    <Icon name="award" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span
-                      className={`mt-1.5 block font-display font-medium truncate ${
-                        book.estimatedValue !== undefined
-                          ? 'text-base text-ink font-mono-tabular'
-                          : 'text-sm italic text-ink-muted'
-                      }`}
-                    >
-                      {book.estimatedValue !== undefined
-                        ? `${book.estimatedCurrency || 'USD'} ${Number(book.estimatedValue).toFixed(2)}`
-                        : book.listPriceAmount !== undefined
-                          ? `${book.listPriceCurrency || 'USD'} ${Number(book.listPriceAmount).toFixed(2)}`
-                          : 'Set value'}
-                    </span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    data-editorial-field="readingStage"
-                    onClick={() => setActiveEditorialField('readingStage')}
-                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
-                  >
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Stage
-                    </span>
-                    <Icon name="layers" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span className="mt-1.5 block font-display text-sm font-medium text-ink truncate">
-                      {formatReadingStage(book.readingStage)}
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    data-editorial-field="ages"
-                    onClick={() => setActiveEditorialField('ages')}
-                    className="rounded-2xl bg-surface-subtle/90 hover:bg-surface-elevated border border-edge/90 p-3 text-center transition-colors cursor-pointer"
-                  >
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                      Ages
-                    </span>
-                    <Icon name="profiles" className="w-4 h-4 mx-auto mt-1.5 text-ink-secondary" />
-                    <span className="mt-1.5 block font-display text-sm font-medium text-ink font-mono-tabular">
-                      {book.ageMax >= 99 ? `${book.ageMin}+ yrs` : `${book.ageMin}–${book.ageMax} yrs`}
-                    </span>
-                  </button>
-                </div>
+                    {book.pageCount ? `${book.pageCount} pp` : 'Set pages'}
+                  </span>
+                </button>
               </div>
 
-              {/* Collapsible EDITION Card (shows Publisher · ISBN summary when collapsed) */}
+              {/* Collapsible EDITION Card (Publisher, ISBN, Pub Year, Edition, Est. Value, Language, Condition, Dimensions) */}
               <section className="rounded-2xl bg-surface-subtle/90 border border-edge/90 overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setEditorialEditionExpanded((p) => !p)}
                   aria-expanded={editorialEditionExpanded}
-                  className="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-surface-elevated/40 transition-colors"
+                  className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left cursor-pointer hover:bg-surface-elevated/40 transition-colors"
                 >
                   <span className="inline-flex items-center gap-2.5 shrink-0">
                     <Icon name="fileText" className="w-4 h-4 text-ink-secondary" />
@@ -1676,9 +1743,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   </span>
 
                   <span className="flex items-center gap-2 min-w-0">
-                    {!editorialEditionExpanded && (book.publisher || isbnVal) && (
+                    {!editorialEditionExpanded && (book.publisher || book.publishedYear || isbnVal) && (
                       <span className="text-[11px] text-ink-muted truncate font-mono-tabular">
-                        {[book.publisher, isbnVal].filter(Boolean).join(' · ')}
+                        {[book.publisher, book.publishedYear, isbnVal].filter(Boolean).join(' · ')}
                       </span>
                     )}
                     <Icon
@@ -1730,6 +1797,24 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
                     <button
                       type="button"
+                      data-editorial-field="publishedYear"
+                      onClick={() => setActiveEditorialField('publishedYear')}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="calendar" className="w-4 h-4" />
+                        <span>Pub. Year</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 font-medium truncate">
+                        <span className={book.publishedYear ? 'font-mono-tabular text-ink' : 'italic text-ink-muted'}>
+                          {book.publishedYear || 'Set year'}
+                        </span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
                       data-editorial-field="edition"
                       onClick={() => setActiveEditorialField('edition')}
                       className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
@@ -1759,6 +1844,34 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                       <span className="inline-flex items-center gap-1.5 font-medium">
                         <span className={book.language ? 'text-ink capitalize' : 'italic text-ink-muted'}>
                           {book.language || 'Add language'}
+                        </span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-editorial-field="estimatedValue"
+                      onClick={() => setActiveEditorialField('estimatedValue')}
+                      className="w-full py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer hover:text-ink"
+                    >
+                      <span className="inline-flex items-center gap-2.5 text-ink-secondary">
+                        <Icon name="award" className="w-4 h-4" />
+                        <span>Est. Value</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 font-medium truncate">
+                        <span
+                          className={
+                            book.estimatedValue !== undefined || book.listPriceAmount !== undefined
+                              ? 'font-mono-tabular text-ink'
+                              : 'italic text-ink-muted'
+                          }
+                        >
+                          {book.estimatedValue !== undefined
+                            ? `${book.estimatedCurrency || 'USD'} ${Number(book.estimatedValue).toFixed(2)}`
+                            : book.listPriceAmount !== undefined
+                              ? `${book.listPriceCurrency || 'USD'} ${Number(book.listPriceAmount).toFixed(2)}`
+                              : 'Set value'}
                         </span>
                         <Icon name="chevronRight" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
                       </span>
@@ -1955,387 +2068,11 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 );
               })()}
 
-              {/* Multi-Entry Family Quotes & Notes */}
-              <section aria-label="Quotes and notes" className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                    <Icon name="quote" className="w-3.5 h-3.5 text-primary" />
-                    <span>Quotes &amp; Notes ({displayedNotes.length})</span>
-                  </span>
-                  <button
-                    type="button"
-                    data-action="open-add-quote-note"
-                    onClick={() => {
-                      setIsAddingNote((prev) => !prev);
-                      setNoteError('');
-                    }}
-                    className="min-h-[30px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary cursor-pointer"
-                  >
-                    {isAddingNote ? 'Close' : '+ Add Quote / Note'}
-                  </button>
-                </div>
+              {quotesAndNotesSection}
 
-                {noteError && (
-                  <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
-                    {noteError}
-                  </p>
-                )}
+              {voiceNotesSection}
 
-                {isAddingNote && (
-                  <form onSubmit={handleAddFamilyNote} className="rounded-xl bg-surface border border-edge p-3 space-y-2.5">
-                    <textarea
-                      rows={3}
-                      value={newNoteText}
-                      onChange={(e) => setNewNoteText(e.target.value)}
-                      placeholder="Write a favorite quote, reading memory, or bedtime note…"
-                      className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                    {state.profiles.length > 0 && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="text-[11px] text-ink-secondary space-y-1">
-                          <span className="block font-semibold">By reader</span>
-                          <select
-                            value={noteAuthorId}
-                            onChange={(e) => setNoteAuthorId(e.target.value)}
-                            className="w-full h-9 px-2 rounded-lg bg-surface-subtle border border-edge text-xs text-ink"
-                          >
-                            <option value="">Household</option>
-                            {state.profiles.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="text-[11px] text-ink-secondary space-y-1">
-                          <span className="block font-semibold">About / for</span>
-                          <select
-                            value={noteForProfileId}
-                            onChange={(e) => setNoteForProfileId(e.target.value)}
-                            className="w-full h-9 px-2 rounded-lg bg-surface-subtle border border-edge text-xs text-ink"
-                          >
-                            <option value="">Everyone</option>
-                            {state.profiles.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAddingNote(false);
-                          setNewNoteText('');
-                        }}
-                        className="min-h-[34px] px-3 py-1 rounded-lg bg-surface-subtle border border-edge text-xs font-semibold text-ink-secondary cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="min-h-[34px] px-3.5 py-1 rounded-lg bg-primary text-primary-fg text-xs font-semibold cursor-pointer"
-                      >
-                        Save Note
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {displayedNotes.length > 0 ? (
-                  <div className="space-y-2.5">
-                    {displayedNotes.map((entry) => {
-                      const authorProf = state.profiles.find((p) => p.id === entry.authorProfileId);
-                      const forProf = state.profiles.find((p) => p.id === entry.forProfileId);
-                      const isEditingThis = editingNoteId === entry.id;
-                      const formattedDate = entry.createdAt
-                        ? formatShortShelfDate(entry.createdAt)
-                        : '';
-                      return (
-                        <div
-                          key={entry.id}
-                          className="border-l-2 border-primary/70 pl-3 py-1 space-y-1.5"
-                        >
-                          {isEditingThis ? (
-                            <form onSubmit={handleSaveEditedNote} className="space-y-2">
-                              <textarea
-                                rows={2}
-                                value={editingNoteText}
-                                onChange={(e) => setEditingNoteText(e.target.value)}
-                                className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-sm text-ink focus:outline-none focus:ring-1 focus:ring-primary"
-                              />
-                              <div className="flex justify-end gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingNoteId(null)}
-                                  className="px-2.5 py-1 rounded bg-surface border border-edge text-[11px] font-semibold text-ink-secondary cursor-pointer"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="submit"
-                                  className="px-2.5 py-1 rounded bg-primary text-primary-fg text-[11px] font-semibold cursor-pointer"
-                                >
-                                  Save
-                                </button>
-                              </div>
-                            </form>
-                          ) : (
-                            <>
-                              <p className="font-serif-italic italic text-sm text-ink leading-relaxed">
-                                “{entry.text}”
-                              </p>
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-muted">
-                                <span className="inline-flex items-center gap-1.5 flex-wrap">
-                                  {authorProf && (
-                                    <span className="font-semibold text-ink-secondary">
-                                      By {authorProf.name}
-                                    </span>
-                                  )}
-                                  {forProf && (
-                                    <span>· For {forProf.name}</span>
-                                  )}
-                                  {formattedDate && <span>· {formattedDate}</span>}
-                                </span>
-                                <span className="inline-flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingNoteId(entry.id);
-                                      setEditingNoteText(entry.text);
-                                    }}
-                                    className="font-semibold text-primary hover:underline cursor-pointer"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteNoteItem(entry.id)}
-                                    className="font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:underline cursor-pointer"
-                                  >
-                                    Delete
-                                  </button>
-                                </span>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : !isAddingNote && (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingNote(true)}
-                    className="w-full text-left font-serif-italic italic text-sm text-ink-muted hover:text-ink transition-colors cursor-pointer"
-                  >
-                    Add a quote or family reading memory…
-                  </button>
-                )}
-              </section>
-
-              {/* Audio Clips & Read-Aloud Recordings (IndexedDB Persisted) */}
-              <section
-                aria-label="Audio clips and read-aloud recordings"
-                className="rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                    <Icon name="volume2" className="w-3.5 h-3.5 text-primary" />
-                    <span>Voice Notes &amp; Read-Alouds ({recordingsList.length})</span>
-                  </span>
-
-                  {!isRecordingAudio ? (
-                    <button
-                      type="button"
-                      data-action="start-audio-recording"
-                      disabled={audioSaving}
-                      onClick={handleStartAudioRecording}
-                      className="min-h-[32px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-55 text-primary-fg text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Icon name="mic" className="w-3.5 h-3.5" />
-                      <span>{audioSaving ? 'Saving…' : 'Record Audio'}</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      data-action="stop-audio-recording"
-                      onClick={handleStopAudioRecording}
-                      className="min-h-[32px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-[11px] font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Icon name="square" className="w-3 h-3" />
-                      <span className="font-mono-tabular">
-                        Stop · {String(Math.floor(recordingElapsedSec / 60)).padStart(2, '0')}:
-                        {String(recordingElapsedSec % 60).padStart(2, '0')}
-                      </span>
-                    </button>
-                  )}
-                </div>
-
-                {audioError && (
-                  <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
-                    {audioError}
-                  </p>
-                )}
-
-                {state.profiles.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <input
-                      type="text"
-                      value={audioTitleDraft}
-                      onChange={(e) => setAudioTitleDraft(e.target.value)}
-                      placeholder="Clip label (optional)"
-                      className="h-9 px-2.5 rounded-lg bg-surface border border-edge text-xs text-ink placeholder:text-ink-muted"
-                    />
-                    <select
-                      aria-label="Recorded by"
-                      value={audioAuthorId}
-                      onChange={(e) => setAudioAuthorId(e.target.value)}
-                      className="h-9 px-2 rounded-lg bg-surface border border-edge text-xs text-ink"
-                    >
-                      <option value="">Recorded by: Household</option>
-                      {state.profiles.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          By: {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label="For reader"
-                      value={audioForProfileId}
-                      onChange={(e) => setAudioForProfileId(e.target.value)}
-                      className="h-9 px-2 rounded-lg bg-surface border border-edge text-xs text-ink"
-                    >
-                      <option value="">For: Everyone</option>
-                      {state.profiles.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          For: {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {recordingsList.length > 0 ? (
-                  <div className="space-y-2">
-                    {recordingsList.map((rec) => {
-                      const recAuthor = state.profiles.find((p) => p.id === rec.authorProfileId);
-                      const recFor = state.profiles.find((p) => p.id === rec.forProfileId);
-                      const mins = Math.floor((rec.durationSec || 0) / 60);
-                      const secs = Math.round((rec.durationSec || 0) % 60);
-                      const blobUrl = audioObjectUrls[rec.id];
-                      return (
-                        <div
-                          key={rec.id}
-                          className="rounded-xl bg-surface border border-edge p-2.5 space-y-2"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className="font-semibold text-ink truncate">
-                                {rec.title || (recAuthor ? `Voice clip by ${recAuthor.name}` : 'Voice recording')}
-                              </p>
-                              <p className="text-[11px] text-ink-muted">
-                                <span className="font-mono-tabular">
-                                  {mins}:{String(secs).padStart(2, '0')}
-                                </span>
-                                {recFor ? ` · For ${recFor.name}` : ''}
-                                {rec.createdAt ? ` · ${formatShortShelfDate(rec.createdAt)}` : ''}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => store.deleteBookRecording(book.id, rec.id)}
-                              aria-label="Delete recording"
-                              className="min-h-[32px] min-w-[32px] rounded-lg text-ink-muted hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] flex items-center justify-center cursor-pointer"
-                            >
-                              <Icon name="trash" className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                          {blobUrl && (
-                            <audio controls src={blobUrl} className="w-full h-8" />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="italic text-ink-muted">
-                    Record a bedtime read-aloud or child voice reaction saved privately on device.
-                  </p>
-                )}
-              </section>
-
-              {/* Topics & Themes Curation */}
-              <section aria-label="Topics and themes" className="space-y-2.5 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <strong className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                    Topics &amp; Themes
-                  </strong>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      data-action="open-ai-tag-modal"
-                      onClick={() => setAiTagModal({ isOpen: true, bookId: book.id })}
-                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Icon name="sparkles" className="w-3.5 h-3.5" />
-                      <span>AI Tag Assistant</span>
-                    </button>
-                    <button
-                      type="button"
-                      data-action="enrich-book-tags"
-                      onClick={handleEnrichRules}
-                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink cursor-pointer"
-                    >
-                      Quick Rules
-                    </button>
-                  </div>
-                </div>
-
-                {book.tags.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {book.tags.map((tag) => {
-                      const origin = resolveBookTagOrigin(book, tag);
-                      const meta = TAG_ORIGIN_META[origin];
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          data-tag-origin={origin}
-                          onClick={() => handleRemoveTag(tag)}
-                          title={`${meta.badgeTitle} — tap to remove "${tag}"`}
-                          className="min-h-[32px] px-2.5 py-1 rounded-md bg-surface-subtle hover:bg-[#8C4A4F]/10 border border-edge text-xs font-medium text-ink hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          <Icon name={meta.icon} className="w-3 h-3 opacity-60 shrink-0" />
-                          <span>{tag}</span>
-                          <span aria-hidden="true" className="opacity-55">×</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <form onSubmit={handleAddTag} className="flex items-center gap-2">
-                  <div className="relative flex-1 min-w-0">
-                    <ClearableInput
-                      id="inspector-new-tag-input"
-                      value={newTagInput}
-                      onValueChange={setNewTagInput}
-                      placeholder="Add topic (e.g., bedtime, dinosaurs)"
-                      className="w-full h-10 pl-3 pr-8 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="h-10 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    Add Tag
-                  </button>
-                </form>
-              </section>
+              {genresAndTopicsSection}
 
               {/* Centered Date Added */}
               {formattedAddedDate && (
@@ -2393,21 +2130,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           </div>
         </div>
 
-        {/* Dedicated Single-Field Mobile Slide-Up / Desktop Modal Sheet */}
-        <EditorialFieldSheet
-          field={activeEditorialField}
-          book={book}
-          onClose={() => setActiveEditorialField(null)}
-          onPatchBook={async (patch) => {
-            await store.updateBook(book.id, patch);
-          }}
-          onAddTag={async (tag) => {
-            await store.addBookTag(book.id, tag);
-          }}
-          onRemoveTag={async (tag) => {
-            await store.removeBookTag(book.id, tag);
-          }}
-        />
+        {sharedOverlaySheets}
       </div>
     );
   }
@@ -2507,7 +2230,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 <BookCover
                   book={book}
                   size="md"
-                  aspectRatio={state.settings?.coverAspectRatio || 'portrait'}
+                  aspectRatio={state.settings?.coverAspectRatio || 'square'}
                 />
                 <span
                   data-cover-badge="centered"
@@ -2979,107 +2702,11 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
             </div>
           </section>
 
-          {/* Topics & Themes Curation */}
-          <section
-            aria-label="Topics and themes"
-            className="space-y-2.5 text-xs text-ink-secondary"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <strong className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
-                Topics &amp; Themes
-              </strong>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  data-action="open-ai-tag-modal"
-                  onClick={() => setAiTagModal({ isOpen: true, bookId: book.id })}
-                  title="Query LLM for interactive features, developmental themes & story tags"
-                  className="min-h-[36px] px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-                >
-                  <Icon name="sparkles" className="w-3.5 h-3.5" />
-                  <span>AI Tag Assistant</span>
-                </button>
-                <button
-                  type="button"
-                  data-action="enrich-book-tags"
-                  onClick={handleEnrichRules}
-                  title="Quick local rule enrichment"
-                  className="min-h-[36px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-                >
-                  <span>Quick Rules</span>
-                </button>
-              </div>
-            </div>
+          {quotesAndNotesSection}
 
-            {book.tags.length > 0 ? (
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {book.tags.map((tag) => {
-                    const origin = resolveBookTagOrigin(book, tag);
-                    const meta = TAG_ORIGIN_META[origin];
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        data-tag-origin={origin}
-                        onClick={() => handleRemoveTag(tag)}
-                        title={`${meta.badgeTitle} — tap to remove "${tag}"`}
-                        aria-label={`Remove topic ${tag} (${meta.label})`}
-                        className="min-h-[34px] px-2.5 py-1 rounded-md bg-surface-subtle hover:bg-[#8C4A4F]/10 border border-edge-subtle text-xs font-medium text-ink hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-                      >
-                        <Icon
-                          name={meta.icon}
-                          className="w-3 h-3 opacity-60 shrink-0"
-                        />
-                        <span>{tag}</span>
-                        <span aria-hidden="true" className="opacity-55">×</span>
-                      </button>
-                    );
-                  })}
-                </div>
+          {voiceNotesSection}
 
-                {/* Quiet Origin Micro-Legend */}
-                <div
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted pt-0.5"
-                  aria-label="Topic origin legend"
-                >
-                  {(['provider', 'ai', 'rules', 'manual'] as TagOrigin[]).map((originKey) => {
-                    const meta = TAG_ORIGIN_META[originKey];
-                    return (
-                      <span
-                        key={originKey}
-                        className="inline-flex items-center gap-1 whitespace-nowrap"
-                        title={meta.badgeTitle}
-                      >
-                        <Icon name={meta.icon} className="w-2.5 h-2.5 opacity-75" />
-                        <span>{meta.label}</span>
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <p className="text-ink-muted">No topics tagged yet.</p>
-            )}
-
-            <form onSubmit={handleAddTag} className="flex items-center gap-2">
-              <div className="relative flex-1 min-w-0">
-                <ClearableInput
-                  id="inspector-new-tag-input"
-                  value={newTagInput}
-                  onValueChange={setNewTagInput}
-                  placeholder="Add topic (e.g., bedtime, dinosaurs)"
-                  className="w-full h-11 pl-3 pr-8 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <button
-                type="submit"
-                className="h-11 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
-              >
-                Add Tag
-              </button>
-            </form>
-          </section>
+          {genresAndTopicsSection}
 
           {/* Quiet Footer: Source Attribution + External IDs + Preview + Raw Payloads + Remove Book */}
           <div className="pt-3 border-t border-edge-subtle space-y-2 text-xs">
@@ -3163,6 +2790,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           </div>
         </div>
       </div>
+
+      {sharedOverlaySheets}
     </div>
   );
 };

@@ -191,9 +191,9 @@ export const HomeView: React.FC = () => {
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringDashOffset = ringCircumference - (progressPct / 100) * ringCircumference;
 
-  const coverAspectRatio = state.settings?.coverAspectRatio || 'portrait';
+  const coverAspectRatio = state.settings?.coverAspectRatio || 'square';
   const viewMode = state.settings?.bookViewMode || 'grid';
-  const cardSize = state.settings?.bookCardSize || 'regular';
+  const cardSize = state.settings?.bookCardSize || 'compact';
   const shelfGridClass =
     cardSize === 'compact'
       ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3'
@@ -481,11 +481,7 @@ export const HomeView: React.FC = () => {
           </div>
 
           {/* Shelf Layout & Catalog Shortcut Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs font-medium text-ink-secondary font-mono-tabular">
-              {shelfBooks.length} {shelfBooks.length === 1 ? 'book' : 'books'} on active shelf
-            </p>
-
+          <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="flex items-center gap-2.5 ml-auto shrink-0">
               <div
                 role="group"

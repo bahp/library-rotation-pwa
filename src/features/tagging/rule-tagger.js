@@ -262,6 +262,21 @@ export const TAXONOMY_RULES = [
     pattern:
       /\b(history|historical|biography|biographies|true story|civil rights|pioneer|historia|biografia|biografias|storia vera|biografie)\b/i,
   },
+  {
+    tag: 'interactive',
+    pattern:
+      /\b(lift-the-flap|touch-and-feel|pop-up|peek-a-boo|flaps?|sound book|sensory|solapas?|alette|tattile|sonoro)\b/i,
+  },
+  {
+    tag: 'school',
+    pattern:
+      /\b(school|kindergarten|preschool|classroom|teacher|first day|backpack|escuela|colegio|scuola|maestra)\b/i,
+  },
+  {
+    tag: 'classic',
+    pattern:
+      /\b(classic|caldecott|newbery|beloved|treasury|timeless|clasico|classico)\b/i,
+  },
 ];
 
 /** @type {Set<string>} */
@@ -536,7 +551,11 @@ export function inferReadingLevelHint(input) {
  *   readingLevelHint?: string,
  *   tags?: string[],
  *   summary?: string,
- *   subjects?: string[]
+ *   subjects?: string[],
+ *   notes?: string,
+ *   edition?: string,
+ *   language?: string,
+ *   bookNotes?: import('../../types/models.js').BookNote[]
  * }} bookInput
  * @param {{ preserveExplicitAgeAndStage?: boolean, maxTags?: number }} [options]
  * @returns {{
@@ -549,24 +568,44 @@ export function inferReadingLevelHint(input) {
  * }}
  */
 export function enrichBookWithLocalRules(bookInput, options = {}) {
-  const existingSanitized = sanitizeTagList(bookInput.tags || [], options.maxTags || 8);
+  const maxTags = options.maxTags || 14;
+  const existingSanitized = sanitizeTagList(bookInput.tags || [], maxTags);
   const existingSet = new Set(existingSanitized);
 
-  const tags = inferLocalTopicTags({
+  const noteTexts = Array.isArray(bookInput.bookNotes)
+    ? bookInput.bookNotes.map((/** @type {import('../../types/models.js').BookNote} */ n) => n?.text || '').filter(Boolean)
+    : [];
+  const enrichedSummary = [
+    bookInput.summary || '',
+    bookInput.notes || '',
+    ...noteTexts,
+    bookInput.edition || '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const inferred = inferLocalTopicTags({
     title: bookInput.title,
     authors: bookInput.authors,
     subjects: bookInput.subjects,
-    summary: bookInput.summary,
+    summary: enrichedSummary,
     existingTags: existingSanitized,
-    maxTags: options.maxTags || 8,
+    maxTags,
   });
 
-  const addedTags = tags.filter((t) => !existingSet.has(t));
+  // Include non-English language tag or structural baseline tag if no topic matched
+  const extraRuleTags = [];
+  const rawLang = sanitizeTag(String(bookInput.language || ''));
+  if (rawLang && rawLang !== 'en' && rawLang !== 'english') {
+    extraRuleTags.push(rawLang);
+  }
+
+  let tags = sanitizeTagList([...inferred, ...extraRuleTags], maxTags);
 
   const hints = [
     bookInput.title || '',
     ...(bookInput.subjects || []),
-    bookInput.summary || '',
+    enrichedSummary,
   ];
 
   const ageAndStage =
@@ -587,6 +626,20 @@ export function enrichBookWithLocalRules(bookInput, options = {}) {
           fallbackAgeMax: bookInput.ageMax,
           fallbackStage: bookInput.readingStage,
         });
+
+  if (tags.length === existingSanitized.length && tags.length < 3) {
+    const structuralFallback =
+      bookInput.format === 'board-book' || ageAndStage.readingStage === 'board-toddler'
+        ? 'toddler-read'
+        : ageAndStage.readingStage === 'chapter-book' ||
+            ageAndStage.readingStage === 'middle-grade' ||
+            ageAndStage.readingStage === 'teen-ya'
+          ? 'chapter-read'
+          : 'storytime';
+    tags = sanitizeTagList([...tags, structuralFallback], maxTags);
+  }
+
+  const addedTags = tags.filter((t) => !existingSet.has(t));
 
   const readingLevelHint =
     bookInput.readingLevelHint && bookInput.readingLevelHint.trim()

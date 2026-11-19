@@ -380,14 +380,18 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
   });
 
   it('resolves theme presets, normalizes view/detail settings, clamps 0..6 onboarding steps, and persists book notes/verification', async () => {
-    // 1. Theme resolution & normalization across all 14 presets
-    assert.equal(DEFAULT_LIGHT_THEME_PRESET, 'sunlit-cream');
+    // 1. Theme resolution & normalization across all 16 presets (8 light + 8 dark)
+    assert.equal(DEFAULT_LIGHT_THEME_PRESET, 'darker-teal');
     assert.equal(DEFAULT_DARK_THEME_PRESET, 'forest-brass');
-    assert.equal(THEME_PRESET_IDS.length, 14);
-    assert.equal(LIGHT_THEME_PRESET_IDS.length, 7);
-    assert.equal(DARK_THEME_PRESET_IDS.length, 7);
+    assert.equal(THEME_PRESET_IDS.length, 16);
+    assert.equal(LIGHT_THEME_PRESET_IDS.length, 8);
+    assert.equal(DARK_THEME_PRESET_IDS.length, 8);
+    assert.equal(THEME_PRESETS['darker-teal']?.emblemHex, '#1E322C');
+    assert.equal(THEME_PRESETS['hylle-editorial']?.mode, 'dark');
 
     assert.equal(normalizeThemePresetId('classic-teal'), 'classic-teal');
+    assert.equal(normalizeThemePresetId('darker-teal'), 'darker-teal');
+    assert.equal(normalizeThemePresetId('hylle-editorial'), 'hylle-editorial');
     assert.equal(normalizeThemePresetId('MIDNIGHT-LIBRARY'), 'midnight-library');
     assert.equal(normalizeThemePresetId('forest-brass'), 'forest-brass');
     assert.equal(normalizeThemePresetId('invalid-preset'), undefined);
@@ -412,7 +416,9 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
 
     // 2. Onboarding slides config & AppSettings normalization
     assert.equal(ONBOARDING_LANDING_DEFAULT_MODE, 'slideshow');
-    assert.ok(ONBOARDING_INTRO_SLIDES.length >= 5);
+    assert.equal(ONBOARDING_INTRO_SLIDES.length, 4);
+    assert.equal(ONBOARDING_INTRO_SLIDES[0].id, 'instant-scan');
+    assert.equal(ONBOARDING_INTRO_SLIDES[1].id, 'smart-rotations');
 
     const safeDefaults = createSafeDefaultSettings({
       themePreset: 'midnight-library',
@@ -437,8 +443,15 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
       createSafeDefaultSettings({
         presetCornerArtSize: /** @type {any} */ ('giant'),
       }).presetCornerArtSize,
-      'md'
+      'sm'
     );
+    const globalFallback = createSafeDefaultSettings();
+    assert.equal(globalFallback.themePreset, 'darker-teal');
+    assert.equal(globalFallback.bookDetailStyle, 'editorial');
+    assert.equal(globalFallback.bookViewMode, 'grid');
+    assert.equal(globalFallback.bookCardSize, 'compact');
+    assert.equal(globalFallback.coverAspectRatio, 'square');
+    assert.equal(globalFallback.presetCornerArtSize, 'sm');
 
     // 3. 0..6 onboarding step bounds & Book notes/verification persistence
     const storage = createStorageAdapter({ forceMemory: true });

@@ -4,16 +4,18 @@
 /* ============================================================================
  * LIBRARY ROTATION — CENTRALIZED MULTI-THEME DESIGN SYSTEM
  * ----------------------------------------------------------------------------
- * Light Presets (7):
- *   - sunlit-cream      (Default Light — Honeyed Cream #F7F1E7, Terracotta #9E572C)
+ * Light Presets (8):
+ *   - darker-teal       (Default Light — Ivory Linen #F7F5EE, Darker Teal Bar rgb(30,50,44) #1E322C)
+ *   - sunlit-cream      (Honeyed Cream #F7F1E7, Terracotta #9E572C)
  *   - classic-teal      (Warm Ivory #F8F5EE, White #FFFFFF, Teal #115953, Slate-Blue #2D6F8A)
  *   - antique-paper     (Archival Parchment #F5F0E5, Deep Forest #244B40)
  *   - sky-blue          (Coastal Air #F0F5FA, Maritime Blue #2F6CA8)
  *   - sage-green        (Meadow Sage #F1F3EA, Soft Olive #4B683B)
  *   - blush-pink        (Rose Petal #FBF0EF, Berry Plum #9E4357)
  *   - classic-light     (Gallery Stone #F5F5F3, Charcoal #353B40)
- * Dark Presets (7):
+ * Dark Presets (8):
  *   - forest-brass      (Default Dark — Deep Evergreen #101713, Matte Forest Buttons, Brass #C49A55)
+ *   - hylle-editorial   (Obsidian Ink #0B0D0C, Dark Olive Surfaces #141513, Brushed Brass #D2B35B)
  *   - midnight-ink      (Nocturnal Navy #0B1420, Slate Blue #4B91C7, Mist #9CC8E8)
  *   - warm-library      (Espresso Walnut #17120E, Amber #D49A50, Parchment #E8BC78)
  *   - plum-noir         (Velvet Aubergine #19121C, Dusty Rose #C477A6, Orchid #DCA4C6)
@@ -23,6 +25,52 @@
  *
  * Edit palette colors, font pairings, badge tints, and card radii here in one place.
  * ============================================================================ */
+
+[data-theme="darker-teal"] {
+  /* Light Theme — Darker Teal (Default Light — Sidebar rgb(30, 50, 44) #1E322C) */
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(30, 50, 44, 0.11);
+  --lr-badge-fg: #1E322C;
+  --scrim: rgba(18, 30, 26, 0.48);
+
+  --background: #F7F5EE;
+  --surface: #FFFFFF;
+  --surface-elevated: #EAE7DD;
+  --surface-subtle: #F1EEE6;
+
+  --primary: #1E322C;
+  --primary-hover: #172722;
+  --primary-fg: #FFFFFF;
+  --secondary: #466B5F;
+  --accent: #B38B43;
+  --highlight: #1E322C;
+
+  --text-primary: #15241F;
+  --text-secondary: #51615B;
+  --text-muted: #76857F;
+
+  --border: #DDD8CB;
+  --border-subtle: #EAE6DC;
+
+  /* Exact RGB(30, 50, 44) Darker Teal Bar */
+  --sidebar-bg: rgb(30, 50, 44);
+  --sidebar-surface: #253D36;
+  --sidebar-border: #314E45;
+  --sidebar-text: #F7F5EE;
+  --sidebar-muted: #B8CBC4;
+  --sidebar-active-bg: #2C4840;
+  --sidebar-accent: #DFBE7B;
+
+  --reader-teal: #1E322C;
+  --reader-amber: #B38B43;
+  --reader-indigo: #3B5570;
+  --reader-rose: #984B55;
+  --reader-emerald: #396D59;
+}
 
 :root,
 [data-theme="sunlit-cream"] {
@@ -36,7 +84,7 @@
   --lr-badge-fg: #9E572C;
   --scrim: rgba(41, 39, 32, 0.45);
 
-  /* Light Theme — Sunlit Cream (Default Light) */
+  /* Light Theme — Sunlit Cream */
   --background: #F7F1E7;
   --surface: #FCF9F3;
   --surface-elevated: #EDE2D1;
@@ -669,6 +717,52 @@
   --reader-indigo: #92A7BD;
   --reader-rose: #CC8E92;
   --reader-emerald: #96B597;
+}
+
+.dark[data-theme="hylle-editorial"],
+[data-theme="hylle-editorial"] {
+  /* Dark Theme — Hylle Editorial (Obsidian Ink + Matte Olive-Charcoal Cards + Brushed Brass CTA) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(210, 179, 91, 0.14);
+  --lr-badge-fg: #D2B35B;
+  --scrim: rgba(6, 8, 7, 0.78);
+
+  --background: #0B0D0C;
+  --surface: #141513;
+  --surface-elevated: #1B1D1A;
+  --surface-subtle: #101210;
+
+  --primary: #D2B35B;
+  --primary-hover: #DFC26E;
+  --primary-fg: #14120B;
+  --secondary: #9C9688;
+  --accent: #D2B35B;
+  --highlight: #DFC26E;
+
+  --text-primary: #F3EFE6;
+  --text-secondary: #9C9688;
+  --text-muted: #6E6A60;
+
+  --border: #282924;
+  --border-subtle: #1E201C;
+
+  --sidebar-bg: #0D100F;
+  --sidebar-surface: #161917;
+  --sidebar-border: #252722;
+  --sidebar-text: #F3EFE6;
+  --sidebar-muted: #9C9688;
+  --sidebar-active-bg: #1E211E;
+  --sidebar-accent: #D2B35B;
+
+  --reader-teal: #7FA79C;
+  --reader-amber: #D2B35B;
+  --reader-indigo: #94A8BA;
+  --reader-rose: #C88C90;
+  --reader-emerald: #8FB295;
 }
 
 @theme inline {

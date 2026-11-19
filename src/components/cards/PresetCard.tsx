@@ -63,7 +63,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
   books = [],
   t,
   showCornerDecoration = true,
-  cornerArtSize = 'md',
+  cornerArtSize = 'sm',
   onApply,
   onToggleActive,
   onEdit,

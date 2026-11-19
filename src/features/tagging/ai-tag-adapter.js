@@ -29,6 +29,10 @@ import { sanitizeTagList, VALID_READING_STAGES } from './rule-tagger.js';
  * @property {string[]} [tags]
  * @property {string} [summary]
  * @property {string[]} [subjects]
+ * @property {string} [language]
+ * @property {string} [edition]
+ * @property {string} [notes]
+ * @property {import('../../types/models.js').BookNote[]} [bookNotes]
  * @property {{
  *   loved?: boolean,
  *   collectionStatus?: string,

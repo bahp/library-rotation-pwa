@@ -13,7 +13,7 @@ interface AppShellProps {
 }
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
-  const { pwaStatus } = useApp();
+  const { pwaStatus, sidebarCollapsed } = useApp();
 
   return (
     <div className="min-h-screen min-h-[100dvh] flex flex-col bg-canvas text-ink transition-colors selection:bg-primary selection:text-primary-fg overflow-x-clip">
@@ -21,7 +21,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       <div
         aria-hidden="true"
         data-safe-top-cover="true"
-        className="fixed top-0 inset-x-0 lg:left-64 h-safe-top z-40 pointer-events-none bg-surface"
+        className={`fixed top-0 inset-x-0 ${
+          sidebarCollapsed ? 'lg:left-[76px]' : 'lg:left-64'
+        } h-safe-top z-40 pointer-events-none bg-surface transition-[left] duration-200 ease-out`}
       />
 
       {/* Skip to Main Content Link */}
@@ -36,7 +38,11 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
       <Sidebar />
 
       {/* Main Column Container offset by Sidebar width on lg+ */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
+      <div
+        className={`flex-1 flex flex-col min-w-0 ${
+          sidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-64'
+        } transition-[padding] duration-200 ease-out`}
+      >
         {/* Top Utility Header */}
         <Header />
 

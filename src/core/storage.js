@@ -34,6 +34,7 @@ const memoryAudioBlobs = new Map();
 const AUXILIARY_STORAGE_KEYS = [
   'lr_theme_pref',
   'lr_theme_preset',
+  'lr_sidebar_collapsed',
   'lr_dismissed_swap_reminders_v1',
   'lr_dismissed_preset_alerts_v1',
   'lr_dismissed_stale_spotlights_v1',
@@ -195,16 +196,7 @@ export function estimateAppStorageUsage(state) {
   let auxBytes = 0;
   try {
     if (typeof localStorage !== 'undefined') {
-      for (const key of [
-        'lr_theme_pref',
-        'lr_theme_preset',
-        'lr_dismissed_swap_reminders_v1',
-        'lr_dismissed_preset_alerts_v1',
-        'lr_dismissed_stale_spotlights_v1',
-        'lr_device_books_proxy_v1',
-        'lr_device_google_books_api_key_v1',
-        'lr_welcome_books_modal_dismissed_v1',
-      ]) {
+      for (const key of AUXILIARY_STORAGE_KEYS) {
         const val = localStorage.getItem(key);
         if (typeof val === 'string') {
           auxBytes += key.length + val.length;
@@ -222,6 +214,147 @@ export function estimateAppStorageUsage(state) {
     totalBytes,
     coverDataUrlBytes,
     formatted: formatStorageBytes(totalBytes),
+  };
+}
+
+/**
+ * Inspects IndexedDB audio blobs, inline cover photos, catalog metadata, local preferences,
+ * and browser cache storage to produce a detailed category breakdown.
+ * Safe in non-browser/Node test environments.
+ * @param {import('../types/models.js').AppState} state
+ * @returns {Promise<{
+ *   coverPhotoBytes: number,
+ *   coverPhotoCount: number,
+ *   audioBytes: number,
+ *   audioClipCount: number,
+ *   customPresetArtBytes: number,
+ *   catalogMetadataBytes: number,
+ *   auxLocalStorageBytes: number,
+ *   totalAppBytes: number,
+ *   cacheNames: string[],
+ *   browserUsageBytes: number | null,
+ *   browserQuotaBytes: number | null
+ * }>}
+ */
+export async function getDetailedStorageBreakdown(state) {
+  const base = estimateAppStorageUsage(state);
+
+  let coverPhotoCount = 0;
+  if (state && Array.isArray(state.books)) {
+    for (const book of state.books) {
+      if (typeof book.coverUrl === 'string' && book.coverUrl.startsWith('data:image/')) {
+        coverPhotoCount += 1;
+      }
+    }
+  }
+
+  let customPresetArtBytes = 0;
+  if (state && Array.isArray(state.customPresets)) {
+    for (const p of state.customPresets) {
+      if (typeof p?.illustrationUrl === 'string' && p.illustrationUrl.startsWith('data:image/')) {
+        customPresetArtBytes += p.illustrationUrl.length;
+      }
+    }
+  }
+  if (state && state.presetOverrides && typeof state.presetOverrides === 'object') {
+    for (const p of Object.values(state.presetOverrides)) {
+      if (typeof p?.illustrationUrl === 'string' && p.illustrationUrl.startsWith('data:image/')) {
+        customPresetArtBytes += p.illustrationUrl.length;
+      }
+    }
+  }
+
+  let audioBytes = 0;
+  let audioClipCount = 0;
+  try {
+    const db = await openIndexedDb();
+    const idbStats = await new Promise((resolve) => {
+      try {
+        const tx = db.transaction(AUDIO_STORE_NAME, 'readonly');
+        const store = tx.objectStore(AUDIO_STORE_NAME);
+        const req = store.openCursor();
+        let bytes = 0;
+        let count = 0;
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (cursor) {
+            count += 1;
+            const val = cursor.value;
+            if (val && typeof val.size === 'number') {
+              bytes += val.size;
+            }
+            cursor.continue();
+          } else {
+            resolve({ bytes, count });
+          }
+        };
+        req.onerror = () => resolve({ bytes: 0, count: 0 });
+      } catch (_) {
+        resolve({ bytes: 0, count: 0 });
+      }
+    });
+    db.close();
+    audioBytes = idbStats.bytes;
+    audioClipCount = idbStats.count;
+  } catch (_) {
+    // Fallback to memoryAudioBlobs
+    for (const blob of memoryAudioBlobs.values()) {
+      audioClipCount += 1;
+      if (blob && typeof blob.size === 'number') {
+        audioBytes += blob.size;
+      }
+    }
+  }
+
+  if (audioClipCount === 0 && memoryAudioBlobs.size > 0) {
+    for (const blob of memoryAudioBlobs.values()) {
+      audioClipCount += 1;
+      if (blob && typeof blob.size === 'number') {
+        audioBytes += blob.size;
+      }
+    }
+  }
+
+  const catalogMetadataBytes = Math.max(
+    0,
+    base.stateBytes - base.coverDataUrlBytes - customPresetArtBytes
+  );
+  const totalAppBytes = base.totalBytes + audioBytes;
+
+  /** @type {string[]} */
+  let cacheNames = [];
+  try {
+    if (typeof caches !== 'undefined' && typeof caches.keys === 'function') {
+      cacheNames = await caches.keys();
+    }
+  } catch (_) {}
+
+  let browserUsageBytes = null;
+  let browserQuotaBytes = null;
+  try {
+    if (
+      typeof navigator !== 'undefined' &&
+      navigator.storage &&
+      typeof navigator.storage.estimate === 'function'
+    ) {
+      const est = await navigator.storage.estimate();
+      if (typeof est.usage === 'number') browserUsageBytes = est.usage;
+      if (typeof est.quota === 'number') browserQuotaBytes = est.quota;
+    }
+  } catch (_) {}
+
+  return {
+    coverPhotoBytes: base.coverDataUrlBytes,
+    coverPhotoCount,
+    audioBytes,
+    audioClipCount,
+    customPresetArtBytes,
+    catalogMetadataBytes,
+    auxLocalStorageBytes: base.auxBytes,
+    totalAppBytes,
+    cacheNames,
+    browserUsageBytes,
+    browserQuotaBytes,
   };
 }
 
@@ -298,12 +431,12 @@ export function createSafeDefaultSettings(overrides = {}) {
       themePreset:
         normalizeThemePresetId(overrides.themePreset) ||
         (overrides.theme === 'dark' ? DEFAULT_DARK_THEME_PRESET : DEFAULT_LIGHT_THEME_PRESET),
-      bookDetailStyle: overrides.bookDetailStyle === 'editorial' ? 'editorial' : 'compact',
+      bookDetailStyle: overrides.bookDetailStyle === 'compact' ? 'compact' : 'editorial',
       bookViewMode: overrides.bookViewMode === 'list' ? 'list' : 'grid',
       bookCardSize:
-        overrides.bookCardSize === 'compact' || overrides.bookCardSize === 'large'
+        overrides.bookCardSize === 'regular' || overrides.bookCardSize === 'large'
           ? overrides.bookCardSize
-          : 'regular',
+          : 'compact',
       sidebarArtworkMode:
         overrides.sidebarArtworkMode === 'engraving' ||
         overrides.sidebarArtworkMode === 'illustration'
@@ -331,9 +464,9 @@ export function createSafeDefaultSettings(overrides = {}) {
       presetAlertDaysAfter: clampedAfter,
       showPresetDecorations: overrides.showPresetDecorations !== false,
       presetCornerArtSize:
-        overrides.presetCornerArtSize === 'sm' || overrides.presetCornerArtSize === 'lg'
+        overrides.presetCornerArtSize === 'md' || overrides.presetCornerArtSize === 'lg'
           ? overrides.presetCornerArtSize
-          : 'md',
+          : 'sm',
       presetIllustrationPromptTemplate: cleanPromptTemplate,
       enableRotationHistoryInsights: overrides.enableRotationHistoryInsights !== false,
       showCoverUsageAdornos: overrides.showCoverUsageAdornos !== false,
@@ -379,7 +512,6 @@ export function createEmptyOnboardingState(settingsOverrides = {}) {
     presetOverrides: {},
     notifications: [],
     settings: createSafeDefaultSettings({
-      coverAspectRatio: 'portrait',
       ...settingsOverrides,
       language: initialLanguage,
       onboarding: {
@@ -393,6 +525,25 @@ export function createEmptyOnboardingState(settingsOverrides = {}) {
     }),
     updatedAt: now,
   };
+}
+
+/**
+ * Builds a canonical semantic deduplication key for an AppNotification.
+ * @param {Partial<import('../types/models.js').AppNotification>} item
+ * @returns {string}
+ */
+export function resolveNotificationDedupeKey(item) {
+  if (!item || typeof item !== 'object') return '';
+  const alertKey = typeof item.alertKey === 'string' ? item.alertKey.trim() : '';
+  if (item.kind === 'preset-upcoming' && item.presetId) {
+    const yearMatch = /(?:^|::)(\d{4})[-/]/.exec(alertKey) || /^(\d{4})-/.exec(String(item.createdAt || ''));
+    const year = yearMatch ? yearMatch[1] : 'current';
+    return `preset::${item.presetId}::${item.profileId || ''}::${year}`;
+  }
+  if (item.kind === 'swap-due' && item.rotationId) {
+    return alertKey || `swap::${item.rotationId}::${item.profileId || ''}`;
+  }
+  return alertKey || String(item.id || '');
 }
 
 /**
@@ -629,6 +780,8 @@ export function migrateState(state, referenceDate = new Date()) {
   const normalizedNotifications = [];
   if (Array.isArray(state.notifications)) {
     const seenIds = new Set();
+    /** @type {Map<string, number>} */
+    const indexByDedupeKey = new Map();
     for (const item of state.notifications) {
       if (!item || typeof item !== 'object') continue;
       const id = String(item.id || '').trim();
@@ -636,7 +789,9 @@ export function migrateState(state, referenceDate = new Date()) {
       const message = String(item.message || '').trim();
       if (!id || !title || seenIds.has(id)) continue;
       seenIds.add(id);
-      normalizedNotifications.push({
+
+      /** @type {import('../types/models.js').AppNotification} */
+      const entry = {
         id,
         kind: validNotifKinds.has(item.kind) ? item.kind : 'system',
         title,
@@ -658,7 +813,26 @@ export function migrateState(state, referenceDate = new Date()) {
             : new Date().toISOString(),
         ...(typeof item.readAt === 'string' && item.readAt ? { readAt: item.readAt } : {}),
         ...(item.dismissed ? { dismissed: true } : {}),
-      });
+      };
+
+      const dedupeKey = resolveNotificationDedupeKey(entry);
+      if (dedupeKey && indexByDedupeKey.has(dedupeKey)) {
+        const existingIdx = indexByDedupeKey.get(dedupeKey);
+        if (existingIdx !== undefined) {
+          const prev = normalizedNotifications[existingIdx];
+          normalizedNotifications[existingIdx] = {
+            ...prev,
+            ...(prev.dismissed || entry.dismissed ? { dismissed: true } : {}),
+            ...((prev.readAt || entry.readAt) ? { readAt: prev.readAt || entry.readAt } : {}),
+          };
+        }
+        continue;
+      }
+
+      if (dedupeKey) {
+        indexByDedupeKey.set(dedupeKey, normalizedNotifications.length);
+      }
+      normalizedNotifications.push(entry);
       if (normalizedNotifications.length >= 80) break;
     }
   }

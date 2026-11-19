@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
@@ -17,8 +17,20 @@ export const Sidebar: React.FC = () => {
     setEditingProfileId,
     setIsNotificationCenterOpen,
     unreadNotificationCount,
+    sidebarCollapsed,
+    toggleSidebarCollapsed,
     t,
   } = useApp();
+
+  const [hoveredTip, setHoveredTip] = useState<{ label: string; top: number } | null>(null);
+
+  const showTooltip = (el: HTMLElement, label: string) => {
+    if (!sidebarCollapsed) return;
+    const rect = el.getBoundingClientRect();
+    setHoveredTip({ label, top: rect.top + rect.height / 2 });
+  };
+
+  const hideTooltip = () => setHoveredTip(null);
 
   const primaryNav: Array<{
     id: RouteId;
@@ -82,18 +94,27 @@ export const Sidebar: React.FC = () => {
     badge?: number;
   }) => {
     const isActive = item.id === currentRoute;
+    const tipText = item.badge !== undefined ? `${item.label} (${item.badge})` : item.label;
     return (
       <a
         key={item.id}
         href={`#/${item.id}`}
         aria-current={isActive ? 'page' : undefined}
-        className={`group flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg text-[13.5px] transition-colors focus-visible:outline-2 focus-visible:outline-sidebar-accent ${
+        aria-label={item.label}
+        title={sidebarCollapsed ? tipText : undefined}
+        onMouseEnter={(e) => showTooltip(e.currentTarget, tipText)}
+        onMouseLeave={hideTooltip}
+        onFocus={(e) => showTooltip(e.currentTarget, tipText)}
+        onBlur={hideTooltip}
+        className={`group relative flex items-center ${
+          sidebarCollapsed ? 'justify-center px-0 py-2.5 mx-auto w-11 h-11' : 'justify-between gap-3 px-3.5 py-2.5'
+        } rounded-lg text-[13.5px] transition-colors focus-visible:outline-2 focus-visible:outline-sidebar-accent ${
           isActive
             ? 'bg-sidebar-active text-sidebar-text font-semibold border border-sidebar-accent/30'
             : 'text-sidebar-muted hover:text-sidebar-text hover:bg-sidebar-surface/65 font-medium border border-transparent'
         }`}
       >
-        <span className="flex items-center gap-3 min-w-0">
+        <span className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
           <Icon
             name={item.icon}
             className={`w-[18px] h-[18px] shrink-0 transition-colors ${
@@ -103,9 +124,9 @@ export const Sidebar: React.FC = () => {
             }`}
             strokeWidth={isActive ? 2.1 : 1.75}
           />
-          <span className="truncate">{item.label}</span>
+          {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
         </span>
-        {item.badge !== undefined && (
+        {!sidebarCollapsed && item.badge !== undefined && (
           <span
             className={`text-[11px] font-mono-tabular px-1.5 py-0.5 rounded ${
               isActive
@@ -123,42 +144,94 @@ export const Sidebar: React.FC = () => {
   return (
     <aside
       aria-label="Desktop workspace navigation"
-      className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:left-0 z-30 bg-sidebar text-sidebar-text border-r border-sidebar-border select-none overflow-hidden"
+      data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
+      className={`hidden lg:flex lg:flex-col ${
+        sidebarCollapsed ? 'lg:w-[76px]' : 'lg:w-64'
+      } lg:fixed lg:inset-y-0 lg:left-0 z-30 bg-sidebar text-sidebar-text border-r border-sidebar-border select-none overflow-hidden transition-[width] duration-200 ease-out`}
     >
-      {/* Top Brand Identity */}
-      <div className="h-16 px-5 flex items-center border-b border-sidebar-border shrink-0">
-        <a
-          href="#/home"
-          className="flex items-center gap-3 min-w-0 focus-visible:outline-2 focus-visible:outline-sidebar-accent rounded-lg"
-        >
-          <span className="w-9 h-9 rounded-lg bg-sidebar-surface border border-sidebar-accent/40 text-sidebar-accent flex items-center justify-center shrink-0">
-            <Icon name="book" className="w-4 h-4" strokeWidth={1.85} />
-          </span>
-          <div className="min-w-0 text-left">
-            <span className="block font-display text-[19px] font-semibold tracking-tight text-sidebar-text leading-none truncate">
-              Library Rotation
+      {/* Top Brand Identity + Collapse/Expand Toggle */}
+      {sidebarCollapsed ? (
+        <div className="h-16 px-2 flex items-center justify-center border-b border-sidebar-border shrink-0">
+          <button
+            type="button"
+            data-action="toggle-sidebar-collapse"
+            onClick={() => {
+              hideTooltip();
+              toggleSidebarCollapsed();
+            }}
+            onMouseEnter={(e) => showTooltip(e.currentTarget, 'Open sidebar')}
+            onMouseLeave={hideTooltip}
+            onFocus={(e) => showTooltip(e.currentTarget, 'Open sidebar')}
+            onBlur={hideTooltip}
+            aria-label="Open sidebar"
+            aria-expanded="false"
+            title="Open sidebar"
+            className="w-10 h-10 rounded-lg bg-sidebar-surface hover:bg-sidebar-active border border-sidebar-accent/40 text-sidebar-accent flex items-center justify-center shrink-0 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-sidebar-accent"
+          >
+            <Icon name="book" className="w-[18px] h-[18px]" strokeWidth={1.85} />
+          </button>
+        </div>
+      ) : (
+        <div className="h-16 pl-4 pr-3 flex items-center justify-between gap-2 border-b border-sidebar-border shrink-0">
+          <a
+            href="#/home"
+            className="flex items-center gap-3 min-w-0 focus-visible:outline-2 focus-visible:outline-sidebar-accent rounded-lg"
+          >
+            <span className="w-9 h-9 rounded-lg bg-sidebar-surface border border-sidebar-accent/40 text-sidebar-accent flex items-center justify-center shrink-0">
+              <Icon name="book" className="w-4 h-4" strokeWidth={1.85} />
             </span>
-            <span className="block text-[11px] text-sidebar-muted font-medium truncate mt-1">
-              {householdName || 'Home Library Studio'}
-            </span>
-          </div>
-        </a>
-      </div>
+            <div className="min-w-0 text-left">
+              <span className="block font-display text-[19px] font-semibold tracking-tight text-sidebar-text leading-none truncate">
+                Library Rotation
+              </span>
+              <span className="block text-[11px] text-sidebar-muted font-medium truncate mt-1">
+                {householdName || 'Home Library Studio'}
+              </span>
+            </div>
+          </a>
+
+          <button
+            type="button"
+            data-action="toggle-sidebar-collapse"
+            onClick={() => {
+              hideTooltip();
+              toggleSidebarCollapsed();
+            }}
+            aria-label="Close sidebar"
+            aria-expanded="true"
+            title="Close sidebar"
+            className="w-8 h-8 rounded-lg text-sidebar-muted hover:text-sidebar-text hover:bg-sidebar-surface/75 flex items-center justify-center shrink-0 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-sidebar-accent"
+          >
+            <Icon name="panelLeft" className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Primary Workspace Navigation + Editorial Botanical Footer Art */}
-      <div className="flex-1 overflow-y-auto px-3.5 pt-5 pb-2 flex flex-col justify-between gap-4 no-scrollbar">
-        <div className="space-y-6">
+      <div
+        className={`flex-1 overflow-y-auto ${
+          sidebarCollapsed ? 'px-2 pt-4' : 'px-3.5 pt-5'
+        } pb-2 flex flex-col justify-between gap-4 no-scrollbar`}
+      >
+        <div className={sidebarCollapsed ? 'space-y-4' : 'space-y-6'}>
           <nav aria-label="Workspace" className="space-y-1">
-            <p className="px-3.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted/80">
-              Workspace
-            </p>
+            {!sidebarCollapsed && (
+              <p className="px-3.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted/80">
+                Workspace
+              </p>
+            )}
             {primaryNav.map(renderNavLink)}
           </nav>
 
-          <nav aria-label="Household & System" className="space-y-1">
-            <p className="px-3.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted/80">
-              Household
-            </p>
+          <nav
+            aria-label="Household & System"
+            className={`space-y-1 ${sidebarCollapsed ? 'pt-3 border-t border-sidebar-border/60' : ''}`}
+          >
+            {!sidebarCollapsed && (
+              <p className="px-3.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted/80">
+                Household
+              </p>
+            )}
             {householdNav.map(renderNavLink)}
             <button
               type="button"
@@ -168,83 +241,137 @@ export const Sidebar: React.FC = () => {
                   ? `Notifications (${unreadNotificationCount} unread)`
                   : 'Notifications'
               }
-              className="w-full group flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg text-[13.5px] font-medium text-sidebar-muted hover:text-sidebar-text hover:bg-sidebar-surface/65 transition-colors focus-visible:outline-2 focus-visible:outline-sidebar-accent cursor-pointer"
+              title={
+                sidebarCollapsed
+                  ? unreadNotificationCount > 0
+                    ? `Notifications (${unreadNotificationCount} unread)`
+                    : 'Notifications'
+                  : undefined
+              }
+              onMouseEnter={(e) =>
+                showTooltip(
+                  e.currentTarget,
+                  unreadNotificationCount > 0
+                    ? `Notifications (${unreadNotificationCount})`
+                    : 'Notifications'
+                )
+              }
+              onMouseLeave={hideTooltip}
+              onFocus={(e) =>
+                showTooltip(
+                  e.currentTarget,
+                  unreadNotificationCount > 0
+                    ? `Notifications (${unreadNotificationCount})`
+                    : 'Notifications'
+                )
+              }
+              onBlur={hideTooltip}
+              className={`relative group flex items-center ${
+                sidebarCollapsed
+                  ? 'justify-center px-0 py-2.5 mx-auto w-11 h-11'
+                  : 'w-full justify-between gap-3 px-3.5 py-2.5'
+              } rounded-lg text-[13.5px] font-medium text-sidebar-muted hover:text-sidebar-text hover:bg-sidebar-surface/65 transition-colors focus-visible:outline-2 focus-visible:outline-sidebar-accent cursor-pointer`}
             >
-              <span className="flex items-center gap-3 min-w-0">
+              <span className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3 min-w-0'}`}>
                 <Icon
                   name="bell"
                   className="w-[18px] h-[18px] shrink-0 text-sidebar-muted group-hover:text-sidebar-text transition-colors"
                   strokeWidth={1.75}
                 />
-                <span className="truncate">Notifications</span>
+                {!sidebarCollapsed && <span className="truncate">Notifications</span>}
               </span>
-              {unreadNotificationCount > 0 && (
-                <span className="text-[11px] font-bold font-mono-tabular px-1.5 py-0.5 rounded bg-sidebar-accent text-sidebar">
-                  {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
-                </span>
-              )}
+              {unreadNotificationCount > 0 &&
+                (sidebarCollapsed ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute top-1.5 right-1.5 min-w-[15px] h-[15px] px-1 rounded-full bg-sidebar-accent text-sidebar text-[9px] font-bold font-mono-tabular flex items-center justify-center"
+                  >
+                    {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-bold font-mono-tabular px-1.5 py-0.5 rounded bg-sidebar-accent text-sidebar">
+                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                  </span>
+                ))}
             </button>
           </nav>
         </div>
 
         {/* Configurable Sidebar Footer Artwork */}
-        <div
-          aria-hidden="true"
-          className="relative mt-auto pt-2 px-1 pointer-events-none select-none shrink-0"
-          style={
-            {
-              '--text-primary': 'var(--sidebar-text)',
-              '--primary': 'var(--sidebar-accent)',
-              '--secondary': 'var(--sidebar-muted)',
-              '--accent': 'var(--sidebar-accent)',
-              '--border': 'var(--sidebar-border)',
-              '--surface': 'var(--sidebar-surface)',
-              '--surface-elevated': 'var(--sidebar-active-bg)',
-              '--surface-subtle': 'var(--sidebar-bg)',
-              '--text-muted': 'var(--sidebar-muted)',
-            } as React.CSSProperties
-          }
-        >
-          {artworkMode === 'illustration' ? (
-            <div className="relative overflow-hidden rounded-xl border border-sidebar-border/80 bg-sidebar-surface/50 shadow-sm">
-              <img
-                src={sidebarArtworkImg}
-                alt=""
-                className="w-full h-32 object-cover opacity-90"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sidebar/70 via-transparent to-transparent" />
-            </div>
-          ) : (
-            <BotanicalIllustration variant="hero-library" className="w-full h-32 opacity-85" />
-          )}
-        </div>
+        {!sidebarCollapsed && (
+          <div
+            aria-hidden="true"
+            className="relative mt-auto pt-2 px-1 pointer-events-none select-none shrink-0"
+            style={
+              {
+                '--text-primary': 'var(--sidebar-text)',
+                '--primary': 'var(--sidebar-accent)',
+                '--secondary': 'var(--sidebar-muted)',
+                '--accent': 'var(--sidebar-accent)',
+                '--border': 'var(--sidebar-border)',
+                '--surface': 'var(--sidebar-surface)',
+                '--surface-elevated': 'var(--sidebar-active-bg)',
+                '--surface-subtle': 'var(--sidebar-bg)',
+                '--text-muted': 'var(--sidebar-muted)',
+              } as React.CSSProperties
+            }
+          >
+            {artworkMode === 'illustration' ? (
+              <div className="relative overflow-hidden rounded-xl border border-sidebar-border/80 bg-sidebar-surface/50 shadow-sm">
+                <img
+                  src={sidebarArtworkImg}
+                  alt=""
+                  className="w-full h-32 object-cover opacity-90"
+                />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sidebar/70 via-transparent to-transparent" />
+              </div>
+            ) : (
+              <BotanicalIllustration variant="hero-library" className="w-full h-32 opacity-85" />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Bottom Active Reader Card */}
-      <div className="p-3.5 border-t border-sidebar-border shrink-0 bg-sidebar">
+      <div className={`${sidebarCollapsed ? 'p-2.5' : 'p-3.5'} border-t border-sidebar-border shrink-0 bg-sidebar`}>
         {activeProfile ? (
           <button
             type="button"
             onClick={() => setIsProfileSwitcherOpen(true)}
             aria-label={`Switch active reader, currently ${activeProfile.name}`}
-            className="w-full min-h-[48px] p-2.5 rounded-lg bg-sidebar-surface/75 hover:bg-sidebar-surface active:scale-[0.99] border border-sidebar-border flex items-center justify-between gap-2.5 text-left transition-all cursor-pointer"
+            title={sidebarCollapsed ? `Reader: ${activeProfile.name}` : undefined}
+            onMouseEnter={(e) =>
+              showTooltip(e.currentTarget, `Switch reader (${activeProfile.name})`)
+            }
+            onMouseLeave={hideTooltip}
+            onFocus={(e) =>
+              showTooltip(e.currentTarget, `Switch reader (${activeProfile.name})`)
+            }
+            onBlur={hideTooltip}
+            className={`w-full min-h-[48px] ${
+              sidebarCollapsed ? 'p-1.5 justify-center' : 'p-2.5 justify-between gap-2.5 text-left'
+            } rounded-lg bg-sidebar-surface/75 hover:bg-sidebar-surface active:scale-[0.99] border border-sidebar-border flex items-center transition-all cursor-pointer`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className={`flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-2.5 min-w-0'}`}>
               <span
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ring-1 ring-sidebar-accent/40 ${toneClass}`}
               >
                 {initial}
               </span>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-sidebar-text truncate leading-tight">
-                  {activeProfile.name}
-                </p>
-                <p className="text-[11px] text-sidebar-muted truncate leading-tight mt-0.5">
-                  {ageLabel || 'Active reader'}
-                </p>
-              </div>
+              {!sidebarCollapsed && (
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-sidebar-text truncate leading-tight">
+                    {activeProfile.name}
+                  </p>
+                  <p className="text-[11px] text-sidebar-muted truncate leading-tight mt-0.5">
+                    {ageLabel || 'Active reader'}
+                  </p>
+                </div>
+              )}
             </div>
-            <Icon name="chevronDown" className="w-4 h-4 text-sidebar-muted shrink-0" />
+            {!sidebarCollapsed && (
+              <Icon name="chevronDown" className="w-4 h-4 text-sidebar-muted shrink-0" />
+            )}
           </button>
         ) : (
           <button
@@ -253,13 +380,30 @@ export const Sidebar: React.FC = () => {
               setEditingProfileId(null);
               setIsProfileFormOpen(true);
             }}
-            className="w-full min-h-[48px] p-2.5 rounded-lg bg-sidebar-surface/75 hover:bg-sidebar-surface active:scale-[0.99] border border-sidebar-border text-xs font-semibold text-sidebar-text flex items-center justify-center gap-2 transition-all cursor-pointer"
+            aria-label="Add Reader Profile"
+            title={sidebarCollapsed ? 'Add Reader Profile' : undefined}
+            onMouseEnter={(e) => showTooltip(e.currentTarget, 'Add Reader Profile')}
+            onMouseLeave={hideTooltip}
+            className={`w-full min-h-[48px] ${
+              sidebarCollapsed ? 'p-1.5' : 'p-2.5 gap-2'
+            } rounded-lg bg-sidebar-surface/75 hover:bg-sidebar-surface active:scale-[0.99] border border-sidebar-border text-xs font-semibold text-sidebar-text flex items-center justify-center transition-all cursor-pointer`}
           >
-            <Icon name="plus" className="w-4 h-4 text-sidebar-accent" />
-            <span>Add Reader Profile</span>
+            <Icon name="plus" className="w-4 h-4 text-sidebar-accent shrink-0" />
+            {!sidebarCollapsed && <span>Add Reader Profile</span>}
           </button>
         )}
       </div>
+
+      {/* Fixed Hover Tooltip when Desktop Sidebar is Collapsed */}
+      {sidebarCollapsed && hoveredTip && (
+        <div
+          role="tooltip"
+          style={{ top: hoveredTip.top, left: 84 }}
+          className="pointer-events-none fixed -translate-y-1/2 z-[70] px-2.5 py-1.5 rounded-lg bg-surface text-ink border border-edge shadow-lg text-xs font-semibold whitespace-nowrap"
+        >
+          {hoveredTip.label}
+        </div>
+      )}
     </aside>
   );
 };

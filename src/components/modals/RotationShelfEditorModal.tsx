@@ -75,7 +75,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
 
   if (!isOpen || !rotation) return null;
 
-  const coverAspect = state.settings?.coverAspectRatio || 'portrait';
+  const coverAspect = state.settings?.coverAspectRatio || 'square';
   const showRotationHistory = state.settings?.enableRotationHistoryInsights !== false;
   const showStaleSpotlight = state.settings?.enableStaleBookSpotlight !== false;
   const staleBookDays = state.settings?.staleBookDays ?? 10;

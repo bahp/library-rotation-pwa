@@ -9,7 +9,6 @@ import {
 } from '../../features/catalog/providers/google-books-provider.js';
 import {
   SUPPORTED_LANGUAGES,
-  AVATAR_TONES,
   THEME_PRESETS,
   LIGHT_THEME_PRESET_IDS,
   DARK_THEME_PRESET_IDS,
@@ -18,8 +17,6 @@ import {
 } from '../../config/index.js';
 import { DEFAULT_PRESET_ILLUSTRATION_PROMPT } from '../../config/defaults.js';
 import {
-  formatProfileAgeLabel,
-  formatReadingStage,
   type ThemePresetId,
   type BookDetailStyle,
   type BookViewMode,
@@ -30,9 +27,14 @@ import {
   type LlmProvider,
 } from '../../types/models.js';
 import { APP_VERSION, APP_DOCS_LINKS } from '../../version.js';
-import { estimateAppStorageUsage, formatStorageBytes } from '../../core/storage.js';
+import {
+  estimateAppStorageUsage,
+  getDetailedStorageBreakdown,
+  formatStorageBytes,
+} from '../../core/storage.js';
 import { FIELD_HELP_COPY } from '../../ui/components/field-help.js';
 import { GOOGLE_CLOUD_CONSOLE_CREDENTIALS_URL } from '../../ui/components/welcome-setup-modal.js';
+import { ReaderProfilesSection } from '../profiles/ReaderProfilesSection.js';
 import {
   SettingsGroup,
   SettingsMenuRow,
@@ -148,8 +150,6 @@ export const SettingsView: React.FC = () => {
     navigate,
     activeProfile,
     hasQaSnapshot,
-    setIsProfileFormOpen,
-    setEditingProfileId,
     setIsWelcomeModalOpen,
     t,
   } = useApp();
@@ -206,13 +206,7 @@ export const SettingsView: React.FC = () => {
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [confirmClearAllOpen, setConfirmClearAllOpen] = useState(false);
 
-  // Household Display Name & Dev Mode 5-tap unlock
-  const [householdNameInput, setHouseholdNameInput] = useState(
-    state.settings.householdName || ''
-  );
-  useEffect(() => {
-    setHouseholdNameInput(state.settings.householdName || '');
-  }, [state.settings.householdName]);
+  // Dev Mode 5-tap unlock
 
   const [versionTapCount, setVersionTapCount] = useState(0);
   const isDevToolsVisible = Boolean(
@@ -282,6 +276,24 @@ export const SettingsView: React.FC = () => {
 
   // Storage and sync metrics
   const storageUsage = useMemo(() => estimateAppStorageUsage(state), [state]);
+  const [detailedStorage, setDetailedStorage] = useState<Awaited<
+    ReturnType<typeof getDetailedStorageBreakdown>
+  > | null>(null);
+
+  useEffect(() => {
+    if (activeSection !== 'offline-storage') return;
+    let cancelled = false;
+    getDetailedStorageBreakdown(state)
+      .then((res) => {
+        if (!cancelled) setDetailedStorage(res);
+      })
+      .catch(() => {
+        if (!cancelled) setDetailedStorage(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSection, state]);
   const adapterDiagnostics = useMemo(
     () => store.getTaggingService().getAdapterDiagnostics(state.settings),
     [store, state.settings]
@@ -823,131 +835,8 @@ export const SettingsView: React.FC = () => {
                 subtitle={t('settings.profilesDesc')}
                 backLabel={backLabel}
                 onBack={goBackToRoot}
-                rightSlot={
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => navigate('profiles')}
-                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <span>{t('settings.allProfilesDetails')}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingProfileId(null);
-                        setIsProfileFormOpen(true);
-                      }}
-                      aria-label="Add reader profile"
-                      title="Add reader profile"
-                      className="min-h-[40px] min-w-[40px] rounded-lg bg-primary hover:bg-primary-hover text-primary-fg flex items-center justify-center transition-colors shadow-xs cursor-pointer"
-                    >
-                      <Icon name="plus" className="w-4 h-4" />
-                    </button>
-                  </div>
-                }
               />
-
-              {/* Optional Household / Family Display Name */}
-              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3">
-                <div>
-                  <h2 className="font-display text-lg font-semibold text-ink">
-                    Household / Parent Display Name
-                  </h2>
-                  <p className="text-xs text-ink-secondary mt-0.5">
-                    Optional family name shown on your Home shelf and onboarding summary.
-                  </p>
-                </div>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    await store.setHouseholdName(householdNameInput);
-                  }}
-                  className="flex flex-col sm:flex-row gap-2.5"
-                >
-                  <input
-                    id="settings-household-name-input"
-                    type="text"
-                    value={householdNameInput}
-                    onChange={(e) => setHouseholdNameInput(e.target.value)}
-                    placeholder={t('onboarding.householdNamePlaceholder')}
-                    className="flex-1 px-3.5 py-2.5 rounded-lg bg-canvas border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-2 focus:outline-primary"
-                  />
-                  <button
-                    type="submit"
-                    className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap cursor-pointer"
-                  >
-                    Save Household Name
-                  </button>
-                </form>
-              </section>
-
-              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs">
-                {state.profiles.length === 0 ? (
-                  <p className="text-xs text-ink-secondary py-2">
-                    No child reader profiles yet. Tap + above to add your first reader.
-                  </p>
-                ) : (
-                  <div className="divide-y divide-edge-subtle">
-                    {state.profiles.map((profile) => {
-                      const isActive = profile.id === state.activeProfileId;
-                      const ageLabel = formatProfileAgeLabel(profile);
-                      const toneClass = AVATAR_TONES[profile.avatarTone] || AVATAR_TONES.teal;
-                      const initial = (profile.name || '?').slice(0, 1).toUpperCase();
-
-                      return (
-                        <div key={profile.id} className="py-3 first:pt-1 last:pb-1 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <span
-                              className={`inline-flex items-center justify-center font-display font-bold shrink-0 select-none w-10 h-10 rounded-full text-sm ${toneClass}`}
-                            >
-                              {initial}
-                            </span>
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-ink truncate">
-                                {profile.name}
-                                {isActive && (
-                                  <span className="text-xs font-semibold text-primary ml-1.5">
-                                    · {t('settings.activeReader')}
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-xs text-ink-secondary truncate">
-                                {ageLabel}
-                                {profile.birthDate ? ` (DOB ${profile.birthDate})` : ''} ·{' '}
-                                {formatReadingStage(profile.readingStage)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {!isActive && (
-                              <button
-                                type="button"
-                                onClick={() => store.setActiveProfile(profile.id)}
-                                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
-                              >
-                                {t('settings.selectProfile')}
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingProfileId(profile.id);
-                                setIsProfileFormOpen(true);
-                              }}
-                              aria-label={`Edit ${profile.name}`}
-                              className="min-h-[40px] min-w-[40px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-subtle flex items-center justify-center transition-colors cursor-pointer"
-                            >
-                              <Icon name="edit" className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </section>
+              <ReaderProfilesSection compactHeader defaultViewMode="list" />
             </>
           );
 
@@ -970,7 +859,7 @@ export const SettingsView: React.FC = () => {
                         {t('settings.themeLabel')}
                       </p>
                       <p className="text-xs text-ink-secondary mt-0.5">
-                        Choose from 7 curated Light and 7 matte Dark editorial palettes with matching typography.
+                        Choose from 8 curated Light and 8 matte Dark editorial palettes with matching typography.
                       </p>
                     </div>
                     <button
@@ -1060,7 +949,7 @@ export const SettingsView: React.FC = () => {
                       { id: 'compact' as const, label: t('settings.bookDetailCompact') },
                       { id: 'editorial' as const, label: t('settings.bookDetailEditorial') },
                     ].map((item) => {
-                      const active = (state.settings.bookDetailStyle || 'compact') === item.id;
+                      const active = (state.settings.bookDetailStyle || 'editorial') === item.id;
                       return (
                         <button
                           key={item.id}
@@ -1128,7 +1017,7 @@ export const SettingsView: React.FC = () => {
                         { id: 'regular' as const, label: t('settings.bookCardRegular') },
                         { id: 'large' as const, label: t('settings.bookCardLarge') },
                       ].map((item) => {
-                        const active = (state.settings.bookCardSize || 'regular') === item.id;
+                        const active = (state.settings.bookCardSize || 'compact') === item.id;
                         return (
                           <button
                             key={item.id}
@@ -1275,7 +1164,7 @@ export const SettingsView: React.FC = () => {
                           { id: 'md' as const, label: t('settings.presetArtMedium') },
                           { id: 'lg' as const, label: t('settings.presetArtLarge') },
                         ].map((item) => {
-                          const active = (state.settings.presetCornerArtSize || 'md') === item.id;
+                          const active = (state.settings.presetCornerArtSize || 'sm') === item.id;
                           return (
                             <button
                               key={item.id}
@@ -1342,18 +1231,6 @@ export const SettingsView: React.FC = () => {
                   </form>
                 </div>
               </section>
-
-              {/* Quick Jump to Language */}
-              <div className="rounded-xl bg-surface border border-edge overflow-hidden shadow-xs">
-                <SettingsMenuRow
-                  icon="globe"
-                  iconTone="indigo"
-                  title={t('settings.languageLabel')}
-                  subtitle={t('settings.rowLanguageSubtitle')}
-                  value={`${currentLanguageOption.flag} ${currentLanguageOption.nativeLabel}`}
-                  onClick={() => openSection('language')}
-                />
-              </div>
             </>
           );
 
@@ -2849,32 +2726,32 @@ export const SettingsView: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 shrink-0">
                     {pwaStatus.isInstalled ? (
-                      <p className="text-xs font-semibold text-primary inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-secondary/15 border border-secondary/35">
-                        <Icon name="check" className="w-3.5 h-3.5" />
+                      <div className="min-h-[44px] px-4 py-2 rounded-lg bg-secondary/15 border border-secondary/35 text-xs font-semibold text-primary inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                        <Icon name="check" className="w-3.5 h-3.5 shrink-0" />
                         <span>{t('settings.pwaInstalledMode')}</span>
-                      </p>
+                      </div>
                     ) : pwaStatus.isInstallable ? (
                       <button
                         type="button"
                         onClick={() => pwaManager.triggerInstall()}
-                        className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold transition-colors inline-flex items-center gap-2 whitespace-nowrap shadow-xs cursor-pointer"
+                        className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap shadow-xs cursor-pointer"
                       >
-                        <Icon name="download" className="w-4 h-4" />
+                        <Icon name="download" className="w-3.5 h-3.5 shrink-0" />
                         <span>{t('settings.pwaSaveHomeScreen')}</span>
                       </button>
                     ) : pwaStatus.isIOS ? (
-                      <div className="text-xs text-ink-secondary bg-surface-subtle px-3 py-2 rounded-lg border border-edge">
+                      <div className="min-h-[44px] px-3.5 py-2 rounded-lg bg-surface-subtle border border-edge text-xs text-ink-secondary inline-flex items-center justify-center text-center">
                         <span>
-                          Tap <strong>Share</strong> in Safari &rarr;{' '}
-                          <strong>Add to Home Screen</strong>
+                          Tap <strong>Share</strong> &rarr; <strong>Add to Home</strong>
                         </span>
                       </div>
                     ) : (
-                      <span className="text-xs font-semibold text-ink-secondary px-3 py-2 rounded-lg bg-surface-subtle border border-edge">
-                        PWA Ready
-                      </span>
+                      <div className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle border border-edge text-xs font-semibold text-ink-secondary inline-flex items-center justify-center gap-1.5 whitespace-nowrap">
+                        <Icon name="check" className="w-3.5 h-3.5 text-primary shrink-0" />
+                        <span>PWA Ready</span>
+                      </div>
                     )}
 
                     <button
@@ -2882,11 +2759,11 @@ export const SettingsView: React.FC = () => {
                       data-action="force-refresh-app"
                       onClick={handleForceRefresh}
                       disabled={refreshingApp}
-                      className="min-h-[44px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated disabled:opacity-60 border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated disabled:opacity-60 border border-edge text-ink text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       <Icon
                         name="refresh"
-                        className={refreshingApp ? 'w-3.5 h-3.5 animate-spin' : 'w-3.5 h-3.5'}
+                        className={refreshingApp ? 'w-3.5 h-3.5 animate-spin shrink-0' : 'w-3.5 h-3.5 shrink-0'}
                       />
                       <span>
                         {refreshingApp
@@ -2901,10 +2778,10 @@ export const SettingsView: React.FC = () => {
                 </p>
               </section>
 
-              {/* Storage & Browser Cache */}
+              {/* Storage & Browser Cache Breakdown */}
               <section
                 aria-labelledby="storage-heading"
-                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3.5"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-4"
               >
                 <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 pb-2.5 border-b border-edge-subtle">
                   <div>
@@ -2929,34 +2806,148 @@ export const SettingsView: React.FC = () => {
                       </span>
                       {t('settings.memoryLabel')}{' '}
                       <strong className="font-semibold text-ink">
-                        {storageUsage.formatted}
+                        {formatStorageBytes(
+                          detailedStorage ? detailedStorage.totalAppBytes : storageUsage.totalBytes
+                        )}
                       </strong>
                     </span>
                   </div>
                 </div>
 
-                <p className="text-xs text-ink-secondary leading-relaxed">
-                  {t('settings.aboutStorageText', {
-                    profiles: state.profiles.length,
-                    rotations: state.rotations.length,
-                    books: state.books.length,
-                    backend: 'indexeddb',
-                  })}
-                </p>
+                {/* Detailed Storage Categories Table */}
+                {(() => {
+                  const ds = detailedStorage;
+                  const totalAppBytes = ds ? ds.totalAppBytes : storageUsage.totalBytes;
+                  const rows = [
+                    {
+                      id: 'photos',
+                      icon: 'photo',
+                      label: t('settings.photosLabel') || 'Cover Photos',
+                      detail: ds
+                        ? `${ds.coverPhotoCount} saved ${ds.coverPhotoCount === 1 ? 'photo' : 'photos'}`
+                        : 'Inline device cover photos',
+                      bytes: ds ? ds.coverPhotoBytes : storageUsage.coverDataUrlBytes,
+                    },
+                    {
+                      id: 'audio',
+                      icon: 'mic',
+                      label: 'Voice Notes & Read-Alouds',
+                      detail: ds
+                        ? `${ds.audioClipCount} audio ${ds.audioClipCount === 1 ? 'clip' : 'clips'} (IndexedDB)`
+                        : 'Private IndexedDB recordings',
+                      bytes: ds ? ds.audioBytes : 0,
+                    },
+                    {
+                      id: 'catalog',
+                      icon: 'library',
+                      label: 'Catalog, Profiles & Shelves',
+                      detail: `${state.books.length} books · ${state.profiles.length} readers · ${state.rotations.length} shelves`,
+                      bytes: ds
+                        ? ds.catalogMetadataBytes
+                        : Math.max(0, storageUsage.stateBytes - storageUsage.coverDataUrlBytes),
+                    },
+                    {
+                      id: 'artwork',
+                      icon: 'palette',
+                      label: 'Custom Preset Artwork',
+                      detail: 'User-generated or uploaded collection covers',
+                      bytes: ds ? ds.customPresetArtBytes : 0,
+                    },
+                    {
+                      id: 'prefs',
+                      icon: 'sliders',
+                      label: 'Device Preferences & Keys',
+                      detail: 'Proxy URL, UI toggles & navigation memory',
+                      bytes: ds ? ds.auxLocalStorageBytes : storageUsage.auxBytes,
+                    },
+                  ];
+
+                  return (
+                    <div className="rounded-lg border border-edge-subtle bg-surface-subtle/60 overflow-hidden">
+                      <div className="divide-y divide-edge-subtle">
+                        {rows.map((row) => (
+                          <div
+                            key={row.id}
+                            className="px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <Icon name={row.icon} className="w-4 h-4 text-ink-secondary shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-ink truncate">{row.label}</p>
+                                <p className="text-[11px] text-ink-muted truncate">{row.detail}</p>
+                              </div>
+                            </div>
+                            <span className="font-mono-tabular font-semibold text-ink shrink-0">
+                              {formatStorageBytes(row.bytes)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="px-3.5 py-2.5 bg-surface-elevated/70 border-t border-edge-subtle flex items-center justify-between gap-3 text-xs">
+                        <span className="font-semibold text-ink">Total Library Footprint</span>
+                        <span className="font-mono-tabular font-bold text-primary">
+                          {formatStorageBytes(totalAppBytes)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Browser Quota & Service Worker Caches (if exposed by browser) */}
+                {detailedStorage &&
+                  (detailedStorage.browserUsageBytes !== null ||
+                    detailedStorage.cacheNames.length > 0) && (
+                    <div className="rounded-lg border border-edge-subtle bg-surface-subtle/40 px-3.5 py-3 space-y-2 text-xs">
+                      {detailedStorage.browserUsageBytes !== null &&
+                        detailedStorage.browserQuotaBytes !== null &&
+                        detailedStorage.browserQuotaBytes > 0 && (
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between gap-2 text-[11px]">
+                              <span className="font-semibold text-ink-secondary">
+                                Browser Origin Storage (includes app cache)
+                              </span>
+                              <span className="font-mono-tabular text-ink">
+                                {formatStorageBytes(detailedStorage.browserUsageBytes)} /{' '}
+                                {formatStorageBytes(detailedStorage.browserQuotaBytes)}
+                              </span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-surface-elevated overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-primary transition-all"
+                                style={{
+                                  width: `${Math.min(
+                                    100,
+                                    Math.max(
+                                      1,
+                                      Math.round(
+                                        (detailedStorage.browserUsageBytes /
+                                          detailedStorage.browserQuotaBytes) *
+                                          100
+                                      )
+                                    )
+                                  )}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                      {detailedStorage.cacheNames.length > 0 && (
+                        <p className="text-[11px] text-ink-muted">
+                          <span className="font-semibold text-ink-secondary">
+                            Offline asset caches ({detailedStorage.cacheNames.length}):
+                          </span>{' '}
+                          <span className="font-mono">{detailedStorage.cacheNames.join(', ')}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  {storageUsage.coverDataUrlBytes > 0 ? (
-                    <span className="text-xs font-mono-tabular text-ink-secondary">
-                      {t('settings.photosLabel')}:{' '}
-                      <strong className="text-ink">
-                        {formatStorageBytes(storageUsage.coverDataUrlBytes)}
-                      </strong>
-                    </span>
-                  ) : (
-                    <span className="text-xs text-ink-secondary">
-                      Local device cover cache
-                    </span>
-                  )}
+                  <span className="text-xs text-ink-secondary">
+                    Clearing cover cache removes uploaded inline cover images without touching books.
+                  </span>
 
                   <button
                     type="button"

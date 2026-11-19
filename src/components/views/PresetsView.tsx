@@ -107,7 +107,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
 
   const allPresets = useMemo(() => getAllRotationPresets(state), [state]);
   const showDecorations = state.settings?.showPresetDecorations !== false;
-  const cornerArtSize = state.settings?.presetCornerArtSize || 'md';
+  const cornerArtSize = state.settings?.presetCornerArtSize || 'sm';
 
   const currentMonthNum = new Date().getMonth() + 1;
 

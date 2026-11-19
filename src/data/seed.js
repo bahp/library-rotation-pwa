@@ -267,7 +267,12 @@ export function createSeedState() {
     rotations,
     settings: {
       theme: 'light',
+      themePreset: 'darker-teal',
+      bookDetailStyle: 'editorial',
+      bookViewMode: 'grid',
+      bookCardSize: 'compact',
       coverAspectRatio: 'square',
+      presetCornerArtSize: 'sm',
       dynamicCoverTint: true,
       retainRawProviderPayloads: false,
       searchWhileTyping: false,

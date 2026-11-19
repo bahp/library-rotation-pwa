@@ -5,13 +5,14 @@
  * under `[data-theme="<id>"]`.
  */
 
-/** @type {'sunlit-cream'} */
-export const DEFAULT_LIGHT_THEME_PRESET = 'sunlit-cream';
+/** @type {'darker-teal'} */
+export const DEFAULT_LIGHT_THEME_PRESET = 'darker-teal';
 /** @type {'forest-brass'} */
 export const DEFAULT_DARK_THEME_PRESET = 'forest-brass';
 
 /**
  * @typedef {(
+ *   | 'darker-teal'
  *   | 'sunlit-cream'
  *   | 'classic-teal'
  *   | 'antique-paper'
@@ -20,6 +21,7 @@ export const DEFAULT_DARK_THEME_PRESET = 'forest-brass';
  *   | 'blush-pink'
  *   | 'classic-light'
  *   | 'forest-brass'
+ *   | 'hylle-editorial'
  *   | 'midnight-ink'
  *   | 'warm-library'
  *   | 'plum-noir'
@@ -45,6 +47,18 @@ export const DEFAULT_DARK_THEME_PRESET = 'forest-brass';
 
 /** @type {Record<ThemePresetId, ThemePresetConfig>} */
 export const THEME_PRESETS = Object.freeze({
+  'darker-teal': Object.freeze({
+    id: 'darker-teal',
+    mode: 'light',
+    label: 'Darker Teal',
+    shortDescription: 'Ivory linen canvas with deep spruce-teal sidebar rgb(30, 50, 44)',
+    fontDescription: 'Fraunces + Plus Jakarta Sans',
+    sidebarArtworkDefault: 'illustration',
+    landingArtworkDefault: 'illustration',
+    themeColorHex: '#F7F5EE',
+    emblemHex: '#1E322C',
+    swatches: ['#F7F5EE', '#FFFFFF', '#1E322C', '#B38B43'],
+  }),
   'sunlit-cream': Object.freeze({
     id: 'sunlit-cream',
     mode: 'light',
@@ -213,10 +227,23 @@ export const THEME_PRESETS = Object.freeze({
     emblemHex: '#181918',
     swatches: ['#0F100F', '#181918', '#9E9B92', '#E0B654'],
   }),
+  'hylle-editorial': Object.freeze({
+    id: 'hylle-editorial',
+    mode: 'dark',
+    label: 'Hylle Noir',
+    shortDescription: 'Obsidian book journal, deep olive cards & brushed champagne gold',
+    fontDescription: 'Cormorant Garamond + DM Sans',
+    sidebarArtworkDefault: 'engraving',
+    landingArtworkDefault: 'engraving',
+    themeColorHex: '#0B0D0C',
+    emblemHex: '#141513',
+    swatches: ['#0B0D0C', '#141513', '#D2B35B', '#F3EFE6'],
+  }),
 });
 
 /** @type {readonly ThemePresetId[]} */
 export const THEME_PRESET_IDS = Object.freeze([
+  'darker-teal',
   'sunlit-cream',
   'classic-teal',
   'antique-paper',
@@ -225,6 +252,7 @@ export const THEME_PRESET_IDS = Object.freeze([
   'blush-pink',
   'classic-light',
   'forest-brass',
+  'hylle-editorial',
   'midnight-ink',
   'warm-library',
   'plum-noir',

@@ -22,7 +22,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
   const { state, store } = useApp();
   const [filter, setFilter] = useState<PlacementFilter>('all');
 
-  const coverAspect = state.settings?.coverAspectRatio || 'portrait';
+  const coverAspect = state.settings?.coverAspectRatio || 'square';
 
   const shelfBooks = useMemo(() => {
     if (!rotation) return [];

@@ -166,4 +166,34 @@ describe('Tagging, Taxonomy & Recommendations Suite', () => {
     });
     assert.equal(gaps.topicCounts.length, maya.favoriteTopics.length);
   });
+
+  it('applyLlmTagsToBook preserves existing manual and rules tags', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const book = await store.addManualBook({
+      title: 'The Snowy Winter Owl',
+      authors: ['J. Doe'],
+      format: 'hardcover',
+      ageMin: 3,
+      ageMax: 7,
+      readingStage: 'picture-book',
+      notes: 'A gentle bedtime story with forest animals in snow.',
+      tags: ['watercolor'],
+    });
+
+    await store.enrichSingleBook(book.id);
+    const updated = await store.applyLlmTagsToBook(book.id, {
+      tags: ['woodland', 'friendship'],
+      readingStage: 'picture-book',
+    });
+
+    assert.ok(updated);
+    assert.ok(updated.tags.includes('watercolor'));
+    assert.ok(updated.tags.includes('winter'));
+    assert.ok(updated.tags.includes('bedtime'));
+    assert.ok(updated.tags.includes('woodland'));
+    assert.ok(updated.tags.includes('friendship'));
+  });
 });

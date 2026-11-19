@@ -237,6 +237,24 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
                   </div>
                 </div>
               )}
+
+              {book.tags.length > 0 && (
+                <div className="p-3 rounded-lg bg-surface-subtle border border-edge-subtle space-y-1.5">
+                  <span className="font-semibold text-ink block text-[11px]">
+                    Existing tags kept alongside AI suggestions:
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {book.tags.map((existingTag) => (
+                      <span
+                        key={existingTag}
+                        className="px-2 py-0.5 rounded bg-surface border border-edge text-[11px] font-medium text-ink-secondary"
+                      >
+                        #{existingTag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ) : null}
         </div>
@@ -245,7 +263,7 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
         {tagResults && (
           <div className="p-4 border-t border-edge-subtle flex items-center justify-between gap-3">
             <span className="text-xs font-mono-tabular text-ink-secondary">
-              {selectedTags.size} tags selected
+              {selectedTags.size} AI tags selected
             </span>
             <div className="flex items-center gap-2">
               <button

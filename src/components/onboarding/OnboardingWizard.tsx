@@ -6,6 +6,7 @@ import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { ToggleSwitch } from '../common/ToggleSwitch.js';
 import { OnboardingLibraryStep } from './OnboardingLibraryStep.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+import { resolvePublicAssetUrl } from '../../ui/preset-artwork.js';
 import {
   AVATAR_TONES,
   AVATAR_TONE_BORDER_STYLES,
@@ -207,6 +208,7 @@ export const OnboardingWizard: React.FC = () => {
 
   const householdInputRef = useRef<HTMLInputElement>(null);
   const readerNameInputRef = useRef<HTMLInputElement>(null);
+  const slideTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const initialBookTypes =
     state.settings.preferredBookTypes && state.settings.preferredBookTypes.length > 0
@@ -631,147 +633,63 @@ export const OnboardingWizard: React.FC = () => {
     prefersDark
   );
   const activeViewMode: BookViewMode = state.settings.bookViewMode || 'grid';
-  const activeCardSize: BookCardSize = state.settings.bookCardSize || 'regular';
-  const activeDetailStyle: BookDetailStyle = state.settings.bookDetailStyle || 'compact';
-  const activeCoverRatio = state.settings.coverAspectRatio || 'portrait';
+  const activeCardSize: BookCardSize = state.settings.bookCardSize || 'compact';
+  const activeDetailStyle: BookDetailStyle = state.settings.bookDetailStyle || 'editorial';
+  const activeCoverRatio = state.settings.coverAspectRatio || 'square';
 
-  const renderSlideVisual = (visualKind: string) => {
-    switch (visualKind) {
-      case 'rotations':
-        return (
-          <div className="w-full max-w-md mx-auto rounded-2xl bg-surface border border-edge p-4 shadow-sm space-y-3">
-            <div className="h-28 sm:h-36 flex items-center justify-center">
-              <BotanicalIllustration variant="hero-library" className="w-full h-full max-w-[260px]" />
-            </div>
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              {[
-                t('onboarding.topicBedtime'),
-                t('onboarding.topicAnimals'),
-                t('onboarding.topicNature'),
-              ].map((label, idx) => (
-                <div
-                  key={label}
-                  className="rounded-lg bg-surface-subtle border border-edge-subtle px-2.5 py-2 text-left"
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">
-                    0{idx + 1}
-                  </p>
-                  <p className="font-display text-xs sm:text-sm font-semibold text-ink truncate mt-0.5">
-                    {label}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      case 'passport':
-        return (
-          <div className="w-full max-w-md mx-auto rounded-2xl bg-surface border border-edge p-5 shadow-sm space-y-3 text-left">
-            <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-edge-subtle">
-              <div className="flex items-center gap-2.5">
-                <span className="w-9 h-9 rounded-lg bg-primary text-primary-fg flex items-center justify-center">
-                  <Icon name="award" className="w-4 h-4" />
-                </span>
-                <div>
-                  <p className="font-display text-base font-semibold text-ink">
-                    {t('onboarding.feature2Title')}
-                  </p>
-                  <p className="text-[11px] text-ink-secondary">
-                    {t('onboarding.feature2Desc')}
-                  </p>
-                </div>
-              </div>
-              <span className="text-[11px] font-mono-tabular font-semibold text-primary shrink-0">
-                12
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { icon: 'search', name: t('onboarding.slide2Eyebrow') },
-                { icon: 'sparkles', name: t('nav.play') },
-                { icon: 'bookOpen', name: t('nav.rotations') },
-              ].map((item) => (
-                <div
-                  key={item.name}
-                  className="rounded-lg bg-surface-subtle border border-edge-subtle p-2.5 flex flex-col items-center text-center gap-1"
-                >
-                  <Icon name={item.icon} className="w-4 h-4 text-primary" />
-                  <span className="text-[11px] font-semibold text-ink truncate w-full">{item.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      case 'scan':
-        return (
-          <div className="w-full max-w-md mx-auto rounded-2xl bg-surface border border-edge p-5 shadow-sm space-y-3 text-left">
-            <div className="rounded-xl border border-dashed border-primary/55 bg-surface-subtle px-4 py-5 flex flex-col items-center justify-center gap-2 text-center">
-              <span className="w-11 h-11 rounded-full bg-surface border border-edge text-primary flex items-center justify-center">
-                <Icon name="qrcode" className="w-5 h-5" />
-              </span>
-              <p className="font-mono text-xs text-ink-secondary tracking-wider">
-                978 · 0 · 064 · 40055 · 8
-              </p>
-              <span className="text-[11px] font-semibold text-primary">
-                {t('onboarding.slide3Caption')}
-              </span>
-            </div>
-          </div>
-        );
-      case 'privacy':
-        return (
-          <div className="w-full max-w-md mx-auto rounded-2xl bg-surface border border-edge p-5 shadow-sm space-y-3 text-left">
-            <div className="flex items-center gap-3">
-              <span className="w-11 h-11 rounded-xl bg-surface-elevated border border-primary/35 text-primary flex items-center justify-center shrink-0">
-                <Icon name="shield" className="w-5 h-5" />
-              </span>
-              <div>
-                <p className="font-display text-lg font-semibold text-ink">
-                  {t('onboarding.slide4Eyebrow')}
-                </p>
-                <p className="text-xs text-ink-secondary">
-                  {t('onboarding.slide4Metric')}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
-                {t('onboarding.slide4Metric')}
-              </div>
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
-                {t('settings.exportBtn')}
-              </div>
-            </div>
-          </div>
-        );
-      case 'free':
-      default:
-        return (
-          <div className="w-full max-w-md mx-auto rounded-2xl bg-surface border border-edge p-5 shadow-sm space-y-3 text-left">
-            <div className="flex items-center gap-3">
-              <span className="w-11 h-11 rounded-xl bg-surface-elevated border border-accent/40 text-accent flex items-center justify-center shrink-0">
-                <Icon name="heartFilled" className="w-5 h-5" />
-              </span>
-              <div>
-                <p className="font-display text-lg font-semibold text-ink">
-                  {t('onboarding.slide5Eyebrow')}
-                </p>
-                <p className="text-xs text-ink-secondary">
-                  {t('onboarding.slide5Metric')}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
-                {t('nav.rotations')}
-              </div>
-              <div className="rounded-lg bg-surface-subtle border border-edge-subtle px-3 py-2 font-medium text-ink truncate">
-                {t('nav.library')}
-              </div>
-            </div>
-          </div>
-        );
+  const navigateSlide = (nextIdx: number) => {
+    const clamped = Math.max(0, Math.min(ONBOARDING_INTRO_SLIDES.length - 1, nextIdx));
+    if (clamped === activeSlideIndex) return;
+    dispatch({
+      type: 'PATCH',
+      patch: {
+        direction: clamped > activeSlideIndex ? 1 : -1,
+        slideIndex: clamped,
+      },
+    });
+  };
+
+  const handleSlideTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return;
+    slideTouchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  const handleSlideTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = slideTouchStartRef.current;
+    slideTouchStartRef.current = null;
+    if (!start || e.changedTouches.length === 0) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) < 42 || Math.abs(dx) <= Math.abs(dy) * 1.15) return;
+    if (dx < 0 && !isLastSlide) {
+      navigateSlide(activeSlideIndex + 1);
+    } else if (dx > 0 && activeSlideIndex > 0) {
+      navigateSlide(activeSlideIndex - 1);
     }
+  };
+
+  const renderSlideVisual = (slide: (typeof ONBOARDING_INTRO_SLIDES)[number]) => {
+    const illustrationSrc = slide.illustrationPath
+      ? resolvePublicAssetUrl(slide.illustrationPath)
+      : '';
+    const altTitle = slide.titleKey ? t(slide.titleKey) : slide.title;
+    return (
+      <div className="w-full max-w-[230px] sm:max-w-[285px] aspect-[4/3] mx-auto rounded-3xl overflow-hidden bg-[#FCF9F2] ring-1 ring-black/5 shadow-sm flex items-center justify-center p-2.5 select-none">
+        {illustrationSrc ? (
+          <img
+            src={illustrationSrc}
+            alt={altTitle}
+            draggable={false}
+            className="w-full h-full object-contain mix-blend-multiply pointer-events-none"
+          />
+        ) : (
+          <BotanicalIllustration variant="hero-library" className="w-full h-full" />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -1008,20 +926,24 @@ export const OnboardingWizard: React.FC = () => {
                 /* SLIDESHOW MODE */
                 <div
                   data-onboarding-landing="slideshow"
-                  className="flex-1 min-h-0 flex flex-col justify-between max-w-3xl w-full mx-auto px-4 sm:px-6 pt-3 sm:pt-6 pb-4 pb-safe gap-3"
+                  onTouchStart={handleSlideTouchStart}
+                  onTouchEnd={handleSlideTouchEnd}
+                  className="flex-1 min-h-0 flex flex-col justify-between max-w-3xl w-full mx-auto px-4 sm:px-6 pt-3 sm:pt-6 pb-4 pb-safe gap-3 touch-pan-y"
                 >
                   {/* Slide Showcase Center */}
                   <div className="flex-1 min-h-0 flex flex-col justify-center overflow-y-auto no-scrollbar py-2">
-                    <AnimatePresence mode="wait">
+                    <AnimatePresence mode="wait" custom={wizard.direction}>
                       <motion.div
                         key={currentSlide.id}
-                        initial={{ opacity: 0, x: 18 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -18 }}
+                        custom={wizard.direction}
+                        variants={slideVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
                         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                         className="space-y-4 sm:space-y-6 text-center"
                       >
-                        {renderSlideVisual(currentSlide.visualKind)}
+                        {renderSlideVisual(currentSlide)}
 
                         <div className="space-y-2 max-w-xl mx-auto px-1">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
@@ -1053,8 +975,11 @@ export const OnboardingWizard: React.FC = () => {
                         </div>
                       </motion.div>
                     </AnimatePresence>
+                  </div>
 
-                    <div className="text-center pt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+                  {/* Fixed Footer: Explore Sample Family + Segmented Progress Bar + Skip / Next */}
+                  <div className="shrink-0 space-y-2.5 pt-1">
+                    <div className="flex justify-center">
                       <button
                         type="button"
                         data-action="onboarding-explore-sample"
@@ -1062,27 +987,13 @@ export const OnboardingWizard: React.FC = () => {
                           await store.loadFullSampleHousehold();
                           navigate('home');
                         }}
-                        className="min-h-[36px] px-3 py-1 rounded-lg text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold text-primary hover:bg-surface-subtle hover:underline inline-flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         <Icon name="book" className="w-3.5 h-3.5 text-accent" />
                         <span>{t('onboarding.exploreSampleCta')}</span>
                       </button>
-                      <span
-                        data-onboarding-detected-lang={currentLanguage}
-                        className="text-[11px] text-ink-muted inline-flex items-center gap-1"
-                      >
-                        <span>{currentLanguageMeta.flag}</span>
-                        <span>
-                          {t('onboarding.detectedLanguageLabel', {
-                            lang: currentLanguageMeta.nativeLabel,
-                          })}
-                        </span>
-                      </span>
                     </div>
-                  </div>
 
-                  {/* Bottom Segmented Progress Bar + Skip / Next Buttons */}
-                  <div className="shrink-0 space-y-3 pt-1">
                     <div
                       role="tablist"
                       aria-label="Onboarding highlights"
@@ -1100,7 +1011,7 @@ export const OnboardingWizard: React.FC = () => {
                             role="tab"
                             aria-selected={idx === activeSlideIndex}
                             aria-label={`${idx + 1}: ${s.eyebrowKey ? t(s.eyebrowKey) : s.eyebrow}`}
-                            onClick={() => dispatch({ type: 'SET_FIELD', field: 'slideIndex', value: idx })}
+                            onClick={() => navigateSlide(idx)}
                             className="py-2 flex items-center cursor-pointer"
                           >
                             <span
@@ -1130,11 +1041,7 @@ export const OnboardingWizard: React.FC = () => {
                           if (isLastSlide) {
                             goToStep(1, 0);
                           } else {
-                            dispatch({
-                              type: 'SET_FIELD',
-                              field: 'slideIndex',
-                              value: activeSlideIndex + 1,
-                            });
+                            navigateSlide(activeSlideIndex + 1);
                           }
                         }}
                         className="min-h-[48px] px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg font-semibold text-sm inline-flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"

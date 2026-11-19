@@ -59,9 +59,9 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
     }
   };
 
-  const coverAspect = state.settings?.coverAspectRatio || 'portrait';
+  const coverAspect = state.settings?.coverAspectRatio || 'square';
   const viewMode = state.settings?.bookViewMode || 'grid';
-  const cardSize = state.settings?.bookCardSize || 'regular';
+  const cardSize = state.settings?.bookCardSize || 'compact';
   const shelfGridClass =
     cardSize === 'compact'
       ? 'grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 pt-1'

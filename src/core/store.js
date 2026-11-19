@@ -14,6 +14,7 @@ import {
   normalizeCollectionStatus,
   normalizeIsbn,
   normalizeOwnersList,
+  resolveBookTagOrigin,
 } from '../types/models.js';
 import { createSeedState } from '../data/seed.js';
 import {
@@ -25,6 +26,7 @@ import {
   isValidAppState,
   loadQaUserSnapshot,
   migrateState,
+  resolveNotificationDedupeKey,
   saveBookAudioBlob,
   saveQaUserSnapshot,
 } from './storage.js';
@@ -1367,6 +1369,10 @@ export function createAppStore(storage, deps = {}) {
         ageMin: target.ageMin,
         ageMax: target.ageMax,
         readingStage: target.readingStage,
+        language: target.language,
+        edition: target.edition,
+        notes: target.notes,
+        bookNotes: target.bookNotes,
         tags: target.tags,
         usageContext: buildBookUsagePayload(target, state),
       },
@@ -1435,6 +1441,10 @@ export function createAppStore(storage, deps = {}) {
           ageMin: book.ageMin,
           ageMax: book.ageMax,
           readingStage: book.readingStage,
+          language: book.language,
+          edition: book.edition,
+          notes: book.notes,
+          bookNotes: book.bookNotes,
           tags: book.tags,
           usageContext: buildBookUsagePayload(book, state),
         },
@@ -1500,9 +1510,17 @@ export function createAppStore(storage, deps = {}) {
   async function applyLlmTagsToBook(bookId, patch = {}) {
     const target = state.books.find((b) => b.id === bookId);
     if (!target) throw new Error('Book not found.');
-    const sanitized = sanitizeTagList(patch.tags || target.tags, 16);
-    const aiAdded = sanitized.filter((tag) => !target.tags.includes(tag));
-    const nextTagOrigins = mergeTagOrigins(target.tagOrigins, sanitized, {
+    const existingTags = Array.isArray(target.tags) ? target.tags : [];
+    const preservedNonAiTags = existingTags.filter(
+      (tag) => resolveBookTagOrigin(target, tag) !== 'ai'
+    );
+    const mergedTags = sanitizeTagList(
+      [...preservedNonAiTags, ...(patch.tags || existingTags)],
+      20
+    );
+    const existingSet = new Set(existingTags);
+    const aiAdded = mergedTags.filter((tag) => !existingSet.has(tag));
+    const nextTagOrigins = mergeTagOrigins(target.tagOrigins, mergedTags, {
       ai: aiAdded,
     });
     const aiProviderKey = `ai:${state.settings.llmProvider || 'gemini'}`;
@@ -1511,7 +1529,7 @@ export function createAppStore(storage, deps = {}) {
     );
     const updatedBook = {
       ...target,
-      tags: sanitized,
+      tags: mergedTags,
       ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
       ...(patch.readingStage ? { readingStage: patch.readingStage } : {}),
       ...(patch.readingLevelHint ? { readingLevelHint: patch.readingLevelHint } : {}),
@@ -1529,7 +1547,7 @@ export function createAppStore(storage, deps = {}) {
       ...state,
       books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
     });
-    notify(`Saved ${sanitized.length} tags for "${target.title}".`, 'success');
+    notify(`Saved ${mergedTags.length} tags for "${target.title}".`, 'success');
     return updatedBook;
   }
 
@@ -3277,62 +3295,96 @@ export function createAppStore(storage, deps = {}) {
     });
   }
 
+  /** @type {Promise<any>} */
+  let syncNotificationsQueue = Promise.resolve();
+
   /**
    * Scans active presets within `presetAlertDaysBefore` / `presetAlertDaysAfter` and active shelf Swap Day
-   * reminders, appending persistent unread `AppNotification` records without duplicating existing `alertKey`s.
+   * reminders, appending persistent unread `AppNotification` records without duplicating existing `alertKey`s
+   * or semantic cycle alerts. Serialized via a promise queue so concurrent calls cannot create duplicates.
    *
    * @param {Date | string | number} [referenceDate]
    */
-  async function syncNotifications(referenceDate = new Date()) {
-    const activeProfile =
-      state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0] || null;
-    if (!activeProfile) return state.notifications || [];
+  function syncNotifications(referenceDate = new Date()) {
+    const run = async () => {
+      const activeProfile =
+        state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0] || null;
+      if (!activeProfile) return state.notifications || [];
 
-    const activeRotation =
-      state.rotations.find((r) => r.profileId === activeProfile.id && r.status === 'active') || null;
-    const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
+      const activeRotation =
+        state.rotations.find((r) => r.profileId === activeProfile.id && r.status === 'active') || null;
+      const profileRotations = state.rotations.filter((r) => r.profileId === activeProfile.id);
 
-    const existingList = Array.isArray(state.notifications) ? state.notifications : [];
-    const byAlertKey = new Map(
-      existingList.filter((n) => n.alertKey).map((n) => [n.alertKey, n])
-    );
+      const rawExistingList = Array.isArray(state.notifications) ? state.notifications : [];
+      /** @type {import('../types/models.js').AppNotification[]} */
+      const existingList = [];
+      /** @type {Map<string, number>} */
+      const dedupeIndexMap = new Map();
+      let dedupedExistingChanged = false;
 
-    const nowIso = new Date().toISOString();
-    let changed = false;
-    /** @type {import('../types/models.js').AppNotification[]} */
-    const added = [];
-    /** @type {Map<string, Partial<import('../types/models.js').AppNotification>>} */
-    const patchById = new Map();
+      for (const item of rawExistingList) {
+        const dKey = resolveNotificationDedupeKey(item);
+        if (dKey && dedupeIndexMap.has(dKey)) {
+          const prevIdx = dedupeIndexMap.get(dKey);
+          if (prevIdx !== undefined) {
+            const prev = existingList[prevIdx];
+            existingList[prevIdx] = {
+              ...prev,
+              ...(prev.dismissed || item.dismissed ? { dismissed: true } : {}),
+              ...(prev.readAt || item.readAt ? { readAt: prev.readAt || item.readAt } : {}),
+            };
+          }
+          dedupedExistingChanged = true;
+          continue;
+        }
+        if (dKey) dedupeIndexMap.set(dKey, existingList.length);
+        existingList.push(item);
+      }
 
-    // 1. Seasonal / Tradition Preset Reminders (skipping paused presets via findMatchingStartDatePresets)
-    const allPresets = getAllRotationPresets(state);
-    const presetMatches = findMatchingStartDatePresets(allPresets, referenceDate, {
-      activeRotation,
-      profileRotations,
-      daysBefore: state.settings.presetAlertDaysBefore ?? 2,
-      daysAfter: state.settings.presetAlertDaysAfter ?? 5,
-    });
+      const byAlertKey = new Map();
+      const byDedupeKey = new Map();
+      for (const n of existingList) {
+        if (n.alertKey) byAlertKey.set(n.alertKey, n);
+        const dk = resolveNotificationDedupeKey(n);
+        if (dk && !byDedupeKey.has(dk)) byDedupeKey.set(dk, n);
+      }
 
-    for (const { preset, schedule } of presetMatches) {
-      if (!schedule.alertKey) continue;
-      const scopedAlertKey = `${schedule.alertKey}::${activeProfile.id}`;
-      const signed = schedule.signedDaysFromStart || 0;
-      const daysRemaining = signed < 0 ? Math.abs(signed) : 0;
-      const timingHeadline =
-        signed < 0
-          ? `Available in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} (${schedule.formattedDateLabel})`
-          : signed === 0
-            ? `Suggested today (${schedule.formattedDateLabel})`
-            : `Suggested ${signed} ${signed === 1 ? 'day' : 'days'} ago (${schedule.formattedDateLabel})`;
+      const nowIso = new Date().toISOString();
+      let changed = dedupedExistingChanged;
+      /** @type {import('../types/models.js').AppNotification[]} */
+      const added = [];
+      /** @type {Set<string>} */
+      const queuedKeys = new Set();
+      /** @type {Map<string, Partial<import('../types/models.js').AppNotification>>} */
+      const patchById = new Map();
 
-      const title = `${preset.title} · ${timingHeadline}`;
-      const message = `${preset.description} (${preset.count} books · ${preset.swapDays}d cycle for ${activeProfile.name})`;
+      // 1. Seasonal / Tradition Preset Reminders (skipping paused presets via findMatchingStartDatePresets)
+      const allPresets = getAllRotationPresets(state);
+      const presetMatches = findMatchingStartDatePresets(allPresets, referenceDate, {
+        activeRotation,
+        profileRotations,
+        daysBefore: state.settings.presetAlertDaysBefore ?? 2,
+        daysAfter: state.settings.presetAlertDaysAfter ?? 5,
+      });
 
-      const existing = byAlertKey.get(scopedAlertKey);
-      if (!existing) {
-        added.push({
-          id: createId('notif'),
-          kind: 'preset-upcoming',
+      for (const { preset, schedule } of presetMatches) {
+        if (!schedule.alertKey) continue;
+        const scopedAlertKey = `${schedule.alertKey}::${activeProfile.id}`;
+        const signed = schedule.signedDaysFromStart || 0;
+        const daysRemaining = signed < 0 ? Math.abs(signed) : 0;
+        const timingHeadline =
+          signed < 0
+            ? `Available in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} (${schedule.formattedDateLabel})`
+            : signed === 0
+              ? `Suggested today (${schedule.formattedDateLabel})`
+              : `Suggested ${signed} ${signed === 1 ? 'day' : 'days'} ago (${schedule.formattedDateLabel})`;
+
+        const title = `${preset.title} · ${timingHeadline}`;
+        const message = `${preset.description} (${preset.count} books · ${preset.swapDays}d cycle for ${activeProfile.name})`;
+
+        const candidateNotif = {
+          id: '',
+          kind: /** @type {const} */ ('preset-upcoming'),
           title,
           message,
           alertKey: scopedAlertKey,
@@ -3340,34 +3392,47 @@ export function createAppStore(storage, deps = {}) {
           profileId: activeProfile.id,
           daysRemaining,
           createdAt: nowIso,
-        });
-        changed = true;
-      } else if (
-        !existing.dismissed &&
-        (existing.title !== title || existing.daysRemaining !== daysRemaining)
-      ) {
-        patchById.set(existing.id, { title, message, daysRemaining });
-        changed = true;
-      }
-    }
+        };
+        const semanticKey = resolveNotificationDedupeKey(candidateNotif);
+        if (queuedKeys.has(scopedAlertKey) || (semanticKey && queuedKeys.has(semanticKey))) {
+          continue;
+        }
+        queuedKeys.add(scopedAlertKey);
+        if (semanticKey) queuedKeys.add(semanticKey);
 
-    // 2. Active Shelf Swap Day Reminder
-    if (activeRotation) {
-      const swapSched = computeRotationSchedule(activeRotation, activeProfile, referenceDate);
-      if (swapSched.isDue) {
-        const swapKey = `swap::${swapSched.reminderKey}`;
-        const timing =
-          swapSched.daysOverdue > 0
-            ? `${swapSched.daysOverdue}d overdue (${swapSched.dueDateLabel})`
-            : `due today (${swapSched.dueDateLabel})`;
-        const title = `Swap Day ${timing}: ${activeRotation.title}`;
-        const message = `${activeProfile.name}’s ${swapSched.cycleDays}-day shelf cycle is ready for a fresh rotation.`;
-
-        const existing = byAlertKey.get(swapKey);
+        const existing =
+          byAlertKey.get(scopedAlertKey) ||
+          (semanticKey ? byDedupeKey.get(semanticKey) : undefined);
         if (!existing) {
           added.push({
+            ...candidateNotif,
             id: createId('notif'),
-            kind: 'swap-due',
+          });
+          changed = true;
+        } else if (
+          !existing.dismissed &&
+          (existing.title !== title || existing.daysRemaining !== daysRemaining)
+        ) {
+          patchById.set(existing.id, { title, message, daysRemaining });
+          changed = true;
+        }
+      }
+
+      // 2. Active Shelf Swap Day Reminder
+      if (activeRotation) {
+        const swapSched = computeRotationSchedule(activeRotation, activeProfile, referenceDate);
+        if (swapSched.isDue) {
+          const swapKey = `swap::${swapSched.reminderKey}`;
+          const timing =
+            swapSched.daysOverdue > 0
+              ? `${swapSched.daysOverdue}d overdue (${swapSched.dueDateLabel})`
+              : `due today (${swapSched.dueDateLabel})`;
+          const title = `Swap Day ${timing}: ${activeRotation.title}`;
+          const message = `${activeProfile.name}’s ${swapSched.cycleDays}-day shelf cycle is ready for a fresh rotation.`;
+
+          const candidateSwap = {
+            id: '',
+            kind: /** @type {const} */ ('swap-due'),
             title,
             message,
             alertKey: swapKey,
@@ -3375,26 +3440,45 @@ export function createAppStore(storage, deps = {}) {
             profileId: activeProfile.id,
             daysRemaining: 0,
             createdAt: nowIso,
-          });
-          changed = true;
-        } else if (!existing.dismissed && existing.title !== title) {
-          patchById.set(existing.id, { title, message });
-          changed = true;
+          };
+          const semanticSwapKey = resolveNotificationDedupeKey(candidateSwap);
+          if (!queuedKeys.has(swapKey) && (!semanticSwapKey || !queuedKeys.has(semanticSwapKey))) {
+            queuedKeys.add(swapKey);
+            if (semanticSwapKey) queuedKeys.add(semanticSwapKey);
+
+            const existing =
+              byAlertKey.get(swapKey) ||
+              (semanticSwapKey ? byDedupeKey.get(semanticSwapKey) : undefined);
+            if (!existing) {
+              added.push({
+                ...candidateSwap,
+                id: createId('notif'),
+              });
+              changed = true;
+            } else if (!existing.dismissed && existing.title !== title) {
+              patchById.set(existing.id, { title, message });
+              changed = true;
+            }
+          }
         }
       }
-    }
 
-    if (!changed) return existingList;
+      if (!changed) return existingList;
 
-    const updatedExisting = existingList.map((n) =>
-      patchById.has(n.id) ? { ...n, ...patchById.get(n.id) } : n
-    );
-    const nextList = [...added, ...updatedExisting].slice(0, 80);
-    await commit({
-      ...state,
-      notifications: nextList,
-    });
-    return nextList;
+      const updatedExisting = existingList.map((n) =>
+        patchById.has(n.id) ? { ...n, ...patchById.get(n.id) } : n
+      );
+      const nextList = [...added, ...updatedExisting].slice(0, 80);
+      await commit({
+        ...state,
+        notifications: nextList,
+      });
+      return nextList;
+    };
+
+    const nextTask = syncNotificationsQueue.then(run, run);
+    syncNotificationsQueue = nextTask.catch(() => {});
+    return nextTask;
   }
 
   /**

@@ -61,9 +61,9 @@ export const LibraryView: React.FC = () => {
     setGlobalSearchQuery(next);
   };
 
-  const coverAspectRatio = state.settings?.coverAspectRatio || 'portrait';
+  const coverAspectRatio = state.settings?.coverAspectRatio || 'square';
   const viewMode = state.settings?.bookViewMode || 'grid';
-  const cardSize = state.settings?.bookCardSize || 'regular';
+  const cardSize = state.settings?.bookCardSize || 'compact';
   const libraryGridClass =
     cardSize === 'compact'
       ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3 pt-1'

@@ -45,10 +45,10 @@ export const BookCard: React.FC<BookCardProps> = ({
   className = '',
 }) => {
   const { state, setInspectedBookId } = useApp();
-  const coverAspect = aspectRatio || state.settings?.coverAspectRatio || 'portrait';
+  const coverAspect = aspectRatio || state.settings?.coverAspectRatio || 'square';
   const showCoverAdornos = state.settings?.showCoverUsageAdornos !== false;
   const showFreshnessInsights = state.settings?.enableRotationHistoryInsights !== false;
-  const resolvedCardSize: BookCardSize = cardSize || state.settings?.bookCardSize || 'regular';
+  const resolvedCardSize: BookCardSize = cardSize || state.settings?.bookCardSize || 'compact';
 
   const handleCardClick = () => {
     if (onInspect) {

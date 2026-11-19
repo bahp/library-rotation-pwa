@@ -15,7 +15,7 @@
     />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta id="lr-theme-color" name="theme-color" content="#F7F1E7" />
+    <meta id="lr-theme-color" name="theme-color" content="#F7F5EE" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -33,6 +33,11 @@
         margin: 0;
         min-height: 100vh;
         min-height: 100dvh;
+        background-color: #F7F5EE;
+        color: #15241F;
+      }
+      html[data-theme="sunlit-cream"],
+      html[data-theme="sunlit-cream"] body {
         background-color: #F7F1E7;
         color: #292720;
       }
@@ -100,6 +105,11 @@
       html.dark[data-theme="midnight-library"] body {
         background-color: #0F100F;
         color: #F4F2EC;
+      }
+      html.dark[data-theme="hylle-editorial"],
+      html.dark[data-theme="hylle-editorial"] body {
+        background-color: #0B0D0C;
+        color: #F3EFE6;
       }
       .lr-boot-splash {
         min-height: 100vh;
@@ -223,6 +233,7 @@
 
         // 2. Apply saved or system color theme, themePreset, AND exact top-bar theme-color before first paint (zero FOUC)
         var LIGHT_PRESETS = {
+          'darker-teal': { bg: '#F7F5EE', emblem: '#1E322C' },
           'sunlit-cream': { bg: '#F7F1E7', emblem: '#9E572C' },
           'classic-teal': { bg: '#F8F5EE', emblem: '#115953' },
           'antique-paper': { bg: '#F5F0E5', emblem: '#244B40' },
@@ -233,6 +244,7 @@
         };
         var DARK_PRESETS = {
           'forest-brass': { bg: '#101713', emblem: '#19251F' },
+          'hylle-editorial': { bg: '#0B0D0C', emblem: '#141513' },
           'midnight-ink': { bg: '#0B1420', emblem: '#152538' },
           'warm-library': { bg: '#17120E', emblem: '#292017' },
           'plum-noir': { bg: '#19121C', emblem: '#2B1D30' },
@@ -241,9 +253,9 @@
           'midnight-library': { bg: '#0F100F', emblem: '#181918' },
         };
         var isDark = false;
-        var activePreset = 'sunlit-cream';
-        var canvasHex = '#F7F1E7';
-        var emblemHex = '#9E572C';
+        var activePreset = 'darker-teal';
+        var canvasHex = '#F7F5EE';
+        var emblemHex = '#1E322C';
         try {
           var saved = localStorage.getItem('lr_theme_pref') || 'light';
           var savedPreset = localStorage.getItem('lr_theme_preset') || '';
@@ -256,7 +268,7 @@
             emblemHex = DARK_PRESETS[activePreset].emblem;
           } else {
             document.documentElement.classList.remove('dark');
-            activePreset = LIGHT_PRESETS[savedPreset] ? savedPreset : 'sunlit-cream';
+            activePreset = LIGHT_PRESETS[savedPreset] ? savedPreset : 'darker-teal';
             canvasHex = LIGHT_PRESETS[activePreset].bg;
             emblemHex = LIGHT_PRESETS[activePreset].emblem;
           }

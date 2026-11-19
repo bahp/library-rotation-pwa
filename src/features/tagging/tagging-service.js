@@ -96,7 +96,7 @@ export function createTaggingService(config = {}) {
           preserveExplicitAgeAndStage: options.preserveExplicitAgeAndStage,
         })
       : {
-          tags: sanitizeTagList(bookInput.tags || [], 8),
+          tags: sanitizeTagList(bookInput.tags || [], 14),
           addedTags: [],
           ageMin: typeof bookInput.ageMin === 'number' ? bookInput.ageMin : 3,
           ageMax: typeof bookInput.ageMax === 'number' ? bookInput.ageMax : 7,
@@ -158,9 +158,9 @@ export function createTaggingService(config = {}) {
         }
       );
 
-      const originalSet = new Set(sanitizeTagList(bookInput.tags || [], 8));
+      const originalSet = new Set(sanitizeTagList(bookInput.tags || [], 14));
       const baseLocalSet = new Set(baseLocal.tags);
-      const mergedTags = sanitizeTagList([...baseLocal.tags, ...aiResult.tags], 8);
+      const mergedTags = sanitizeTagList([...baseLocal.tags, ...aiResult.tags], 14);
       const addedTags = mergedTags.filter((t) => !originalSet.has(t));
       const aiAddedTags = mergedTags.filter((t) => !baseLocalSet.has(t));
 
