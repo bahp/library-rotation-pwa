@@ -1,16 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { AVATAR_TONES, resolveEffectiveThemeConfig } from '../../config/index.js';
+import { SIDEBAR_ILLUSTRATIONS } from '../../config/illustrations.js';
 import { formatProfileAgeLabel } from '../../types/models.js';
-import type { RouteId } from '../../types/models.js';
+import type {
+  RouteId,
+  SidebarArtworkMode,
+  SidebarArtworkStyle,
+  SidebarDividerStyle,
+} from '../../types/models.js';
 import sidebarArtworkImg from '../../assets/images/sidebar_reading_artwork_1794694074246.jpg';
-import { resolveSidebarArtworkInfo } from '../../ui/preset-artwork.js';
+import {
+  DAILY_RANDOM_ARTWORK_ID,
+  resolveActiveDividerVariant,
+  resolvePublicAssetUrl,
+  resolveSidebarArtworkInfo,
+} from '../../ui/preset-artwork.js';
+
+type ActiveSidebarPicker = 'none' | 'artwork' | 'divider';
 
 export const Sidebar: React.FC = () => {
   const {
     state,
+    store,
     currentRoute,
     activeProfile,
     setIsProfileSwitcherOpen,
@@ -24,6 +38,43 @@ export const Sidebar: React.FC = () => {
   } = useApp();
 
   const [hoveredTip, setHoveredTip] = useState<{ label: string; top: number } | null>(null);
+  const [activePicker, setActivePicker] = useState<ActiveSidebarPicker>('none');
+  const artworkPickerRef = useRef<HTMLDivElement | null>(null);
+  const dividerPickerRef = useRef<HTMLDivElement | null>(null);
+  const artworkBtnRef = useRef<HTMLButtonElement | null>(null);
+  const dividerBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (sidebarCollapsed) {
+      setActivePicker('none');
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (activePicker === 'none') return;
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (artworkPickerRef.current?.contains(target) || artworkBtnRef.current?.contains(target)) {
+        return;
+      }
+      if (dividerPickerRef.current?.contains(target) || dividerBtnRef.current?.contains(target)) {
+        return;
+      }
+      setActivePicker('none');
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActivePicker('none');
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activePicker]);
 
   const showTooltip = (el: HTMLElement, label: string) => {
     if (!sidebarCollapsed) return;
@@ -93,7 +144,24 @@ export const Sidebar: React.FC = () => {
     state.settings?.sidebarArtworkStyle === 'muted'
       ? state.settings.sidebarArtworkStyle
       : 'integrated';
-  const dividerStyle = state.settings?.sidebarDividerStyle === 'line' ? 'line' : 'illustration';
+  const configuredArtworkMode = state.settings?.sidebarArtworkMode || 'theme';
+  const isDailyRandomArtwork =
+    String(state.settings?.sidebarArtworkId || '').trim().toLowerCase() === DAILY_RANDOM_ARTWORK_ID;
+  const configuredDividerStyle: SidebarDividerStyle = (() => {
+    const raw = String(state.settings?.sidebarDividerStyle || '').trim().toLowerCase();
+    if (
+      raw === 'line' ||
+      raw === 'laurel' ||
+      raw === 'folio' ||
+      raw === 'japanese' ||
+      raw === 'minimal' ||
+      raw === 'random'
+    ) {
+      return raw;
+    }
+    return 'laurel';
+  })();
+  const resolvedDividerVariant = resolveActiveDividerVariant(state.settings?.sidebarDividerStyle);
   const sidebarArtwork = resolveSidebarArtworkInfo(state.settings, sidebarArtworkImg);
 
   const sidebarIllustrationVars = {
@@ -318,70 +386,104 @@ export const Sidebar: React.FC = () => {
           </nav>
         </div>
 
-        {/* Configurable Frameless Sidebar Artwork */}
+        {/* Interactive Frameless Sidebar Artwork (Click to customize or enable Daily Random) */}
         {!sidebarCollapsed && artworkMode !== 'none' && (
           <div
-            aria-hidden="true"
             data-sidebar-artwork-mode={artworkMode}
             data-sidebar-artwork-style={artworkStyle}
-            className="relative mt-auto pt-4 pb-3 px-2 pointer-events-none select-none shrink-0 flex items-center justify-center"
+            className="relative mt-auto pt-3 pb-2 px-1.5 shrink-0 flex items-center justify-center"
             style={sidebarIllustrationVars}
           >
-            {artworkMode === 'illustration' ? (
-              <div className="relative w-full flex items-center justify-center">
-                {artworkStyle !== 'natural' && (
-                  <div
-                    className="lr-sidebar-artwork-halo pointer-events-none absolute inset-x-2 inset-y-0 rounded-full"
-                    aria-hidden="true"
+            <button
+              ref={artworkBtnRef}
+              type="button"
+              data-action="sidebar-artwork-trigger"
+              aria-label="Customize sidebar artwork"
+              aria-expanded={activePicker === 'artwork'}
+              title="Click to switch artwork or enable Daily Random"
+              onClick={() =>
+                setActivePicker((prev) => (prev === 'artwork' ? 'none' : 'artwork'))
+              }
+              className={`group relative w-full rounded-xl p-1.5 flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-sidebar-accent ${
+                activePicker === 'artwork'
+                  ? 'bg-sidebar-surface/65 ring-1 ring-sidebar-accent/45'
+                  : 'hover:bg-sidebar-surface/40'
+              }`}
+            >
+              {artworkMode === 'illustration' ? (
+                <div className="relative w-full flex items-center justify-center">
+                  {artworkStyle !== 'natural' && (
+                    <div
+                      className="lr-sidebar-artwork-halo pointer-events-none absolute inset-x-2 inset-y-0 rounded-full"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <img
+                    src={sidebarArtwork.src}
+                    alt=""
+                    className={`relative z-10 w-full h-32 pointer-events-none ${
+                      sidebarArtwork.isTransparent
+                        ? 'object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.32)]'
+                        : 'object-cover lr-sidebar-artwork-mask'
+                    } ${
+                      artworkStyle === 'integrated'
+                        ? 'lr-sidebar-artwork-integrated'
+                        : artworkStyle === 'muted'
+                          ? 'lr-sidebar-artwork-muted'
+                          : 'opacity-95'
+                    }`}
                   />
-                )}
-                <img
-                  src={sidebarArtwork.src}
-                  alt=""
-                  className={`relative z-10 w-full h-32 ${
-                    sidebarArtwork.isTransparent
-                      ? 'object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.32)]'
-                      : 'object-cover lr-sidebar-artwork-mask'
-                  } ${
-                    artworkStyle === 'integrated'
-                      ? 'lr-sidebar-artwork-integrated'
-                      : artworkStyle === 'muted'
-                        ? 'lr-sidebar-artwork-muted'
-                        : 'opacity-95'
+                </div>
+              ) : (
+                <BotanicalIllustration
+                  variant="hero-library"
+                  className={`w-full h-32 pointer-events-none transition-opacity ${
+                    artworkStyle === 'muted'
+                      ? 'opacity-65'
+                      : artworkStyle === 'natural'
+                        ? 'opacity-95'
+                        : 'opacity-85'
                   }`}
                 />
-              </div>
-            ) : (
-              <BotanicalIllustration
-                variant="hero-library"
-                className={`w-full h-32 transition-opacity ${
-                  artworkStyle === 'muted'
-                    ? 'opacity-65'
-                    : artworkStyle === 'natural'
-                      ? 'opacity-95'
-                      : 'opacity-85'
-                }`}
-              />
-            )}
+              )}
+            </button>
           </div>
         )}
       </div>
 
-      {/* Bottom Active Reader Card (with Line or Ornamental Divider) */}
+      {/* Bottom Active Reader Card (with Interactive Line or Ornamental Divider) */}
       <div
-        className={`${sidebarCollapsed ? 'p-2.5 border-t border-sidebar-border' : 'px-3.5 pb-3.5 pt-2'} ${
-          !sidebarCollapsed && dividerStyle === 'line' ? 'border-t border-sidebar-border pt-3.5' : ''
-        } shrink-0 bg-sidebar`}
+        className={`${sidebarCollapsed ? 'p-2.5 border-t border-sidebar-border' : 'px-3.5 pb-3.5 pt-1'} shrink-0 bg-sidebar`}
       >
-        {!sidebarCollapsed && dividerStyle === 'illustration' && (
-          <div
-            aria-hidden="true"
-            data-sidebar-divider="illustration"
+        {!sidebarCollapsed && (
+          <button
+            ref={dividerBtnRef}
+            type="button"
+            data-sidebar-divider={configuredDividerStyle}
+            data-action="sidebar-divider-trigger"
+            aria-label="Customize reader separator style"
+            aria-expanded={activePicker === 'divider'}
+            title="Click to switch separator ornament or enable Daily Random"
             style={sidebarIllustrationVars}
-            className="pb-2.5 flex items-center justify-center pointer-events-none select-none"
+            onClick={() =>
+              setActivePicker((prev) => (prev === 'divider' ? 'none' : 'divider'))
+            }
+            className={`w-full py-2 mb-1 rounded-lg flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-sidebar-accent ${
+              activePicker === 'divider'
+                ? 'bg-sidebar-surface/70 ring-1 ring-sidebar-accent/40'
+                : 'hover:bg-sidebar-surface/40'
+            }`}
           >
-            <BotanicalIllustration variant="sidebar-divider" className="w-full h-5 opacity-90" />
-          </div>
+            {resolvedDividerVariant === 'line' ? (
+              <span className="block w-full h-px bg-sidebar-border" aria-hidden="true" />
+            ) : (
+              <BotanicalIllustration
+                variant="sidebar-divider"
+                dividerStyle={resolvedDividerVariant}
+                className="w-full h-6 opacity-90 pointer-events-none"
+              />
+            )}
+          </button>
         )}
         {activeProfile ? (
           <button
@@ -451,6 +553,226 @@ export const Sidebar: React.FC = () => {
           className="pointer-events-none fixed -translate-y-1/2 z-[70] px-2.5 py-1.5 rounded-lg bg-surface text-ink border border-edge shadow-lg text-xs font-semibold whitespace-nowrap"
         >
           {hoveredTip.label}
+        </div>
+      )}
+
+      {/* Quick-Picker Popover: Sidebar Artwork & Daily Random */}
+      {!sidebarCollapsed && activePicker === 'artwork' && (
+        <div
+          ref={artworkPickerRef}
+          role="dialog"
+          aria-label="Choose sidebar artwork"
+          className="fixed left-[266px] bottom-24 z-[70] w-[308px] rounded-xl bg-surface text-ink border border-edge shadow-2xl p-3.5 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold text-ink">{t('settings.sidebarArtworkLabel')}</p>
+              <p className="text-[11px] text-ink-secondary truncate max-w-[225px]">
+                {isDailyRandomArtwork
+                  ? `${t('settings.sidebarArtworkRandom')} · ${sidebarArtwork.label}`
+                  : artworkMode === 'engraving'
+                    ? t('settings.sidebarArtworkEngraving')
+                    : sidebarArtwork.label}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivePicker('none')}
+              aria-label="Close artwork picker"
+              className="w-7 h-7 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-subtle flex items-center justify-center cursor-pointer"
+            >
+              <Icon name="close" className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Mode Strip */}
+          <div className="grid grid-cols-4 gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+            {(
+              [
+                { id: 'theme', label: 'Theme' },
+                { id: 'engraving', label: 'Engraving' },
+                { id: 'illustration', label: 'Art' },
+                { id: 'none', label: 'Hide' },
+              ] as Array<{ id: SidebarArtworkMode; label: string }>
+            ).map((m) => {
+              const active = configuredArtworkMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    store.updateSettings({ sidebarArtworkMode: m.id });
+                    if (m.id === 'none') setActivePicker('none');
+                  }}
+                  className={`py-1.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                    active ? 'bg-primary text-primary-fg shadow-2xs' : 'text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Visual Blend Row */}
+          <div className="grid grid-cols-3 gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+            {(
+              [
+                { id: 'integrated', label: t('settings.sidebarArtworkStyleIntegrated') },
+                { id: 'natural', label: t('settings.sidebarArtworkStyleNatural') },
+                { id: 'muted', label: t('settings.sidebarArtworkStyleMuted') },
+              ] as Array<{ id: SidebarArtworkStyle; label: string }>
+            ).map((st) => {
+              const active = artworkStyle === st.id;
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => store.updateSettings({ sidebarArtworkStyle: st.id })}
+                  className={`py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                    active ? 'bg-surface text-ink border border-edge shadow-2xs' : 'text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Daily Random Button */}
+          <button
+            type="button"
+            data-action="sidebar-artwork-daily-random"
+            onClick={() =>
+              store.updateSettings({
+                sidebarArtworkMode: 'illustration',
+                sidebarArtworkId: DAILY_RANDOM_ARTWORK_ID,
+              })
+            }
+            className={`w-full px-3 py-2 rounded-lg border text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+              isDailyRandomArtwork && artworkMode === 'illustration'
+                ? 'bg-primary/12 border-primary text-ink'
+                : 'bg-surface-subtle/75 hover:bg-surface-elevated border-edge text-ink'
+            }`}
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <Icon name="shuffle" className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-xs font-semibold truncate">{t('settings.sidebarArtworkRandom')}</span>
+            </span>
+            <span className="text-[10px] font-medium text-ink-secondary shrink-0">
+              Changes daily
+            </span>
+          </button>
+
+          {/* Compact Illustration Thumbnail Grid */}
+          <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-0.5">
+            {SIDEBAR_ILLUSTRATIONS.map((item) => {
+              const isSelected =
+                !isDailyRandomArtwork &&
+                artworkMode === 'illustration' &&
+                sidebarArtwork.artworkId === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  title={item.label}
+                  onClick={() =>
+                    store.updateSettings({
+                      sidebarArtworkMode: 'illustration',
+                      sidebarArtworkId: item.id,
+                    })
+                  }
+                  className={`group relative aspect-[4/3] rounded-lg p-1 flex items-center justify-center border transition-all cursor-pointer overflow-hidden ${
+                    isSelected
+                      ? 'border-primary ring-2 ring-primary/35'
+                      : 'border-edge hover:border-primary/60'
+                  }`}
+                  style={{ backgroundColor: 'var(--sidebar-bg)' }}
+                >
+                  <img
+                    src={resolvePublicAssetUrl(item.path)}
+                    alt={item.label}
+                    className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Quick-Picker Popover: Reader Card Divider Style */}
+      {!sidebarCollapsed && activePicker === 'divider' && (
+        <div
+          ref={dividerPickerRef}
+          role="dialog"
+          aria-label="Choose reader card separator"
+          className="fixed left-[266px] bottom-14 z-[70] w-[286px] rounded-xl bg-surface text-ink border border-edge shadow-2xl p-3.5 space-y-2.5"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold text-ink">{t('settings.sidebarDividerLabel')}</p>
+              <p className="text-[11px] text-ink-secondary">
+                {configuredDividerStyle === 'random'
+                  ? `${t('settings.sidebarDividerRandom')} · ${resolvedDividerVariant}`
+                  : 'Click a motif to preview above reader'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActivePicker('none')}
+              aria-label="Close separator picker"
+              className="w-7 h-7 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-subtle flex items-center justify-center cursor-pointer"
+            >
+              <Icon name="close" className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            {(
+              [
+                { id: 'laurel', label: t('settings.sidebarDividerLaurel'), motif: 'laurel' as const },
+                { id: 'japanese', label: t('settings.sidebarDividerJapanese'), motif: 'japanese' as const },
+                { id: 'folio', label: t('settings.sidebarDividerFolio'), motif: 'folio' as const },
+                { id: 'minimal', label: t('settings.sidebarDividerMinimal'), motif: 'minimal' as const },
+                { id: 'line', label: t('settings.sidebarDividerLine'), motif: null },
+                { id: 'random', label: t('settings.sidebarDividerRandom'), motif: 'random' as const },
+              ] as const
+            ).map((opt) => {
+              const active = configuredDividerStyle === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  data-sidebar-divider-picker-option={opt.id}
+                  onClick={() => store.updateSettings({ sidebarDividerStyle: opt.id })}
+                  className={`w-full px-2.5 py-2 rounded-lg border flex items-center justify-between gap-2.5 transition-colors cursor-pointer ${
+                    active
+                      ? 'bg-primary/12 border-primary text-ink'
+                      : 'bg-surface-subtle/60 hover:bg-surface-elevated border-edge text-ink'
+                  }`}
+                >
+                  <span className="text-xs font-semibold whitespace-nowrap shrink-0 flex items-center gap-1.5">
+                    {opt.id === 'random' && <Icon name="shuffle" className="w-3.5 h-3.5 text-primary" />}
+                    <span>{opt.label}</span>
+                  </span>
+                  <span className="flex-1 min-w-0 flex items-center justify-end">
+                    {opt.motif === 'random' ? (
+                      <span className="text-[10px] font-medium text-ink-secondary">Changes daily</span>
+                    ) : opt.motif === null ? (
+                      <span className="block w-24 h-px bg-edge" aria-hidden="true" />
+                    ) : (
+                      <BotanicalIllustration
+                        variant="sidebar-divider"
+                        dividerStyle={opt.motif}
+                        className="w-28 h-4 text-ink"
+                      />
+                    )}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </aside>

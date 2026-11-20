@@ -124,10 +124,22 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
       avatarTone: 'amber',
     });
 
+    const expectedSeedCount = createSeedState().books.length;
+    assert.ok(expectedSeedCount >= 20);
+    assert.ok(
+      createSeedState().books.every(
+        (b) =>
+          typeof b.coverUrl === 'string' &&
+          b.coverUrl.startsWith('https://') &&
+          typeof b.dominantColor === 'string' &&
+          /^#[0-9A-F]{6}$/i.test(b.dominantColor)
+      )
+    );
+
     const firstImport = await store.importSampleCollectionAdditive({
       assignToProfileId: child.id,
     });
-    assert.equal(firstImport.addedBooks.length, 9);
+    assert.equal(firstImport.addedBooks.length, expectedSeedCount);
     assert.equal(firstImport.skippedDuplicatesCount, 0);
     assert.equal(store.getState().profiles.length, 1);
     assert.equal(store.getState().profiles[0].name, 'Marco');
@@ -139,7 +151,7 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
       assignToProfileId: child.id,
     });
     assert.equal(secondImport.addedBooks.length, 0);
-    assert.equal(secondImport.skippedDuplicatesCount, 9);
+    assert.equal(secondImport.skippedDuplicatesCount, expectedSeedCount);
 
     // Generating first rotation works smoothly from imported sample books
     const firstRot = await store.generateRotation({
@@ -175,11 +187,12 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(store.getState().settings.onboarding?.previewMode, true);
     assert.equal(store.getState().settings.onboarding?.currentStep, 0);
 
+    const expectedSeedCount = createSeedState().books.length;
     await store.exitPreviewOnboarding();
     assert.equal(store.getState().settings.onboarding?.previewMode, undefined);
     assert.equal(store.getState().settings.onboarding?.status, 'completed');
     assert.equal(store.getState().profiles[0].name, 'Hannah');
-    assert.equal(store.getState().books.length, 9);
+    assert.equal(store.getState().books.length, expectedSeedCount);
 
     // Switch to New User clean slate -> archives Existing User snapshot
     await store.switchToNewUserCleanSlate();
@@ -188,12 +201,12 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(store.getState().books.length, 0);
     assert.equal(store.getState().settings.onboarding?.status, 'pending');
 
-    // Restore Existing User snapshot -> restores Hannah + 9 books + householdName
+    // Restore Existing User snapshot -> restores Hannah + starter books + householdName
     await store.restoreExistingUserSnapshot();
     assert.equal(store.getState().profiles.length, 1);
     assert.equal(store.getState().profiles[0].name, 'Hannah');
     assert.equal(store.getState().settings.householdName, 'Miller Household');
-    assert.equal(store.getState().books.length, 9);
+    assert.equal(store.getState().books.length, expectedSeedCount);
 
     // Reset flag keeps data while reopening onboarding
     await store.resetOnboardingCompletionFlag();

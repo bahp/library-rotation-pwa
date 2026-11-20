@@ -107,6 +107,7 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     assert.ok(hungry);
     assert.equal(isBookInCooldown(hungry, 14, twoDaysLater), false);
 
+    // Every selected book from seeded catalog must be outside the cooldown window
     const singleFresh = generateRotationSelection({
       books: seeded.books,
       profile: maya,
@@ -121,7 +122,42 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     });
 
     assert.equal(singleFresh.selectedBookIds.length, 1);
-    assert.equal(singleFresh.selectedBookIds[0], 'book_very_hungry');
+    const chosenFresh = seeded.books.find((b) => b.id === singleFresh.selectedBookIds[0]);
+    assert.ok(chosenFresh);
+    assert.equal(isBookInCooldown(chosenFresh, 14, twoDaysLater), false);
+
+    // When book_very_hungry is the sole fresh book, it is selected first; requesting 2 relaxes cooldown
+    const onlyHungryFresh = seeded.books.map((b) =>
+      b.id === 'book_very_hungry' ? b : { ...b, lastRotatedAt: '2026-10-30T12:00:00.000Z' }
+    );
+    const forcedSingle = generateRotationSelection({
+      books: onlyHungryFresh,
+      profile: maya,
+      rules: {
+        count: 1,
+        cooldownDays: 14,
+        varietyMix: false,
+        objective: '',
+        preferredTags: [],
+      },
+      nowIso: twoDaysLater,
+    });
+    assert.deepEqual(forcedSingle.selectedBookIds, ['book_very_hungry']);
+
+    const relaxedTwo = generateRotationSelection({
+      books: onlyHungryFresh,
+      profile: maya,
+      rules: {
+        count: 2,
+        cooldownDays: 14,
+        varietyMix: false,
+        objective: '',
+        preferredTags: [],
+      },
+      nowIso: twoDaysLater,
+    });
+    assert.equal(relaxedTwo.selectedBookIds.length, 2);
+    assert.ok(relaxedTwo.selectedBookIds.includes('book_very_hungry'));
   });
 
   it('replacement and addition helpers preserve shelf order and prevent duplicates', () => {

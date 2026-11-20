@@ -99,7 +99,7 @@ export function createDefaultAppSettings() {
     sidebarArtworkMode: 'theme',
     sidebarArtworkId: 'books-reading-lamp',
     sidebarArtworkStyle: 'integrated',
-    sidebarDividerStyle: 'illustration',
+    sidebarDividerStyle: 'laurel',
     onboardingLandingMode: 'slideshow',
     nativeAppStyle: true,
     notificationsEnabled: false,
@@ -139,4 +139,27 @@ export function createDefaultAppSettings() {
     customGiftStoreName: '',
     customGiftStoreUrl: '',
   };
+}
+
+const VALID_SIDEBAR_DIVIDER_STYLES = new Set([
+  'line',
+  'laurel',
+  'folio',
+  'japanese',
+  'minimal',
+  'random',
+]);
+
+/**
+ * Normalizes persisted or user-selected sidebar divider styles, seamlessly migrating legacy `'illustration'` to `'laurel'`.
+ * @param {unknown} raw
+ * @returns {import('../types/models.js').SidebarDividerStyle}
+ */
+export function normalizeSidebarDividerStyle(raw) {
+  const val = String(raw || '').trim().toLowerCase();
+  if (val === 'illustration') return 'laurel';
+  if (VALID_SIDEBAR_DIVIDER_STYLES.has(val)) {
+    return /** @type {import('../types/models.js').SidebarDividerStyle} */ (val);
+  }
+  return 'laurel';
 }

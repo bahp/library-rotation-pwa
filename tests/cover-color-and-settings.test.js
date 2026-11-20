@@ -19,6 +19,7 @@ import {
   proxyBookCoverImage,
 } from '../src/server/books-proxy.js';
 import { createSafeDefaultSettings, createStorageAdapter } from '../src/core/storage.js';
+import { normalizeSidebarDividerStyle } from '../src/config/defaults.js';
 import { createAppStore } from '../src/core/store.js';
 
 /**
@@ -128,29 +129,54 @@ describe('Cover Color Extraction, Cover Proxy & Settings Suite', () => {
     assert.deepEqual(Array.from(ok.buffer || []), Array.from(sampleBytes));
   });
 
-  it('createSafeDefaultSettings normalizes and clamps sidebar artwork, divider, and tint gradient controls', () => {
+  it('createSafeDefaultSettings normalizes and clamps sidebar artwork, divider motifs, and tint gradient controls', async () => {
     const defaults = createSafeDefaultSettings();
     assert.equal(defaults.sidebarArtworkMode, 'theme');
     assert.equal(defaults.sidebarArtworkStyle, 'integrated');
-    assert.equal(defaults.sidebarDividerStyle, 'illustration');
+    assert.equal(defaults.sidebarDividerStyle, 'laurel');
     assert.equal(defaults.dynamicCoverTintMode, 'prominent');
     assert.equal(defaults.dynamicCoverTintCircularFade, 310);
     assert.equal(defaults.dynamicCoverTintLinearFade, 92);
 
+    // Legacy 'illustration' value migrates cleanly to 'laurel'
+    assert.equal(normalizeSidebarDividerStyle('illustration'), 'laurel');
+    assert.equal(normalizeSidebarDividerStyle('JAPANESE'), 'japanese');
+    assert.equal(normalizeSidebarDividerStyle('folio'), 'folio');
+    assert.equal(normalizeSidebarDividerStyle('minimal'), 'minimal');
+    assert.equal(normalizeSidebarDividerStyle('random'), 'random');
+    assert.equal(normalizeSidebarDividerStyle('unknown-style'), 'laurel');
+    assert.equal(
+      createSafeDefaultSettings({ sidebarDividerStyle: /** @type {any} */ ('illustration') })
+        .sidebarDividerStyle,
+      'laurel'
+    );
+
     const clamped = createSafeDefaultSettings({
       sidebarArtworkMode: 'none',
+      sidebarArtworkId: 'random',
       sidebarArtworkStyle: 'muted',
-      sidebarDividerStyle: 'line',
+      sidebarDividerStyle: 'japanese',
       dynamicCoverTintMode: 'soft',
       dynamicCoverTintCircularFade: 9999,
       dynamicCoverTintLinearFade: 5,
     });
     assert.equal(clamped.sidebarArtworkMode, 'none');
+    assert.equal(clamped.sidebarArtworkId, 'random');
     assert.equal(clamped.sidebarArtworkStyle, 'muted');
-    assert.equal(clamped.sidebarDividerStyle, 'line');
+    assert.equal(clamped.sidebarDividerStyle, 'japanese');
     assert.equal(clamped.dynamicCoverTintMode, 'soft');
     assert.equal(clamped.dynamicCoverTintCircularFade, 520);
     assert.equal(clamped.dynamicCoverTintLinearFade, 35);
+
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+    await store.updateSettings({
+      sidebarArtworkId: 'random',
+      sidebarDividerStyle: 'random',
+    });
+    assert.equal(store.getState().settings.sidebarArtworkId, 'random');
+    assert.equal(store.getState().settings.sidebarDividerStyle, 'random');
   });
 
   it('store.setBookDominantColor distinguishes manual vs automatic overrides and clears cleanly', async () => {

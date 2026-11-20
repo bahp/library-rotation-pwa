@@ -30,6 +30,8 @@ interface CuratedStarterBook {
   isbn: string;
   publishedYear: number;
   pageCount: number;
+  coverUrl: string;
+  dominantColor: string;
   format: BookFormat;
   ageMin: number;
   ageMax: number;
@@ -44,6 +46,8 @@ const OLDER_READER_STARTER_BOOKS: CuratedStarterBook[] = [
     isbn: '9780064400558',
     publishedYear: 1952,
     pageCount: 192,
+    coverUrl: 'https://covers.openlibrary.org/b/id/8461797-L.jpg',
+    dominantColor: '#B5C7A3',
     format: 'paperback',
     ageMin: 7,
     ageMax: 12,
@@ -56,6 +60,8 @@ const OLDER_READER_STARTER_BOOKS: CuratedStarterBook[] = [
     isbn: '9780316382007',
     publishedYear: 2016,
     pageCount: 288,
+    coverUrl: 'https://covers.openlibrary.org/b/id/7443301-L.jpg',
+    dominantColor: '#98C4B4',
     format: 'hardcover',
     ageMin: 8,
     ageMax: 13,
@@ -68,6 +74,8 @@ const OLDER_READER_STARTER_BOOKS: CuratedStarterBook[] = [
     isbn: '9780156012195',
     publishedYear: 1943,
     pageCount: 96,
+    coverUrl: 'https://covers.openlibrary.org/b/id/10746692-L.jpg',
+    dominantColor: '#B3C6D4',
     format: 'paperback',
     ageMin: 8,
     ageMax: 99,
@@ -80,6 +88,8 @@ const OLDER_READER_STARTER_BOOKS: CuratedStarterBook[] = [
     isbn: '9780312367541',
     publishedYear: 1962,
     pageCount: 256,
+    coverUrl: 'https://covers.openlibrary.org/b/id/8709146-L.jpg',
+    dominantColor: '#A8A9CA',
     format: 'paperback',
     ageMin: 10,
     ageMax: 17,
@@ -92,6 +102,8 @@ const OLDER_READER_STARTER_BOOKS: CuratedStarterBook[] = [
     isbn: '9780547928227',
     publishedYear: 1937,
     pageCount: 300,
+    coverUrl: 'https://covers.openlibrary.org/b/id/14627509-L.jpg',
+    dominantColor: '#A2BEA7',
     format: 'paperback',
     ageMin: 11,
     ageMax: 99,
@@ -104,6 +116,8 @@ const OLDER_READER_STARTER_BOOKS: CuratedStarterBook[] = [
     isbn: '9781571313560',
     publishedYear: 2013,
     pageCount: 408,
+    coverUrl: 'https://covers.openlibrary.org/b/id/7281575-L.jpg',
+    dominantColor: '#AFC2A1',
     format: 'paperback',
     ageMin: 16,
     ageMax: 99,
@@ -339,6 +353,8 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
             isbn: item.isbn,
             publishedYear: item.publishedYear,
             pageCount: item.pageCount,
+            coverUrl: item.coverUrl,
+            dominantColor: item.dominantColor,
             format: item.format,
             ageMin: item.ageMin,
             ageMax: item.ageMax,

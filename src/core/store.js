@@ -3979,7 +3979,7 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Replaces the workspace with the full predefined sample family (Maya, Leo, 9 sample books, 2 shelves).
+   * Replaces the workspace with the full predefined sample family (Maya, Leo, curated sample books, 2 shelves).
    * Preserves language, theme, and devModeUnlocked.
    * @param {{ preserveOnboarding?: boolean }} [options]
    */
@@ -4021,7 +4021,7 @@ export function createAppStore(storage, deps = {}) {
             },
       },
     });
-    notify('Loaded full sample family (Maya, Leo & 9 classic books).', 'success');
+    notify(`Loaded full sample family (Maya, Leo & ${seeded.books.length} curated books).`, 'success');
   }
 
   /**

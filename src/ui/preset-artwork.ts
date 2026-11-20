@@ -372,6 +372,79 @@ export function resolvePresetArtworkUrl(preset: {
 
 export const DEFAULT_SIDEBAR_ARTWORK_ID = 'books-reading-lamp';
 export const LEGACY_SIDEBAR_LAMP_ARTWORK_ID = 'legacy-reading-lamp';
+export const DAILY_RANDOM_ARTWORK_ID = 'random';
+
+export const ORNAMENTAL_DIVIDER_VARIANTS = ['laurel', 'japanese', 'folio', 'minimal'] as const;
+export type OrnamentalDividerVariant = (typeof ORNAMENTAL_DIVIDER_VARIANTS)[number];
+
+/**
+ * Returns the local calendar date string `YYYY-MM-DD` for stable once-per-day rotation.
+ */
+export function getLocalDateKey(date: Date = new Date()): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Deterministic hash-based index generator keyed by calendar day + channel so daily random
+ * decorations remain consistent across re-renders/reloads and advance smoothly each new day.
+ */
+export function getDailyDeterministicIndex(
+  channelKey: string,
+  length: number,
+  dateKey: string = getLocalDateKey()
+): number {
+  if (!Number.isFinite(length) || length <= 0) return 0;
+  const input = `${dateKey}::${channelKey}`;
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % length;
+}
+
+/**
+ * Deterministically picks one of the 15 dedicated sidebar illustrations for the given calendar day.
+ */
+export function resolveDailySidebarArtworkId(dateKey: string = getLocalDateKey()): string {
+  if (SIDEBAR_ILLUSTRATIONS.length === 0) return DEFAULT_SIDEBAR_ARTWORK_ID;
+  const idx = getDailyDeterministicIndex('sidebar-artwork', SIDEBAR_ILLUSTRATIONS.length, dateKey);
+  return SIDEBAR_ILLUSTRATIONS[idx]?.id || DEFAULT_SIDEBAR_ARTWORK_ID;
+}
+
+/**
+ * Deterministically picks one of the ornamental divider styles for the given calendar day.
+ */
+export function resolveDailyDividerVariant(
+  dateKey: string = getLocalDateKey()
+): OrnamentalDividerVariant {
+  const idx = getDailyDeterministicIndex(
+    'sidebar-divider',
+    ORNAMENTAL_DIVIDER_VARIANTS.length,
+    dateKey
+  );
+  return ORNAMENTAL_DIVIDER_VARIANTS[idx] || 'laurel';
+}
+
+/**
+ * Resolves a configured `SidebarDividerStyle` (including legacy `'illustration'` and `'random'`)
+ * into either `'line'` or a concrete ornamental motif variant.
+ */
+export function resolveActiveDividerVariant(
+  rawStyle: unknown,
+  dateKey: string = getLocalDateKey()
+): 'line' | OrnamentalDividerVariant {
+  const val = String(rawStyle || '').trim().toLowerCase();
+  if (val === 'line') return 'line';
+  if (val === 'random') return resolveDailyDividerVariant(dateKey);
+  if (val === 'japanese' || val === 'folio' || val === 'minimal' || val === 'laurel') {
+    return val;
+  }
+  return 'laurel';
+}
 
 export interface ResolvedSidebarArtworkInfo {
   artworkId: string;
@@ -379,15 +452,18 @@ export interface ResolvedSidebarArtworkInfo {
   subject: string;
   src: string;
   isTransparent: boolean;
+  isDailyRandom?: boolean;
 }
 
 /**
  * Resolves the active sidebar footer illustration from `settings.sidebarArtworkId`
- * across all sidebar illustrations, preset illustrations, and classic watercolors.
+ * (including `'random'` daily rotation) across all sidebar illustrations, preset illustrations,
+ * and classic watercolors.
  */
 export function resolveSidebarArtworkInfo(
   settings: Pick<AppSettings, 'sidebarArtworkId'> | null | undefined,
-  legacyFallbackSrc: string
+  legacyFallbackSrc: string,
+  dateKey: string = getLocalDateKey()
 ): ResolvedSidebarArtworkInfo {
   const requestedId =
     typeof settings?.sidebarArtworkId === 'string'
@@ -404,7 +480,10 @@ export function resolveSidebarArtworkInfo(
     };
   }
 
-  const targetId = requestedId || DEFAULT_SIDEBAR_ARTWORK_ID;
+  const isDailyRandom = requestedId === DAILY_RANDOM_ARTWORK_ID || requestedId === 'daily-random';
+  const targetId = isDailyRandom
+    ? resolveDailySidebarArtworkId(dateKey)
+    : requestedId || DEFAULT_SIDEBAR_ARTWORK_ID;
   const found = ARTWORK_BY_ID.get(targetId) || ARTWORK_BY_ID.get(DEFAULT_SIDEBAR_ARTWORK_ID);
   if (found) {
     return {
@@ -413,6 +492,7 @@ export function resolveSidebarArtworkInfo(
       subject: found.subject,
       src: found.src,
       isTransparent: found.isTransparent,
+      ...(isDailyRandom ? { isDailyRandom: true } : {}),
     };
   }
 

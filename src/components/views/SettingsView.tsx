@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp, pwaManager } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
+import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { ToggleSwitch } from '../common/ToggleSwitch.js';
 import { testLlmConnection } from '../../features/llm/llm-client.js';
 import {
@@ -53,7 +54,9 @@ import { QueryUsageSubView } from './settings/QueryUsageSubView.js';
 import { queryLogger } from '../../features/telemetry/query-logger.js';
 import { ArtworkPickerModal } from '../presets/ArtworkPickerModal.js';
 import {
+  DAILY_RANDOM_ARTWORK_ID,
   DEFAULT_SIDEBAR_ARTWORK_ID,
+  resolveActiveDividerVariant,
   resolveSidebarArtworkInfo,
 } from '../../ui/preset-artwork.js';
 import sidebarArtworkImg from '../../assets/images/sidebar_reading_artwork_1794694074246.jpg';
@@ -1127,14 +1130,30 @@ export const SettingsView: React.FC = () => {
                     state.settings,
                     sidebarArtworkImg
                   );
+                  const isDailyRandomArtwork =
+                    String(state.settings.sidebarArtworkId || '').trim().toLowerCase() ===
+                    DAILY_RANDOM_ARTWORK_ID;
                   const activeMode = state.settings.sidebarArtworkMode || 'theme';
                   const activeArtworkStyle: SidebarArtworkStyle =
                     state.settings.sidebarArtworkStyle === 'natural' ||
                     state.settings.sidebarArtworkStyle === 'muted'
                       ? state.settings.sidebarArtworkStyle
                       : 'integrated';
-                  const activeDividerStyle: SidebarDividerStyle =
-                    state.settings.sidebarDividerStyle === 'line' ? 'line' : 'illustration';
+                  const activeDividerStyle: SidebarDividerStyle = (() => {
+                    const raw = String(state.settings.sidebarDividerStyle || '').trim().toLowerCase();
+                    if (
+                      raw === 'line' ||
+                      raw === 'laurel' ||
+                      raw === 'folio' ||
+                      raw === 'japanese' ||
+                      raw === 'minimal' ||
+                      raw === 'random'
+                    ) {
+                      return raw;
+                    }
+                    return 'laurel';
+                  })();
+                  const resolvedDividerMotif = resolveActiveDividerVariant(activeDividerStyle);
                   const themeUsesIllustration =
                     effectiveThemeConfig.sidebarArtworkDefault === 'illustration';
                   const illustrationActiveInSidebar =
@@ -1261,7 +1280,11 @@ export const SettingsView: React.FC = () => {
                                         : 'bg-surface border border-edge text-ink-muted'
                                     }`}
                                   >
-                                    {illustrationActiveInSidebar ? 'Shown in Sidebar' : 'Engraving Active'}
+                                    {isDailyRandomArtwork && illustrationActiveInSidebar
+                                      ? t('settings.sidebarArtworkRandom')
+                                      : illustrationActiveInSidebar
+                                        ? 'Shown in Sidebar'
+                                        : 'Engraving Active'}
                                   </span>
                                 </div>
                                 <p className="text-[11px] text-ink-secondary line-clamp-1 mt-0.5">
@@ -1270,33 +1293,81 @@ export const SettingsView: React.FC = () => {
                               </div>
                             </div>
 
-                            <button
-                              type="button"
-                              data-action="open-sidebar-artwork-picker"
-                              onClick={() => setIsSidebarArtworkPickerOpen(true)}
-                              className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 shrink-0 cursor-pointer transition-colors"
-                            >
-                              <Icon name="image" className="w-3.5 h-3.5 text-primary" />
-                              <span>Browse Illustrations</span>
-                            </button>
+                            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                              <button
+                                type="button"
+                                data-action="toggle-sidebar-artwork-daily-random"
+                                onClick={() =>
+                                  store.updateSettings({
+                                    sidebarArtworkMode: 'illustration',
+                                    sidebarArtworkId: isDailyRandomArtwork
+                                      ? DEFAULT_SIDEBAR_ARTWORK_ID
+                                      : DAILY_RANDOM_ARTWORK_ID,
+                                  })
+                                }
+                                aria-pressed={isDailyRandomArtwork}
+                                className={`min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                                  isDailyRandomArtwork
+                                    ? 'bg-primary text-primary-fg border-primary shadow-xs'
+                                    : 'bg-surface hover:bg-surface-elevated border-edge text-ink'
+                                }`}
+                              >
+                                <Icon name="shuffle" className="w-3.5 h-3.5" />
+                                <span>{t('settings.sidebarArtworkRandom')}</span>
+                              </button>
+                              <button
+                                type="button"
+                                data-action="open-sidebar-artwork-picker"
+                                onClick={() => setIsSidebarArtworkPickerOpen(true)}
+                                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 shrink-0 cursor-pointer transition-colors"
+                              >
+                                <Icon name="image" className="w-3.5 h-3.5 text-primary" />
+                                <span>Browse Illustrations</span>
+                              </button>
+                            </div>
                           </div>
                         </>
                       )}
 
-                      {/* Reader Card Separator Style (Thin Line vs Ornamental Illustration) */}
+                      {/* Reader Card Separator Style (Laurel, Japanese, Open Folio, Minimal, Line, Daily Random) */}
                       <div className="pt-2 border-t border-edge-subtle/70">
                         <p className="text-xs font-semibold text-ink">
                           {t('settings.sidebarDividerLabel')}
                         </p>
                         <p className="text-[11px] text-ink-secondary mt-0.5">
-                          Choose a crisp hairline rule or a theme-tinted literary ornament above your reader switcher.
+                          Choose a botanical branch, Japanese sakura crest, open folio, hairline rule, or daily random ornament (also clickable directly in the sidebar).
                         </p>
-                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
+                        <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {[
-                            { id: 'line' as const, label: t('settings.sidebarDividerLine') },
                             {
-                              id: 'illustration' as const,
-                              label: t('settings.sidebarDividerIllustration'),
+                              id: 'laurel' as const,
+                              label: t('settings.sidebarDividerLaurel'),
+                              motif: 'laurel' as const,
+                            },
+                            {
+                              id: 'japanese' as const,
+                              label: t('settings.sidebarDividerJapanese'),
+                              motif: 'japanese' as const,
+                            },
+                            {
+                              id: 'folio' as const,
+                              label: t('settings.sidebarDividerFolio'),
+                              motif: 'folio' as const,
+                            },
+                            {
+                              id: 'minimal' as const,
+                              label: t('settings.sidebarDividerMinimal'),
+                              motif: 'minimal' as const,
+                            },
+                            {
+                              id: 'line' as const,
+                              label: t('settings.sidebarDividerLine'),
+                              motif: null,
+                            },
+                            {
+                              id: 'random' as const,
+                              label: t('settings.sidebarDividerRandom'),
+                              motif: 'random' as const,
                             },
                           ].map((item) => {
                             const active = activeDividerStyle === item.id;
@@ -1307,13 +1378,33 @@ export const SettingsView: React.FC = () => {
                                 data-sidebar-divider-option={item.id}
                                 onClick={() => handleSidebarDividerStyleChange(item.id)}
                                 aria-pressed={active}
-                                className={`flex-1 min-h-[38px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                className={`min-h-[58px] px-2.5 py-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer ${
                                   active
-                                    ? 'bg-primary text-primary-fg shadow-xs'
-                                    : 'text-ink-secondary hover:text-ink'
+                                    ? 'bg-primary/10 border-primary text-ink ring-1 ring-primary/35'
+                                    : 'bg-surface-subtle/75 hover:bg-surface-elevated border-edge text-ink-secondary hover:text-ink'
                                 }`}
                               >
-                                {item.label}
+                                {item.motif === 'random' ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+                                    <Icon name="shuffle" className="w-3.5 h-3.5" />
+                                    <span>
+                                      {resolvedDividerMotif === 'line'
+                                        ? 'Daily'
+                                        : `Today: ${resolvedDividerMotif}`}
+                                    </span>
+                                  </span>
+                                ) : item.motif === null ? (
+                                  <span className="block w-20 h-px bg-edge my-1.5" aria-hidden="true" />
+                                ) : (
+                                  <BotanicalIllustration
+                                    variant="sidebar-divider"
+                                    dividerStyle={item.motif}
+                                    className="w-28 h-4"
+                                  />
+                                )}
+                                <span className="text-[11px] font-semibold leading-tight">
+                                  {item.label}
+                                </span>
                               </button>
                             );
                           })}

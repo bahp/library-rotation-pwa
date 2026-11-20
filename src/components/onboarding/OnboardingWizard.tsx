@@ -938,59 +938,62 @@ export const OnboardingWizard: React.FC = () => {
                   onTouchEnd={handleSlideTouchEnd}
                   className="flex-1 min-h-0 flex flex-col justify-between max-w-3xl w-full mx-auto px-4 sm:px-6 pt-3 sm:pt-6 pb-4 pb-safe gap-3 touch-pan-y"
                 >
-                  {/* Slide Showcase Center */}
+                  {/* Slide Showcase Center: horizontal track so slides glide side-to-side cleanly without overlapping or jumping vertically */}
                   <div className="flex-1 min-h-0 flex flex-col justify-center overflow-x-hidden overflow-y-auto no-scrollbar py-2">
-                    <div className="relative w-full overflow-hidden grid grid-cols-1 grid-rows-1 items-center">
-                      <AnimatePresence initial={false} mode="popLayout" custom={wizard.direction}>
-                        <motion.div
-                          key={currentSlide.id}
-                          custom={wizard.direction}
-                          variants={slideVariants}
-                          initial="enter"
-                          animate="center"
-                          exit="exit"
-                          transition={
-                            shouldReduceMotion
-                              ? { duration: 0.14 }
-                              : {
-                                  x: { type: 'spring', stiffness: 320, damping: 32, mass: 0.9 },
-                                  opacity: { duration: 0.22, ease: 'easeOut' },
-                                }
-                          }
-                          className="col-start-1 row-start-1 w-full min-w-0 space-y-4 sm:space-y-6 text-center px-0.5"
-                        >
-                          {renderSlideVisual(currentSlide)}
+                    <div className="relative w-full overflow-hidden">
+                      <motion.div
+                        animate={{ x: `-${activeSlideIndex * 100}%` }}
+                        transition={
+                          shouldReduceMotion
+                            ? { duration: 0.01 }
+                            : { type: 'spring', stiffness: 320, damping: 34, mass: 0.85 }
+                        }
+                        className="flex items-start w-full will-change-transform"
+                      >
+                        {ONBOARDING_INTRO_SLIDES.map((slide, idx) => {
+                          const isCurrent = idx === activeSlideIndex;
+                          return (
+                            <div
+                              key={slide.id}
+                              aria-hidden={!isCurrent}
+                              className="w-full shrink-0 min-w-0 flex flex-col items-center text-center px-1"
+                            >
+                              {renderSlideVisual(slide)}
 
-                          <div className="space-y-2 max-w-xl mx-auto px-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-                              {currentSlide.eyebrowKey
-                                ? t(currentSlide.eyebrowKey)
-                                : currentSlide.eyebrow}
-                            </p>
-                            <h1 className="font-display text-2xl sm:text-4xl font-semibold leading-[1.1] tracking-tight text-ink text-balance">
-                              {currentSlide.titleKey ? t(currentSlide.titleKey) : currentSlide.title}
-                            </h1>
-                            <p className="text-xs sm:text-base text-ink-secondary leading-relaxed">
-                              {currentSlide.descriptionKey
-                                ? t(currentSlide.descriptionKey)
-                                : currentSlide.description}
-                            </p>
-                            <p className="text-[11px] sm:text-xs font-medium text-ink-muted pt-1">
-                              <span className="font-semibold text-primary">
-                                {currentSlide.highlightMetricKey
-                                  ? t(currentSlide.highlightMetricKey)
-                                  : currentSlide.highlightMetric}
-                              </span>
-                              <span aria-hidden="true" className="mx-1.5">·</span>
-                              <span>
-                                {currentSlide.highlightCaptionKey
-                                  ? t(currentSlide.highlightCaptionKey)
-                                  : currentSlide.highlightCaption}
-                              </span>
-                            </p>
-                          </div>
-                        </motion.div>
-                      </AnimatePresence>
+                              <div className="mt-4 sm:mt-6 w-full max-w-xl mx-auto px-1 flex flex-col items-center">
+                                <div className="h-5 flex items-center justify-center">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent leading-none">
+                                    {slide.eyebrowKey ? t(slide.eyebrowKey) : slide.eyebrow}
+                                  </p>
+                                </div>
+                                <div className="mt-2 min-h-[3.3rem] sm:min-h-[5.25rem] flex items-start justify-center">
+                                  <h1 className="font-display text-2xl sm:text-4xl font-semibold leading-[1.1] tracking-tight text-ink text-balance">
+                                    {slide.titleKey ? t(slide.titleKey) : slide.title}
+                                  </h1>
+                                </div>
+                                <p className="mt-2 min-h-[4.25rem] sm:min-h-[4.75rem] text-xs sm:text-base text-ink-secondary leading-relaxed">
+                                  {slide.descriptionKey
+                                    ? t(slide.descriptionKey)
+                                    : slide.description}
+                                </p>
+                                <p className="mt-2 min-h-[1.5rem] text-[11px] sm:text-xs font-medium text-ink-muted">
+                                  <span className="font-semibold text-primary">
+                                    {slide.highlightMetricKey
+                                      ? t(slide.highlightMetricKey)
+                                      : slide.highlightMetric}
+                                  </span>
+                                  <span aria-hidden="true" className="mx-1.5">·</span>
+                                  <span>
+                                    {slide.highlightCaptionKey
+                                      ? t(slide.highlightCaptionKey)
+                                      : slide.highlightCaption}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </motion.div>
                     </div>
                   </div>
 

@@ -17,6 +17,7 @@ import {
   NUMERIC_BOUNDS,
   detectDeviceLanguage,
   normalizeLanguage,
+  normalizeSidebarDividerStyle,
   normalizeThemePresetId,
 } from '../config/index.js';
 
@@ -451,7 +452,7 @@ export function createSafeDefaultSettings(overrides = {}) {
         overrides.sidebarArtworkStyle === 'natural' || overrides.sidebarArtworkStyle === 'muted'
           ? overrides.sidebarArtworkStyle
           : 'integrated',
-      sidebarDividerStyle: overrides.sidebarDividerStyle === 'line' ? 'line' : 'illustration',
+      sidebarDividerStyle: normalizeSidebarDividerStyle(overrides.sidebarDividerStyle),
       onboardingLandingMode: overrides.onboardingLandingMode === 'compact' ? 'compact' : 'slideshow',
       nativeAppStyle: overrides.nativeAppStyle !== false,
       notificationsEnabled: Boolean(overrides.notificationsEnabled),

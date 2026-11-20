@@ -57,7 +57,7 @@
  */
 
 /**
- * @typedef {'line' | 'illustration'} SidebarDividerStyle
+ * @typedef {'line' | 'laurel' | 'folio' | 'japanese' | 'minimal' | 'random'} SidebarDividerStyle
  */
 
 /**
@@ -289,9 +289,9 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {BookViewMode} [bookViewMode] - Default shelf & catalog view ('grid' | 'list')
  * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large')
  * @property {SidebarArtworkMode} [sidebarArtworkMode] - Sidebar decorative illustration style ('theme' | 'engraving' | 'illustration' | 'none')
- * @property {string} [sidebarArtworkId] - Selected sidebar illustration ID from the unified artwork library
+ * @property {string} [sidebarArtworkId] - Selected sidebar illustration ID from the unified artwork library, or 'random' for daily rotation
  * @property {SidebarArtworkStyle} [sidebarArtworkStyle] - Visual integration treatment for sidebar artwork ('integrated' | 'natural' | 'muted')
- * @property {SidebarDividerStyle} [sidebarDividerStyle] - Separator above active reader card ('line' | 'illustration')
+ * @property {SidebarDividerStyle} [sidebarDividerStyle] - Separator above active reader card ('line' | 'laurel' | 'folio' | 'japanese' | 'minimal' | 'random')
  * @property {OnboardingLandingMode} [onboardingLandingMode] - Onboarding Step 0 layout ('slideshow' | 'compact')
  * @property {boolean} [nativeAppStyle] - Translucent frosted app bars and floating bottom dock chrome (default: true)
  * @property {boolean} [notificationsEnabled] - Opt-in flag for browser/swap reminders

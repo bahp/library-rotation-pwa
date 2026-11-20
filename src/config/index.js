@@ -18,6 +18,7 @@ export {
   NUMERIC_BOUNDS,
   DEFAULT_PRESET_ILLUSTRATION_PROMPT,
   normalizePositiveBookCount,
+  normalizeSidebarDividerStyle,
   createDefaultAppSettings,
 } from './defaults.js';
 

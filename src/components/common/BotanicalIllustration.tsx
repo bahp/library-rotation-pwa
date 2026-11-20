@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 
 export type BotanicalIllustrationVariant =
   | 'hero-library'
@@ -8,8 +8,11 @@ export type BotanicalIllustrationVariant =
   | 'feature-botanical'
   | 'sidebar-divider';
 
+export type SidebarDividerOrnamentVariant = 'laurel' | 'japanese' | 'folio' | 'minimal';
+
 interface BotanicalIllustrationProps {
   variant: BotanicalIllustrationVariant;
+  dividerStyle?: SidebarDividerOrnamentVariant;
   className?: string;
 }
 
@@ -21,8 +24,10 @@ interface BotanicalIllustrationProps {
  */
 export const BotanicalIllustration: React.FC<BotanicalIllustrationProps> = ({
   variant,
+  dividerStyle = 'laurel',
   className = '',
 }) => {
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   if (variant === 'hero-library') {
     return (
       <svg
@@ -259,60 +264,217 @@ export const BotanicalIllustration: React.FC<BotanicalIllustrationProps> = ({
   }
 
   if (variant === 'sidebar-divider') {
+    const stemGradId = `lr-div-stem-${uid}`;
+
+    if (dividerStyle === 'japanese') {
+      return (
+        <svg
+          viewBox="0 0 240 26"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          className={className}
+        >
+          <defs>
+            <linearGradient id={stemGradId} x1="0" y1="0" x2="240" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0" />
+              <stop offset="18%" stopColor="var(--accent)" stopOpacity="0.45" />
+              <stop offset="50%" stopColor="var(--accent)" stopOpacity="0.82" />
+              <stop offset="82%" stopColor="var(--accent)" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* Tapered sumi-gold horizon line */}
+          <path
+            d="M8 13H96M144 13H232"
+            stroke={`url(#${stemGradId})`}
+            strokeWidth="0.9"
+            strokeLinecap="round"
+          />
+          {/* Subtle Seigaiha / mist arcs flanking the sakura crest */}
+          <path
+            d="M82 13C87 9.8 93 9.8 98 13M142 13C147 9.8 153 9.8 158 13"
+            stroke="var(--accent)"
+            strokeOpacity="0.48"
+            strokeWidth="0.85"
+            strokeLinecap="round"
+          />
+          {/* Tiny side sakura buds */}
+          <circle cx="102" cy="13" r="1.4" fill="var(--accent)" fillOpacity="0.6" />
+          <circle cx="138" cy="13" r="1.4" fill="var(--accent)" fillOpacity="0.6" />
+          {/* Delicate 5-petal Japanese Sakura blossom centered on the rule */}
+          <g transform="translate(120 13)" stroke="var(--accent)" strokeWidth="0.95" strokeLinejoin="round">
+            {[0, 72, 144, 216, 288].map((deg) => (
+              <path
+                key={deg}
+                transform={`rotate(${deg})`}
+                d="M0 -1.8C-1.9 -4.8 -2.1 -8 -0.6 -9L0 -7.6L0.6 -9C2.1 -8 1.9 -4.8 0 -1.8Z"
+                fill="var(--accent)"
+                fillOpacity="0.14"
+              />
+            ))}
+            <circle cx="0" cy="0" r="1.3" fill="var(--accent)" fillOpacity="0.85" stroke="none" />
+          </g>
+        </svg>
+      );
+    }
+
+    if (dividerStyle === 'minimal') {
+      return (
+        <svg
+          viewBox="0 0 240 26"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          className={className}
+        >
+          <defs>
+            <linearGradient id={stemGradId} x1="0" y1="0" x2="240" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0" />
+              <stop offset="20%" stopColor="var(--accent)" stopOpacity="0.45" />
+              <stop offset="50%" stopColor="var(--accent)" stopOpacity="0.88" />
+              <stop offset="80%" stopColor="var(--accent)" stopOpacity="0.45" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d="M10 13H106M134 13H230" stroke={`url(#${stemGradId})`} strokeWidth="0.95" strokeLinecap="round" />
+          <circle cx="101" cy="13" r="1.15" fill="var(--accent)" fillOpacity="0.68" />
+          <circle cx="139" cy="13" r="1.15" fill="var(--accent)" fillOpacity="0.68" />
+          <path
+            d="M120 7.2L125.8 13L120 18.8L114.2 13L120 7.2Z"
+            fill="var(--accent)"
+            fillOpacity="0.14"
+            stroke="var(--accent)"
+            strokeWidth="1"
+            strokeLinejoin="round"
+          />
+          <circle cx="120" cy="13" r="1.2" fill="var(--accent)" fillOpacity="0.85" />
+        </svg>
+      );
+    }
+
+    if (dividerStyle === 'folio') {
+      return (
+        <svg
+          viewBox="0 0 240 26"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          className={className}
+        >
+          <defs>
+            <linearGradient id={stemGradId} x1="0" y1="0" x2="240" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0" />
+              <stop offset="18%" stopColor="var(--border)" stopOpacity="0.7" />
+              <stop offset="50%" stopColor="var(--accent)" stopOpacity="0.75" />
+              <stop offset="82%" stopColor="var(--border)" stopOpacity="0.7" />
+              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path
+            d="M8 13H86M154 13H232"
+            stroke={`url(#${stemGradId})`}
+            strokeWidth="0.95"
+            strokeLinecap="round"
+          />
+          {/* Symmetrical botanical laurel leaves flanking the center emblem */}
+          <g stroke="var(--accent)" strokeLinecap="round" strokeLinejoin="round">
+            <path
+              d="M104 13C98 9.2 91 9.4 87 13C91 16.6 98 16.8 104 13Z"
+              fill="var(--accent)"
+              fillOpacity="0.14"
+              strokeWidth="0.95"
+            />
+            <path
+              d="M136 13C142 9.2 149 9.4 153 13C149 16.6 142 16.8 136 13Z"
+              fill="var(--accent)"
+              fillOpacity="0.14"
+              strokeWidth="0.95"
+            />
+            <circle cx="82" cy="13" r="1.15" fill="var(--accent)" fillOpacity="0.65" stroke="none" />
+            <circle cx="158" cy="13" r="1.15" fill="var(--accent)" fillOpacity="0.65" stroke="none" />
+          </g>
+          {/* Miniature open folio centered on the rule */}
+          <path
+            d="M120 8.5C116.5 7 112.5 7.2 109.5 8.6V17.6C112.5 16.4 116.5 16.4 120 18.2C123.5 16.4 127.5 16.4 130.5 17.6V8.6C127.5 7.2 123.5 7 120 8.5Z"
+            fill="var(--surface)"
+            stroke="var(--accent)"
+            strokeWidth="1.1"
+            strokeLinejoin="round"
+          />
+          <path d="M120 8.8V18" stroke="var(--accent)" strokeWidth="0.95" strokeOpacity="0.85" />
+          <path
+            d="M120 3.2L120.7 4.9L122.4 5.6L120.7 6.3L120 7.9L119.3 6.3L117.6 5.6L119.3 4.9L120 3.2Z"
+            fill="var(--accent)"
+            fillOpacity="0.78"
+          />
+        </svg>
+      );
+    }
+
+    // Default 'laurel': symmetrical graceful tapering olive/laurel branch inspired by classic gilt endpaper rules
+    const leftLeaves = [
+      { d: 'M113 13C109 8.6 103 7.4 98 8.3C101 11.4 107 13 113 13Z', op: 0.9 },
+      { d: 'M105 13C101 17.4 95 18.6 90 17.7C93 14.6 99 13 105 13Z', op: 0.88 },
+      { d: 'M97 13C93 8.8 87.2 7.8 82.4 8.7C85.4 11.6 91.2 13 97 13Z', op: 0.85 },
+      { d: 'M89 13C85 17.2 79.4 18.2 74.6 17.3C77.6 14.4 83.2 13 89 13Z', op: 0.82 },
+      { d: 'M81 13C77 9 71.5 8.2 67 9.1C70 11.7 75.4 13 81 13Z', op: 0.78 },
+      { d: 'M73 13C69.2 16.9 63.8 17.7 59.5 16.9C62.3 14.3 67.6 13 73 13Z', op: 0.74 },
+      { d: 'M65 13C61.5 9.4 56.4 8.7 52.4 9.5C55.1 11.8 59.9 13 65 13Z', op: 0.68 },
+      { d: 'M57 13C53.7 16.4 48.8 17.1 45 16.4C47.5 14.1 52.2 13 57 13Z', op: 0.62 },
+      { d: 'M49 13C46.2 10 41.8 9.5 38.4 10.2C40.7 12.1 44.8 13 49 13Z', op: 0.54 },
+      { d: 'M41 13C38.6 15.6 34.8 16.1 31.8 15.5C33.9 13.7 37.5 13 41 13Z', op: 0.45 },
+    ];
+
     return (
       <svg
-        viewBox="0 0 240 24"
+        viewBox="0 0 240 26"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
         className={className}
       >
-        {/* Soft horizontal filigree rules tapering toward the edges */}
+        <defs>
+          <linearGradient id={stemGradId} x1="0" y1="0" x2="240" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0" />
+            <stop offset="12%" stopColor="var(--accent)" stopOpacity="0.45" />
+            <stop offset="50%" stopColor="var(--accent)" stopOpacity="0.88" />
+            <stop offset="88%" stopColor="var(--accent)" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* Fine continuous tapered branch stem */}
         <path
-          d="M8 12H86M154 12H232"
-          stroke="var(--border)"
+          d="M6 13H234"
+          stroke={`url(#${stemGradId})`}
           strokeWidth="0.95"
-          strokeOpacity="0.85"
           strokeLinecap="round"
         />
-        <path
-          d="M52 12H86M154 12H188"
-          stroke="var(--accent)"
-          strokeWidth="1.05"
-          strokeOpacity="0.48"
-          strokeLinecap="round"
-        />
-        {/* Symmetrical botanical laurel leaves flanking the center emblem */}
-        <g stroke="var(--secondary)" strokeLinecap="round" strokeLinejoin="round">
-          <path
-            d="M104 12C98 8.2 91 8.4 87 12C91 15.6 98 15.8 104 12Z"
-            fill="var(--secondary)"
-            fillOpacity="0.16"
-            strokeWidth="1"
-          />
-          <path
-            d="M136 12C142 8.2 149 8.4 153 12C149 15.6 142 15.8 136 12Z"
-            fill="var(--secondary)"
-            fillOpacity="0.16"
-            strokeWidth="1"
-          />
-          <circle cx="82" cy="12" r="1.2" fill="var(--accent)" fillOpacity="0.7" stroke="none" />
-          <circle cx="158" cy="12" r="1.2" fill="var(--accent)" fillOpacity="0.7" stroke="none" />
+        {/* Left & mirrored right delicate alternating laurel leaves */}
+        <g stroke="var(--accent)" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round">
+          {leftLeaves.map((leaf, idx) => (
+            <path
+              key={`l-${idx}`}
+              d={leaf.d}
+              strokeOpacity={leaf.op}
+              fill="var(--accent)"
+              fillOpacity={leaf.op * 0.14}
+            />
+          ))}
+          <g transform="translate(240 0) scale(-1 1)">
+            {leftLeaves.map((leaf, idx) => (
+              <path
+                key={`r-${idx}`}
+                d={leaf.d}
+                strokeOpacity={leaf.op}
+                fill="var(--accent)"
+                fillOpacity={leaf.op * 0.14}
+              />
+            ))}
+          </g>
         </g>
-        {/* Miniature open folio centered on the rule */}
-        <path
-          d="M120 7.5C116.5 6 112.5 6.2 109.5 7.6V16.6C112.5 15.4 116.5 15.4 120 17.2C123.5 15.4 127.5 15.4 130.5 16.6V7.6C127.5 6.2 123.5 6 120 7.5Z"
-          fill="var(--surface)"
-          stroke="var(--accent)"
-          strokeWidth="1.15"
-          strokeLinejoin="round"
-        />
-        <path d="M120 7.8V17" stroke="var(--accent)" strokeWidth="1" strokeOpacity="0.85" />
-        <path
-          d="M120 2.5L120.7 4.2L122.4 4.9L120.7 5.6L120 7.2L119.3 5.6L117.6 4.9L119.3 4.2L120 2.5Z"
-          fill="var(--accent)"
-          fillOpacity="0.78"
-        />
+        {/* Subtle central stem knot */}
+        <circle cx="120" cy="13" r="1.2" fill="var(--accent)" fillOpacity="0.85" />
       </svg>
     );
   }
