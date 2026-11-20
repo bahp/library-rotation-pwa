@@ -20,7 +20,7 @@ if (typeof globalScope.__dirname === 'string' && !path.isAbsolute(globalScope.__
 }
 
 import { createServer as createViteServer } from 'vite';
-import { proxyGoogleBooksVolumes } from './src/server/books-proxy.js';
+import { proxyBookCoverImage, proxyGoogleBooksVolumes } from './src/server/books-proxy.js';
 import { executeLlmQuery, generateImageWithGemini } from './src/server/llm-service.js';
 
 // Dev server must run strictly on port 3000 in the AI Studio environment.
@@ -112,6 +112,20 @@ async function startServer() {
 
     res.setHeader('Cache-Control', result.status === 200 ? 'private, max-age=300' : 'no-store');
     res.status(result.status).json(result.body);
+  });
+
+  // Same-origin cover image proxy for CORS-clean canvas dominant-color extraction
+  app.get('/api/books/cover-image', async (req, res) => {
+    const rawUrl = typeof req.query.url === 'string' ? req.query.url : '';
+    const result = await proxyBookCoverImage({ rawUrl });
+    if (result.status !== 200 || !result.buffer) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(result.status).json({ error: result.error || 'Cover proxy failed.' });
+      return;
+    }
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.status(200).send(Buffer.from(result.buffer));
   });
 
   const isProd = process.env.NODE_ENV === 'production';

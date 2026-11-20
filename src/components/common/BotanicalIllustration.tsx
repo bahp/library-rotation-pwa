@@ -5,7 +5,8 @@ export type BotanicalIllustrationVariant =
   | 'empty-library'
   | 'empty-shelf'
   | 'reading-achievement'
-  | 'feature-botanical';
+  | 'feature-botanical'
+  | 'sidebar-divider';
 
 interface BotanicalIllustrationProps {
   variant: BotanicalIllustrationVariant;
@@ -253,6 +254,65 @@ export const BotanicalIllustration: React.FC<BotanicalIllustrationProps> = ({
         <path d="M90 50V74" stroke="var(--text-primary)" strokeWidth="1.1" />
         <path d="M73 56H83M73 62H83M97 56H107M97 62H107" stroke="var(--accent)" strokeWidth="1.05" strokeLinecap="round" />
         <path d="M90 32L91.8 36.6L96.5 38.2L91.8 39.8L90 44.5L88.2 39.8L83.5 38.2L88.2 36.6L90 32Z" fill="var(--accent)" />
+      </svg>
+    );
+  }
+
+  if (variant === 'sidebar-divider') {
+    return (
+      <svg
+        viewBox="0 0 240 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        aria-hidden="true"
+        className={className}
+      >
+        {/* Soft horizontal filigree rules tapering toward the edges */}
+        <path
+          d="M8 12H86M154 12H232"
+          stroke="var(--border)"
+          strokeWidth="0.95"
+          strokeOpacity="0.85"
+          strokeLinecap="round"
+        />
+        <path
+          d="M52 12H86M154 12H188"
+          stroke="var(--accent)"
+          strokeWidth="1.05"
+          strokeOpacity="0.48"
+          strokeLinecap="round"
+        />
+        {/* Symmetrical botanical laurel leaves flanking the center emblem */}
+        <g stroke="var(--secondary)" strokeLinecap="round" strokeLinejoin="round">
+          <path
+            d="M104 12C98 8.2 91 8.4 87 12C91 15.6 98 15.8 104 12Z"
+            fill="var(--secondary)"
+            fillOpacity="0.16"
+            strokeWidth="1"
+          />
+          <path
+            d="M136 12C142 8.2 149 8.4 153 12C149 15.6 142 15.8 136 12Z"
+            fill="var(--secondary)"
+            fillOpacity="0.16"
+            strokeWidth="1"
+          />
+          <circle cx="82" cy="12" r="1.2" fill="var(--accent)" fillOpacity="0.7" stroke="none" />
+          <circle cx="158" cy="12" r="1.2" fill="var(--accent)" fillOpacity="0.7" stroke="none" />
+        </g>
+        {/* Miniature open folio centered on the rule */}
+        <path
+          d="M120 7.5C116.5 6 112.5 6.2 109.5 7.6V16.6C112.5 15.4 116.5 15.4 120 17.2C123.5 15.4 127.5 15.4 130.5 16.6V7.6C127.5 6.2 123.5 6 120 7.5Z"
+          fill="var(--surface)"
+          stroke="var(--accent)"
+          strokeWidth="1.15"
+          strokeLinejoin="round"
+        />
+        <path d="M120 7.8V17" stroke="var(--accent)" strokeWidth="1" strokeOpacity="0.85" />
+        <path
+          d="M120 2.5L120.7 4.2L122.4 4.9L120.7 5.6L120 7.2L119.3 5.6L117.6 4.9L119.3 4.2L120 2.5Z"
+          fill="var(--accent)"
+          fillOpacity="0.78"
+        />
       </svg>
     );
   }

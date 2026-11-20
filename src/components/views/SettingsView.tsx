@@ -22,6 +22,9 @@ import {
   type BookViewMode,
   type BookCardSize,
   type SidebarArtworkMode,
+  type SidebarArtworkStyle,
+  type SidebarDividerStyle,
+  type DynamicCoverTintMode,
   type CoverAspectRatio,
   type PresetCornerArtSize,
   type LlmProvider,
@@ -378,6 +381,14 @@ export const SettingsView: React.FC = () => {
     await store.updateSettings({ sidebarArtworkMode });
   };
 
+  const handleSidebarArtworkStyleChange = async (sidebarArtworkStyle: SidebarArtworkStyle) => {
+    await store.updateSettings({ sidebarArtworkStyle });
+  };
+
+  const handleSidebarDividerStyleChange = async (sidebarDividerStyle: SidebarDividerStyle) => {
+    await store.updateSettings({ sidebarDividerStyle });
+  };
+
   const handleLanguageChange = async (language: string) => {
     await store.updateSettings({ language: language as any });
   };
@@ -396,6 +407,18 @@ export const SettingsView: React.FC = () => {
 
   const handleDynamicTintBehaviorChange = async (dynamicCoverTintBehavior: 'fixed' | 'scroll') => {
     await store.updateSettings({ dynamicCoverTintBehavior });
+  };
+
+  const handleDynamicTintModeChange = async (dynamicCoverTintMode: DynamicCoverTintMode) => {
+    await store.updateSettings({ dynamicCoverTintMode });
+  };
+
+  const handleDynamicTintCircularFadeChange = async (dynamicCoverTintCircularFade: number) => {
+    await store.updateSettings({ dynamicCoverTintCircularFade });
+  };
+
+  const handleDynamicTintLinearFadeChange = async (dynamicCoverTintLinearFade: number) => {
+    await store.updateSettings({ dynamicCoverTintLinearFade });
   };
 
   const handleToggleNativeAppStyle = async () => {
@@ -1098,13 +1121,20 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Sidebar Artwork Mode & Gallery Selector */}
+                {/* Sidebar Artwork Mode, Visual Integration & Divider Style */}
                 {(() => {
                   const selectedSidebarArtwork = resolveSidebarArtworkInfo(
                     state.settings,
                     sidebarArtworkImg
                   );
                   const activeMode = state.settings.sidebarArtworkMode || 'theme';
+                  const activeArtworkStyle: SidebarArtworkStyle =
+                    state.settings.sidebarArtworkStyle === 'natural' ||
+                    state.settings.sidebarArtworkStyle === 'muted'
+                      ? state.settings.sidebarArtworkStyle
+                      : 'integrated';
+                  const activeDividerStyle: SidebarDividerStyle =
+                    state.settings.sidebarDividerStyle === 'line' ? 'line' : 'illustration';
                   const themeUsesIllustration =
                     effectiveThemeConfig.sidebarArtworkDefault === 'illustration';
                   const illustrationActiveInSidebar =
@@ -1112,27 +1142,29 @@ export const SettingsView: React.FC = () => {
                     (activeMode === 'theme' && themeUsesIllustration);
 
                   return (
-                    <div className="pt-4 border-t border-edge-subtle space-y-3">
+                    <div className="pt-4 border-t border-edge-subtle space-y-4">
                       <div>
                         <p className="text-sm font-semibold text-ink">
                           {t('settings.sidebarArtworkLabel')}
                         </p>
                         <p className="text-xs text-ink-secondary mt-0.5">
-                          Choose the theme default, botanical line engraving, or any library and collection illustration.
+                          Choose the theme default, botanical line engraving, any frameless illustration, or hide sidebar artwork.
                         </p>
                       </div>
 
-                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-lg">
                         {[
                           { id: 'theme' as const, label: t('settings.sidebarArtworkTheme') },
                           { id: 'engraving' as const, label: t('settings.sidebarArtworkEngraving') },
                           { id: 'illustration' as const, label: t('settings.sidebarArtworkIllustration') },
+                          { id: 'none' as const, label: t('settings.sidebarArtworkNone') },
                         ].map((item) => {
                           const active = activeMode === item.id;
                           return (
                             <button
                               key={item.id}
                               type="button"
+                              data-sidebar-artwork-option={item.id}
                               onClick={() => handleSidebarArtworkChange(item.id)}
                               aria-pressed={active}
                               className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
@@ -1147,50 +1179,145 @@ export const SettingsView: React.FC = () => {
                         })}
                       </div>
 
-                      {/* Selected Sidebar Illustration Card + Explorer Button */}
-                      <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-20 aspect-[4/3] rounded-lg bg-[#FAF7F2] border border-[#E3DDD1] overflow-hidden flex items-center justify-center p-1 shrink-0">
-                            <img
-                              src={selectedSidebarArtwork.src}
-                              alt={selectedSidebarArtwork.label}
-                              className={`w-full h-full ${
-                                selectedSidebarArtwork.isTransparent
-                                  ? 'object-contain'
-                                  : 'object-cover rounded'
-                              }`}
-                            />
+                      {activeMode !== 'none' && (
+                        <>
+                          <div>
+                            <p className="text-xs font-semibold text-ink">
+                              {t('settings.sidebarArtworkStyleLabel')}
+                            </p>
+                            <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                              {[
+                                {
+                                  id: 'integrated' as const,
+                                  label: t('settings.sidebarArtworkStyleIntegrated'),
+                                },
+                                {
+                                  id: 'natural' as const,
+                                  label: t('settings.sidebarArtworkStyleNatural'),
+                                },
+                                {
+                                  id: 'muted' as const,
+                                  label: t('settings.sidebarArtworkStyleMuted'),
+                                },
+                              ].map((item) => {
+                                const active = activeArtworkStyle === item.id;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleSidebarArtworkStyleChange(item.id)}
+                                    aria-pressed={active}
+                                    className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                      active
+                                        ? 'bg-primary text-primary-fg shadow-xs'
+                                        : 'text-ink-secondary hover:text-ink'
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <p className="text-xs font-semibold text-ink truncate">
-                                {selectedSidebarArtwork.label}
-                              </p>
-                              <span
-                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                                  illustrationActiveInSidebar
-                                    ? 'bg-primary/15 text-primary'
-                                    : 'bg-surface border border-edge text-ink-muted'
+
+                          {/* Selected Sidebar Illustration Card + Explorer Button (rendered on active theme's sidebar tone) */}
+                          <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                className="relative w-20 aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center p-1.5 shrink-0"
+                                style={{ backgroundColor: 'var(--sidebar-bg)' }}
+                              >
+                                {activeArtworkStyle !== 'natural' && (
+                                  <div
+                                    className="lr-sidebar-artwork-halo pointer-events-none absolute inset-1 rounded-full"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                <img
+                                  src={selectedSidebarArtwork.src}
+                                  alt={selectedSidebarArtwork.label}
+                                  className={`relative z-10 w-full h-full ${
+                                    selectedSidebarArtwork.isTransparent
+                                      ? 'object-contain'
+                                      : 'object-cover lr-sidebar-artwork-mask'
+                                  } ${
+                                    activeArtworkStyle === 'integrated'
+                                      ? 'lr-sidebar-artwork-integrated'
+                                      : activeArtworkStyle === 'muted'
+                                        ? 'lr-sidebar-artwork-muted'
+                                        : ''
+                                  }`}
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <p className="text-xs font-semibold text-ink truncate">
+                                    {selectedSidebarArtwork.label}
+                                  </p>
+                                  <span
+                                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                      illustrationActiveInSidebar
+                                        ? 'bg-primary/15 text-primary'
+                                        : 'bg-surface border border-edge text-ink-muted'
+                                    }`}
+                                  >
+                                    {illustrationActiveInSidebar ? 'Shown in Sidebar' : 'Engraving Active'}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-ink-secondary line-clamp-1 mt-0.5">
+                                  {selectedSidebarArtwork.subject}
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              data-action="open-sidebar-artwork-picker"
+                              onClick={() => setIsSidebarArtworkPickerOpen(true)}
+                              className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 shrink-0 cursor-pointer transition-colors"
+                            >
+                              <Icon name="image" className="w-3.5 h-3.5 text-primary" />
+                              <span>Browse Illustrations</span>
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Reader Card Separator Style (Thin Line vs Ornamental Illustration) */}
+                      <div className="pt-2 border-t border-edge-subtle/70">
+                        <p className="text-xs font-semibold text-ink">
+                          {t('settings.sidebarDividerLabel')}
+                        </p>
+                        <p className="text-[11px] text-ink-secondary mt-0.5">
+                          Choose a crisp hairline rule or a theme-tinted literary ornament above your reader switcher.
+                        </p>
+                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
+                          {[
+                            { id: 'line' as const, label: t('settings.sidebarDividerLine') },
+                            {
+                              id: 'illustration' as const,
+                              label: t('settings.sidebarDividerIllustration'),
+                            },
+                          ].map((item) => {
+                            const active = activeDividerStyle === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                data-sidebar-divider-option={item.id}
+                                onClick={() => handleSidebarDividerStyleChange(item.id)}
+                                aria-pressed={active}
+                                className={`flex-1 min-h-[38px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                  active
+                                    ? 'bg-primary text-primary-fg shadow-xs'
+                                    : 'text-ink-secondary hover:text-ink'
                                 }`}
                               >
-                                {illustrationActiveInSidebar ? 'Shown in Sidebar' : 'Engraving Active'}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-ink-secondary line-clamp-1 mt-0.5">
-                              {selectedSidebarArtwork.subject}
-                            </p>
-                          </div>
+                                {item.label}
+                              </button>
+                            );
+                          })}
                         </div>
-
-                        <button
-                          type="button"
-                          data-action="open-sidebar-artwork-picker"
-                          onClick={() => setIsSidebarArtworkPickerOpen(true)}
-                          className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 shrink-0 cursor-pointer transition-colors"
-                        >
-                          <Icon name="image" className="w-3.5 h-3.5 text-primary" />
-                          <span>Browse Illustrations</span>
-                        </button>
                       </div>
                     </div>
                   );
@@ -1252,29 +1379,112 @@ export const SettingsView: React.FC = () => {
                   </div>
 
                   {state.settings.dynamicCoverTint !== false && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div className="space-y-4 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-xs font-semibold text-ink">
+                            {t('settings.dynamicTintStyleLabel')}
+                          </p>
+                          <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                            {[
+                              {
+                                id: 'circular' as const,
+                                label: t('settings.dynamicTintStyleCircular'),
+                              },
+                              {
+                                id: 'linear' as const,
+                                label: t('settings.dynamicTintStyleLinear'),
+                              },
+                            ].map((item) => {
+                              const active =
+                                (state.settings.dynamicCoverTintStyle || 'circular') === item.id;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleDynamicTintStyleChange(item.id)}
+                                  aria-pressed={active}
+                                  className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                    active
+                                      ? 'bg-primary text-primary-fg shadow-xs'
+                                      : 'text-ink-secondary hover:text-ink'
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold text-ink">
+                            {t('settings.dynamicTintBehaviorLabel')}
+                          </p>
+                          <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                            {[
+                              {
+                                id: 'fixed' as const,
+                                label: t('settings.dynamicTintBehaviorFixed'),
+                              },
+                              {
+                                id: 'scroll' as const,
+                                label: t('settings.dynamicTintBehaviorScroll'),
+                              },
+                            ].map((item) => {
+                              const active =
+                                (state.settings.dynamicCoverTintBehavior || 'fixed') === item.id;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  onClick={() => handleDynamicTintBehaviorChange(item.id)}
+                                  aria-pressed={active}
+                                  className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                    active
+                                      ? 'bg-primary text-primary-fg shadow-xs'
+                                      : 'text-ink-secondary hover:text-ink'
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cover Color Extraction Mode */}
                       <div>
                         <p className="text-xs font-semibold text-ink">
-                          {t('settings.dynamicTintStyleLabel')}
+                          {t('settings.dynamicTintModeLabel')}
                         </p>
-                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                        <p className="text-[11px] text-ink-secondary mt-0.5">
+                          Prominent highlights vivid artwork hues; Dominant uses the largest cover field; Soft Tone keeps the wash muted. You can also pick from any cover’s palette in Book Details.
+                        </p>
+                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
                           {[
                             {
-                              id: 'circular' as const,
-                              label: t('settings.dynamicTintStyleCircular'),
+                              id: 'prominent' as const,
+                              label: t('settings.dynamicTintModeProminent'),
                             },
                             {
-                              id: 'linear' as const,
-                              label: t('settings.dynamicTintStyleLinear'),
+                              id: 'dominant' as const,
+                              label: t('settings.dynamicTintModeDominant'),
+                            },
+                            {
+                              id: 'soft' as const,
+                              label: t('settings.dynamicTintModeSoft'),
                             },
                           ].map((item) => {
                             const active =
-                              (state.settings.dynamicCoverTintStyle || 'circular') === item.id;
+                              (state.settings.dynamicCoverTintMode || 'prominent') === item.id;
                             return (
                               <button
                                 key={item.id}
                                 type="button"
-                                onClick={() => handleDynamicTintStyleChange(item.id)}
+                                data-tint-mode-option={item.id}
+                                onClick={() => handleDynamicTintModeChange(item.id)}
                                 aria-pressed={active}
                                 className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                                   active
@@ -1289,41 +1499,100 @@ export const SettingsView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div>
-                        <p className="text-xs font-semibold text-ink">
-                          {t('settings.dynamicTintBehaviorLabel')}
-                        </p>
-                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
-                          {[
-                            {
-                              id: 'fixed' as const,
-                              label: t('settings.dynamicTintBehaviorFixed'),
-                            },
-                            {
-                              id: 'scroll' as const,
-                              label: t('settings.dynamicTintBehaviorScroll'),
-                            },
-                          ].map((item) => {
-                            const active =
-                              (state.settings.dynamicCoverTintBehavior || 'fixed') === item.id;
-                            return (
+                      {/* Independent Fade Distance Controls for Circular vs Linear */}
+                      {(state.settings.dynamicCoverTintStyle || 'circular') === 'circular' ? (
+                        <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <label
+                              htmlFor="tint-circular-fade-slider"
+                              className="text-xs font-semibold text-ink"
+                            >
+                              {t('settings.dynamicTintCircularFadeLabel')}
+                            </label>
+                            <span className="text-xs font-mono-tabular font-semibold text-primary">
+                              {state.settings.dynamicCoverTintCircularFade ?? 310}px
+                            </span>
+                          </div>
+                          <input
+                            id="tint-circular-fade-slider"
+                            type="range"
+                            min={180}
+                            max={520}
+                            step={10}
+                            value={state.settings.dynamicCoverTintCircularFade ?? 310}
+                            onChange={(e) =>
+                              handleDynamicTintCircularFadeChange(Number(e.target.value))
+                            }
+                            className="w-full accent-primary cursor-pointer"
+                          />
+                          <div className="flex items-center justify-between gap-1.5">
+                            {[
+                              { val: 210, label: t('settings.dynamicTintFadeCompact') },
+                              { val: 310, label: t('settings.dynamicTintFadeBalanced') },
+                              { val: 440, label: t('settings.dynamicTintFadeExtended') },
+                            ].map((preset) => (
                               <button
-                                key={item.id}
+                                key={preset.val}
                                 type="button"
-                                onClick={() => handleDynamicTintBehaviorChange(item.id)}
-                                aria-pressed={active}
-                                className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                                  active
-                                    ? 'bg-primary text-primary-fg shadow-xs'
-                                    : 'text-ink-secondary hover:text-ink'
+                                onClick={() => handleDynamicTintCircularFadeChange(preset.val)}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                  (state.settings.dynamicCoverTintCircularFade ?? 310) === preset.val
+                                    ? 'bg-primary/15 border-primary text-primary'
+                                    : 'bg-surface border-edge text-ink-secondary hover:text-ink'
                                 }`}
                               >
-                                {item.label}
+                                {preset.label}
                               </button>
-                            );
-                          })}
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 space-y-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <label
+                              htmlFor="tint-linear-fade-slider"
+                              className="text-xs font-semibold text-ink"
+                            >
+                              {t('settings.dynamicTintLinearFadeLabel')}
+                            </label>
+                            <span className="text-xs font-mono-tabular font-semibold text-primary">
+                              {state.settings.dynamicCoverTintLinearFade ?? 92}%
+                            </span>
+                          </div>
+                          <input
+                            id="tint-linear-fade-slider"
+                            type="range"
+                            min={35}
+                            max={100}
+                            step={1}
+                            value={state.settings.dynamicCoverTintLinearFade ?? 92}
+                            onChange={(e) =>
+                              handleDynamicTintLinearFadeChange(Number(e.target.value))
+                            }
+                            className="w-full accent-primary cursor-pointer"
+                          />
+                          <div className="flex items-center justify-between gap-1.5">
+                            {[
+                              { val: 52, label: t('settings.dynamicTintFadeCompact') },
+                              { val: 76, label: t('settings.dynamicTintFadeBalanced') },
+                              { val: 96, label: t('settings.dynamicTintFadeExtended') },
+                            ].map((preset) => (
+                              <button
+                                key={preset.val}
+                                type="button"
+                                onClick={() => handleDynamicTintLinearFadeChange(preset.val)}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                  (state.settings.dynamicCoverTintLinearFade ?? 92) === preset.val
+                                    ? 'bg-primary/15 border-primary text-primary'
+                                    : 'bg-surface border-edge text-ink-secondary hover:text-ink'
+                                }`}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

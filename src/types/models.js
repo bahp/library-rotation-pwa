@@ -49,7 +49,19 @@
  */
 
 /**
- * @typedef {'theme' | 'engraving' | 'illustration'} SidebarArtworkMode
+ * @typedef {'theme' | 'engraving' | 'illustration' | 'none'} SidebarArtworkMode
+ */
+
+/**
+ * @typedef {'integrated' | 'natural' | 'muted'} SidebarArtworkStyle
+ */
+
+/**
+ * @typedef {'line' | 'illustration'} SidebarDividerStyle
+ */
+
+/**
+ * @typedef {'prominent' | 'dominant' | 'soft'} DynamicCoverTintMode
  */
 
 /**
@@ -136,6 +148,7 @@
  * @property {string[]} [owners] - Assigned owners (ChildProfile IDs, 'shared', or custom labels like "Cousin Maya" / "Grandma's House")
  * @property {string} [coverUrl] - Optional verified cover image URL or data URL
  * @property {string} [dominantColor] - Optional #RRGGBB hex extracted from cover art for dynamic card tinting
+ * @property {'auto' | 'manual'} [dominantColorSource] - Whether dominantColor was auto-extracted or manually chosen
  * @property {string} spineColor - Deterministic archival cloth palette key
  * @property {string} addedAt - ISO-8601 timestamp
  * @property {string} [lastRotatedAt] - ISO-8601 timestamp of most recent rotation inclusion
@@ -275,8 +288,10 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {BookDetailStyle} [bookDetailStyle] - Preferred Book Detail view ('compact' | 'editorial')
  * @property {BookViewMode} [bookViewMode] - Default shelf & catalog view ('grid' | 'list')
  * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large')
- * @property {SidebarArtworkMode} [sidebarArtworkMode] - Sidebar decorative illustration style ('theme' | 'engraving' | 'illustration')
+ * @property {SidebarArtworkMode} [sidebarArtworkMode] - Sidebar decorative illustration style ('theme' | 'engraving' | 'illustration' | 'none')
  * @property {string} [sidebarArtworkId] - Selected sidebar illustration ID from the unified artwork library
+ * @property {SidebarArtworkStyle} [sidebarArtworkStyle] - Visual integration treatment for sidebar artwork ('integrated' | 'natural' | 'muted')
+ * @property {SidebarDividerStyle} [sidebarDividerStyle] - Separator above active reader card ('line' | 'illustration')
  * @property {OnboardingLandingMode} [onboardingLandingMode] - Onboarding Step 0 layout ('slideshow' | 'compact')
  * @property {boolean} [nativeAppStyle] - Translucent frosted app bars and floating bottom dock chrome (default: true)
  * @property {boolean} [notificationsEnabled] - Opt-in flag for browser/swap reminders
@@ -284,6 +299,9 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)
  * @property {'circular' | 'linear'} [dynamicCoverTintStyle] - Shape of dynamic cover tint ('circular' behind cover or 'linear' top wash)
  * @property {'fixed' | 'scroll'} [dynamicCoverTintBehavior] - Whether ambient cover tint stays fixed behind sheet or scrolls with header
+ * @property {DynamicCoverTintMode} [dynamicCoverTintMode] - Algorithm used to extract cover tint ('prominent' | 'dominant' | 'soft')
+ * @property {number} [dynamicCoverTintCircularFade] - Circular radial glow spread radius in px (180–520, default 310)
+ * @property {number} [dynamicCoverTintLinearFade] - Linear top wash fade-out distance % (35–100, default 92)
  * @property {boolean} retainRawProviderPayloads - Keep raw API responses for debugging/extension
  * @property {string[]} enabledMetadataProviders - Enabled catalog lookup provider IDs (default: Google Books + Open Library)
  * @property {boolean} autoLocalTagging - Automatically run offline rule-based taxonomy & reading-level tagging

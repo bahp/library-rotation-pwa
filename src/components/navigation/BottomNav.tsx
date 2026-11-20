@@ -83,7 +83,7 @@ export const BottomNav: React.FC = () => {
                   <span
                     data-nav-icon-glow="true"
                     aria-hidden="true"
-                    className="lr-nav-icon-glow pointer-events-none absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-12 h-5 rounded-full blur-[6px]"
+                    className="lr-nav-icon-glow pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-14 h-11 rounded-full blur-[8px]"
                   />
                 )}
                 <span
@@ -149,7 +149,7 @@ export const BottomNav: React.FC = () => {
                   <span
                     data-nav-icon-glow="true"
                     aria-hidden="true"
-                    className="lr-nav-icon-glow pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-4 rounded-full blur-[5px]"
+                    className="lr-nav-icon-glow pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-11 h-9 rounded-full blur-[6px]"
                   />
                 )}
                 <Icon name={item.icon} className="relative z-10 w-5 h-5" strokeWidth={iconStroke} />

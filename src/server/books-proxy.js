@@ -209,3 +209,144 @@ export async function proxyGoogleBooksVolumes({
     clearTimeout(timer);
   }
 }
+
+const ALLOWED_COVER_HOST_SUFFIXES = [
+  'books.google.com',
+  'books.googleusercontent.com',
+  'lh3.googleusercontent.com',
+  'covers.openlibrary.org',
+  'archive.org',
+  'images-na.ssl-images-amazon.com',
+  'm.media-amazon.com',
+];
+
+/**
+ * Validates that a remote cover URL is a clean HTTPS URL on an allowlisted book-cover CDN.
+ * @param {string} rawUrl
+ * @returns {URL | null}
+ */
+export function parseAllowedCoverImageUrl(rawUrl) {
+  const cleaned = String(rawUrl || '').trim();
+  if (!cleaned || cleaned.length > 1000) return null;
+  try {
+    const parsed = new URL(cleaned);
+    if (parsed.protocol !== 'https:') return null;
+    const host = parsed.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal')
+    ) {
+      return null;
+    }
+    const allowed = ALLOWED_COVER_HOST_SUFFIXES.some(
+      (suffix) => host === suffix || host.endsWith(`.${suffix}`)
+    );
+    return allowed ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches a verified external book cover image server-side so browser canvas pixel sampling
+ * works reliably without cross-origin tainting (`SecurityError`).
+ *
+ * @param {{
+ *   rawUrl: string,
+ *   fetchImpl?: typeof fetch,
+ *   timeoutMs?: number,
+ *   maxBytes?: number
+ * }} params
+ * @returns {Promise<{ status: number, contentType: string, buffer?: Uint8Array, error?: string }>}
+ */
+export async function proxyBookCoverImage({
+  rawUrl,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = 7000,
+  maxBytes = 5 * 1024 * 1024,
+}) {
+  const target = parseAllowedCoverImageUrl(rawUrl);
+  if (!target) {
+    return {
+      status: 400,
+      contentType: 'application/json',
+      error: 'Invalid or unsupported cover image host.',
+    };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetchImpl(target.toString(), {
+      method: 'GET',
+      headers: {
+        Accept: 'image/webp,image/jpeg,image/png,image/*;q=0.8',
+      },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      return {
+        status: 502,
+        contentType: 'application/json',
+        error: `Upstream cover server returned HTTP ${res.status}.`,
+      };
+    }
+
+    const finalUrl = res.url ? parseAllowedCoverImageUrl(res.url) : target;
+    if (!finalUrl) {
+      return {
+        status: 400,
+        contentType: 'application/json',
+        error: 'Redirected cover image host is not allowed.',
+      };
+    }
+
+    const contentType = String(res.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      return {
+        status: 502,
+        contentType: 'application/json',
+        error: 'Upstream resource is not an image.',
+      };
+    }
+
+    const declaredLen = Number(res.headers.get('content-length') || 0);
+    if (Number.isFinite(declaredLen) && declaredLen > maxBytes) {
+      return {
+        status: 413,
+        contentType: 'application/json',
+        error: 'Cover image exceeds maximum allowed size.',
+      };
+    }
+
+    const arrayBuf = await res.arrayBuffer();
+    if (arrayBuf.byteLength === 0 || arrayBuf.byteLength > maxBytes) {
+      return {
+        status: 502,
+        contentType: 'application/json',
+        error: 'Invalid or oversized cover image payload.',
+      };
+    }
+
+    return {
+      status: 200,
+      contentType: contentType.split(';')[0] || 'image/jpeg',
+      buffer: new Uint8Array(arrayBuf),
+    };
+  } catch (err) {
+    return {
+      status: 502,
+      contentType: 'application/json',
+      error: err instanceof Error ? err.message : 'Unable to fetch cover image.',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+

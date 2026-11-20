@@ -14,12 +14,13 @@ import {
 } from '../../features/scan/scan-shell-view.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
 import type {
+  Book,
   BookCondition,
   BookFormat,
   ReadingStage,
   ScanMode,
 } from '../../types/models.js';
-import { formatBookBinding } from '../../types/models.js';
+import { formatBookBinding, formatCollectionStatus, normalizeIsbn } from '../../types/models.js';
 import { acquireCameraStream } from '../../features/scan/camera-access.js';
 
 const SCAN_MODES: Record<
@@ -50,7 +51,8 @@ const SCAN_MODES: Record<
 };
 
 export const ScanView: React.FC = () => {
-  const { state, store, catalogService, scanner, activeProfile, routeParams } = useApp();
+  const { state, store, catalogService, scanner, activeProfile, routeParams, setInspectedBookId } =
+    useApp();
 
   const initialEntry = resolveScanEntryState(routeParams);
   const [activeTab, setActiveTab] = useState<'scanner' | 'search' | 'manual'>(
@@ -65,6 +67,7 @@ export const ScanView: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [pendingIsbn, setPendingIsbn] = useState('');
   const [notFoundIsbn, setNotFoundIsbn] = useState('');
+  const [localExistingBook, setLocalExistingBook] = useState<Book | null>(null);
   const [searchCandidates, setSearchCandidates] = useState<BookCandidate[]>([]);
   const [searchError, setSearchError] = useState('');
 
@@ -94,6 +97,8 @@ export const ScanView: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastHandledLockRef = useRef<string>('');
+  const booksRef = useRef<Book[]>(state.books);
+  booksRef.current = state.books;
 
   useEffect(() => {
     scanner.initSupport().catch(() => {});
@@ -160,12 +165,14 @@ export const ScanView: React.FC = () => {
   const handleSwitchGuide = (mode: ScanMode) => {
     setScanMode(mode);
     setNotFoundIsbn('');
+    setLocalExistingBook(null);
     setSearchError('');
     scanner.setMode(mode);
   };
 
   const handleStartCamera = () => {
     setNotFoundIsbn('');
+    setLocalExistingBook(null);
     setSearchError('');
     if (typeof window !== 'undefined' && window.innerWidth < 1024) {
       scanner.stopCamera();
@@ -189,6 +196,7 @@ export const ScanView: React.FC = () => {
 
   const handleResetScanner = () => {
     setNotFoundIsbn('');
+    setLocalExistingBook(null);
     setPendingIsbn('');
     setSearchError('');
     lastHandledLockRef.current = '';
@@ -201,6 +209,7 @@ export const ScanView: React.FC = () => {
     if (!file) return;
 
     setNotFoundIsbn('');
+    setLocalExistingBook(null);
     setSearchError('');
     try {
       await scanner.scanUploadedFile(file);
@@ -209,12 +218,40 @@ export const ScanView: React.FC = () => {
     }
   };
 
-  const executeIsbnLookup = async (isbn: string) => {
-    setIsSearching(true);
+  const findBookByIsbnInLibrary = (rawIsbn: string): Book | null => {
+    const parsed = normalizeIsbn(rawIsbn);
+    const cleanRaw = String(rawIsbn || '')
+      .replace(/[^0-9Xx]/g, '')
+      .toUpperCase();
+    const target13 = parsed.valid ? parsed.isbn13 : '';
+    const target10 = parsed.valid ? parsed.isbn10 : '';
+
+    for (const candidate of booksRef.current) {
+      const b13 = candidate.isbn13 ? String(candidate.isbn13).replace(/[^0-9]/g, '') : '';
+      const b10 = candidate.isbn10 ? String(candidate.isbn10).replace(/[^0-9Xx]/g, '').toUpperCase() : '';
+      if (target13 && b13 && b13 === target13) return candidate;
+      if (target10 && b10 && b10 === target10) return candidate;
+      if (cleanRaw && (b13 === cleanRaw || b10 === cleanRaw)) return candidate;
+    }
+    return null;
+  };
+
+  const executeIsbnLookup = async (isbn: string, opts?: { skipLocalCheck?: boolean }) => {
     setPendingIsbn(isbn);
     setNotFoundIsbn('');
+    setLocalExistingBook(null);
     setSearchError('');
 
+    if (!opts?.skipLocalCheck) {
+      const localMatch = findBookByIsbnInLibrary(isbn);
+      if (localMatch) {
+        setIsSearching(false);
+        setLocalExistingBook(localMatch);
+        return;
+      }
+    }
+
+    setIsSearching(true);
     try {
       const res = await catalogService.lookupByIsbn(isbn, {
         retainRaw: state.settings?.retainRawProviderPayloads,
@@ -252,6 +289,7 @@ export const ScanView: React.FC = () => {
     }
 
     setIsSearching(true);
+    setLocalExistingBook(null);
     setSearchError('');
     setNotFoundIsbn('');
 
@@ -685,6 +723,60 @@ export const ScanView: React.FC = () => {
                 </div>
               </div>
 
+              {!isSearching && localExistingBook && (
+                <div
+                  data-local-isbn-match={localExistingBook.id}
+                  className="rounded-xl bg-surface-subtle border border-primary/35 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <BookCover
+                      book={localExistingBook}
+                      size="sm"
+                      aspectRatio={state.settings?.coverAspectRatio || 'square'}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
+                        Already in your library · {formatCollectionStatus(localExistingBook.collectionStatus)}
+                      </p>
+                      <h3 className="font-display text-base font-semibold text-ink leading-snug mt-0.5 truncate">
+                        {localExistingBook.title}
+                      </h3>
+                      <p className="text-xs text-ink-secondary truncate">
+                        {localExistingBook.authors.join(', ')}
+                      </p>
+                      {pendingIsbn && (
+                        <p className="text-[11px] text-ink-muted font-mono-tabular mt-0.5">
+                          Matched ISBN {pendingIsbn} directly from local catalog
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      data-action="open-existing-library-book"
+                      onClick={() => setInspectedBookId(localExistingBook.id)}
+                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap cursor-pointer"
+                    >
+                      Open in Library
+                    </button>
+                    <button
+                      type="button"
+                      data-action="search-online-anyway"
+                      onClick={() =>
+                        executeIsbnLookup(
+                          pendingIsbn || localExistingBook.isbn13 || localExistingBook.isbn10 || '',
+                          { skipLocalCheck: true }
+                        )
+                      }
+                      className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink whitespace-nowrap cursor-pointer"
+                    >
+                      Query Online Anyway
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {!isSearching && notFoundIsbn && (
                 <div className="rounded-xl bg-surface-subtle border border-edge p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
@@ -809,6 +901,60 @@ export const ScanView: React.FC = () => {
                   <span>{isSearching ? 'Searching Providers…' : 'Find Book Online'}</span>
                 </button>
               </form>
+
+              {!isSearching && localExistingBook && (
+                <div
+                  data-local-isbn-match={localExistingBook.id}
+                  className="rounded-xl bg-surface border border-primary/35 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 shadow-2xs"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <BookCover
+                      book={localExistingBook}
+                      size="sm"
+                      aspectRatio={state.settings?.coverAspectRatio || 'square'}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary">
+                        Already in your library · {formatCollectionStatus(localExistingBook.collectionStatus)}
+                      </p>
+                      <h3 className="font-display text-base font-semibold text-ink leading-snug mt-0.5 truncate">
+                        {localExistingBook.title}
+                      </h3>
+                      <p className="text-xs text-ink-secondary truncate">
+                        {localExistingBook.authors.join(', ')}
+                      </p>
+                      {pendingIsbn && (
+                        <p className="text-[11px] text-ink-muted font-mono-tabular mt-0.5">
+                          Matched ISBN {pendingIsbn} directly from local catalog
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      data-action="open-existing-library-book"
+                      onClick={() => setInspectedBookId(localExistingBook.id)}
+                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap cursor-pointer"
+                    >
+                      Open in Library
+                    </button>
+                    <button
+                      type="button"
+                      data-action="search-online-anyway"
+                      onClick={() =>
+                        executeIsbnLookup(
+                          pendingIsbn || localExistingBook.isbn13 || localExistingBook.isbn10 || '',
+                          { skipLocalCheck: true }
+                        )
+                      }
+                      className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink whitespace-nowrap cursor-pointer"
+                    >
+                      Query Online Anyway
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {searchError && (
                 <p role="alert" className="text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">

@@ -529,7 +529,7 @@ export const LibraryView: React.FC = () => {
           {/* Search + Controls Row */}
           <div className="space-y-2">
             <div className="relative min-w-0">
-              <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted">
+              <span className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center text-ink-muted">
                 <Icon name="search" className="w-4 h-4" />
               </span>
               <ClearableInput
@@ -537,7 +537,7 @@ export const LibraryView: React.FC = () => {
                 value={searchQuery}
                 onValueChange={handleSearchChange}
                 placeholder="Search title, author, ISBN, owner, or topic…"
-                className="w-full h-11 pl-9 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs focus:border-primary"
+                className="w-full h-11 pl-9 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
               />
             </div>
 

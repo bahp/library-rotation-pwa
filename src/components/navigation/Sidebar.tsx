@@ -84,10 +84,29 @@ export const Sidebar: React.FC = () => {
   );
   const artworkMode =
     state.settings?.sidebarArtworkMode === 'engraving' ||
-    state.settings?.sidebarArtworkMode === 'illustration'
+    state.settings?.sidebarArtworkMode === 'illustration' ||
+    state.settings?.sidebarArtworkMode === 'none'
       ? state.settings.sidebarArtworkMode
       : effectiveTheme.sidebarArtworkDefault;
+  const artworkStyle =
+    state.settings?.sidebarArtworkStyle === 'natural' ||
+    state.settings?.sidebarArtworkStyle === 'muted'
+      ? state.settings.sidebarArtworkStyle
+      : 'integrated';
+  const dividerStyle = state.settings?.sidebarDividerStyle === 'line' ? 'line' : 'illustration';
   const sidebarArtwork = resolveSidebarArtworkInfo(state.settings, sidebarArtworkImg);
+
+  const sidebarIllustrationVars = {
+    '--text-primary': 'var(--sidebar-text)',
+    '--primary': 'var(--sidebar-accent)',
+    '--secondary': 'var(--sidebar-muted)',
+    '--accent': 'var(--sidebar-accent)',
+    '--border': 'var(--sidebar-border)',
+    '--surface': 'var(--sidebar-surface)',
+    '--surface-elevated': 'var(--sidebar-active-bg)',
+    '--surface-subtle': 'var(--sidebar-bg)',
+    '--text-muted': 'var(--sidebar-muted)',
+  } as React.CSSProperties;
 
   const renderNavLink = (item: {
     id: RouteId;
@@ -299,59 +318,71 @@ export const Sidebar: React.FC = () => {
           </nav>
         </div>
 
-        {/* Configurable Sidebar Footer Artwork */}
-        {!sidebarCollapsed && (
+        {/* Configurable Frameless Sidebar Artwork */}
+        {!sidebarCollapsed && artworkMode !== 'none' && (
           <div
             aria-hidden="true"
-            className="relative mt-auto pt-2 px-1 pointer-events-none select-none shrink-0"
-            style={
-              {
-                '--text-primary': 'var(--sidebar-text)',
-                '--primary': 'var(--sidebar-accent)',
-                '--secondary': 'var(--sidebar-muted)',
-                '--accent': 'var(--sidebar-accent)',
-                '--border': 'var(--sidebar-border)',
-                '--surface': 'var(--sidebar-surface)',
-                '--surface-elevated': 'var(--sidebar-active-bg)',
-                '--surface-subtle': 'var(--sidebar-bg)',
-                '--text-muted': 'var(--sidebar-muted)',
-              } as React.CSSProperties
-            }
+            data-sidebar-artwork-mode={artworkMode}
+            data-sidebar-artwork-style={artworkStyle}
+            className="relative mt-auto pt-4 pb-3 px-2 pointer-events-none select-none shrink-0 flex items-center justify-center"
+            style={sidebarIllustrationVars}
           >
             {artworkMode === 'illustration' ? (
-              sidebarArtwork.isTransparent ? (
-                <div
-                  className="relative rounded-xl p-2 flex items-center justify-center"
-                  style={{
-                    background:
-                      'radial-gradient(ellipse 90% 85% at 50% 50%, rgba(250, 247, 242, 0.94) 55%, rgba(250, 247, 242, 0.22) 88%, transparent 100%)',
-                  }}
-                >
-                  <img
-                    src={sidebarArtwork.src}
-                    alt=""
-                    className="w-full h-32 object-contain drop-shadow-xs opacity-95"
+              <div className="relative w-full flex items-center justify-center">
+                {artworkStyle !== 'natural' && (
+                  <div
+                    className="lr-sidebar-artwork-halo pointer-events-none absolute inset-x-2 inset-y-0 rounded-full"
+                    aria-hidden="true"
                   />
-                </div>
-              ) : (
-                <div className="relative overflow-hidden rounded-xl border border-sidebar-border/80 bg-sidebar-surface/50 shadow-sm">
-                  <img
-                    src={sidebarArtwork.src}
-                    alt=""
-                    className="w-full h-32 object-cover opacity-90"
-                  />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-sidebar/70 via-transparent to-transparent" />
-                </div>
-              )
+                )}
+                <img
+                  src={sidebarArtwork.src}
+                  alt=""
+                  className={`relative z-10 w-full h-32 ${
+                    sidebarArtwork.isTransparent
+                      ? 'object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.32)]'
+                      : 'object-cover lr-sidebar-artwork-mask'
+                  } ${
+                    artworkStyle === 'integrated'
+                      ? 'lr-sidebar-artwork-integrated'
+                      : artworkStyle === 'muted'
+                        ? 'lr-sidebar-artwork-muted'
+                        : 'opacity-95'
+                  }`}
+                />
+              </div>
             ) : (
-              <BotanicalIllustration variant="hero-library" className="w-full h-32 opacity-85" />
+              <BotanicalIllustration
+                variant="hero-library"
+                className={`w-full h-32 transition-opacity ${
+                  artworkStyle === 'muted'
+                    ? 'opacity-65'
+                    : artworkStyle === 'natural'
+                      ? 'opacity-95'
+                      : 'opacity-85'
+                }`}
+              />
             )}
           </div>
         )}
       </div>
 
-      {/* Bottom Active Reader Card */}
-      <div className={`${sidebarCollapsed ? 'p-2.5' : 'p-3.5'} border-t border-sidebar-border shrink-0 bg-sidebar`}>
+      {/* Bottom Active Reader Card (with Line or Ornamental Divider) */}
+      <div
+        className={`${sidebarCollapsed ? 'p-2.5 border-t border-sidebar-border' : 'px-3.5 pb-3.5 pt-2'} ${
+          !sidebarCollapsed && dividerStyle === 'line' ? 'border-t border-sidebar-border pt-3.5' : ''
+        } shrink-0 bg-sidebar`}
+      >
+        {!sidebarCollapsed && dividerStyle === 'illustration' && (
+          <div
+            aria-hidden="true"
+            data-sidebar-divider="illustration"
+            style={sidebarIllustrationVars}
+            className="pb-2.5 flex items-center justify-center pointer-events-none select-none"
+          >
+            <BotanicalIllustration variant="sidebar-divider" className="w-full h-5 opacity-90" />
+          </div>
+        )}
         {activeProfile ? (
           <button
             type="button"

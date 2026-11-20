@@ -1,5 +1,5 @@
 import React, { useEffect, useReducer, useRef } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
@@ -602,19 +602,27 @@ export const OnboardingWizard: React.FC = () => {
     navigate('home');
   };
 
+  const shouldReduceMotion = useReducedMotion();
+
   const slideVariants = {
-    enter: (dir: number) => ({
-      opacity: 0,
-      x: dir > 0 ? 22 : -22,
-    }),
+    enter: (dir: number) =>
+      shouldReduceMotion
+        ? { opacity: 0 }
+        : {
+            opacity: 0.92,
+            x: dir > 0 ? '100%' : '-100%',
+          },
     center: {
       opacity: 1,
       x: 0,
     },
-    exit: (dir: number) => ({
-      opacity: 0,
-      x: dir > 0 ? -22 : 22,
-    }),
+    exit: (dir: number) =>
+      shouldReduceMotion
+        ? { opacity: 0 }
+        : {
+            opacity: 0.92,
+            x: dir > 0 ? '-100%' : '100%',
+          },
   };
 
   const activeSlideIndex = Math.max(
@@ -931,50 +939,59 @@ export const OnboardingWizard: React.FC = () => {
                   className="flex-1 min-h-0 flex flex-col justify-between max-w-3xl w-full mx-auto px-4 sm:px-6 pt-3 sm:pt-6 pb-4 pb-safe gap-3 touch-pan-y"
                 >
                   {/* Slide Showcase Center */}
-                  <div className="flex-1 min-h-0 flex flex-col justify-center overflow-y-auto no-scrollbar py-2">
-                    <AnimatePresence mode="wait" custom={wizard.direction}>
-                      <motion.div
-                        key={currentSlide.id}
-                        custom={wizard.direction}
-                        variants={slideVariants}
-                        initial="enter"
-                        animate="center"
-                        exit="exit"
-                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                        className="space-y-4 sm:space-y-6 text-center"
-                      >
-                        {renderSlideVisual(currentSlide)}
+                  <div className="flex-1 min-h-0 flex flex-col justify-center overflow-x-hidden overflow-y-auto no-scrollbar py-2">
+                    <div className="relative w-full overflow-hidden grid grid-cols-1 grid-rows-1 items-center">
+                      <AnimatePresence initial={false} mode="popLayout" custom={wizard.direction}>
+                        <motion.div
+                          key={currentSlide.id}
+                          custom={wizard.direction}
+                          variants={slideVariants}
+                          initial="enter"
+                          animate="center"
+                          exit="exit"
+                          transition={
+                            shouldReduceMotion
+                              ? { duration: 0.14 }
+                              : {
+                                  x: { type: 'spring', stiffness: 320, damping: 32, mass: 0.9 },
+                                  opacity: { duration: 0.22, ease: 'easeOut' },
+                                }
+                          }
+                          className="col-start-1 row-start-1 w-full min-w-0 space-y-4 sm:space-y-6 text-center px-0.5"
+                        >
+                          {renderSlideVisual(currentSlide)}
 
-                        <div className="space-y-2 max-w-xl mx-auto px-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-                            {currentSlide.eyebrowKey
-                              ? t(currentSlide.eyebrowKey)
-                              : currentSlide.eyebrow}
-                          </p>
-                          <h1 className="font-display text-2xl sm:text-4xl font-semibold leading-[1.1] tracking-tight text-ink text-balance">
-                            {currentSlide.titleKey ? t(currentSlide.titleKey) : currentSlide.title}
-                          </h1>
-                          <p className="text-xs sm:text-base text-ink-secondary leading-relaxed">
-                            {currentSlide.descriptionKey
-                              ? t(currentSlide.descriptionKey)
-                              : currentSlide.description}
-                          </p>
-                          <p className="text-[11px] sm:text-xs font-medium text-ink-muted pt-1">
-                            <span className="font-semibold text-primary">
-                              {currentSlide.highlightMetricKey
-                                ? t(currentSlide.highlightMetricKey)
-                                : currentSlide.highlightMetric}
-                            </span>
-                            <span aria-hidden="true" className="mx-1.5">·</span>
-                            <span>
-                              {currentSlide.highlightCaptionKey
-                                ? t(currentSlide.highlightCaptionKey)
-                                : currentSlide.highlightCaption}
-                            </span>
-                          </p>
-                        </div>
-                      </motion.div>
-                    </AnimatePresence>
+                          <div className="space-y-2 max-w-xl mx-auto px-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
+                              {currentSlide.eyebrowKey
+                                ? t(currentSlide.eyebrowKey)
+                                : currentSlide.eyebrow}
+                            </p>
+                            <h1 className="font-display text-2xl sm:text-4xl font-semibold leading-[1.1] tracking-tight text-ink text-balance">
+                              {currentSlide.titleKey ? t(currentSlide.titleKey) : currentSlide.title}
+                            </h1>
+                            <p className="text-xs sm:text-base text-ink-secondary leading-relaxed">
+                              {currentSlide.descriptionKey
+                                ? t(currentSlide.descriptionKey)
+                                : currentSlide.description}
+                            </p>
+                            <p className="text-[11px] sm:text-xs font-medium text-ink-muted pt-1">
+                              <span className="font-semibold text-primary">
+                                {currentSlide.highlightMetricKey
+                                  ? t(currentSlide.highlightMetricKey)
+                                  : currentSlide.highlightMetric}
+                              </span>
+                              <span aria-hidden="true" className="mx-1.5">·</span>
+                              <span>
+                                {currentSlide.highlightCaptionKey
+                                  ? t(currentSlide.highlightCaptionKey)
+                                  : currentSlide.highlightCaption}
+                              </span>
+                            </p>
+                          </div>
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
                   </div>
 
                   {/* Fixed Footer: Explore Sample Family + Segmented Progress Bar + Skip / Next */}

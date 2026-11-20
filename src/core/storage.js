@@ -439,13 +439,19 @@ export function createSafeDefaultSettings(overrides = {}) {
           : 'compact',
       sidebarArtworkMode:
         overrides.sidebarArtworkMode === 'engraving' ||
-        overrides.sidebarArtworkMode === 'illustration'
+        overrides.sidebarArtworkMode === 'illustration' ||
+        overrides.sidebarArtworkMode === 'none'
           ? overrides.sidebarArtworkMode
           : 'theme',
       sidebarArtworkId:
         typeof overrides.sidebarArtworkId === 'string' && overrides.sidebarArtworkId.trim()
           ? overrides.sidebarArtworkId.trim().toLowerCase()
           : 'books-reading-lamp',
+      sidebarArtworkStyle:
+        overrides.sidebarArtworkStyle === 'natural' || overrides.sidebarArtworkStyle === 'muted'
+          ? overrides.sidebarArtworkStyle
+          : 'integrated',
+      sidebarDividerStyle: overrides.sidebarDividerStyle === 'line' ? 'line' : 'illustration',
       onboardingLandingMode: overrides.onboardingLandingMode === 'compact' ? 'compact' : 'slideshow',
       nativeAppStyle: overrides.nativeAppStyle !== false,
       notificationsEnabled: Boolean(overrides.notificationsEnabled),
@@ -453,6 +459,18 @@ export function createSafeDefaultSettings(overrides = {}) {
       dynamicCoverTint: overrides.dynamicCoverTint !== false,
       dynamicCoverTintStyle: overrides.dynamicCoverTintStyle === 'linear' ? 'linear' : 'circular',
       dynamicCoverTintBehavior: overrides.dynamicCoverTintBehavior === 'scroll' ? 'scroll' : 'fixed',
+      dynamicCoverTintMode:
+        overrides.dynamicCoverTintMode === 'dominant' || overrides.dynamicCoverTintMode === 'soft'
+          ? overrides.dynamicCoverTintMode
+          : 'prominent',
+      dynamicCoverTintCircularFade: (() => {
+        const raw = Number(overrides.dynamicCoverTintCircularFade);
+        return Number.isFinite(raw) ? Math.max(180, Math.min(520, Math.round(raw))) : 310;
+      })(),
+      dynamicCoverTintLinearFade: (() => {
+        const raw = Number(overrides.dynamicCoverTintLinearFade);
+        return Number.isFinite(raw) ? Math.max(35, Math.min(100, Math.round(raw))) : 92;
+      })(),
       retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
       searchWhileTyping: Boolean(overrides.searchWhileTyping),
       enabledMetadataProviders:

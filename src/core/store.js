@@ -695,6 +695,7 @@ export function createAppStore(storage, deps = {}) {
    *   loved?: boolean,
    *   owners?: string[],
    *   dominantColor?: string | null,
+   *   dominantColorSource?: 'auto' | 'manual',
    *   excludeFromRotations?: boolean,
    *   notes?: string | null,
    *   needsScanReview?: boolean,
@@ -816,11 +817,18 @@ export function createAppStore(storage, deps = {}) {
 
     const coverChanged = patch.coverUrl !== undefined && nextCoverUrl !== existing.coverUrl;
     let nextDominantColor = existing.dominantColor;
+    let nextDominantColorSource = existing.dominantColorSource;
     if (patch.dominantColor !== undefined) {
       nextDominantColor = patch.dominantColor ? normalizeHexColor(patch.dominantColor) : undefined;
+      nextDominantColorSource = nextDominantColor
+        ? patch.dominantColorSource === 'manual'
+          ? 'manual'
+          : 'auto'
+        : undefined;
     } else if (coverChanged) {
       // Clear cached dominant color when cover art changes so extractor re-samples the new cover
       nextDominantColor = undefined;
+      nextDominantColorSource = undefined;
     }
 
     const nextExcludeFromRotations =
@@ -936,6 +944,9 @@ export function createAppStore(storage, deps = {}) {
       ...(nextOwners && nextOwners.length > 0 ? { owners: nextOwners } : {}),
       ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
       ...(nextDominantColor ? { dominantColor: nextDominantColor } : {}),
+      ...(nextDominantColor && nextDominantColorSource
+        ? { dominantColorSource: nextDominantColorSource }
+        : {}),
       ...(nextExcludeFromRotations ? { excludeFromRotations: true } : {}),
       ...(nextNotes ? { notes: nextNotes } : {}),
       ...(nextBookNotes && nextBookNotes.length > 0 ? { bookNotes: nextBookNotes } : {}),
@@ -1368,16 +1379,40 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Silently caches a sampled dominant cover hex color onto a book record without triggering a toast.
+   * Silently caches a sampled dominant cover hex color onto a book record without triggering a toast,
+   * or stores/clears a manual swatch override when requested.
    * @param {string} bookId
-   * @param {string} rawHex
+   * @param {string | null | undefined} rawHex
+   * @param {{ manual?: boolean }} [options]
+   * @returns {Promise<import('../types/models.js').Book | null>}
    */
-  async function setBookDominantColor(bookId, rawHex) {
+  async function setBookDominantColor(bookId, rawHex, options = {}) {
+    const target = state.books.find((b) => b.id === bookId);
+    if (!target) return null;
+    if (!rawHex) {
+      if (!target.dominantColor && !target.dominantColorSource) return target;
+      const { dominantColor: _removedColor, dominantColorSource: _removedSrc, ...restRaw } =
+        target;
+      const rest = /** @type {import('../types/models.js').Book} */ (restRaw);
+      await commit({
+        ...state,
+        books: state.books.map((b) => (b.id === bookId ? rest : b)),
+      });
+      return rest;
+    }
     const cleanHex = normalizeHexColor(rawHex);
     if (!cleanHex) return null;
-    const target = state.books.find((b) => b.id === bookId);
-    if (!target || target.dominantColor === cleanHex) return target || null;
-    const updatedBook = { ...target, dominantColor: cleanHex };
+    /** @type {'manual' | 'auto'} */
+    const nextSource = options.manual ? 'manual' : 'auto';
+    if (target.dominantColor === cleanHex && target.dominantColorSource === nextSource) {
+      return target;
+    }
+    /** @type {import('../types/models.js').Book} */
+    const updatedBook = {
+      ...target,
+      dominantColor: cleanHex,
+      dominantColorSource: nextSource,
+    };
     await commit({
       ...state,
       books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
@@ -3787,11 +3822,18 @@ export function createAppStore(storage, deps = {}) {
       bookCardSize: state.settings.bookCardSize,
       sidebarArtworkMode: state.settings.sidebarArtworkMode,
       sidebarArtworkId: state.settings.sidebarArtworkId,
+      sidebarArtworkStyle: state.settings.sidebarArtworkStyle,
+      sidebarDividerStyle: state.settings.sidebarDividerStyle,
       onboardingLandingMode: state.settings.onboardingLandingMode,
       nativeAppStyle: state.settings.nativeAppStyle,
       notificationsEnabled: state.settings.notificationsEnabled,
       coverAspectRatio: state.settings.coverAspectRatio,
       dynamicCoverTint: state.settings.dynamicCoverTint,
+      dynamicCoverTintStyle: state.settings.dynamicCoverTintStyle,
+      dynamicCoverTintBehavior: state.settings.dynamicCoverTintBehavior,
+      dynamicCoverTintMode: state.settings.dynamicCoverTintMode,
+      dynamicCoverTintCircularFade: state.settings.dynamicCoverTintCircularFade,
+      dynamicCoverTintLinearFade: state.settings.dynamicCoverTintLinearFade,
       showPresetDecorations: state.settings.showPresetDecorations,
       presetCornerArtSize: state.settings.presetCornerArtSize,
       preferredScanMode: state.settings.preferredScanMode,
@@ -3957,6 +3999,14 @@ export function createAppStore(storage, deps = {}) {
         bookCardSize: state.settings.bookCardSize,
         sidebarArtworkMode: state.settings.sidebarArtworkMode,
         sidebarArtworkId: state.settings.sidebarArtworkId,
+        sidebarArtworkStyle: state.settings.sidebarArtworkStyle,
+        sidebarDividerStyle: state.settings.sidebarDividerStyle,
+        dynamicCoverTint: state.settings.dynamicCoverTint,
+        dynamicCoverTintStyle: state.settings.dynamicCoverTintStyle,
+        dynamicCoverTintBehavior: state.settings.dynamicCoverTintBehavior,
+        dynamicCoverTintMode: state.settings.dynamicCoverTintMode,
+        dynamicCoverTintCircularFade: state.settings.dynamicCoverTintCircularFade,
+        dynamicCoverTintLinearFade: state.settings.dynamicCoverTintLinearFade,
         onboardingLandingMode: state.settings.onboardingLandingMode,
         devModeUnlocked: state.settings.devModeUnlocked,
         showMiniWizards: state.settings.showMiniWizards,
