@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Icon } from '../common/Icon.js';
 import { AVATAR_TONES } from '../../config/index.js';
+import { compressImageFileToDataUrl } from '../../features/catalog/cover-image-utils.js';
 import { computeOwnerInitials, type BookNote, type ChildProfile } from '../../types/models.js';
 
 interface BookQuotesSheetProps {
@@ -11,6 +12,7 @@ interface BookQuotesSheetProps {
   onClose: () => void;
   onSave: (payload: {
     text: string;
+    imageDataUrl?: string;
     authorProfileId?: string;
     forProfileId?: string;
   }) => Promise<void>;
@@ -27,23 +29,29 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
   onDelete,
 }) => {
   const [text, setText] = useState('');
+  const [imageDataUrl, setImageDataUrl] = useState('');
   const [authorProfileId, setAuthorProfileId] = useState(defaultAuthorId);
   const [forProfileId, setForProfileId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [compressingPhoto, setCompressingPhoto] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setError('');
     setSaving(false);
+    setCompressingPhoto(false);
     setConfirmDelete(false);
     if (editingNote) {
       setText(editingNote.text || '');
+      setImageDataUrl(editingNote.imageDataUrl || '');
       setAuthorProfileId(editingNote.authorProfileId || '');
       setForProfileId(editingNote.forProfileId || '');
     } else {
       setText('');
+      setImageDataUrl('');
       setAuthorProfileId(defaultAuthorId);
       setForProfileId('');
     }
@@ -54,10 +62,29 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
   const isEditing = Boolean(editingNote);
   const selectedAuthor = profiles.find((p) => p.id === authorProfileId);
 
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setCompressingPhoto(true);
+    setError('');
+    try {
+      const compressed = await compressImageFileToDataUrl(file, {
+        maxDimension: 640,
+        quality: 0.78,
+      });
+      setImageDataUrl(compressed);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not attach image.');
+    } finally {
+      setCompressingPhoto(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!text.trim()) {
-      setError('Write a quote or reading note before saving.');
+    if (!text.trim() && !imageDataUrl) {
+      setError('Write a quote, reading note, or attach a photo before saving.');
       return;
     }
     setSaving(true);
@@ -65,6 +92,7 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
     try {
       await onSave({
         text: text.trim(),
+        imageDataUrl: editingNote ? imageDataUrl : imageDataUrl || undefined,
         authorProfileId: editingNote ? authorProfileId : authorProfileId || undefined,
         forProfileId: editingNote ? forProfileId : forProfileId || undefined,
       });
@@ -150,6 +178,52 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
               placeholder="Write a favorite line, bedtime reaction, or reading milestone…"
               className="w-full px-3.5 py-2.5 rounded-xl bg-surface-subtle border border-edge text-sm text-ink placeholder:text-ink-muted leading-relaxed focus:outline-none focus:border-primary"
             />
+          </div>
+
+          {/* Optional Compressed Photo Attachment */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                Photo / Drawing (Optional)
+              </span>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+              <div className="flex items-center gap-2">
+                {imageDataUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImageDataUrl('')}
+                    className="min-h-[32px] px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 cursor-pointer"
+                  >
+                    Remove photo
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={compressingPhoto}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="min-h-[34px] px-3 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-55"
+                >
+                  <Icon name="photo" className="w-3.5 h-3.5 text-primary" />
+                  <span>{compressingPhoto ? 'Optimizing…' : imageDataUrl ? 'Replace photo' : 'Attach photo'}</span>
+                </button>
+              </div>
+            </div>
+
+            {imageDataUrl && (
+              <div className="rounded-xl overflow-hidden border border-edge bg-surface-subtle max-h-48 flex items-center justify-center">
+                <img
+                  src={imageDataUrl}
+                  alt="Attached note memory"
+                  className="max-h-48 w-auto object-contain"
+                />
+              </div>
+            )}
           </div>
 
           {profiles.length > 0 && (

@@ -83,10 +83,7 @@ export const BottomNav: React.FC = () => {
                   <span
                     data-nav-icon-glow="true"
                     aria-hidden="true"
-                    className="pointer-events-none absolute -top-2 left-1/2 -translate-x-1/2 w-12 h-6 rounded-full blur-md"
-                    style={{
-                      backgroundColor: 'color-mix(in srgb, var(--primary) 55%, transparent)',
-                    }}
+                    className="lr-nav-icon-glow pointer-events-none absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-12 h-5 rounded-full blur-[6px]"
                   />
                 )}
                 <span
@@ -143,7 +140,7 @@ export const BottomNav: React.FC = () => {
                 className={`relative flex items-center justify-center h-6 mb-1 transition-transform duration-150 ${
                   isActive
                     ? useNativeChrome
-                      ? 'scale-[1.06] drop-shadow-[0_3px_10px_color-mix(in_srgb,var(--primary)_60%,transparent)]'
+                      ? 'scale-[1.06]'
                       : 'scale-[1.05]'
                     : 'group-hover:scale-105'
                 }`}
@@ -152,10 +149,7 @@ export const BottomNav: React.FC = () => {
                   <span
                     data-nav-icon-glow="true"
                     aria-hidden="true"
-                    className="pointer-events-none absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-10 h-4 rounded-full blur-[7px]"
-                    style={{
-                      backgroundColor: 'color-mix(in srgb, var(--primary) 62%, transparent)',
-                    }}
+                    className="lr-nav-icon-glow pointer-events-none absolute -bottom-2 left-1/2 -translate-x-1/2 w-12 h-4 rounded-full blur-[5px]"
                   />
                 )}
                 <Icon name={item.icon} className="relative z-10 w-5 h-5" strokeWidth={iconStroke} />

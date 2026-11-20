@@ -451,6 +451,8 @@ export function createSafeDefaultSettings(overrides = {}) {
       notificationsEnabled: Boolean(overrides.notificationsEnabled),
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,
+      dynamicCoverTintStyle: overrides.dynamicCoverTintStyle === 'linear' ? 'linear' : 'circular',
+      dynamicCoverTintBehavior: overrides.dynamicCoverTintBehavior === 'scroll' ? 'scroll' : 'fixed',
       retainRawProviderPayloads: Boolean(overrides.retainRawProviderPayloads),
       searchWhileTyping: Boolean(overrides.searchWhileTyping),
       enabledMetadataProviders:

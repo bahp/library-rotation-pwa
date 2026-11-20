@@ -31,9 +31,15 @@ export type EditorialFieldKey =
   | 'condition'
   | 'dimensions';
 
+export interface PublisherOption {
+  name: string;
+  count: number;
+}
+
 interface EditorialFieldSheetProps {
   field: EditorialFieldKey | null;
   book: Book;
+  existingPublishers?: PublisherOption[];
   onClose: () => void;
   onPatchBook: (patch: Record<string, unknown>) => Promise<void>;
   onAddTag: (tag: string) => Promise<void>;
@@ -138,6 +144,7 @@ function normalizeTagSlug(raw: string): string {
 export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
   field,
   book,
+  existingPublishers = [],
   onClose,
   onPatchBook,
   onAddTag,
@@ -156,11 +163,13 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
   const [secondaryText, setSecondaryText] = useState('');
   const [selectedYear, setSelectedYear] = useState<number>(book.publishedYear || currentYear);
   const [genreSearch, setGenreSearch] = useState('');
+  const [publisherQuery, setPublisherQuery] = useState('');
   const [currency, setCurrency] = useState(book.estimatedCurrency || book.listPriceCurrency || 'USD');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const titleTextareaRef = useRef<HTMLTextAreaElement>(null);
   const selectedYearRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -168,6 +177,7 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
     setError('');
     setSaving(false);
     setGenreSearch('');
+    setPublisherQuery('');
     switch (field) {
       case 'title':
         setTextValue(book.title || '');
@@ -180,6 +190,7 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
         break;
       case 'publisher':
         setTextValue(book.publisher || '');
+        setPublisherQuery('');
         break;
       case 'edition':
         setTextValue(book.edition || '');
@@ -217,6 +228,8 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
     const focusTimer = window.setTimeout(() => {
       if (field === 'publishedYear') {
         selectedYearRef.current?.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+      } else if (field === 'title') {
+        titleTextareaRef.current?.focus();
       } else {
         inputRef.current?.focus();
       }
@@ -240,6 +253,12 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
     if (!q) return combined;
     return combined.filter((g) => g.toLowerCase().includes(q));
   }, [genreSearch, book.tags]);
+
+  const filteredPublishers = useMemo(() => {
+    const q = publisherQuery.trim().toLowerCase();
+    if (!q) return existingPublishers;
+    return existingPublishers.filter((p) => p.name.toLowerCase().includes(q));
+  }, [existingPublishers, publisherQuery]);
 
   if (!field) return null;
 
@@ -270,7 +289,7 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
 
     switch (field) {
       case 'title': {
-        const cleanTitle = textValue.trim();
+        const cleanTitle = textValue.replace(/\s*\n\s*/g, ' ').trim();
         if (!cleanTitle) {
           setError('Book title is required.');
           return;
@@ -296,7 +315,9 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
         return;
       }
       case 'publisher':
-        await commitAndClose({ publisher: textValue.trim() });
+        await commitAndClose({
+          publisher: publisherQuery.trim() || textValue.trim(),
+        });
         return;
       case 'edition':
         await commitAndClose({ edition: textValue.trim() });
@@ -869,9 +890,114 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
               </div>
             )}
 
-            {(field === 'title' ||
-              field === 'authors' ||
-              field === 'publisher' ||
+            {field === 'title' && (
+              <div className="py-3">
+                <textarea
+                  ref={titleTextareaRef}
+                  rows={3}
+                  value={textValue}
+                  onChange={(e) => setTextValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSaveSubmit();
+                    }
+                  }}
+                  placeholder="e.g. Goodnight Moon"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-subtle border-2 border-primary/70 text-lg font-display text-ink placeholder:text-ink-muted placeholder:font-serif-italic placeholder:italic leading-snug focus:outline-none focus:border-primary resize-none"
+                />
+              </div>
+            )}
+
+            {field === 'publisher' && (
+              <div className="py-2 space-y-3 flex-1 min-h-0 flex flex-col">
+                <div className="relative">
+                  <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-ink-muted">
+                    <Icon name="search" className="w-4 h-4" />
+                  </span>
+                  <ClearableInput
+                    id="editorial-publisher-search"
+                    value={publisherQuery}
+                    onValueChange={(val) => {
+                      setPublisherQuery(val);
+                      setTextValue(val);
+                    }}
+                    placeholder={
+                      existingPublishers.length > 0
+                        ? 'Search catalog publishers or type a new one…'
+                        : 'e.g. Candlewick Press'
+                    }
+                    className="w-full h-11 pl-10 pr-9 rounded-xl bg-surface-subtle border border-edge text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                {book.publisher && (
+                  <div className="rounded-xl bg-primary/10 border border-primary/35 px-3.5 py-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="block text-[10px] font-semibold uppercase tracking-wider text-primary">
+                        Current Publisher
+                      </span>
+                      <span className="block text-sm font-semibold text-ink truncate">
+                        {book.publisher}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => commitAndClose({ publisher: '' })}
+                      className="min-h-[32px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 shrink-0 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+
+                {publisherQuery.trim() &&
+                  !existingPublishers.some(
+                    (p) => p.name.toLowerCase() === publisherQuery.trim().toLowerCase()
+                  ) && (
+                    <button
+                      type="button"
+                      onClick={() => commitAndClose({ publisher: publisherQuery.trim() })}
+                      className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-surface-subtle hover:bg-surface-elevated border border-primary/50 text-xs font-semibold text-primary flex items-center gap-2 cursor-pointer"
+                    >
+                      <Icon name="plus" className="w-4 h-4 shrink-0" />
+                      <span className="truncate">Use &amp; Save “{publisherQuery.trim()}”</span>
+                    </button>
+                  )}
+
+                {filteredPublishers.length > 0 && (
+                  <div className="flex-1 min-h-0 max-h-[220px] overflow-y-auto rounded-xl bg-surface-subtle/60 border border-edge divide-y divide-edge-subtle">
+                    {filteredPublishers.map((pub) => {
+                      const active =
+                        (book.publisher || '').trim().toLowerCase() === pub.name.toLowerCase();
+                      return (
+                        <button
+                          key={pub.name}
+                          type="button"
+                          onClick={() => commitAndClose({ publisher: pub.name })}
+                          aria-pressed={active}
+                          className={`w-full min-h-[44px] px-3.5 py-2 text-left flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-primary/12 text-primary font-semibold'
+                              : 'text-ink hover:bg-surface-elevated/60'
+                          }`}
+                        >
+                          <span className="text-sm truncate">{pub.name}</span>
+                          <span className="inline-flex items-center gap-2 shrink-0">
+                            <span className="text-[11px] font-mono-tabular text-ink-muted">
+                              {pub.count} {pub.count === 1 ? 'book' : 'books'}
+                            </span>
+                            {active && <Icon name="check" className="w-4 h-4 text-primary" />}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(field === 'authors' ||
               field === 'edition' ||
               field === 'pageCount' ||
               field === 'dimensions') && (
@@ -885,17 +1011,13 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                     value={textValue}
                     onChange={(e) => setTextValue(e.target.value)}
                     placeholder={
-                      field === 'title'
-                        ? 'e.g. Goodnight Moon'
-                        : field === 'authors'
-                          ? 'e.g. Margaret Wise Brown, Clement Hurd'
-                          : field === 'edition'
-                            ? 'e.g. First edition'
-                            : field === 'publisher'
-                              ? 'e.g. Candlewick Press'
-                              : field === 'pageCount'
-                                ? 'e.g. 48'
-                                : 'e.g. 22 × 22 × 1 cm'
+                      field === 'authors'
+                        ? 'e.g. Margaret Wise Brown, Clement Hurd'
+                        : field === 'edition'
+                          ? 'e.g. First edition'
+                          : field === 'pageCount'
+                            ? 'e.g. 48'
+                            : 'e.g. 22 × 22 × 1 cm'
                     }
                     className="w-full bg-transparent text-xl font-display text-ink placeholder:text-ink-muted placeholder:font-serif-italic placeholder:italic focus:outline-none"
                   />

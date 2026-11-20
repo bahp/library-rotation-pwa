@@ -103,6 +103,8 @@ export function createDefaultAppSettings() {
     notificationsEnabled: false,
     coverAspectRatio: 'square',
     dynamicCoverTint: true,
+    dynamicCoverTintStyle: 'circular',
+    dynamicCoverTintBehavior: 'fixed',
     showPresetDecorations: true,
     presetCornerArtSize: 'sm',
     presetIllustrationPromptTemplate: DEFAULT_PRESET_ILLUSTRATION_PROMPT,

@@ -1048,14 +1048,18 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Appends a quote or reading note with reader attribution onto a catalog book.
+   * Appends a quote or reading note with reader attribution and optional photo onto a catalog book.
    * @param {string} bookId
-   * @param {{ text: string, authorProfileId?: string, forProfileId?: string }} input
+   * @param {{ text?: string, imageDataUrl?: string, authorProfileId?: string, forProfileId?: string }} input
    */
   async function addBookNote(bookId, input) {
     const cleanText = String(input?.text || '').trim().slice(0, 1500);
-    if (!cleanText) {
-      throw new Error('Enter a quote or note before saving.');
+    const cleanImage =
+      typeof input?.imageDataUrl === 'string' && input.imageDataUrl.startsWith('data:image/')
+        ? input.imageDataUrl
+        : '';
+    if (!cleanText && !cleanImage) {
+      throw new Error('Enter a quote, note, or photo before saving.');
     }
     const target = state.books.find((b) => b.id === bookId);
     if (!target) throw new Error('Book not found.');
@@ -1076,16 +1080,18 @@ export function createAppStore(storage, deps = {}) {
     const newNote = {
       id: createId('note'),
       text: cleanText,
+      ...(cleanImage ? { imageDataUrl: cleanImage } : {}),
       ...(input.authorProfileId ? { authorProfileId: String(input.authorProfileId) } : {}),
       ...(input.forProfileId ? { forProfileId: String(input.forProfileId) } : {}),
       createdAt: new Date().toISOString(),
     };
 
     const nextList = [newNote, ...existingList];
+    const summaryText = nextList.find((n) => n.text)?.text?.slice(0, 1000);
     const updatedBook = {
       ...target,
       bookNotes: nextList,
-      notes: nextList[0].text.slice(0, 1000),
+      ...(summaryText ? { notes: summaryText } : {}),
     };
     await commit({
       ...state,
@@ -1099,7 +1105,7 @@ export function createAppStore(storage, deps = {}) {
    * Updates an existing attributed quote or note on a catalog book.
    * @param {string} bookId
    * @param {string} noteId
-   * @param {{ text?: string, authorProfileId?: string, forProfileId?: string }} patch
+   * @param {{ text?: string, imageDataUrl?: string, authorProfileId?: string, forProfileId?: string }} patch
    */
   async function updateBookNote(bookId, noteId, patch) {
     const target = state.books.find((b) => b.id === bookId);
@@ -1124,13 +1130,20 @@ export function createAppStore(storage, deps = {}) {
 
     const current = existingList[noteIndex];
     const nextText =
-      patch.text !== undefined ? String(patch.text || '').trim().slice(0, 1500) : current.text;
-    if (!nextText) throw new Error('Note text cannot be empty.');
+      patch.text !== undefined ? String(patch.text || '').trim().slice(0, 1500) : current.text || '';
+    const nextImage =
+      patch.imageDataUrl !== undefined
+        ? typeof patch.imageDataUrl === 'string' && patch.imageDataUrl.startsWith('data:image/')
+          ? patch.imageDataUrl
+          : ''
+        : current.imageDataUrl || '';
+    if (!nextText && !nextImage) throw new Error('Note text or photo cannot be empty.');
 
     /** @type {import('../types/models.js').BookNote} */
     const nextNote = {
       ...current,
       text: nextText,
+      ...(nextImage ? { imageDataUrl: nextImage } : {}),
       ...(patch.authorProfileId !== undefined
         ? patch.authorProfileId
           ? { authorProfileId: String(patch.authorProfileId) }
@@ -1147,14 +1160,16 @@ export function createAppStore(storage, deps = {}) {
           : {}),
       updatedAt: new Date().toISOString(),
     };
+    if (!nextImage) delete nextNote.imageDataUrl;
     if (patch.authorProfileId === '') delete nextNote.authorProfileId;
     if (patch.forProfileId === '') delete nextNote.forProfileId;
 
     const nextList = existingList.map((n, idx) => (idx === noteIndex ? nextNote : n));
+    const summaryText = nextList.find((n) => n.text)?.text?.slice(0, 1000) || undefined;
     const updatedBook = {
       ...target,
       bookNotes: nextList,
-      notes: nextList[0]?.text?.slice(0, 1000) || undefined,
+      notes: summaryText,
     };
     await commit({
       ...state,

@@ -96,6 +96,7 @@
  * @typedef {Object} BookNote
  * @property {string} id - Unique note ID
  * @property {string} text - Quote or reading note text
+ * @property {string} [imageDataUrl] - Optional compressed image/photo attachment data URL
  * @property {string} [authorProfileId] - Profile ID of who wrote the note
  * @property {string} [forProfileId] - Optional profile ID of the reader this note/quote is about
  * @property {string} createdAt - ISO-8601 creation timestamp
@@ -281,6 +282,8 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {boolean} [notificationsEnabled] - Opt-in flag for browser/swap reminders
  * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
  * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)
+ * @property {'circular' | 'linear'} [dynamicCoverTintStyle] - Shape of dynamic cover tint ('circular' behind cover or 'linear' top wash)
+ * @property {'fixed' | 'scroll'} [dynamicCoverTintBehavior] - Whether ambient cover tint stays fixed behind sheet or scrolls with header
  * @property {boolean} retainRawProviderPayloads - Keep raw API responses for debugging/extension
  * @property {string[]} enabledMetadataProviders - Enabled catalog lookup provider IDs (default: Google Books + Open Library)
  * @property {boolean} autoLocalTagging - Automatically run offline rule-based taxonomy & reading-level tagging

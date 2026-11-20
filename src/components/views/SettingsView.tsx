@@ -390,6 +390,14 @@ export const SettingsView: React.FC = () => {
     await store.updateSettings({ dynamicCoverTint: state.settings.dynamicCoverTint === false });
   };
 
+  const handleDynamicTintStyleChange = async (dynamicCoverTintStyle: 'circular' | 'linear') => {
+    await store.updateSettings({ dynamicCoverTintStyle });
+  };
+
+  const handleDynamicTintBehaviorChange = async (dynamicCoverTintBehavior: 'fixed' | 'scroll') => {
+    await store.updateSettings({ dynamicCoverTintBehavior });
+  };
+
   const handleToggleNativeAppStyle = async () => {
     await store.updateSettings({ nativeAppStyle: state.settings.nativeAppStyle === false });
   };
@@ -1220,26 +1228,104 @@ export const SettingsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Dynamic Cover Tint Switch */}
-                <div className="pt-4 border-t border-edge-subtle flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p
-                      id="label-dynamic-tint"
-                      className="text-sm font-semibold text-ink"
-                    >
-                      {t('settings.dynamicTintLabel')}
-                    </p>
-                    <p className="text-xs text-ink-secondary mt-0.5">
-                      {t('settings.dynamicTintHint')}
-                    </p>
+                {/* Dynamic Cover Tint Switch & Options */}
+                <div className="pt-4 border-t border-edge-subtle space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p
+                        id="label-dynamic-tint"
+                        className="text-sm font-semibold text-ink"
+                      >
+                        {t('settings.dynamicTintLabel')}
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        {t('settings.dynamicTintHint')}
+                      </p>
+                    </div>
+                    <ToggleSwitch
+                      checked={state.settings.dynamicCoverTint !== false}
+                      onChange={handleToggleDynamicTint}
+                      ariaLabelledBy="label-dynamic-tint"
+                      onLabel={t('common.on')}
+                      offLabel={t('common.off')}
+                    />
                   </div>
-                  <ToggleSwitch
-                    checked={state.settings.dynamicCoverTint !== false}
-                    onChange={handleToggleDynamicTint}
-                    ariaLabelledBy="label-dynamic-tint"
-                    onLabel={t('common.on')}
-                    offLabel={t('common.off')}
-                  />
+
+                  {state.settings.dynamicCoverTint !== false && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <p className="text-xs font-semibold text-ink">
+                          {t('settings.dynamicTintStyleLabel')}
+                        </p>
+                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                          {[
+                            {
+                              id: 'circular' as const,
+                              label: t('settings.dynamicTintStyleCircular'),
+                            },
+                            {
+                              id: 'linear' as const,
+                              label: t('settings.dynamicTintStyleLinear'),
+                            },
+                          ].map((item) => {
+                            const active =
+                              (state.settings.dynamicCoverTintStyle || 'circular') === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleDynamicTintStyleChange(item.id)}
+                                aria-pressed={active}
+                                className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                  active
+                                    ? 'bg-primary text-primary-fg shadow-xs'
+                                    : 'text-ink-secondary hover:text-ink'
+                                }`}
+                              >
+                                {item.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-semibold text-ink">
+                          {t('settings.dynamicTintBehaviorLabel')}
+                        </p>
+                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                          {[
+                            {
+                              id: 'fixed' as const,
+                              label: t('settings.dynamicTintBehaviorFixed'),
+                            },
+                            {
+                              id: 'scroll' as const,
+                              label: t('settings.dynamicTintBehaviorScroll'),
+                            },
+                          ].map((item) => {
+                            const active =
+                              (state.settings.dynamicCoverTintBehavior || 'fixed') === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleDynamicTintBehaviorChange(item.id)}
+                                aria-pressed={active}
+                                className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                  active
+                                    ? 'bg-primary text-primary-fg shadow-xs'
+                                    : 'text-ink-secondary hover:text-ink'
+                                }`}
+                              >
+                                {item.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Native Mobile App Chrome Switch */}

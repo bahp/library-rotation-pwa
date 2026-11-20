@@ -150,7 +150,7 @@ export const WaveformScrubber: React.FC<WaveformScrubberProps> = ({
           if (e.key === 'ArrowRight') handleSeekAtRatio(progress + 0.1);
           if (e.key === 'ArrowLeft') handleSeekAtRatio(progress - 0.1);
         }}
-        className="flex-1 min-w-0 h-8 flex items-center gap-[2.5px] cursor-pointer select-none py-1"
+        className="flex-1 min-w-0 h-8 flex items-center gap-[2px] overflow-hidden cursor-pointer select-none py-1"
       >
         {bars.map((heightNorm, idx) => {
           const barThreshold = (idx + 0.5) / bars.length;
@@ -205,7 +205,7 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
     setCurrentTime(0);
   }, [srcUrl]);
 
-  const bars = useMemo(() => buildWaveformBars(recording.id, 15), [recording.id]);
+  const bars = useMemo(() => buildWaveformBars(recording.id, 11), [recording.id]);
   const effectiveDuration =
     resolvedDuration > 0 && Number.isFinite(resolvedDuration)
       ? resolvedDuration
@@ -325,8 +325,8 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
         </p>
       </div>
 
-      {/* Right Cluster: Avatar + Compact Waveform + Duration + Delete */}
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+      {/* Right Cluster: Avatar + Compact Waveform + Duration */}
+      <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
         <span
           className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full text-[10px] font-bold inline-flex items-center justify-center shrink-0 ${
             authorProfile
@@ -359,7 +359,7 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
               handleSeekAtRatio(progress - 0.1);
             }
           }}
-          className="w-12 sm:w-20 h-7 flex items-center gap-[2px] cursor-pointer select-none py-1 shrink-0"
+          className="w-14 sm:w-20 h-7 flex items-center gap-[2px] overflow-hidden cursor-pointer select-none py-1 mr-0.5 shrink-0"
         >
           {bars.map((heightNorm, idx) => {
             const barThreshold = (idx + 0.5) / bars.length;
@@ -376,7 +376,7 @@ export const VoiceWaveformPlayer: React.FC<VoiceWaveformPlayerProps> = ({
           })}
         </div>
 
-        <span className="text-[11px] font-mono-tabular text-ink-secondary shrink-0 whitespace-nowrap">
+        <span className="text-[11px] font-mono-tabular text-ink-secondary shrink-0 whitespace-nowrap min-w-[30px] text-right">
           {isPlaying || currentTime > 0
             ? formatAudioTime(currentTime)
             : formatAudioTime(effectiveDuration)}

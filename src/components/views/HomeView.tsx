@@ -773,37 +773,37 @@ export const HomeView: React.FC = () => {
                 );
               })}
 
-              {/* Dedicated Editorial Anchor Card: Manage Your Rotation */}
-              <div className="rounded-xl bg-surface-elevated border border-edge p-4 sm:p-5 flex flex-col items-center justify-between text-center min-h-[210px] lr-card">
-                <div className="space-y-2.5 my-auto">
-                  <span className="w-10 h-10 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shadow-2xs">
+              {/* Dedicated Editorial Anchor Bar: Manage Your Rotation (full row so small screens never cramp) */}
+              <div className="col-span-full rounded-xl bg-surface-elevated border border-edge p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 lr-card">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-10 h-10 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shrink-0 shadow-2xs">
                     <Icon name="rotations" className="w-5 h-5" />
                   </span>
-                  <div className="space-y-1">
+                  <div className="min-w-0">
                     <h2 className="font-display text-lg font-semibold text-ink leading-tight">
                       Manage your rotation
                     </h2>
-                    <p className="text-xs text-ink-secondary leading-relaxed">
+                    <p className="text-xs text-ink-secondary leading-relaxed mt-0.5">
                       Swap, stock, or draw fresh books for this cycle.
                     </p>
                   </div>
                 </div>
 
-                <div className="w-full pt-3 space-y-1.5">
-                  <button
-                    type="button"
-                    onClick={() => navigate('rotations', { edit: activeRotation.id })}
-                    className="w-full min-h-[40px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                  >
-                    <span>Edit Rotation</span>
-                    <Icon name="chevronRight" className="w-3.5 h-3.5" />
-                  </button>
+                <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-end">
                   <button
                     type="button"
                     onClick={() => setIsPlacementOpen(true)}
-                    className="w-full py-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+                    className="min-h-[40px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-subtle border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center transition-colors whitespace-nowrap cursor-pointer"
                   >
                     Open Stock Checklist
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('rotations', { edit: activeRotation.id })}
+                    className="min-h-[40px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    <span>Edit Rotation</span>
+                    <Icon name="chevronRight" className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

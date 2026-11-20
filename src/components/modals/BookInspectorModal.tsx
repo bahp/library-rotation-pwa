@@ -1,15 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { StarRating } from '../common/StarRating.js';
 import { Icon } from '../common/Icon.js';
 import { ToggleSwitch } from '../common/ToggleSwitch.js';
-import { ClearableInput } from '../common/ClearableInput.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import {
   EditorialFieldSheet,
   formatBookDimensionsLabel,
   type EditorialFieldKey,
+  type PublisherOption,
 } from './EditorialFieldSheet.js';
 import { BookQuotesSheet } from './BookQuotesSheet.js';
 import {
@@ -19,6 +19,8 @@ import {
 } from './BookVoiceNoteSheet.js';
 import { BookOwnersSheet } from './BookOwnersSheet.js';
 import { BookCoverStudioSheet } from './BookCoverStudioSheet.js';
+import { BookGiftSheet, type GiftStoreOption } from './BookGiftSheet.js';
+import { BookGenresSheet } from './BookGenresSheet.js';
 import { getBookAudioBlob } from '../../core/storage.js';
 import { resolveBookCardTintHex } from '../../features/catalog/cover-color-extractor.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
@@ -92,7 +94,6 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
   const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
 
-  const [newTagInput, setNewTagInput] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [quickRulesFeedback, setQuickRulesFeedback] = useState('');
 
@@ -106,18 +107,37 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     note: BookNote | null;
   }>({ isOpen: false, note: null });
 
-  // Voice Note & Owners slide-up sheet states
+  // Voice Note, Owners, Gift, and Genres slide-up sheet states
   const [isVoiceNoteSheetOpen, setIsVoiceNoteSheetOpen] = useState(false);
   const [editingRecording, setEditingRecording] = useState<BookAudioRecording | null>(null);
   const [isOwnersSheetOpen, setIsOwnersSheetOpen] = useState(false);
+  const [isGiftSheetOpen, setIsGiftSheetOpen] = useState(false);
+  const [isGenresSheetOpen, setIsGenresSheetOpen] = useState(false);
   const [audioObjectUrls, setAudioObjectUrls] = useState<Record<string, string>>({});
   const audioUrlsRef = useRef<Record<string, string>>({});
+
+  const existingPublishers = useMemo<PublisherOption[]>(() => {
+    const counts = new Map<string, { name: string; count: number }>();
+    for (const item of state.books) {
+      const raw = String(item.publisher || '').trim();
+      if (!raw) continue;
+      const key = raw.toLowerCase();
+      const prev = counts.get(key);
+      if (prev) {
+        prev.count += 1;
+      } else {
+        counts.set(key, { name: raw, count: 1 });
+      }
+    }
+    return Array.from(counts.values()).sort(
+      (a, b) => b.count - a.count || a.name.localeCompare(b.name)
+    );
+  }, [state.books]);
 
   // Reset transient modal state whenever inspected book changes
   useEffect(() => {
     setIsCoverPickerOpen(false);
     setConfirmDelete(false);
-    setNewTagInput('');
     setQuickRulesFeedback('');
     setEditorialEditionExpanded(true);
     setActiveEditorialField(null);
@@ -125,6 +145,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     setIsVoiceNoteSheetOpen(false);
     setEditingRecording(null);
     setIsOwnersSheetOpen(false);
+    setIsGiftSheetOpen(false);
+    setIsGenresSheetOpen(false);
   }, [bookId]);
 
   // Lazy-load IndexedDB audio blobs for playback & revoke stale object URLs
@@ -211,12 +233,11 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     await store.toggleBookRotationEligibility(book.id);
   };
 
-  const handleAddTag = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTagInput.trim()) return;
+  const handleAddTagValue = async (tagValue: string) => {
+    const trimmed = tagValue.trim();
+    if (!trimmed) return;
     try {
-      await store.addBookTag(book.id, newTagInput.trim());
-      setNewTagInput('');
+      await store.addBookTag(book.id, trimmed);
     } catch (err) {
       store.notify(err instanceof Error ? err.message : String(err), 'error');
     }
@@ -228,7 +249,15 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
   const handleEnrichRules = async () => {
     try {
-      await store.enrichSingleBook(book.id);
+      const prevTagsCount = book.tags.length;
+      const updated = await store.enrichSingleBook(book.id);
+      const nextCount = updated?.tags?.length ?? prevTagsCount;
+      const added = Math.max(0, nextCount - prevTagsCount);
+      setQuickRulesFeedback(
+        added > 0
+          ? `Added ${added} rule-based ${added === 1 ? 'tag' : 'tags'} & updated reading hints.`
+          : 'Reading hints & taxonomy checked — tags are up to date.'
+      );
     } catch (err) {
       store.notify(err instanceof Error ? err.message : String(err), 'error');
     }
@@ -277,6 +306,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
   const handleSaveQuoteSheet = async (payload: {
     text: string;
+    imageDataUrl?: string;
     authorProfileId?: string;
     forProfileId?: string;
   }) => {
@@ -284,12 +314,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     if (!editing) {
       await store.addBookNote(book.id, {
         text: payload.text,
+        imageDataUrl: payload.imageDataUrl,
         authorProfileId: payload.authorProfileId || effectiveReader?.id || undefined,
         forProfileId: payload.forProfileId || undefined,
       });
     } else {
       await store.updateBookNote(book.id, editing.id, {
         text: payload.text,
+        imageDataUrl: payload.imageDataUrl ?? '',
         authorProfileId: payload.authorProfileId ?? '',
         forProfileId: payload.forProfileId ?? '',
       });
@@ -366,6 +398,12 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     assignedOwnerChips.length > 0 ? assignedOwnerChips : [ownerToggleChips[0]];
 
   const dynamicCoverTint = state.settings?.dynamicCoverTint !== false;
+  const dynamicCoverTintStyle =
+    state.settings?.dynamicCoverTintStyle === 'linear' ? 'linear' : 'circular';
+  const dynamicCoverTintBehavior =
+    state.settings?.dynamicCoverTintBehavior === 'scroll' ? 'scroll' : 'fixed';
+  const tintLayerClass =
+    dynamicCoverTintStyle === 'linear' ? 'lr-tint-layer-linear' : 'lr-tint-layer-circular';
   const tintHex = resolveBookCardTintHex(book);
   const dialogTintStyle = dynamicCoverTint
     ? ({ '--lr-cover-tint': tintHex } as React.CSSProperties)
@@ -521,29 +559,38 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         : `${rawCustomGiftStoreUrl}${rawCustomGiftStoreUrl.includes('?') ? '&' : '?'}q=${encodedQuery}`
     : '';
 
-  const giftStoreLinks: Array<{ label: string; url: string }> = [];
+  const giftStoreOptions: GiftStoreOption[] = [];
   if (enabledGiftStores.includes('bookshop')) {
-    giftStoreLinks.push({
+    giftStoreOptions.push({
+      id: 'bookshop',
       label: 'Bookshop.org',
+      desc: 'Supports independent local bookshops',
       url: `https://bookshop.org/beta-search?keywords=${encodedQuery}`,
+      icon: 'bookOpen',
     });
   }
   if (enabledGiftStores.includes('amazon')) {
-    giftStoreLinks.push({
+    giftStoreOptions.push({
+      id: 'amazon',
       label: `Amazon${amazonRegionSuffix}`,
+      desc: `Search ${amazonDomain} by ISBN or title`,
       url: `https://www.${amazonDomain}/s?k=${encodedQuery}`,
+      icon: 'globe',
     });
   }
   if (resolvedCustomGiftStoreUrl) {
-    giftStoreLinks.push({
+    giftStoreOptions.push({
+      id: 'custom',
       label: customGiftStoreName,
+      desc: 'Your configured bookstore link',
       url: resolvedCustomGiftStoreUrl,
+      icon: 'building',
     });
   }
 
   const totalNotesAndVoiceCount = displayedNotes.length + recordingsList.length;
 
-  // Unified Quotes, Notes & Voice Notes section (matching image_f039ebd1.png aesthetic)
+  // Unified Quotes, Notes & Voice Notes section
   const quotesAndNotesSection = (
     <section
       aria-label="Quotes, notes, and voice recordings"
@@ -559,9 +606,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
             type="button"
             data-action="open-add-quote-note"
             onClick={() => setQuoteSheetState({ isOpen: true, note: null })}
-            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary cursor-pointer"
+            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary inline-flex items-center gap-1 cursor-pointer"
           >
-            + Quote / Note
+            <Icon name="stickyNote" className="w-3.5 h-3.5" />
+            <span>Note</span>
           </button>
           <button
             type="button"
@@ -606,7 +654,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="block font-serif-italic italic text-sm text-ink leading-snug break-words">
-                    “{entry.text}”
+                    {entry.text ? `“${entry.text}”` : 'Photo memory'}
                   </span>
                   <span className="mt-0.5 block text-[11px] text-ink-muted truncate">
                     By {authorName}
@@ -614,6 +662,13 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     {formattedDate ? ` · ${formattedDate}` : ''}
                   </span>
                 </span>
+                {entry.imageDataUrl && (
+                  <img
+                    src={entry.imageDataUrl}
+                    alt=""
+                    className="w-11 h-11 rounded-lg object-cover border border-edge shrink-0"
+                  />
+                )}
                 <Icon name="chevronRight" className="w-4 h-4 text-ink-muted shrink-0" />
               </button>
             );
@@ -647,127 +702,65 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           onClick={() => setQuoteSheetState({ isOpen: true, note: null })}
           className="w-full text-left py-1 font-serif-italic italic text-sm text-ink-muted hover:text-ink transition-colors cursor-pointer"
         >
-          Tap + Quote / Note or Voice to save a favorite quote or bedtime memory…
+          Tap Note or Voice to save a favorite quote, photo, or bedtime memory…
         </button>
       )}
     </section>
   );
 
-  // Unified Genres, Topics & Tagging Section
+  // Compact Genres & Topics Card (tapping top-right edit icon or card opens BookGenresSheet)
   const genresAndTopicsSection = (
     <section
       aria-label="Genres and topics"
-      className="lr-card rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs text-ink-secondary"
+      className="lr-card rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-2.5 text-xs text-ink-secondary"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2">
         <strong className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-          Genres &amp; Topics
+          Genres &amp; Topics ({book.tags.length})
         </strong>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            data-editorial-field="genre"
-            onClick={() => setActiveEditorialField('genre')}
-            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Icon name="tag" className="w-3.5 h-3.5 text-primary" />
-            <span>Browse Genres</span>
-          </button>
-          <button
-            type="button"
-            data-action="open-ai-tag-modal"
-            onClick={() => setAiTagModal({ isOpen: true, bookId: book.id })}
-            title="Query LLM for interactive features, developmental themes & story tags"
-            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Icon name="sparkles" className="w-3.5 h-3.5" />
-            <span>AI Tag Assistant</span>
-          </button>
-          <button
-            type="button"
-            data-action="enrich-book-tags"
-            onClick={handleEnrichRules}
-            title="Auto-detect genres, age pacing, and themes from book details"
-            className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-          >
-            <Icon name="compass" className="w-3.5 h-3.5 text-ink-secondary" />
-            <span>Quick Rules</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          data-action="open-genres-sheet"
+          onClick={() => setIsGenresSheetOpen(true)}
+          aria-label="Manage genres, AI tag assistant, and quick rules"
+          className="min-h-[32px] px-2.5 py-1 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+        >
+          <Icon name="sliders" className="w-3.5 h-3.5" />
+          <span>Manage</span>
+        </button>
       </div>
 
-      {quickRulesFeedback && (
-        <p className="text-[11px] font-medium text-primary bg-surface border border-primary/30 rounded-lg px-3 py-1.5">
-          {quickRulesFeedback}
-        </p>
-      )}
-
       {book.tags.length > 0 ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {book.tags.map((tag) => {
-              const origin = resolveBookTagOrigin(book, tag);
-              const meta = TAG_ORIGIN_META[origin];
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  data-tag-origin={origin}
-                  onClick={() => handleRemoveTag(tag)}
-                  title={`${meta.badgeTitle} — tap to remove "${tag}"`}
-                  aria-label={`Remove topic ${tag} (${meta.label})`}
-                  className="min-h-[32px] px-2.5 py-1 rounded-md bg-surface hover:bg-[#8C4A4F]/10 border border-edge text-xs font-medium text-ink hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-                >
-                  <Icon name={meta.icon} className="w-3 h-3 opacity-60 shrink-0" />
-                  <span>{tag}</span>
-                  <span aria-hidden="true" className="opacity-55">×</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted pt-0.5"
-            aria-label="Topic origin legend"
-          >
-            {(['provider', 'ai', 'rules', 'manual'] as TagOrigin[]).map((originKey) => {
-              const meta = TAG_ORIGIN_META[originKey];
-              return (
-                <span
-                  key={originKey}
-                  className="inline-flex items-center gap-1 whitespace-nowrap"
-                  title={meta.badgeTitle}
-                >
-                  <Icon name={meta.icon} className="w-2.5 h-2.5 opacity-75" />
-                  <span>{meta.label}</span>
-                </span>
-              );
-            })}
-          </div>
-        </div>
-      ) : (
-        <p className="text-ink-muted">
-          No genres or topics yet. Tap Browse Genres, Quick Rules, or add one below.
-        </p>
-      )}
-
-      <form onSubmit={handleAddTag} className="flex items-center gap-2">
-        <div className="relative flex-1 min-w-0">
-          <ClearableInput
-            id="inspector-new-tag-input"
-            value={newTagInput}
-            onValueChange={setNewTagInput}
-            placeholder="Add genre or topic (e.g., bedtime, dinosaurs)"
-            className="w-full h-10 pl-3 pr-8 rounded-lg bg-surface border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
         <button
-          type="submit"
-          className="h-10 px-3.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          type="button"
+          onClick={() => setIsGenresSheetOpen(true)}
+          className="w-full flex flex-wrap items-center gap-1.5 text-left cursor-pointer"
         >
-          Add Tag
+          {book.tags.map((tag) => {
+            const origin = resolveBookTagOrigin(book, tag);
+            const meta = TAG_ORIGIN_META[origin];
+            return (
+              <span
+                key={tag}
+                data-tag-origin={origin}
+                title={meta.badgeTitle}
+                className="min-h-[28px] px-2.5 py-0.5 rounded-md bg-surface border border-edge text-xs font-medium text-ink inline-flex items-center gap-1.5 whitespace-nowrap"
+              >
+                <Icon name={meta.icon} className="w-3 h-3 opacity-60 shrink-0" />
+                <span>{tag}</span>
+              </span>
+            );
+          })}
         </button>
-      </form>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsGenresSheetOpen(true)}
+          className="w-full text-left text-ink-muted hover:text-ink transition-colors cursor-pointer"
+        >
+          No genres or topics yet. Tap Manage to add tags, browse genres, or run AI / Quick Rules.
+        </button>
+      )}
     </section>
   );
 
@@ -777,6 +770,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       <EditorialFieldSheet
         field={activeEditorialField}
         book={book}
+        existingPublishers={existingPublishers}
         onClose={() => setActiveEditorialField(null)}
         onPatchBook={async (patch) => {
           await store.updateBook(book.id, patch);
@@ -787,6 +781,31 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         onRemoveTag={async (tag) => {
           await store.removeBookTag(book.id, tag);
         }}
+      />
+
+      <BookGenresSheet
+        isOpen={isGenresSheetOpen}
+        book={book}
+        quickRulesFeedback={quickRulesFeedback}
+        onClose={() => setIsGenresSheetOpen(false)}
+        onAddTag={handleAddTagValue}
+        onRemoveTag={handleRemoveTag}
+        onOpenAiAssistant={() => setAiTagModal({ isOpen: true, bookId: book.id })}
+        onRunQuickRules={handleEnrichRules}
+      />
+
+      <BookGiftSheet
+        isOpen={isGiftSheetOpen}
+        bookTitle={book.title}
+        authorsText={book.authors.join(', ')}
+        isbn={isbnVal || undefined}
+        stores={giftStoreOptions}
+        onClose={() => setIsGiftSheetOpen(false)}
+        onConfigureStores={() => {
+          onClose();
+          navigate('settings', { section: 'catalog' });
+        }}
+        onNotify={(msg, tone) => store.notify(msg, tone)}
       />
 
       <BookQuotesSheet
@@ -873,53 +892,67 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           data-book-detail-style="editorial"
           style={dialogTintStyle}
           data-cover-tint={dynamicCoverTint ? tintHex : undefined}
+          data-cover-tint-style={dynamicCoverTint ? dynamicCoverTintStyle : undefined}
+          data-cover-tint-behavior={dynamicCoverTint ? dynamicCoverTintBehavior : undefined}
           onClick={(e) => e.stopPropagation()}
-          className="animate-sheet-up w-full max-w-lg sm:max-w-xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0"
+          className={`relative animate-sheet-up w-full max-w-lg sm:max-w-xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl ${
+            dynamicCoverTint ? 'lr-tinted-card ' : ''
+          }bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0`}
         >
-          <div className="relative flex-1 overflow-y-auto no-scrollbar">
-            {/* Sticky Floating Top Controls: Back (left) & Love (right) */}
-            <div className="sticky top-0 z-30 px-5 pt-4 pb-1 flex items-center justify-between pointer-events-none">
-              <button
-                type="button"
-                data-action="close-inspect-book"
-                onClick={onClose}
-                aria-label="Close book details"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--surface-elevated) 78%, transparent)' }}
-                className="pointer-events-auto w-10 h-10 rounded-full backdrop-blur-md hover:bg-surface-elevated border border-edge/80 shadow-[0_6px_18px_-4px_rgba(0,0,0,0.35)] text-ink flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
-              >
-                <Icon name="arrowLeft" className="w-4 h-4" />
-              </button>
-
-              <button
-                type="button"
-                data-action="toggle-book-loved"
-                onClick={handleToggleLoved}
-                aria-pressed={book.loved ? 'true' : 'false'}
-                aria-label={book.loved ? 'Remove Loved mark' : 'Mark as Loved'}
-                style={
-                  !book.loved
-                    ? { backgroundColor: 'color-mix(in srgb, var(--surface-elevated) 78%, transparent)' }
-                    : undefined
-                }
-                className={`pointer-events-auto w-10 h-10 rounded-full border shadow-[0_6px_18px_-4px_rgba(0,0,0,0.35)] flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
-                  book.loved
-                    ? 'bg-[#8C4A4F] border-[#8C4A4F] text-[#FFFCF5]'
-                    : 'backdrop-blur-md hover:bg-surface-elevated border-edge/80 text-ink-secondary hover:text-ink'
-                }`}
-              >
-                <Icon name={book.loved ? 'heartFilled' : 'heart'} className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Ambient Radial Cover-Tinted Hero Header */}
+          {dynamicCoverTint && dynamicCoverTintBehavior === 'fixed' && (
             <div
-              className="relative -mt-11 px-5 pt-11 pb-6"
-              style={{
-                background: dynamicCoverTint
-                  ? `radial-gradient(ellipse 90% 80% at 50% 18%, color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 26%, transparent), transparent 72%)`
-                  : `radial-gradient(ellipse 90% 80% at 50% 18%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 72%)`,
-              }}
-            >
+              aria-hidden="true"
+              data-cover-tint-layer="fixed"
+              className={`pointer-events-none absolute inset-0 z-0 ${tintLayerClass}`}
+            />
+          )}
+
+          <div className="relative z-10 flex-1 overflow-y-auto no-scrollbar">
+            <div className="relative min-h-full">
+              {dynamicCoverTint && dynamicCoverTintBehavior === 'scroll' && (
+                <div
+                  aria-hidden="true"
+                  data-cover-tint-layer="scroll"
+                  className={`pointer-events-none absolute top-0 inset-x-0 h-[560px] z-0 ${tintLayerClass}`}
+                />
+              )}
+
+              {/* Sticky Floating Top Controls: Back (left) & Love (right) */}
+              <div className="sticky top-0 z-30 px-5 pt-4 pb-1 flex items-center justify-between pointer-events-none">
+                <button
+                  type="button"
+                  data-action="close-inspect-book"
+                  onClick={onClose}
+                  aria-label="Close book details"
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--surface-elevated) 78%, transparent)' }}
+                  className="pointer-events-auto w-10 h-10 rounded-full backdrop-blur-md hover:bg-surface-elevated border border-edge/80 shadow-[0_6px_18px_-4px_rgba(0,0,0,0.35)] text-ink flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
+                >
+                  <Icon name="arrowLeft" className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  data-action="toggle-book-loved"
+                  onClick={handleToggleLoved}
+                  aria-pressed={book.loved ? 'true' : 'false'}
+                  aria-label={book.loved ? 'Remove Loved mark' : 'Mark as Loved'}
+                  style={
+                    !book.loved
+                      ? { backgroundColor: 'color-mix(in srgb, var(--surface-elevated) 78%, transparent)' }
+                      : undefined
+                  }
+                  className={`pointer-events-auto w-10 h-10 rounded-full border shadow-[0_6px_18px_-4px_rgba(0,0,0,0.35)] flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+                    book.loved
+                      ? 'bg-[#8C4A4F] border-[#8C4A4F] text-[#FFFCF5]'
+                      : 'backdrop-blur-md hover:bg-surface-elevated border-edge/80 text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  <Icon name={book.loved ? 'heartFilled' : 'heart'} className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Hero Header (flush top alignment so tint covers 100% of top area without gap) */}
+              <div className="relative z-10 -mt-[60px] px-5 pt-[60px] pb-6">
               {/* Centered Tracked Uppercase Collection Status Divider (taps open slide-up sheet) */}
               <div className="mt-1 flex flex-col items-center">
                 <button
@@ -1048,18 +1081,18 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   })}
                 </div>
 
-                {activeRot && (inActiveShelf || rotatable) && (
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    {inActiveShelf ? (
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {activeRot && (inActiveShelf || rotatable) && (
+                    inActiveShelf ? (
                       <>
-                        <span className="min-h-[30px] px-2.5 py-1 rounded-full bg-surface-subtle/80 border border-edge/80 text-[11px] font-medium text-ink-secondary inline-flex items-center gap-1.5">
+                        <span className="min-h-[32px] px-3 py-1 rounded-full bg-surface-subtle/80 border border-edge/80 text-[11px] font-medium text-ink-secondary inline-flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />
                           <span>On Active Shelf</span>
                         </span>
                         <button
                           type="button"
                           onClick={() => store.toggleRotationBookPicked(activeRot.id, book.id)}
-                          className={`min-h-[30px] px-2.5 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
+                          className={`min-h-[32px] px-3 py-1 rounded-full text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
                             isPickedInActive
                               ? 'bg-primary/15 border border-primary/50 text-primary'
                               : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
@@ -1067,14 +1100,6 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         >
                           <Icon name={isPickedInActive ? 'bookmarkFilled' : 'bookmark'} className="w-3 h-3" />
                           <span>{isPickedInActive ? 'Picked' : 'Mark Picked'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => store.replaceRotationBookRandom(activeRot.id, book.id)}
-                          className="min-h-[30px] px-2.5 py-1 rounded-full bg-surface-subtle hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink inline-flex items-center gap-1 transition-colors cursor-pointer"
-                        >
-                          <Icon name="shuffle" className="w-3 h-3" />
-                          <span>Swap Book</span>
                         </button>
                       </>
                     ) : (
@@ -1084,14 +1109,24 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                           await store.addBooksToRotationManual(activeRot.id, [book.id]);
                           store.notify(`Added "${book.title}" to active shelf!`, 'success');
                         }}
-                        className="min-h-[30px] px-3 py-1 rounded-full bg-surface-subtle hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary inline-flex items-center gap-1 transition-colors cursor-pointer"
+                        className="min-h-[32px] px-3 py-1 rounded-full bg-surface-subtle hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-primary inline-flex items-center gap-1 transition-colors cursor-pointer"
                       >
                         <Icon name="plus" className="w-3 h-3" />
                         <span>Add to Active Shelf</span>
                       </button>
-                    )}
-                  </div>
-                )}
+                    )
+                  )}
+
+                  <button
+                    type="button"
+                    data-action="open-gift-sheet"
+                    onClick={() => setIsGiftSheetOpen(true)}
+                    className="min-h-[32px] px-3 py-1 rounded-full bg-surface-subtle/90 hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Icon name="gift" className="w-3.5 h-3.5 text-primary" />
+                    <span>Gift / Buy</span>
+                  </button>
+                </div>
 
                 {hintParts.length > 0 && (
                   <p className="text-[11px] text-ink-muted font-medium">
@@ -1101,7 +1136,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               </div>
             </div>
 
-            <div className="px-5 pb-6 space-y-4">
+            <div className="relative z-10 px-5 pb-6 space-y-4">
               {/* Contextual Scan Verification Card ("Is this the right book?") */}
               {book.needsScanReview && (
                 <section
@@ -1440,12 +1475,12 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 />
               </div>
 
-              {/* Community & Catalog Clean Divided List Card */}
+              {/* Community & Catalog Compact Full-Row Card */}
               <section
                 aria-label="Community rating and external catalog links"
-                className="lr-card rounded-2xl bg-surface-subtle/85 border border-edge/85 p-4 space-y-2.5 text-xs"
+                className="lr-card rounded-2xl bg-surface-subtle/85 border border-edge/85 overflow-hidden text-xs"
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="px-4 py-2.5 border-b border-edge-subtle flex items-center justify-between gap-3">
                   <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                     Community &amp; Catalog
                   </span>
@@ -1455,75 +1490,34 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                       <span>{book.averageRating}</span>
                       {book.ratingsCount ? (
                         <span className="text-ink-muted font-normal">
-                          ({book.ratingsCount} ratings)
+                          ({book.ratingsCount})
                         </span>
                       ) : null}
                     </span>
                   ) : null}
                 </div>
 
-                <div className="rounded-xl bg-surface/80 border border-edge-subtle divide-y divide-edge-subtle overflow-hidden">
-                  {catalogLinks.map((ext) => (
+                <div className="grid grid-cols-3 divide-x divide-edge-subtle">
+                  {catalogLinks.map((ext, idx) => (
                     <a
                       key={ext.label}
                       href={ext.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-full px-3.5 py-2.5 flex items-center justify-between gap-3 hover:bg-surface-elevated/55 transition-colors"
+                      title={`${ext.label} — ${ext.desc}`}
+                      className="min-h-[48px] px-2 py-2.5 flex items-center justify-center gap-1.5 hover:bg-surface-elevated/60 transition-colors text-ink font-semibold text-[11px] sm:text-xs"
                     >
-                      <span className="min-w-0">
-                        <span className="block font-semibold text-ink">{ext.label}</span>
-                        <span className="block text-[11px] text-ink-muted">{ext.desc}</span>
-                      </span>
-                      <span aria-hidden="true" className="text-sm font-semibold text-ink-muted shrink-0">
+                      <Icon
+                        name={idx === 0 ? 'search' : idx === 1 ? 'bookOpen' : 'star'}
+                        className="w-3.5 h-3.5 text-primary shrink-0"
+                      />
+                      <span className="truncate">{ext.label}</span>
+                      <span aria-hidden="true" className="text-[10px] text-ink-muted shrink-0">
                         ↗
                       </span>
                     </a>
                   ))}
                 </div>
-              </section>
-
-              {/* Gift or Buy a Copy (Configurable Bookstores) */}
-              <section
-                aria-label="Gift or buy a copy"
-                className="lr-card rounded-2xl bg-surface-subtle/85 border border-edge/85 p-4 space-y-2.5 text-xs"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                    Gift or Buy a Copy
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      navigate('settings', { section: 'catalog' });
-                    }}
-                    className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
-                  >
-                    Configure
-                  </button>
-                </div>
-
-                {giftStoreLinks.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {giftStoreLinks.map((storeLink) => (
-                      <a
-                        key={storeLink.label}
-                        href={storeLink.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-h-[34px] px-3 py-1 rounded-full bg-surface hover:bg-surface-elevated border border-edge text-[11px] font-semibold text-ink inline-flex items-center gap-1.5 transition-colors"
-                      >
-                        <span>{storeLink.label}</span>
-                        <span aria-hidden="true" className="text-ink-muted">↗</span>
-                      </a>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-ink-muted">
-                    No bookstores enabled. Tap Configure above to choose Bookshop.org, Amazon, or your local shop.
-                  </p>
-                )}
               </section>
 
               {/* Aligned Other Readers' Ratings + Owners Row with Chevron */}
@@ -1667,6 +1661,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 )}
               </div>
             </div>
+            </div>
           </div>
         </div>
 
@@ -1691,16 +1686,36 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         data-book-detail-style="compact"
         style={dialogTintStyle}
         data-cover-tint={dynamicCoverTint ? tintHex : undefined}
+        data-cover-tint-style={dynamicCoverTint ? dynamicCoverTintStyle : undefined}
+        data-cover-tint-behavior={dynamicCoverTint ? dynamicCoverTintBehavior : undefined}
         onClick={(e) => e.stopPropagation()}
-        className={`animate-sheet-up w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] sm:max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-xl ${
+        className={`relative animate-sheet-up w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] sm:max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-xl ${
           dynamicCoverTint ? 'lr-tinted-card ' : ''
         }bg-surface border border-edge shadow-2xl overflow-hidden pb-safe sm:pb-0`}
       >
-        {/* Mobile Handle Pill */}
-        <div className="w-10 h-1 bg-edge rounded-full mx-auto mt-3 sm:hidden shrink-0" aria-hidden="true" />
+        {dynamicCoverTint && dynamicCoverTintBehavior === 'fixed' && (
+          <div
+            aria-hidden="true"
+            data-cover-tint-layer="fixed"
+            className={`pointer-events-none absolute inset-0 z-0 ${tintLayerClass}`}
+          />
+        )}
 
-        {/* Top Utility Header: Calm Status Context (left) + Love / Edit / Close (right) */}
-        <div className="px-5 pt-3 pb-2.5 border-b border-edge-subtle flex items-center justify-between gap-2 shrink-0">
+        <div className="relative z-10 flex-1 min-h-0 flex flex-col overflow-y-auto no-scrollbar">
+          <div className="relative flex-1 flex flex-col">
+            {dynamicCoverTint && dynamicCoverTintBehavior === 'scroll' && (
+              <div
+                aria-hidden="true"
+                data-cover-tint-layer="scroll"
+                className={`pointer-events-none absolute top-0 inset-x-0 h-[520px] z-0 ${tintLayerClass}`}
+              />
+            )}
+
+            {/* Mobile Handle Pill */}
+            <div className="relative z-10 w-10 h-1 bg-edge rounded-full mx-auto mt-3 sm:hidden shrink-0" aria-hidden="true" />
+
+            {/* Top Utility Header: Calm Status Context (left) + Love / Close (right) */}
+            <div className="relative z-10 px-5 pt-3 pb-2.5 border-b border-edge-subtle flex items-center justify-between gap-2 shrink-0">
           <div className="min-w-0 truncate flex items-center gap-1.5 text-xs text-ink-secondary">
             <button
               type="button"
@@ -1745,7 +1760,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         </div>
 
         {/* Scrollable Card Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-6 md:items-start space-y-4 md:space-y-0">
+        <div className="relative z-10 p-4 sm:p-6 md:grid md:grid-cols-[200px_minmax(0,1fr)] md:gap-6 md:items-start space-y-4 md:space-y-0">
           {/* Column 1: Cover + Stars + Mobile-Inline Title Block */}
           <div className="flex items-start gap-3.5 sm:gap-4 md:flex-col md:items-center md:sticky md:top-0 min-w-0">
             <div className="flex flex-col items-center shrink-0">
@@ -2081,15 +2096,6 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         <span>Clear Read</span>
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={() => store.replaceRotationBookRandom(activeRot.id, book.id)}
-                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
-                    >
-                      <Icon name="shuffle" className="w-3.5 h-3.5" />
-                      <span>Swap Book</span>
-                    </button>
                   </>
                 ) : (
                   rotatable && (
@@ -2127,6 +2133,16 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     </>
                   )
                 )}
+
+                <button
+                  type="button"
+                  data-action="open-gift-sheet"
+                  onClick={() => setIsGiftSheetOpen(true)}
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                >
+                  <Icon name="gift" className="w-3.5 h-3.5 text-primary" />
+                  <span>Gift / Buy</span>
+                </button>
               </div>
             </div>
 
@@ -2357,6 +2373,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </pre>
               </details>
             )}
+          </div>
+          </div>
           </div>
           </div>
         </div>
