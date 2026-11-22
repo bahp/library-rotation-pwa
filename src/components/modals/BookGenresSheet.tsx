@@ -151,7 +151,7 @@ export const BookGenresSheet: React.FC<BookGenresSheetProps> = ({
   return (
     <div
       data-backdrop-action="close-genres-sheet"
-      className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="fixed inset-0 z-[75] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div
@@ -274,7 +274,7 @@ export const BookGenresSheet: React.FC<BookGenresSheetProps> = ({
                         onClick={() => onRemoveTag(tag)}
                         title={`${meta.badgeTitle} — tap to remove "${tag}"`}
                         aria-label={`Remove topic ${tag} (${meta.label})`}
-                        className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-[#8C4A4F]/10 border border-edge text-xs font-medium text-ink hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                        className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-danger/10 border border-edge text-xs font-medium text-ink hover:text-danger inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
                       >
                         <Icon name={meta.icon} className="w-3 h-3 opacity-65 shrink-0" />
                         <span>{tag}</span>

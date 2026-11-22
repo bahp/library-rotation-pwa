@@ -445,7 +445,7 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
   return (
     <div
       data-editorial-sheet-backdrop="true"
-      className="fixed inset-0 z-[70] bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="fixed inset-0 z-[70] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div
@@ -687,7 +687,7 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
         ) : (
           <form onSubmit={handleSaveSubmit} className="flex-1 flex flex-col min-h-0 px-5 pb-5 pt-2">
             {error && (
-              <p role="alert" className="mb-3 text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+              <p role="alert" className="mb-3 text-xs font-medium text-danger">
                 {error}
               </p>
             )}
@@ -944,7 +944,7 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                     <button
                       type="button"
                       onClick={() => commitAndClose({ publisher: '' })}
-                      className="min-h-[32px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 shrink-0 cursor-pointer"
+                      className="min-h-[32px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-[11px] font-semibold text-danger hover:bg-danger/10 shrink-0 cursor-pointer"
                     >
                       Clear
                     </button>

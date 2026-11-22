@@ -423,7 +423,7 @@ export const Sidebar: React.FC = () => {
                     alt=""
                     className={`relative z-10 w-full h-32 pointer-events-none ${
                       sidebarArtwork.isTransparent
-                        ? 'object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.32)]'
+                        ? 'object-contain [filter:drop-shadow(var(--elevation-tooltip))]'
                         : 'object-cover lr-sidebar-artwork-mask'
                     } ${
                       artworkStyle === 'integrated'
@@ -682,12 +682,11 @@ export const Sidebar: React.FC = () => {
                       sidebarArtworkId: item.id,
                     })
                   }
-                  className={`group relative aspect-[4/3] rounded-lg p-1 flex items-center justify-center border transition-all cursor-pointer overflow-hidden ${
+                  className={`group relative aspect-[4/3] rounded-lg p-1 flex items-center justify-center border bg-sidebar transition-all cursor-pointer overflow-hidden ${
                     isSelected
                       ? 'border-primary ring-2 ring-primary/35'
                       : 'border-edge hover:border-primary/60'
                   }`}
-                  style={{ backgroundColor: 'var(--sidebar-bg)' }}
                 >
                   <img
                     src={resolvePublicAssetUrl(item.path)}

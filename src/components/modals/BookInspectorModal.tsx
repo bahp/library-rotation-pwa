@@ -893,7 +893,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 24 24"
-        className="w-5 h-5 shrink-0"
+        className="w-5 h-5 shrink-0 text-goodreads"
         aria-hidden="true"
       >
         <rect
@@ -902,7 +902,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           width="20"
           height="20"
           rx="5"
-          fill="#6B5335"
+          fill="currentColor"
           fillOpacity="0.16"
           stroke="currentColor"
           strokeOpacity="0.35"
@@ -916,7 +916,6 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           fontWeight="600"
           fontSize="14.5"
           fill="currentColor"
-          className="text-[#6B5335] dark:text-[#D5BA90]"
         >
           g
         </text>
@@ -955,7 +954,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 className={`w-5 h-5 rounded-full transition-transform cursor-pointer ${
                   active
                     ? 'ring-2 ring-offset-2 ring-primary ring-offset-[var(--surface)] scale-110'
-                    : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-110'
+                    : 'ring-1 ring-hairline hover:scale-110'
                 }`}
               />
             );
@@ -1093,7 +1092,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     return (
       <div
         data-backdrop-action="close-inspect-book"
-        className="sheet-backdrop fixed inset-0 z-[60] bg-[#0F100F]/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+        className="sheet-backdrop fixed inset-0 z-[60] bg-scrim-dense backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
         onClick={onClose}
       >
         <div
@@ -1135,8 +1134,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   data-action="close-inspect-book"
                   onClick={onClose}
                   aria-label="Close book details"
-                  style={{ backgroundColor: 'color-mix(in srgb, var(--surface-elevated) 78%, transparent)' }}
-                  className="pointer-events-auto w-10 h-10 rounded-full backdrop-blur-md hover:bg-surface-elevated border border-edge/80 shadow-[0_6px_18px_-4px_rgba(0,0,0,0.35)] text-ink flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
+                  className="pointer-events-auto w-10 h-10 rounded-full bg-glass-surface backdrop-blur-md hover:bg-surface-elevated border border-edge/80 shadow-float text-ink flex items-center justify-center transition-transform active:scale-95 cursor-pointer"
                 >
                   <Icon name="arrowLeft" className="w-4 h-4" />
                 </button>
@@ -1147,15 +1145,10 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   onClick={handleToggleLoved}
                   aria-pressed={book.loved ? 'true' : 'false'}
                   aria-label={book.loved ? 'Remove Loved mark' : 'Mark as Loved'}
-                  style={
-                    !book.loved
-                      ? { backgroundColor: 'color-mix(in srgb, var(--surface-elevated) 78%, transparent)' }
-                      : undefined
-                  }
-                  className={`pointer-events-auto w-10 h-10 rounded-full border shadow-[0_6px_18px_-4px_rgba(0,0,0,0.35)] flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+                  className={`pointer-events-auto w-10 h-10 rounded-full border shadow-float flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
                     book.loved
-                      ? 'bg-[#8C4A4F] border-[#8C4A4F] text-[#FFFCF5]'
-                      : 'backdrop-blur-md hover:bg-surface-elevated border-edge/80 text-ink-secondary hover:text-ink'
+                      ? 'bg-loved border-loved text-loved-fg'
+                      : 'bg-glass-surface backdrop-blur-md hover:bg-surface-elevated border-edge/80 text-ink-secondary hover:text-ink'
                   }`}
                 >
                   <Icon name={book.loved ? 'heartFilled' : 'heart'} className="w-4 h-4" />
@@ -1188,7 +1181,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   aria-expanded={isCoverPickerOpen}
                   aria-label={`Change cover for ${book.title}`}
                   onClick={() => setIsCoverPickerOpen(true)}
-                  className="group relative rounded-xl shadow-[0_22px_46px_-12px_rgba(0,0,0,0.52),0_4px_12px_-4px_rgba(0,0,0,0.28)] ring-1 ring-black/15 dark:ring-white/15 transition-transform active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
+                  className="group relative rounded-xl shadow-cover-hero ring-1 ring-hairline transition-transform active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
                 >
                   <BookCover
                     book={book}
@@ -1398,7 +1391,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(true)}
-                      className="text-xs font-medium text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-colors cursor-pointer"
+                      className="text-xs font-medium text-ink-secondary hover:text-danger transition-colors cursor-pointer"
                     >
                       Remove
                     </button>
@@ -1817,9 +1810,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
               {cardTintSwatchesBar}
 
-              {/* Source Provenance, External IDs, Preview & Date Added */}
+              {/* Source Provenance, External IDs & Date Added */}
               <div className="pt-2 space-y-2 text-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col items-start gap-2">
                   <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
                     <ProviderAttribution
                       sources={book.sources}
@@ -1837,70 +1830,49 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         · AI-assisted
                       </span>
                     )}
-
-                    {book.previewLink && (
-                      <a
-                        href={book.previewLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[11px] font-semibold text-primary dark:text-accent hover:underline inline-flex items-center gap-0.5 whitespace-nowrap"
-                      >
-                        <span>Preview ↗</span>
-                      </a>
-                    )}
                   </div>
-
-                  {formattedAddedDate && (
-                    <p className="text-[11px] text-ink-muted whitespace-nowrap">
-                      Added {formattedAddedDate}
-                    </p>
-                  )}
                 </div>
+
+                {formattedAddedDate && (
+                  <p className="text-[11px] text-ink-muted text-center w-full mt-2">
+                    Added {formattedAddedDate}
+                  </p>
+                )}
 
                 {hasRawPayloads && (
                   <details className="pt-0.5">
                     <summary className="cursor-pointer font-semibold text-primary dark:text-accent">
                       View Captured Raw Provider Payloads
                     </summary>
-                    <pre className="mt-2 p-3 rounded-lg bg-[#142321] text-[#F0E7D5] border border-edge font-mono-tabular text-[11px] overflow-x-auto max-h-52">
+                    <pre className="mt-2 p-3 rounded-lg bg-code text-code-ink border border-code-edge font-mono-tabular text-[11px] overflow-x-auto max-h-52">
                       {JSON.stringify(book.sources, null, 2)}
                     </pre>
                   </details>
                 )}
               </div>
 
-              {/* Bottom Replace / Remove Hairline Footer */}
-              <div className="pt-3 border-t border-edge-subtle">
+              {/* Bottom Remove Hairline Footer */}
+              <div className="pt-3 border-t border-edge-subtle flex justify-center">
                 {!confirmDelete ? (
-                  <div className="grid grid-cols-2 divide-x divide-edge-subtle text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setIsCoverPickerOpen(true)}
-                      className="min-h-[40px] flex items-center justify-center gap-2 text-ink-secondary hover:text-ink font-semibold transition-colors cursor-pointer"
-                    >
-                      <Icon name="replace" className="w-3.5 h-3.5" />
-                      <span>Replace book</span>
-                    </button>
-                    <button
-                      type="button"
-                      data-action="delete-book"
-                      onClick={() => setConfirmDelete(true)}
-                      className="min-h-[40px] flex items-center justify-center gap-2 text-[#8C4A4F] dark:text-[#C48A8E] hover:opacity-80 font-semibold transition-opacity cursor-pointer"
-                    >
-                      <Icon name="trash" className="w-3.5 h-3.5" />
-                      <span>Remove book</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    data-action="delete-book"
+                    onClick={() => setConfirmDelete(true)}
+                    className="min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-semibold text-danger hover:bg-danger/10 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Icon name="trash" className="w-3.5 h-3.5" />
+                    <span>Remove book</span>
+                  </button>
                 ) : (
-                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-2.5 text-xs">
-                    <span className="font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                  <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl bg-danger/10 border border-danger/35 px-3 py-2.5 text-xs">
+                    <span className="font-semibold text-danger">
                       Remove from library?
                     </span>
                     <button
                       type="button"
                       data-action="confirm-delete-book"
                       onClick={handleConfirmDelete}
-                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] font-semibold cursor-pointer"
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg font-semibold cursor-pointer"
                     >
                       Yes, Remove
                     </button>
@@ -1930,7 +1902,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   return (
     <div
       data-backdrop-action="close-inspect-book"
-      className="sheet-backdrop fixed inset-0 z-[60] bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="sheet-backdrop fixed inset-0 z-[60] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div
@@ -1993,7 +1965,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               aria-label={book.loved ? 'Remove Loved mark' : 'Mark as Loved'}
               className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap ${
                 book.loved
-                  ? 'bg-[#8C4A4F] text-[#FFFCF5]'
+                  ? 'bg-loved text-loved-fg'
                   : 'bg-surface-subtle hover:bg-surface-elevated border border-edge-subtle text-ink'
               }`}
             >
@@ -2025,7 +1997,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 aria-label={`Change cover for ${book.title}`}
                 title="Tap to change book cover"
                 onClick={() => setIsCoverPickerOpen(true)}
-                className="group relative rounded-xl shadow-[0_12px_28px_-8px_rgba(0,0,0,0.42)] ring-1 ring-black/15 dark:ring-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-transform active:scale-95 cursor-pointer"
+                className="group relative rounded-xl shadow-cover ring-1 ring-hairline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-transform active:scale-95 cursor-pointer"
               >
                 <BookCover
                   book={book}
@@ -2036,7 +2008,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   data-cover-badge="centered"
                   className="pointer-events-none absolute inset-x-1.5 bottom-1.5 z-20 flex justify-center"
                 >
-                  <span className="px-2 py-0.5 rounded-md bg-[#142321]/85 backdrop-blur-xs text-[#F0E7D5] text-[10px] font-semibold inline-flex items-center justify-center gap-1 shadow-xs whitespace-nowrap">
+                  <span className="px-2 py-0.5 rounded-md bg-scanner/90 backdrop-blur-xs text-scanner-ink text-[10px] font-semibold inline-flex items-center justify-center gap-1 shadow-xs whitespace-nowrap">
                     <Icon name="camera" className="w-3 h-3" />
                     <span>Cover</span>
                   </span>
@@ -2344,7 +2316,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                         type="button"
                         onClick={() => store.toggleProfileBookRead(effectiveReader.id, book.id)}
                         title="Clear previous Read status for this reader"
-                        className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-[#8C4A4F]/10 border border-edge text-xs font-semibold text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                        className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-danger/10 border border-edge text-xs font-semibold text-ink-secondary hover:text-danger transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                       >
                         <Icon name="close" className="w-3.5 h-3.5" />
                         <span>Clear Read</span>
@@ -2498,9 +2470,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     const active = currentCondition === cond;
                     const activeClass =
                       cond === 'broken' || cond === 'retired'
-                        ? 'bg-[#8C4A4F] text-[#FFFCF5]'
+                        ? 'bg-danger-solid text-danger-solid-fg'
                         : cond === 'torn'
-                          ? 'bg-accent text-[#FFFCF5]'
+                          ? 'bg-accent text-accent-fg'
                           : 'bg-primary text-primary-fg';
                     return (
                       <button
@@ -2551,7 +2523,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
           {cardTintSwatchesBar}
 
-          {/* Quiet Footer: Source Attribution + External IDs + Preview + Raw Payloads + Remove Book */}
+          {/* Quiet Footer: Source Attribution + External IDs + Raw Payloads + Remove Book */}
           <div className="pt-3 border-t border-edge-subtle space-y-2 text-xs">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -2571,17 +2543,6 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     · AI-assisted
                   </span>
                 )}
-
-                {book.previewLink && (
-                  <a
-                    href={book.previewLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[11px] font-semibold text-primary dark:text-accent hover:underline inline-flex items-center gap-0.5 whitespace-nowrap"
-                  >
-                    <span>Preview ↗</span>
-                  </a>
-                )}
               </div>
 
               {!confirmDelete ? (
@@ -2590,21 +2551,21 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   data-action="delete-book"
                   onClick={() => setConfirmDelete(true)}
                   aria-label={`Remove ${book.title} from catalog`}
-                  className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                  className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-danger hover:bg-danger/10 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
                 >
                   <Icon name="trash" className="w-3.5 h-3.5" />
                   <span>Remove Book</span>
                 </button>
               ) : (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-2">
-                  <span className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-danger/10 border border-danger/35 px-3 py-2">
+                  <span className="text-xs font-semibold text-danger">
                     Remove from library?
                   </span>
                   <button
                     type="button"
                     data-action="confirm-delete-book"
                     onClick={handleConfirmDelete}
-                    className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold transition-colors"
+                    className="min-h-[34px] px-3 py-1 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold transition-colors"
                   >
                     Yes, Remove
                   </button>
@@ -2619,12 +2580,18 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               )}
             </div>
 
+            {formattedAddedDate && (
+              <p className="text-[11px] text-ink-muted text-center w-full mt-2">
+                Added {formattedAddedDate}
+              </p>
+            )}
+
             {hasRawPayloads && (
               <details className="pt-0.5">
                 <summary className="cursor-pointer font-semibold text-primary dark:text-accent">
                   View Captured Raw Provider Payloads
                 </summary>
-                <pre className="mt-2 p-3 rounded-lg bg-[#142321] text-[#F0E7D5] border border-edge font-mono-tabular text-[11px] overflow-x-auto max-h-52">
+                <pre className="mt-2 p-3 rounded-lg bg-code text-code-ink border border-code-edge font-mono-tabular text-[11px] overflow-x-auto max-h-52">
                   {JSON.stringify(book.sources, null, 2)}
                 </pre>
               </details>

@@ -515,7 +515,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
       aria-modal="true"
       aria-label="Live Barcode and Book Scanner"
       data-native-scanner-overlay="true"
-      className="fixed inset-0 z-50 bg-[#142321] flex flex-col justify-between pt-safe pb-safe select-none overflow-hidden"
+      className="fixed inset-0 z-50 bg-scanner flex flex-col justify-between pt-safe pb-safe select-none overflow-hidden"
     >
       {/* Top Bar: Dismiss, Mode Selector, Status */}
       <div className="relative z-20 px-4 pt-3 pb-2 flex items-center justify-between gap-3">
@@ -526,13 +526,13 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
             onClose();
           }}
           aria-label="Close scanner"
-          className="min-h-[44px] min-w-[44px] rounded-lg bg-[#1C2D29]/90 hover:bg-[#243831] border border-[#3B4436] active:scale-95 text-[#F0E7D5] flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
+          className="min-h-[44px] min-w-[44px] rounded-lg bg-scanner-surface/90 hover:bg-scanner-surface-hover border border-scanner-edge active:scale-95 text-scanner-ink flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
         >
           <Icon name="close" className="w-5 h-5" />
         </button>
 
         {/* Compact Mode Selector */}
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-[#1C2D29]/90 backdrop-blur-md border border-[#3B4436]">
+        <div className="flex items-center gap-1 p-1 rounded-lg bg-scanner-surface/90 backdrop-blur-md border border-scanner-edge">
           {(
             [
               { id: 'barcode', label: 'Barcode' },
@@ -548,8 +548,8 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
                 onClick={() => setMode(tab.id)}
                 className={`min-h-[36px] px-3.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                   active
-                    ? 'bg-[#D0AD55] text-[#142321] shadow-xs'
-                    : 'text-[#F0E7D5]/85 hover:text-[#F0E7D5] active:scale-95'
+                    ? 'bg-scanner-accent text-scanner-accent-fg shadow-xs'
+                    : 'text-scanner-ink/85 hover:text-scanner-ink active:scale-95'
                 }`}
               >
                 {tab.label}
@@ -558,23 +558,19 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
           })}
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (stage === 'fallback') {
-              handleRetryCameraFromTap();
-            } else {
-              stopAllMediaTracks();
-              setFallbackDiagnosis(null);
-              setStage('fallback');
-            }
-          }}
-          aria-label={stage === 'fallback' ? 'Return to camera' : 'Enter ISBN manually'}
-          title={stage === 'fallback' ? 'Return to camera' : 'Manual ISBN entry'}
-          className="min-h-[44px] min-w-[44px] rounded-lg bg-[#1C2D29]/90 hover:bg-[#243831] border border-[#3B4436] active:scale-95 text-[#F0E7D5] flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
-        >
-          <Icon name={stage === 'fallback' ? 'camera' : 'edit'} className="w-4 h-4" />
-        </button>
+        {stage === 'fallback' ? (
+          <button
+            type="button"
+            onClick={handleRetryCameraFromTap}
+            aria-label="Retry camera"
+            title="Retry camera"
+            className="min-h-[44px] min-w-[44px] rounded-lg bg-scanner-surface/90 hover:bg-scanner-surface-hover border border-scanner-edge active:scale-95 text-scanner-ink flex items-center justify-center backdrop-blur-md transition-all cursor-pointer"
+          >
+            <Icon name="camera" className="w-4 h-4" />
+          </button>
+        ) : (
+          <div className="w-11 h-11 shrink-0" aria-hidden="true" />
+        )}
       </div>
 
       {/* Center Viewport: Live Video + SVG Mask + Laser Line OR Graceful Fallback */}
@@ -610,7 +606,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
                   />
                 </mask>
               </defs>
-              <rect width="100%" height="100%" fill="rgba(20, 35, 33, 0.68)" mask={`url(#${maskId})`} />
+              <rect width="100%" height="100%" fill="var(--scanner-scrim)" mask={`url(#${maskId})`} />
             </svg>
 
             {/* Target Frame Reticle + Animated Scanning Laser */}
@@ -625,49 +621,49 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
               <div
                 className={`absolute inset-0 rounded-[inherit] border-2 transition-colors ${
                   stage === 'locked'
-                    ? 'border-[#A8B59A] shadow-[0_0_24px_rgba(168,181,154,0.45)] bg-[#A8B59A]/15'
-                    : 'border-[#F0E7D5]/40'
+                    ? 'lr-scanner-locked-frame'
+                    : 'border-scanner-ink/40'
                 }`}
               />
 
               {/* Crisp Corner Brackets */}
               <span
                 className={`absolute -top-0.5 -left-0.5 w-6 h-6 border-t-[3px] border-l-[3px] rounded-tl-lg ${
-                  stage === 'locked' ? 'border-[#A8B59A]' : 'border-[#D0AD55]'
+                  stage === 'locked' ? 'border-scanner-locked' : 'border-scanner-accent'
                 }`}
               />
               <span
                 className={`absolute -top-0.5 -right-0.5 w-6 h-6 border-t-[3px] border-r-[3px] rounded-tr-lg ${
-                  stage === 'locked' ? 'border-[#A8B59A]' : 'border-[#D0AD55]'
+                  stage === 'locked' ? 'border-scanner-locked' : 'border-scanner-accent'
                 }`}
               />
               <span
                 className={`absolute -bottom-0.5 -left-0.5 w-6 h-6 border-b-[3px] border-l-[3px] rounded-bl-lg ${
-                  stage === 'locked' ? 'border-[#A8B59A]' : 'border-[#D0AD55]'
+                  stage === 'locked' ? 'border-scanner-locked' : 'border-scanner-accent'
                 }`}
               />
               <span
                 className={`absolute -bottom-0.5 -right-0.5 w-6 h-6 border-b-[3px] border-r-[3px] rounded-br-lg ${
-                  stage === 'locked' ? 'border-[#A8B59A]' : 'border-[#D0AD55]'
+                  stage === 'locked' ? 'border-scanner-locked' : 'border-scanner-accent'
                 }`}
               />
 
               {/* Animated Scanning Laser Line */}
               {stage === 'streaming' && (
                 <div className="absolute inset-x-3 top-2 bottom-2 overflow-hidden">
-                  <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#D0AD55] to-transparent shadow-[0_0_12px_rgba(208,173,85,0.9)] animate-scan-sweep" />
+                  <div className="w-full h-0.5 lr-scanner-sweep-line animate-scan-sweep" />
                 </div>
               )}
 
               {stage === 'starting' && (
-                <div className="px-4 py-2 rounded-lg bg-[#142321]/85 border border-[#3B4436] text-xs font-medium text-[#F0E7D5] flex items-center gap-2">
-                  <Icon name="camera" className="w-3.5 h-3.5 text-[#D0AD55]" />
+                <div className="px-4 py-2 rounded-lg bg-scanner/85 border border-scanner-edge text-xs font-medium text-scanner-ink flex items-center gap-2">
+                  <Icon name="camera" className="w-3.5 h-3.5 text-scanner-accent" />
                   <span>Starting camera…</span>
                 </div>
               )}
 
               {stage === 'locked' && (
-                <div className="px-4 py-2 rounded-lg bg-[#A8B59A] text-[#142321] text-xs font-semibold flex items-center gap-1.5 shadow-lg">
+                <div className="px-4 py-2 rounded-lg bg-scanner-locked text-scanner-locked-fg text-xs font-semibold flex items-center gap-1.5 shadow-lg">
                   <Icon name="check" className="w-4 h-4" />
                   <span>{lockedLabel}</span>
                 </div>
@@ -676,11 +672,11 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
 
             {/* Live Status Below Frame */}
             <div className="absolute bottom-4 inset-x-4 z-20 flex flex-col items-center gap-2 pointer-events-none">
-              <p className="px-4 py-1.5 rounded-lg bg-[#142321]/85 backdrop-blur-md border border-[#3B4436] text-xs font-medium text-[#F0E7D5] text-center max-w-sm">
+              <p className="px-4 py-1.5 rounded-lg bg-scanner/85 backdrop-blur-md border border-scanner-edge text-xs font-medium text-scanner-ink text-center max-w-sm">
                 {statusText}
               </p>
               {manualError && (
-                <p className="px-4 py-1.5 rounded-lg bg-[#2A181A]/95 border border-[#C48A8E]/40 text-xs text-[#C48A8E] text-center max-w-sm">
+                <p className="px-4 py-1.5 rounded-lg bg-scanner-error/95 border border-scanner-error-edge/40 text-xs text-scanner-error-ink text-center max-w-sm">
                   {manualError}
                 </p>
               )}
@@ -688,16 +684,16 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
           </>
         ) : (
           /* Graceful Inline Camera Fallback Card */
-          <div className="relative z-20 w-full max-w-md mx-4 rounded-xl bg-[#1C2D29] border border-[#3B4436] p-5 sm:p-6 text-left text-[#F0E7D5] shadow-2xl space-y-4">
+          <div className="relative z-20 w-full max-w-md mx-4 rounded-xl bg-scanner-surface border border-scanner-edge p-5 sm:p-6 text-left text-scanner-ink shadow-2xl space-y-4">
             <div className="flex items-start gap-3">
-              <span className="w-10 h-10 rounded-lg bg-[#243831] border border-[#3B4436] text-[#D0AD55] flex items-center justify-center shrink-0">
+              <span className="w-10 h-10 rounded-lg bg-scanner-surface-hover border border-scanner-edge text-scanner-accent flex items-center justify-center shrink-0">
                 <Icon name="camera" className="w-5 h-5" />
               </span>
               <div className="min-w-0">
-                <h2 className="font-display text-xl font-semibold text-[#F0E7D5] leading-snug">
+                <h2 className="font-display text-xl font-semibold text-scanner-ink leading-snug">
                   {fallbackDiagnosis?.title || 'Enter ISBN or Upload Photo'}
                 </h2>
-                <p className="text-xs text-[#B5AA96] mt-1 leading-relaxed">
+                <p className="text-xs text-scanner-muted mt-1 leading-relaxed">
                   {fallbackDiagnosis?.message ||
                     'Type a 10- or 13-digit ISBN from the back cover, or pick a photo from your library.'}
                 </p>
@@ -710,9 +706,9 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
                   <button
                     type="button"
                     onClick={handleRetryCameraFromTap}
-                    className="min-h-[42px] px-4 py-2 rounded-lg bg-[#243831] hover:bg-[#2F463E] border border-[#3B4436] active:scale-[0.98] text-[#F0E7D5] text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer"
+                    className="min-h-[42px] px-4 py-2 rounded-lg bg-scanner-surface-hover hover:bg-scanner-surface-active border border-scanner-edge active:scale-[0.98] text-scanner-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-all cursor-pointer"
                   >
-                    <Icon name="refresh" className="w-3.5 h-3.5 text-[#D0AD55]" />
+                    <Icon name="refresh" className="w-3.5 h-3.5 text-scanner-accent" />
                     <span>Retry Camera</span>
                   </button>
                 )}
@@ -722,7 +718,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
                     href={window.location.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="min-h-[42px] px-4 py-2 rounded-lg bg-[#243831] hover:bg-[#2F463E] border border-[#D0AD55]/40 text-[#D0AD55] text-xs font-semibold inline-flex items-center gap-1.5 transition-all"
+                    className="min-h-[42px] px-4 py-2 rounded-lg bg-scanner-surface-hover hover:bg-scanner-surface-active border border-scanner-accent/40 text-scanner-accent text-xs font-semibold inline-flex items-center gap-1.5 transition-all"
                   >
                     <Icon name="externalLink" className="w-3.5 h-3.5" />
                     <span>Open in New Tab</span>
@@ -733,7 +729,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
 
             <form onSubmit={handleManualSubmit} className="space-y-3">
               <div>
-                <label htmlFor="scanner-fallback-isbn" className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-[#B5AA96] mb-1">
+                <label htmlFor="scanner-fallback-isbn" className="block text-[11px] font-semibold uppercase tracking-[0.1em] text-scanner-muted mb-1">
                   ISBN or Book Title
                 </label>
                 <input
@@ -743,12 +739,12 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
                   value={manualInput}
                   onChange={(e) => setManualInput(e.target.value)}
                   placeholder="e.g. 9780064431781 or Goodnight Moon"
-                  className="w-full min-h-[46px] px-4 py-2.5 rounded-lg bg-[#142321] border border-[#3B4436] text-base sm:text-sm text-[#F0E7D5] placeholder:text-[#887F70] focus:outline-none focus:ring-2 focus:ring-[#D0AD55]"
+                  className="w-full min-h-[46px] px-4 py-2.5 rounded-lg bg-scanner border border-scanner-edge text-base sm:text-sm text-scanner-ink placeholder:text-scanner-subtle focus:outline-none focus:ring-2 focus:ring-scanner-accent"
                 />
               </div>
 
               {manualError && (
-                <p role="alert" className="text-xs font-medium text-[#C48A8E]">
+                <p role="alert" className="text-xs font-medium text-scanner-error-ink">
                   {manualError}
                 </p>
               )}
@@ -756,7 +752,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
               <div className="flex items-center gap-2.5">
                 <button
                   type="submit"
-                  className="flex-1 min-h-[46px] px-4 py-2.5 rounded-lg bg-[#D0AD55] hover:bg-[#DFC16F] active:scale-[0.98] text-[#142321] font-semibold text-sm transition-all cursor-pointer"
+                  className="flex-1 min-h-[46px] px-4 py-2.5 rounded-lg bg-scanner-accent hover:bg-scanner-accent-hover active:scale-[0.98] text-scanner-accent-fg font-semibold text-sm transition-all cursor-pointer"
                 >
                   Look Up Book
                 </button>
@@ -764,7 +760,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isAnalyzingUpload}
-                  className="min-h-[46px] px-4 py-2.5 rounded-lg bg-[#243831] hover:bg-[#2F463E] border border-[#3B4436] active:scale-[0.98] text-[#F0E7D5] text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer"
+                  className="min-h-[46px] px-4 py-2.5 rounded-lg bg-scanner-surface-hover hover:bg-scanner-surface-active border border-scanner-edge active:scale-[0.98] text-scanner-ink text-sm font-semibold inline-flex items-center gap-2 transition-all cursor-pointer"
                 >
                   <Icon name="photo" className="w-4 h-4" />
                   <span>{isAnalyzingUpload ? 'Reading…' : 'Photo'}</span>
@@ -776,7 +772,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
       </div>
 
       {/* Bottom Thumb-Zone Hardware Controls */}
-      <div className="relative z-20 px-5 pt-3 pb-4 flex items-center justify-around gap-3 max-w-md w-full mx-auto">
+      <div className="relative z-20 px-5 pt-3 pb-4 flex items-center justify-between gap-3 max-w-sm w-full mx-auto">
         <button
           type="button"
           onClick={handleToggleTorch}
@@ -785,35 +781,24 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
           aria-label={torchOn ? 'Turn flashlight off' : 'Turn flashlight on'}
           className={`min-h-[44px] min-w-[44px] px-4 rounded-lg flex items-center justify-center gap-2 text-xs font-semibold backdrop-blur-md transition-all active:scale-95 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
             torchOn
-              ? 'bg-[#D0AD55] text-[#142321] shadow-lg'
-              : 'bg-[#1C2D29]/90 hover:bg-[#243831] text-[#F0E7D5] border border-[#3B4436]'
+              ? 'bg-scanner-accent text-scanner-accent-fg shadow-lg'
+              : 'bg-scanner-surface/90 hover:bg-scanner-surface-hover text-scanner-ink border border-scanner-edge'
           }`}
         >
           <Icon name={torchOn ? 'flashlightFilled' : 'flashlight'} className="w-5 h-5" />
           <span className="hidden xs:inline">{torchOn ? 'Light On' : 'Torch'}</span>
         </button>
 
-        {mode === 'cover' || mode === 'isbn-ocr' ? (
+        {mode === 'cover' && (
           <button
             type="button"
             disabled={stage !== 'streaming'}
             onClick={() => inspectCurrentFrame(true)}
-            aria-label="Capture frame for OCR"
-            className="min-h-[50px] px-6 rounded-xl bg-[#D0AD55] hover:bg-[#DFC16F] active:scale-95 text-[#142321] font-semibold text-sm inline-flex items-center gap-2 shadow-xl disabled:opacity-40 transition-all cursor-pointer"
+            aria-label="Capture cover for title OCR"
+            className="min-h-[50px] px-6 rounded-xl bg-scanner-accent hover:bg-scanner-accent-hover active:scale-95 text-scanner-accent-fg font-semibold text-sm inline-flex items-center gap-2 shadow-xl disabled:opacity-40 transition-all cursor-pointer"
           >
             <Icon name="camera" className="w-5 h-5" />
-            <span>{mode === 'cover' ? 'Capture Cover' : 'Read ISBN'}</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isAnalyzingUpload}
-            aria-label="Scan from photo upload"
-            className="min-h-[44px] px-5 rounded-lg bg-[#1C2D29]/95 hover:bg-[#243831] active:scale-95 text-[#F0E7D5] border border-[#3B4436] text-xs font-semibold inline-flex items-center gap-2 backdrop-blur-md transition-all cursor-pointer"
-          >
-            <Icon name="photo" className="w-4 h-4 text-[#D0AD55]" />
-            <span>{isAnalyzingUpload ? 'Scanning…' : 'Upload Photo'}</span>
+            <span>Capture Cover</span>
           </button>
         )}
 
@@ -821,7 +806,7 @@ export const NativeBarcodeScannerModal: React.FC<NativeBarcodeScannerModalProps>
           type="button"
           onClick={handleSwitchCamera}
           aria-label="Switch front or rear camera"
-          className="min-h-[44px] min-w-[44px] px-4 rounded-lg bg-[#1C2D29]/90 hover:bg-[#243831] active:scale-95 text-[#F0E7D5] border border-[#3B4436] flex items-center justify-center gap-2 text-xs font-semibold backdrop-blur-md transition-all cursor-pointer"
+          className="min-h-[44px] min-w-[44px] px-4 rounded-lg bg-scanner-surface/90 hover:bg-scanner-surface-hover active:scale-95 text-scanner-ink border border-scanner-edge flex items-center justify-center gap-2 text-xs font-semibold backdrop-blur-md transition-all cursor-pointer"
         >
           <Icon name="flip" className="w-5 h-5" />
           <span className="hidden xs:inline">Flip</span>

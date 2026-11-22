@@ -122,7 +122,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
     const barPercent = hasLimit ? Math.min(100, quota.percent) : 100;
     const barColor =
       quota.isExceeded
-        ? 'bg-[#8C4A4F] dark:bg-[#C48A8E]'
+        ? 'bg-danger-solid'
         : quota.isWarning
           ? 'bg-accent'
           : hasLimit
@@ -150,9 +150,9 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
           <span
             className={`px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider shrink-0 ${
               quota.isExceeded
-                ? 'bg-[#8C4A4F]/12 text-[#8C4A4F] dark:text-[#C48A8E] border border-[#8C4A4F]/30'
+                ? 'bg-danger/12 text-danger border border-danger/30'
                 : quota.isWarning
-                  ? 'bg-accent/15 text-[#9E6E32] dark:text-[#D0AD55] border border-accent/35'
+                  ? 'bg-accent/15 text-warning border border-accent/35'
                   : 'bg-secondary/15 text-primary dark:text-secondary border border-secondary/30'
             }`}
           >
@@ -191,7 +191,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
             <span>
               {hasLimit ? (
                 quota.isExceeded ? (
-                  <span className="text-[#8C4A4F] dark:text-[#C48A8E] font-semibold">0 remaining today</span>
+                  <span className="text-danger font-semibold">0 remaining today</span>
                 ) : (
                   <span>{quota.remaining} remaining today</span>
                 )
@@ -282,7 +282,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
           role="alert"
           className={`p-4 rounded-xl border flex items-start gap-3 text-xs leading-relaxed ${
             globalAlert.level === 'error'
-              ? 'bg-[#8C4A4F]/10 border-[#8C4A4F]/35 text-[#8C4A4F] dark:text-[#C48A8E]'
+              ? 'bg-danger/10 border-danger/35 text-danger'
               : 'bg-accent/12 border-accent/35 text-ink'
           }`}
         >
@@ -322,7 +322,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
           <p className="text-[11px] font-semibold text-ink-secondary">Errors / 429s</p>
           <p
             className={`text-xl sm:text-2xl font-bold font-mono-tabular mt-0.5 ${
-              stats.errorsCount > 0 ? 'text-[#8C4A4F] dark:text-[#C48A8E]' : 'text-ink'
+              stats.errorsCount > 0 ? 'text-danger' : 'text-ink'
             }`}
           >
             {stats.errorsCount}
@@ -388,7 +388,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
             <button
               type="button"
               onClick={() => setConfirmClearOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-[#8C4A4F]/10 hover:bg-[#8C4A4F]/20 border border-[#8C4A4F]/30 text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-danger/10 hover:bg-danger/20 border border-danger/30 text-xs font-semibold text-danger transition-colors cursor-pointer"
             >
               Clear Log
             </button>
@@ -459,11 +459,11 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
                     <span
                       className={`px-2 py-0.5 rounded-md text-[10px] font-mono-tabular font-bold shrink-0 mt-0.5 ${
                         isQuotaExceeded
-                          ? 'bg-accent/15 text-[#9E6E32] dark:text-[#D0AD55] border border-accent/35'
+                          ? 'bg-accent/15 text-warning border border-accent/35'
                           : isError
-                            ? 'bg-[#8C4A4F]/12 text-[#8C4A4F] dark:text-[#C48A8E]'
+                            ? 'bg-danger/12 text-danger'
                             : log.cached
-                              ? 'bg-[#394E61]/15 text-[#394E61] dark:text-[#94A8B8]'
+                              ? 'bg-info/15 text-info'
                               : 'bg-secondary/15 text-primary dark:text-secondary'
                       }`}
                     >
@@ -486,7 +486,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
                       </p>
 
                       {log.error && (
-                        <p className="text-[10px] text-[#8C4A4F] dark:text-[#C48A8E] mt-0.5 truncate">
+                        <p className="text-[10px] text-danger mt-0.5 truncate">
                           {log.error}
                         </p>
                       )}
@@ -520,7 +520,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
       {/* Confirmation Dialog for Reset Counters */}
       {confirmResetOpen && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setConfirmResetOpen(false)}
         >
           <div
@@ -560,7 +560,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
       {/* Confirmation Dialog for Clear History */}
       {confirmClearOpen && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+          className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
           onClick={() => setConfirmClearOpen(false)}
         >
           <div
@@ -588,7 +588,7 @@ export const QueryUsageSubView: React.FC<QueryUsageSubViewProps> = ({ onBack, ba
                   queryLogger.clearLogs();
                   setConfirmClearOpen(false);
                 }}
-                className="min-h-[44px] sm:min-h-[36px] px-4 py-1.5 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold cursor-pointer active:scale-[0.98] transition-all"
+                className="min-h-[44px] sm:min-h-[36px] px-4 py-1.5 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold cursor-pointer active:scale-[0.98] transition-all"
               >
                 Clear Log
               </button>

@@ -382,6 +382,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       customBgUrl: certStyle.bgType === 'custom' ? certStyle.customImageUrl : undefined,
       bgBlur: certStyle.bgBlur,
       bgOpacity: certStyle.bgOpacity,
+      customBgType: certStyle.bgType,
     });
 
     const result = await sharePassportDocument({
@@ -392,95 +393,46 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
     showToast(result.message);
   };
 
-  // Dynamic Theme Palette Classes
-  const themeClasses = useMemo(() => {
-    switch (theme) {
-      case 'magic':
-        return {
-          wrapper: 'bg-indigo-950/20 border-purple-400/50 text-indigo-950 dark:text-purple-100',
-          headerBg: 'bg-gradient-to-r from-purple-950 via-indigo-900 to-purple-900 text-amber-200 border-b border-purple-500/40',
-          accent: 'text-purple-900 dark:text-purple-300',
-          card: 'bg-white/95 dark:bg-night-900/95 border-purple-200 dark:border-purple-800 shadow-sm',
-          stampBorder: 'border-purple-500 text-purple-700 dark:text-purple-300',
-          emblemColor: '#a855f7',
-        };
-      case 'night':
-        return {
-          wrapper: 'bg-slate-900/10 border-sky-400/50 text-slate-900 dark:text-sky-100',
-          headerBg: 'bg-gradient-to-r from-slate-950 via-sky-950 to-night-950 text-sky-200 border-b border-sky-600/40',
-          accent: 'text-sky-900 dark:text-sky-300',
-          card: 'bg-white/95 dark:bg-night-900/95 border-sky-200 dark:border-sky-800 shadow-sm',
-          stampBorder: 'border-sky-500 text-sky-700 dark:text-sky-300',
-          emblemColor: '#0ea5e9',
-        };
-      case 'explorer':
-        return {
-          wrapper: 'bg-amber-50/70 border-amber-300 text-amber-950 dark:text-amber-100',
-          headerBg: 'bg-gradient-to-r from-amber-800 via-amber-900 to-amber-950 text-amber-50 border-b border-amber-500/40',
-          accent: 'text-amber-800 dark:text-amber-300',
-          card: 'bg-white/95 dark:bg-night-900/95 border-amber-200 dark:border-amber-800 shadow-sm',
-          stampBorder: 'border-amber-400 text-amber-700 dark:text-amber-300',
-          emblemColor: '#d97706',
-        };
-      case 'forest':
-        return {
-          wrapper: 'bg-emerald-50/50 border-emerald-300 text-emerald-950 dark:text-emerald-100',
-          headerBg: 'bg-gradient-to-r from-emerald-900 via-forest-900 to-forest-950 text-emerald-100 border-b border-emerald-500/40',
-          accent: 'text-emerald-800 dark:text-emerald-300',
-          card: 'bg-white/95 dark:bg-night-900/95 border-emerald-200 dark:border-emerald-800 shadow-sm',
-          stampBorder: 'border-emerald-400 text-emerald-700 dark:text-emerald-300',
-          emblemColor: '#059669',
-        };
-      case 'ink-saver':
-        return {
-          wrapper: 'bg-white border-stone-800 text-black',
-          headerBg: 'bg-white border-b-2 border-black text-black',
-          accent: 'text-black',
-          card: 'bg-white border-2 border-stone-800',
-          stampBorder: 'border-black border-dashed text-black',
-          emblemColor: '#000000',
-        };
-      case 'classic':
-      default:
-        return {
-          wrapper: 'bg-stone-50 border-linen-300 text-stone-900 dark:text-linen-100',
-          headerBg: 'bg-gradient-to-r from-forest-900 via-night-900 to-forest-950 text-ivory border-b border-amber-400/40',
-          accent: 'text-forest-800 dark:text-[#5ED3DA]',
-          card: 'bg-white/95 dark:bg-night-900/95 border-linen-200 dark:border-night-800 shadow-sm',
-          stampBorder: 'border-stone-400 text-stone-700 dark:text-stone-300',
-          emblemColor: '#d4af37',
-        };
-    }
-  }, [theme]);
+  // Centralized CSS Theme & Certificate Styling Classes
+  const themeDocClass = `lr-passport-theme-${theme || 'classic'}`;
 
-  // Certificate background style helper
-  const certificateBgStyle = useMemo(() => {
+  const { certificateBgClass, certificateBgStyle, certificateInkClass } = useMemo(() => {
     if (certStyle.bgType === 'custom' && certStyle.customImageUrl) {
       return {
-        backgroundImage: `url(${certStyle.customImageUrl})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
+        certificateBgClass: '',
+        certificateBgStyle: {
+          backgroundImage: `url(${certStyle.customImageUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } as React.CSSProperties,
+        certificateInkClass: '',
       };
     }
     if (certStyle.bgType === 'stars') {
       return {
-        background: 'radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%)',
-        color: '#f8fafc',
+        certificateBgClass: 'lr-cert-bg-stars',
+        certificateBgStyle: {} as React.CSSProperties,
+        certificateInkClass: 'lr-cert-ink-stars',
       };
     }
     if (certStyle.bgType === 'parchment') {
       return {
-        background: 'radial-gradient(circle at center, #fffdf8 0%, #fef3c7 100%)',
+        certificateBgClass: 'lr-cert-bg-parchment',
+        certificateBgStyle: {} as React.CSSProperties,
+        certificateInkClass: 'lr-cert-ink-paper',
       };
     }
     if (certStyle.bgType === 'meadow') {
       return {
-        background: 'radial-gradient(circle at center, #f0fdf4 0%, #dcfce7 100%)',
+        certificateBgClass: 'lr-cert-bg-meadow',
+        certificateBgStyle: {} as React.CSSProperties,
+        certificateInkClass: 'lr-cert-ink-paper',
       };
     }
-    // gradient default
     return {
-      background: 'radial-gradient(circle at center, #ffffff 0%, #f8fafc 100%)',
+      certificateBgClass: 'lr-cert-bg-gradient',
+      certificateBgStyle: {} as React.CSSProperties,
+      certificateInkClass: '',
     };
   }, [certStyle.bgType, certStyle.customImageUrl]);
 
@@ -751,7 +703,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
             <button
               type="button"
               onClick={handleClearAllStamps}
-              className="text-[11px] text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] font-medium underline cursor-pointer"
+              className="text-[11px] text-ink-secondary hover:text-danger font-medium underline cursor-pointer"
             >
               Clear Stamps
             </button>
@@ -764,12 +716,14 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       <div
         id="reading-passport-printable-doc"
-        className={`p-6 sm:p-10 rounded-3xl border shadow-md transition-all relative overflow-hidden ${themeClasses.wrapper}`}
+        className={`p-6 sm:p-10 rounded-3xl border shadow-md transition-all relative overflow-hidden lr-passport-doc ${themeDocClass} ${
+          layoutMode === 'official-certificate' ? certificateInkClass : ''
+        }`}
       >
         {/* Background layer for custom image/blur */}
         {layoutMode === 'official-certificate' && (
           <div
-            className="absolute inset-0 pointer-events-none z-0"
+            className={`absolute inset-0 pointer-events-none z-0 ${certificateBgClass}`}
             style={{
               ...certificateBgStyle,
               filter: certStyle.bgBlur > 0 ? `blur(${certStyle.bgBlur}px)` : undefined,
@@ -785,7 +739,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
           {layoutMode === 'traditional-passport' && (
             <div className="space-y-8">
               {/* Top Passport Header Band */}
-              <div className={`p-4 rounded-2xl border text-center shadow-xs ${themeClasses.headerBg}`}>
+              <div className="p-4 rounded-2xl border text-center shadow-xs lr-passport-header">
                 <div className="flex items-center justify-center gap-2 text-xs tracking-widest uppercase font-bold opacity-90">
                   <span>★</span>
                   <span>OFFICIAL FAMILY READING PASSPORT</span>
@@ -799,12 +753,12 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
               {/* Two-Page Spread Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch passport-print-page">
                 {/* PAGE 1: Biometric & Identity Page */}
-                <div className={`p-5 rounded-2xl border flex flex-col justify-between space-y-4 ${themeClasses.card}`}>
+                <div className="p-5 rounded-2xl border shadow-sm flex flex-col justify-between space-y-4 lr-passport-card">
                   <div>
                     {/* Top Passport Strip */}
-                    <div className="flex items-center justify-between border-b pb-2 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                    <div className="flex items-center justify-between border-b lr-passport-divider pb-2 text-[10px] font-bold lr-passport-muted uppercase tracking-wider">
                       <span>PASSPORT / PASSEPORT</span>
-                      <span className="font-mono text-xs text-forest-800 dark:text-[#5ED3DA]">
+                      <span className="font-mono text-xs lr-passport-accent">
                         {passportNumber}
                       </span>
                     </div>
@@ -813,19 +767,19 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                     <div className="flex gap-4 pt-4">
                       {/* Reader Photo Box */}
                       <div className="w-24 sm:w-28 shrink-0 flex flex-col items-center">
-                        <div className="w-24 h-32 rounded-xl border-2 border-stone-300 dark:border-stone-700 bg-linen-100 dark:bg-night-800 overflow-hidden flex flex-col items-center justify-center relative shadow-xs">
+                        <div className="w-24 h-32 rounded-xl border-2 lr-passport-divider bg-surface-subtle overflow-hidden flex flex-col items-center justify-center relative shadow-xs">
                           {activeProfile?.avatarTone ? (
-                            <div className="text-3xl font-display font-bold text-forest-800">
+                            <div className="text-3xl font-display font-bold lr-passport-accent">
                               {activeProfile.name.slice(0, 1)}
                             </div>
                           ) : (
-                            <Icon name="profiles" className="w-10 h-10 text-stone-400" />
+                            <Icon name="profiles" className="w-10 h-10 lr-passport-muted" />
                           )}
-                          <div className="absolute bottom-1 inset-x-1 py-0.5 bg-black/60 text-[9px] text-white text-center rounded font-mono uppercase">
+                          <div className="absolute bottom-1 inset-x-1 py-0.5 bg-scanner/85 text-[9px] text-scanner-ink text-center rounded font-mono uppercase">
                             OFFICIAL
                           </div>
                         </div>
-                        <span className="text-[9px] text-stone-500 mt-1 font-mono">
+                        <span className="text-[9px] lr-passport-muted mt-1 font-mono">
                           SEAL: AUTHORIZED
                         </span>
                       </div>
@@ -833,39 +787,39 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                       {/* Official Field Lines */}
                       <div className="flex-1 space-y-2 text-xs min-w-0">
                         <div>
-                          <p className="text-[9px] uppercase font-bold text-stone-400">
+                          <p className="text-[9px] uppercase font-bold lr-passport-muted">
                             Reader Name / Nom
                           </p>
-                          <p className="font-display text-base font-bold text-forest-900 dark:text-white truncate">
+                          <p className="font-display text-base font-bold lr-passport-ink truncate">
                             {readerName}
                           </p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-[11px]">
                           <div>
-                            <p className="text-[9px] uppercase font-bold text-stone-400">Type</p>
+                            <p className="text-[9px] uppercase font-bold lr-passport-muted">Type</p>
                             <p className="font-mono font-bold">P (Passport)</p>
                           </div>
                           <div>
-                            <p className="text-[9px] uppercase font-bold text-stone-400">Nationality</p>
-                            <p className="font-bold text-forest-800 dark:text-[#5ED3DA]">Book Lover</p>
+                            <p className="text-[9px] uppercase font-bold lr-passport-muted">Nationality</p>
+                            <p className="font-bold lr-passport-accent">Book Lover</p>
                           </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-[11px]">
                           <div>
-                            <p className="text-[9px] uppercase font-bold text-stone-400">Issue Date</p>
+                            <p className="text-[9px] uppercase font-bold lr-passport-muted">Issue Date</p>
                             <p className="font-mono">{issuedDate}</p>
                           </div>
                           <div>
-                            <p className="text-[9px] uppercase font-bold text-stone-400">Authority</p>
+                            <p className="text-[9px] uppercase font-bold lr-passport-muted">Authority</p>
                             <p className="truncate">Home Library</p>
                           </div>
                         </div>
 
                         <div>
-                          <p className="text-[9px] uppercase font-bold text-stone-400">Reading Stage</p>
-                          <p className="font-medium text-stone-700 dark:text-slate-300 capitalize">
+                          <p className="text-[9px] uppercase font-bold lr-passport-muted">Reading Stage</p>
+                          <p className="font-medium lr-passport-ink capitalize">
                             {activeProfile?.readingStage?.replace('-', ' ') || 'Story Explorer'}
                           </p>
                         </div>
@@ -875,7 +829,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
 
                   {/* Machine Readable Zone (MRZ Bar) */}
                   <div className="pt-2">
-                    <div className="bg-stone-900 text-sky-400 font-mono text-[10px] p-2.5 rounded-xl tracking-widest leading-relaxed overflow-x-auto shadow-inner select-none">
+                    <div className="lr-passport-mrz font-mono text-[10px] p-2.5 rounded-xl tracking-widest leading-relaxed overflow-x-auto shadow-inner select-none">
                       <div>{`P<RDR${readerName.toUpperCase().replace(/\s+/g, '<')}<<<<<<<<<<<<<<<<<<<`}</div>
                       <div>{`${passportNumber}01015F2611144LIB<<<<<<<<<<<`}</div>
                     </div>
@@ -883,9 +837,9 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 </div>
 
                 {/* PAGE 2: Visas & Entry Stamps Grid */}
-                <div className={`p-5 rounded-2xl border flex flex-col justify-between space-y-3 ${themeClasses.card}`}>
+                <div className="p-5 rounded-2xl border shadow-sm flex flex-col justify-between space-y-3 lr-passport-card">
                   <div>
-                    <div className="flex items-center justify-between border-b pb-2 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                    <div className="flex items-center justify-between border-b lr-passport-divider pb-2 text-[10px] font-bold lr-passport-muted uppercase tracking-wider">
                       <span>VISAS &amp; READING ENTRY STAMPS</span>
                       <span>PAGE 2</span>
                     </div>
@@ -901,17 +855,17 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                           <div
                             key={book.id}
                             onClick={() => handleToggleStamp(stampKey)}
-                            className="p-2.5 rounded-xl border border-dashed border-stone-300 dark:border-stone-700 hover:border-forest-600 transition-all cursor-pointer relative bg-linen-50/50 dark:bg-night-950/40 min-h-[96px] flex flex-col justify-between"
+                            className="p-2.5 rounded-xl border border-dashed lr-passport-slot transition-all cursor-pointer relative min-h-[96px] flex flex-col justify-between"
                           >
                             <div className="flex items-start gap-2">
-                              <span className="w-4 h-4 rounded-full bg-linen-200 dark:bg-night-800 text-stone-700 dark:text-slate-300 text-[9px] font-mono font-bold flex items-center justify-center shrink-0">
+                              <span className="w-4 h-4 rounded-full bg-surface-elevated lr-passport-muted text-[9px] font-mono font-bold flex items-center justify-center shrink-0">
                                 {idx + 1}
                               </span>
                               <div className="min-w-0 flex-1">
-                                <h4 className="text-[11px] font-bold text-forest-900 dark:text-white leading-tight truncate">
+                                <h4 className="text-[11px] font-bold lr-passport-ink leading-tight truncate">
                                   {book.title}
                                 </h4>
-                                <p className="text-[10px] text-stone-500 truncate">
+                                <p className="text-[10px] lr-passport-muted truncate">
                                   {book.author}
                                 </p>
                               </div>
@@ -930,7 +884,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                                   </span>
                                 </div>
                               ) : (
-                                <div className="w-10 h-10 rounded-full border border-dashed border-stone-400 flex items-center justify-center text-[7px] font-bold text-stone-400 text-center">
+                                <div className="w-10 h-10 rounded-full border border-dashed lr-passport-stamp-placeholder flex items-center justify-center text-[7px] font-bold text-center">
                                   STAMP
                                 </div>
                               )}
@@ -941,7 +895,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                     </div>
                   </div>
 
-                  <p className="text-[9px] text-stone-400 text-center italic">
+                  <p className="text-[9px] lr-passport-muted text-center italic">
                     Tap any slot to stamp digital approval, or print to apply real rubber ink stamps &amp; stickers!
                   </p>
                 </div>
@@ -954,48 +908,48 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
           {/* ================================================================ */}
           {layoutMode === 'official-certificate' && (
             <div
-              className={`p-6 sm:p-10 rounded-3xl relative overflow-hidden transition-all certificate-filigree-frame ${
+              className={`p-6 sm:p-10 rounded-3xl relative overflow-hidden transition-all certificate-filigree-frame border-8 border-double ${
                 certStyle.borderStyle === 'double'
-                  ? 'border-8 border-double border-amber-600'
-                  : 'border-8 double border-[#d4af37]'
+                  ? 'lr-passport-gold-frame-double'
+                  : 'lr-passport-gold-frame'
               }`}
             >
               <div className="relative z-10 text-center space-y-6">
                 {/* Header Crest Emblem */}
                 <div className="flex justify-center">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-700 text-amber-950 flex items-center justify-center shadow-md border-2 border-amber-200">
-                    <Icon name={certStyle.emblem || 'ribbon'} className="w-8 h-8 text-amber-950" />
+                  <div className="w-16 h-16 rounded-full lr-passport-gold-badge flex items-center justify-center shadow-md border-2">
+                    <Icon name={certStyle.emblem || 'ribbon'} className="w-8 h-8" />
                   </div>
                 </div>
 
                 {/* Certificate Titles */}
                 <div className="space-y-1">
-                  <p className="text-xs uppercase tracking-widest font-bold text-amber-800 dark:text-amber-300">
+                  <p className="text-xs uppercase tracking-widest font-bold lr-passport-gold-kicker">
                     HONORARY DIPLOMA OF READING EXCELLENCE
                   </p>
-                  <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-forest-900 dark:text-white">
+                  <h1 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tight lr-passport-ink">
                     Certificate of Achievement
                   </h1>
                 </div>
 
                 {/* Recipient Section */}
                 <div className="space-y-2 max-w-xl mx-auto">
-                  <p className="text-xs text-stone-600 dark:text-slate-300 uppercase tracking-wider font-semibold">
+                  <p className="text-xs lr-passport-muted uppercase tracking-wider font-semibold">
                     THIS CERTIFICATE IS PROUDLY CONFERRED UPON
                   </p>
-                  <div className="py-2 border-b-2 border-amber-600/70 inline-block px-8">
-                    <span className="font-display text-2xl sm:text-3xl font-extrabold text-forest-900 dark:text-amber-300">
+                  <div className="py-2 border-b-2 lr-passport-gold-frame-double inline-block px-8">
+                    <span className="font-display text-2xl sm:text-3xl font-extrabold lr-passport-ink">
                       {readerName}
                     </span>
                   </div>
-                  <p className="text-xs sm:text-sm text-stone-700 dark:text-slate-200 leading-relaxed italic max-w-lg mx-auto pt-1">
+                  <p className="text-xs sm:text-sm lr-passport-muted leading-relaxed italic max-w-lg mx-auto pt-1">
                     "{certStyle.dedicationText}"
                   </p>
                 </div>
 
                 {/* Books Mastered Showcase */}
                 <div className="pt-2">
-                  <p className="text-[11px] font-bold text-amber-900 dark:text-amber-400 uppercase tracking-widest mb-3">
+                  <p className="text-[11px] font-bold lr-passport-gold-kicker uppercase tracking-widest mb-3">
                     Books Read &amp; Mastered
                   </p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 max-w-3xl mx-auto">
@@ -1008,23 +962,23 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                         <div
                           key={book.id}
                           onClick={() => handleToggleStamp(stampKey)}
-                          className="p-2 rounded-xl bg-white/90 dark:bg-night-900/90 border border-amber-200 dark:border-amber-900/60 shadow-xs flex flex-col justify-between items-center text-center cursor-pointer hover:border-amber-500 transition-all"
+                          className="p-2 rounded-xl lr-passport-card border shadow-xs flex flex-col justify-between items-center text-center cursor-pointer hover:border-accent transition-all"
                         >
-                          <div className="w-12 aspect-[3/4] rounded overflow-hidden shadow-2xs border border-linen-200 mb-1.5">
+                          <div className="w-12 aspect-[3/4] rounded overflow-hidden shadow-2xs border lr-passport-divider mb-1.5">
                             <BookCover book={book as any} size="sm" aspectRatio="portrait" />
                           </div>
-                          <p className="text-[10px] font-bold text-forest-900 dark:text-white truncate w-full">
+                          <p className="text-[10px] font-bold lr-passport-ink truncate w-full">
                             {book.title}
                           </p>
 
                           {/* Mini Stamp Badge */}
                           <div className="mt-1">
                             {activeStamp ? (
-                              <span className="text-[10px] font-bold text-emerald-600">
+                              <span className="text-[10px] font-bold text-success">
                                 {activeStamp.symbol} COMPLETED
                               </span>
                             ) : (
-                              <span className="text-[9px] text-stone-400 font-bold border border-dashed border-stone-300 rounded px-1">
+                              <span className="text-[9px] lr-passport-muted font-bold border border-dashed lr-passport-divider rounded px-1">
                                 STAMP
                               </span>
                             )}
@@ -1053,31 +1007,31 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 </div>
 
                 {/* Signatures & Seal Footer */}
-                <div className="pt-6 border-t border-amber-600/30 grid grid-cols-3 items-end gap-4 max-w-2xl mx-auto text-xs">
+                <div className="pt-6 border-t lr-passport-divider grid grid-cols-3 items-end gap-4 max-w-2xl mx-auto text-xs">
                   {/* Left Signature */}
                   <div className="text-center">
-                    <div className="font-serif italic text-base text-forest-900 dark:text-amber-200 border-b border-stone-400 pb-1">
+                    <div className="font-serif italic text-base lr-passport-ink border-b lr-passport-divider pb-1">
                       {certStyle.parentSigner}
                     </div>
-                    <p className="text-[9px] uppercase font-bold text-stone-500 mt-1">
+                    <p className="text-[9px] uppercase font-bold lr-passport-muted mt-1">
                       Parent / Guardian
                     </p>
                   </div>
 
                   {/* Golden Center Seal */}
                   <div className="flex flex-col items-center">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 border-2 border-amber-100 shadow-md flex items-center justify-center text-amber-950 font-bold text-xs uppercase text-center leading-none p-1">
+                    <div className="w-14 h-14 rounded-full lr-passport-gold-badge border-2 shadow-md flex items-center justify-center font-bold text-xs uppercase text-center leading-none p-1">
                       OFFICIAL SEAL
                     </div>
-                    <p className="text-[9px] font-mono text-stone-500 mt-1">{issuedDate}</p>
+                    <p className="text-[9px] font-mono lr-passport-muted mt-1">{issuedDate}</p>
                   </div>
 
                   {/* Right Signature */}
                   <div className="text-center">
-                    <div className="font-serif italic text-base text-forest-900 dark:text-amber-200 border-b border-stone-400 pb-1">
+                    <div className="font-serif italic text-base lr-passport-ink border-b lr-passport-divider pb-1">
                       {certStyle.librarianSigner}
                     </div>
-                    <p className="text-[9px] uppercase font-bold text-stone-500 mt-1">
+                    <p className="text-[9px] uppercase font-bold lr-passport-muted mt-1">
                       Reading Guide
                     </p>
                   </div>
@@ -1091,7 +1045,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
           {/* ================================================================ */}
           {layoutMode === 'storytime-bingo' && (
             <div className="space-y-6">
-              <div className={`p-5 rounded-2xl border text-center shadow-xs ${themeClasses.headerBg}`}>
+              <div className="p-5 rounded-2xl border text-center shadow-xs lr-passport-header">
                 <h1 className="font-display text-2xl font-bold tracking-tight">
                   {readerName}’s Storytime Bingo
                 </h1>
@@ -1113,7 +1067,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                       <div
                         key={tileKey}
                         onClick={() => handleToggleStamp(tileKey)}
-                        className="aspect-square p-3 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-amber-950 border-2 border-amber-300 flex flex-col items-center justify-center text-center shadow-sm cursor-pointer select-none transition-transform hover:scale-[1.02]"
+                        className="aspect-square p-3 rounded-2xl lr-passport-gold-badge border-2 flex flex-col items-center justify-center text-center shadow-sm cursor-pointer select-none transition-transform hover:scale-[1.02]"
                       >
                         <span className="text-2xl">⭐️</span>
                         <h4 className="font-display font-black text-xs sm:text-sm tracking-wide mt-1">
@@ -1143,20 +1097,20 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                     <div
                       key={tileKey}
                       onClick={() => handleToggleStamp(tileKey)}
-                      className={`aspect-square p-2.5 rounded-2xl border flex flex-col justify-between transition-all cursor-pointer select-none ${themeClasses.card} ${
-                        activeStamp ? 'ring-2 ring-forest-600' : ''
+                      className={`aspect-square p-2.5 rounded-2xl border shadow-sm flex flex-col justify-between transition-all cursor-pointer select-none lr-passport-card ${
+                        activeStamp ? 'ring-2 ring-primary' : ''
                       }`}
                     >
                       <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] text-stone-500 font-bold">
+                        <div className="flex items-center justify-between text-[10px] lr-passport-muted font-bold">
                           <span>TILE {idx + 1}</span>
                           {activeStamp && <span>{activeStamp.symbol}</span>}
                         </div>
-                        <h4 className="text-[11px] font-bold text-forest-900 dark:text-white leading-tight line-clamp-2">
+                        <h4 className="text-[11px] font-bold lr-passport-ink leading-tight line-clamp-2">
                           {book?.title || challenge}
                         </h4>
                         {book?.author && (
-                          <p className="text-[9px] text-stone-500 truncate">{book.author}</p>
+                          <p className="text-[9px] lr-passport-muted truncate">{book.author}</p>
                         )}
                       </div>
 
@@ -1166,7 +1120,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                             {activeStamp.label}
                           </span>
                         ) : (
-                          <span className="w-8 h-8 rounded-full border border-dashed border-stone-400 flex items-center justify-center text-[7px] font-bold text-stone-400">
+                          <span className="w-8 h-8 rounded-full border border-dashed lr-passport-stamp-placeholder flex items-center justify-center text-[7px] font-bold">
                             STAMP
                           </span>
                         )}
@@ -1183,7 +1137,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
           {/* ================================================================ */}
           {layoutMode === 'adventure-map' && (
             <div className="space-y-6">
-              <div className={`p-5 rounded-2xl border text-center shadow-xs ${themeClasses.headerBg}`}>
+              <div className="p-5 rounded-2xl border text-center shadow-xs lr-passport-header">
                 <h1 className="font-display text-2xl font-bold tracking-tight">
                   {readerName}’s Storybook Adventure Trail
                 </h1>
@@ -1204,31 +1158,31 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                       key={book.id}
                       onClick={() => handleToggleStamp(stepKey)}
                       className={`p-3.5 rounded-2xl border flex items-center justify-between gap-4 transition-all cursor-pointer select-none ${
-                        isMilestone ? 'bg-amber-500/10 border-amber-300 shadow-xs' : themeClasses.card
+                        isMilestone ? 'lr-passport-milestone shadow-xs' : 'lr-passport-card shadow-sm'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span
                           className={`w-8 h-8 rounded-full font-mono font-bold text-xs flex items-center justify-center shrink-0 ${
-                            isMilestone ? 'bg-amber-600 text-white' : 'bg-linen-200 text-stone-800'
+                            isMilestone ? 'lr-passport-milestone-badge' : 'bg-surface-elevated lr-passport-ink'
                           }`}
                         >
                           {idx + 1}
                         </span>
 
-                        <div className="w-11 aspect-[3/4] rounded overflow-hidden shadow-2xs border border-linen-200 shrink-0">
+                        <div className="w-11 aspect-[3/4] rounded overflow-hidden shadow-2xs border lr-passport-divider shrink-0">
                           <BookCover book={book as any} size="sm" aspectRatio="portrait" />
                         </div>
 
                         <div className="min-w-0">
-                          <h4 className="font-display font-bold text-xs sm:text-sm text-forest-900 dark:text-white truncate">
+                          <h4 className="font-display font-bold text-xs sm:text-sm lr-passport-ink truncate">
                             {book.title}
                           </h4>
-                          <p className="text-[11px] text-stone-600 dark:text-slate-400 truncate">
+                          <p className="text-[11px] lr-passport-muted truncate">
                             {book.author}
                           </p>
                           {isMilestone && (
-                            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 block mt-0.5">
+                            <span className="text-[10px] font-bold lr-passport-milestone-ink block mt-0.5">
                               ⭐️ Milestone Reward: Golden Reading Badge!
                             </span>
                           )}
@@ -1240,7 +1194,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                           className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-center ${
                             activeStamp
                               ? `${activeStamp.color} border-solid shadow-xs`
-                              : 'border-dashed border-stone-400 bg-linen-50/50 text-stone-400 text-[8px] font-bold'
+                              : 'border-dashed lr-passport-slot lr-passport-muted text-[8px] font-bold'
                           }`}
                         >
                           {activeStamp ? (
@@ -1262,7 +1216,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
           {/* ================================================================ */}
           {layoutMode === 'stamp-sheet' && (
             <div className="space-y-6">
-              <div className={`p-5 rounded-2xl border text-center shadow-xs ${themeClasses.headerBg}`}>
+              <div className="p-5 rounded-2xl border text-center shadow-xs lr-passport-header">
                 <h1 className="font-display text-2xl font-bold tracking-tight">
                   Printable Sticker &amp; Stamp Tokens
                 </h1>
@@ -1276,18 +1230,17 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                 {PRINTABLE_STICKER_TOKENS.map((token) => (
                   <div
                     key={token.id}
-                    className="aspect-square p-2 rounded-full border-2 border-dashed border-stone-400 bg-white flex flex-col items-center justify-center text-center shadow-xs transition-transform hover:scale-105"
+                    className="aspect-square p-2 rounded-full border-2 border-dashed lr-passport-slot bg-surface flex flex-col items-center justify-center text-center shadow-xs transition-transform hover:scale-105"
                   >
                     <div
-                      className="w-14 h-14 rounded-full flex flex-col items-center justify-center text-white shadow-2xs"
-                      style={{ backgroundColor: token.color }}
+                      className={`w-14 h-14 rounded-full flex flex-col items-center justify-center shadow-2xs ${token.badgeClass}`}
                     >
                       <span className="text-base leading-none">{token.symbol}</span>
                       <span className="text-[8px] font-extrabold uppercase tracking-tight mt-0.5">
                         {token.title}
                       </span>
                     </div>
-                    <span className="text-[8px] font-bold text-stone-500 mt-1 uppercase">
+                    <span className="text-[8px] font-bold lr-passport-muted mt-1 uppercase">
                       {token.subtitle}
                     </span>
                   </div>
@@ -1297,7 +1250,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
           )}
 
           {/* Footer Line */}
-          <div className="pt-4 border-t border-linen-300/80 flex items-center justify-between text-[10px] text-stone-500">
+          <div className="pt-4 border-t lr-passport-divider flex items-center justify-between text-[10px] lr-passport-muted">
             <span>Created with Library Rotation · Family Book Passport</span>
             <span>
               Printed for {readerName} · {issuedDate}
@@ -1311,7 +1264,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showPresetBrowser && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scrim backdrop-blur-sm"
           onClick={() => setShowPresetBrowser(false)}
         >
           <div
@@ -1379,7 +1332,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
                       <button
                         type="button"
                         onClick={() => handleDeletePreset(preset.id)}
-                        className="p-2 rounded-lg text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-surface-elevated text-xs cursor-pointer"
+                        className="p-2 rounded-lg text-danger hover:bg-surface-elevated text-xs cursor-pointer"
                         title="Delete custom preset"
                       >
                         <Icon name="trash" className="w-4 h-4" />
@@ -1398,7 +1351,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showBookPicker && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scrim backdrop-blur-sm"
           onClick={() => setShowBookPicker(false)}
         >
           <div
@@ -1549,7 +1502,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showCertStylingModal && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scrim backdrop-blur-sm"
           onClick={() => setShowCertStylingModal(false)}
         >
           <div
@@ -1701,7 +1654,7 @@ export const ReadingPassportStudio: React.FC<ReadingPassportStudioProps> = ({ on
       {/* ==================================================================== */}
       {showSavePresetModal && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm"
+          className="sheet-backdrop fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-scrim backdrop-blur-sm"
           onClick={() => setShowSavePresetModal(false)}
         >
           <div

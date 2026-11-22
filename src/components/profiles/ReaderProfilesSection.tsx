@@ -328,7 +328,7 @@ export const ReaderProfilesSection: React.FC<ReaderProfilesSectionProps> = ({
                           onClick={() => handleRequestDeleteProfile(profile.id)}
                           aria-label={`Delete profile ${profile.name}`}
                           title="Delete profile"
-                          className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] hover:bg-surface-elevated transition-colors cursor-pointer"
+                          className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg text-ink-secondary hover:text-danger hover:bg-surface-elevated transition-colors cursor-pointer"
                         >
                           <Icon name="trash" className="w-4 h-4" />
                         </button>
@@ -352,8 +352,8 @@ export const ReaderProfilesSection: React.FC<ReaderProfilesSectionProps> = ({
                   </div>
 
                   {isConfirmingDelete && (
-                    <div className="p-3 rounded-lg bg-surface-elevated border border-[#8C4A4F]/40 space-y-2">
-                      <p className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                    <div className="p-3 rounded-lg bg-danger/10 border border-danger/35 space-y-2">
+                      <p className="text-xs font-semibold text-danger">
                         Remove {profile.name} and their saved rotations?
                       </p>
                       <div className="flex items-center justify-end gap-2">
@@ -367,7 +367,7 @@ export const ReaderProfilesSection: React.FC<ReaderProfilesSectionProps> = ({
                         <button
                           type="button"
                           onClick={() => handleConfirmDeleteProfile(profile.id)}
-                          className="px-3 py-1.5 rounded-md bg-[#8C4A4F] hover:opacity-90 text-[#FFFCF5] text-xs font-semibold cursor-pointer"
+                          className="px-3 py-1.5 rounded-md bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold cursor-pointer"
                         >
                           Confirm Remove
                         </button>
@@ -469,7 +469,7 @@ export const ReaderProfilesSection: React.FC<ReaderProfilesSectionProps> = ({
                           onClick={() => handleRequestDeleteProfile(profile.id)}
                           aria-label={`Delete ${profile.name}`}
                           title="Delete profile"
-                          className="min-h-[40px] min-w-[40px] rounded-lg text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] hover:bg-surface-subtle flex items-center justify-center transition-colors cursor-pointer"
+                          className="min-h-[40px] min-w-[40px] rounded-lg text-ink-secondary hover:text-danger hover:bg-surface-subtle flex items-center justify-center transition-colors cursor-pointer"
                         >
                           <Icon name="trash" className="w-4 h-4" />
                         </button>
@@ -478,8 +478,8 @@ export const ReaderProfilesSection: React.FC<ReaderProfilesSectionProps> = ({
                   </div>
 
                   {isConfirmingDelete && (
-                    <div className="p-3 rounded-lg bg-surface-elevated border border-[#8C4A4F]/40 flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                    <div className="p-3 rounded-lg bg-danger/10 border border-danger/35 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-danger">
                         Remove {profile.name} and their saved rotations?
                       </p>
                       <div className="flex items-center gap-2 ml-auto">
@@ -493,7 +493,7 @@ export const ReaderProfilesSection: React.FC<ReaderProfilesSectionProps> = ({
                         <button
                           type="button"
                           onClick={() => handleConfirmDeleteProfile(profile.id)}
-                          className="px-3 py-1.5 rounded-md bg-[#8C4A4F] hover:opacity-90 text-[#FFFCF5] text-xs font-semibold cursor-pointer"
+                          className="px-3 py-1.5 rounded-md bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold cursor-pointer"
                         >
                           Confirm Remove
                         </button>

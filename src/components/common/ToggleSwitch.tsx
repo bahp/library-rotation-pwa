@@ -55,7 +55,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
       >
         <span
           className={`lr-switch-thumb inline-block rounded-full transition-transform duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] ${
-            checked ? 'bg-primary-fg shadow-md' : 'bg-surface shadow-sm ring-1 ring-black/15'
+            checked ? 'bg-primary-fg shadow-md' : 'bg-surface shadow-sm ring-1 ring-hairline'
           }`}
         />
       </span>

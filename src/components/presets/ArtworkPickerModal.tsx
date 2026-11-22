@@ -110,7 +110,7 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="artwork-picker-title"
-      className="sheet-backdrop fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+      className="sheet-backdrop fixed inset-0 z-[60] bg-scrim backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
       onClick={onClose}
     >
       <div
@@ -201,8 +201,8 @@ export const ArtworkPickerModal: React.FC<ArtworkPickerModalProps> = ({
               <div
                 className={`relative aspect-[4/3] w-full rounded-xl border overflow-hidden flex items-center justify-center p-2 transition-colors ${
                   previewSurface === 'dark'
-                    ? 'bg-[#101713] border-[#26352C]'
-                    : 'bg-[#FAF7F2] border-[#E3DDD1]'
+                    ? 'bg-preview-dark border-preview-dark-edge'
+                    : 'bg-preview-light border-preview-light-edge'
                 }`}
               >
                 <img

@@ -29,87 +29,155 @@
       rel="stylesheet"
     />
     <style id="lr-critical-splash">
+      :root {
+        --splash-bg: #F7F5EE;
+        --splash-fg: #15241F;
+        --splash-muted: #55665F;
+        --splash-emblem-bg: #1E322C;
+        --splash-emblem-border: #3B544B;
+        --splash-emblem-shadow: 0 12px 26px -10px rgba(20, 35, 33, 0.28);
+        --splash-orbit-a: #D0AD55;
+        --splash-orbit-b: #A8B59A;
+        --splash-page: #FFFCF5;
+        --splash-spine: #1E322C;
+        --splash-lines: #B38B43;
+      }
       html, body {
         margin: 0;
         min-height: 100vh;
         min-height: 100dvh;
-        background-color: #F7F5EE;
-        color: #15241F;
+        background-color: var(--splash-bg);
+        color: var(--splash-fg);
       }
-      html[data-theme="sunlit-cream"],
-      html[data-theme="sunlit-cream"] body {
-        background-color: #F7F1E7;
-        color: #292720;
+      html[data-theme="sunlit-cream"] {
+        --splash-bg: #F7F1E7;
+        --splash-fg: #292720;
+        --splash-muted: #665B4D;
+        --splash-emblem-bg: #9E572C;
+        --splash-emblem-border: #C6A77B;
+        --splash-spine: #9E572C;
       }
-      html[data-theme="classic-teal"],
-      html[data-theme="classic-teal"] body {
-        background-color: #F8F5EE;
-        color: #142624;
+      html[data-theme="classic-teal"] {
+        --splash-bg: #F8F5EE;
+        --splash-fg: #142624;
+        --splash-muted: #566865;
+        --splash-emblem-bg: #115953;
+        --splash-emblem-border: #2D6F8A;
+        --splash-spine: #115953;
       }
-      html[data-theme="antique-paper"],
-      html[data-theme="antique-paper"] body {
-        background-color: #F5F0E5;
-        color: #23332D;
+      html[data-theme="antique-paper"] {
+        --splash-bg: #F5F0E5;
+        --splash-fg: #23332D;
+        --splash-muted: #6B6558;
+        --splash-emblem-bg: #244B40;
+        --splash-emblem-border: #B38B43;
+        --splash-spine: #244B40;
       }
-      html[data-theme="sky-blue"],
-      html[data-theme="sky-blue"] body {
-        background-color: #F0F5FA;
-        color: #1E2D40;
+      html[data-theme="sky-blue"] {
+        --splash-bg: #F0F5FA;
+        --splash-fg: #1E2D40;
+        --splash-muted: #586B82;
+        --splash-emblem-bg: #2F6CA8;
+        --splash-emblem-border: #6B94BF;
+        --splash-spine: #2F6CA8;
       }
-      html[data-theme="sage-green"],
-      html[data-theme="sage-green"] body {
-        background-color: #F1F3EA;
-        color: #263326;
+      html[data-theme="sage-green"] {
+        --splash-bg: #F1F3EA;
+        --splash-fg: #263326;
+        --splash-muted: #5B6B5A;
+        --splash-emblem-bg: #4B683B;
+        --splash-emblem-border: #87A175;
+        --splash-spine: #4B683B;
       }
-      html[data-theme="blush-pink"],
-      html[data-theme="blush-pink"] body {
-        background-color: #FBF0EF;
-        color: #352329;
+      html[data-theme="blush-pink"] {
+        --splash-bg: #FBF0EF;
+        --splash-fg: #352329;
+        --splash-muted: #765B64;
+        --splash-emblem-bg: #9E4357;
+        --splash-emblem-border: #C78291;
+        --splash-spine: #9E4357;
       }
-      html[data-theme="classic-light"],
-      html[data-theme="classic-light"] body {
-        background-color: #F5F5F3;
-        color: #202326;
+      html[data-theme="classic-light"] {
+        --splash-bg: #F5F5F3;
+        --splash-fg: #202326;
+        --splash-muted: #646A70;
+        --splash-emblem-bg: #353B40;
+        --splash-emblem-border: #7C848C;
+        --splash-spine: #353B40;
       }
-      html.dark,
-      html.dark body {
-        background-color: #101713;
-        color: #F1EBDD;
+      html.dark {
+        --splash-bg: #101713;
+        --splash-fg: #F1EBDD;
+        --splash-muted: #B3B0A1;
+        --splash-emblem-bg: #19251F;
+        --splash-emblem-border: #2A3B32;
+        --splash-emblem-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.55);
       }
-      html.dark[data-theme="midnight-ink"],
-      html.dark[data-theme="midnight-ink"] body {
-        background-color: #0B1420;
-        color: #E8F0F7;
+      html.dark[data-theme="midnight-ink"] {
+        --splash-bg: #0B1420;
+        --splash-fg: #E8F0F7;
+        --splash-muted: #93A7BC;
+        --splash-emblem-bg: #152538;
+        --splash-emblem-border: #2B4562;
+        --splash-orbit-a: #9CC8E8;
+        --splash-orbit-b: #4B91C7;
+        --splash-spine: #152538;
       }
-      html.dark[data-theme="warm-library"],
-      html.dark[data-theme="warm-library"] body {
-        background-color: #17120E;
-        color: #F3E8D7;
+      html.dark[data-theme="warm-library"] {
+        --splash-bg: #17120E;
+        --splash-fg: #F3E8D7;
+        --splash-muted: #B6A68E;
+        --splash-emblem-bg: #292017;
+        --splash-emblem-border: #4A3828;
+        --splash-orbit-a: #E8BC78;
+        --splash-orbit-b: #D49A50;
+        --splash-spine: #292017;
       }
-      html.dark[data-theme="plum-noir"],
-      html.dark[data-theme="plum-noir"] body {
-        background-color: #19121C;
-        color: #F3E7F0;
+      html.dark[data-theme="plum-noir"] {
+        --splash-bg: #19121C;
+        --splash-fg: #F3E7F0;
+        --splash-muted: #B29BAE;
+        --splash-emblem-bg: #2B1D30;
+        --splash-emblem-border: #4B3354;
+        --splash-orbit-a: #DCA4C6;
+        --splash-orbit-b: #C477A6;
+        --splash-spine: #2B1D30;
       }
-      html.dark[data-theme="slate-minimal"],
-      html.dark[data-theme="slate-minimal"] body {
-        background-color: #15191D;
-        color: #EDF1F3;
+      html.dark[data-theme="slate-minimal"] {
+        --splash-bg: #15191D;
+        --splash-fg: #EDF1F3;
+        --splash-muted: #9BA5AE;
+        --splash-emblem-bg: #242C33;
+        --splash-emblem-border: #3A4652;
+        --splash-orbit-a: #8CABB2;
+        --splash-orbit-b: #39B8C3;
+        --splash-spine: #242C33;
       }
-      html.dark[data-theme="forest-library"],
-      html.dark[data-theme="forest-library"] body {
-        background-color: #142321;
-        color: #F0E7D5;
+      html.dark[data-theme="forest-library"] {
+        --splash-bg: #142321;
+        --splash-fg: #F0E7D5;
+        --splash-muted: #B5AA96;
+        --splash-emblem-bg: #1C2D29;
+        --splash-emblem-border: #3B4436;
+        --splash-spine: #244B40;
       }
-      html.dark[data-theme="midnight-library"],
-      html.dark[data-theme="midnight-library"] body {
-        background-color: #0F100F;
-        color: #F4F2EC;
+      html.dark[data-theme="midnight-library"] {
+        --splash-bg: #0F100F;
+        --splash-fg: #F4F2EC;
+        --splash-muted: #A9A69C;
+        --splash-emblem-bg: #181918;
+        --splash-emblem-border: #333532;
+        --splash-orbit-a: #E0B654;
+        --splash-spine: #181918;
       }
-      html.dark[data-theme="hylle-editorial"],
-      html.dark[data-theme="hylle-editorial"] body {
-        background-color: #0B0D0C;
-        color: #F3EFE6;
+      html.dark[data-theme="hylle-editorial"] {
+        --splash-bg: #0B0D0C;
+        --splash-fg: #F3EFE6;
+        --splash-muted: #9C9688;
+        --splash-emblem-bg: #141513;
+        --splash-emblem-border: #282924;
+        --splash-orbit-a: #D2B35B;
+        --splash-spine: #141513;
       }
       .lr-boot-splash {
         min-height: 100vh;
@@ -134,18 +202,13 @@
         width: 4rem;
         height: 4rem;
         border-radius: 0.875rem;
-        background-color: #9E572C;
-        border: 1px solid #C6A77B;
-        box-shadow: 0 12px 26px -10px rgba(41, 39, 32, 0.28);
+        background-color: var(--splash-emblem-bg);
+        border: 1px solid var(--splash-emblem-border);
+        box-shadow: var(--splash-emblem-shadow);
         display: flex;
         align-items: center;
         justify-content: center;
         animation: lr-splash-breathe 2.1s ease-in-out infinite;
-      }
-      html.dark .lr-boot-emblem {
-        background-color: #19251F;
-        border-color: #2A3B32;
-        box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.55);
       }
       .lr-boot-orbit {
         transform-origin: 16px 16px;
@@ -161,11 +224,8 @@
       .lr-boot-sub {
         font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
         font-size: 0.75rem;
-        color: #665B4D;
+        color: var(--splash-muted);
         margin: 0;
-      }
-      html.dark .lr-boot-sub {
-        color: #B3B0A1;
       }
       @keyframes lr-splash-breathe {
         0%, 100% {
@@ -322,15 +382,15 @@
           <div class="lr-boot-emblem">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" width="38" height="38">
               <g class="lr-boot-orbit">
-                <path d="M8.5 7.5C11.5 4.3 17.2 3.7 21.5 6L23.5 7.2" stroke="#D0AD55" stroke-width="1.8" stroke-linecap="round"/>
-                <path d="M22.4 4.2L24 7.5L20.5 8" stroke="#D0AD55" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M23.5 24.5C20.5 27.7 14.8 28.3 10.5 26L8.5 24.8" stroke="#A8B59A" stroke-width="1.8" stroke-linecap="round"/>
-                <path d="M9.6 27.8L8 24.5L11.5 24" stroke="#A8B59A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M8.5 7.5C11.5 4.3 17.2 3.7 21.5 6L23.5 7.2" stroke="var(--splash-orbit-a)" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M22.4 4.2L24 7.5L20.5 8" stroke="var(--splash-orbit-a)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M23.5 24.5C20.5 27.7 14.8 28.3 10.5 26L8.5 24.8" stroke="var(--splash-orbit-b)" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M9.6 27.8L8 24.5L11.5 24" stroke="var(--splash-orbit-b)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
               </g>
-              <path d="M16 11.4C13.6 10.1 10.2 10.1 7.5 11V20.8C10.2 20 13.6 20 16 21.3C18.4 20 21.8 20 24.5 20.8V11C21.8 10.1 18.4 10.1 16 11.4Z" fill="#FFFCF5"/>
-              <path d="M16 11.5V21.2" stroke="#244B40" stroke-width="1.4" stroke-linecap="round"/>
-              <path d="M9.8 13.8H13.6M9.8 16.3H13.6" stroke="#B38B43" stroke-width="1.3" stroke-linecap="round"/>
-              <path d="M18.4 13.8H22.2M18.4 16.3H22.2" stroke="#B38B43" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M16 11.4C13.6 10.1 10.2 10.1 7.5 11V20.8C10.2 20 13.6 20 16 21.3C18.4 20 21.8 20 24.5 20.8V11C21.8 10.1 18.4 10.1 16 11.4Z" fill="var(--splash-page)"/>
+              <path d="M16 11.5V21.2" stroke="var(--splash-spine)" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M9.8 13.8H13.6M9.8 16.3H13.6" stroke="var(--splash-lines)" stroke-width="1.3" stroke-linecap="round"/>
+              <path d="M18.4 13.8H22.2M18.4 16.3H22.2" stroke="var(--splash-lines)" stroke-width="1.3" stroke-linecap="round"/>
             </svg>
           </div>
         </div>

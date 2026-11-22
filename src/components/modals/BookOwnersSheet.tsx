@@ -57,7 +57,7 @@ export const BookOwnersSheet: React.FC<BookOwnersSheetProps> = ({
   return (
     <div
       data-backdrop-action="close-owners-sheet"
-      className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="fixed inset-0 z-[75] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div

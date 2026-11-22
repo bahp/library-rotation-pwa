@@ -79,7 +79,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="shelf-placement-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
       onClick={onClose}
     >
       <div
@@ -261,7 +261,7 @@ export const ShelfPlacementModal: React.FC<ShelfPlacementModalProps> = ({
               <button
                 type="button"
                 onClick={handleClearAll}
-                className="min-h-[48px] sm:min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-all active:scale-[0.98] whitespace-nowrap"
+                className="min-h-[48px] sm:min-h-[38px] px-2.5 py-1.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-danger transition-all active:scale-[0.98] whitespace-nowrap"
               >
                 Clear
               </button>

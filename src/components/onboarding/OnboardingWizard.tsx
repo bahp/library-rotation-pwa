@@ -685,7 +685,7 @@ export const OnboardingWizard: React.FC = () => {
       : '';
     const altTitle = slide.titleKey ? t(slide.titleKey) : slide.title;
     return (
-      <div className="w-full max-w-[230px] sm:max-w-[285px] aspect-[4/3] mx-auto rounded-3xl overflow-hidden bg-[#FCF9F2] ring-1 ring-black/5 shadow-sm flex items-center justify-center p-2.5 select-none">
+      <div className="w-full max-w-[230px] sm:max-w-[285px] aspect-[4/3] mx-auto rounded-3xl overflow-hidden bg-illustration-paper ring-1 ring-hairline shadow-sm flex items-center justify-center p-2.5 select-none">
         {illustrationSrc ? (
           <img
             src={illustrationSrc}
@@ -1424,7 +1424,7 @@ export const OnboardingWizard: React.FC = () => {
                       {wizard.step2Error && (
                         <p
                           role="alert"
-                          className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]"
+                          className="text-xs font-medium text-danger"
                         >
                           {wizard.step2Error}
                         </p>
@@ -1567,7 +1567,7 @@ export const OnboardingWizard: React.FC = () => {
                         {wizard.step3Error && (
                           <p
                             role="alert"
-                            className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]"
+                            className="text-xs font-medium text-danger"
                           >
                             {wizard.step3Error}
                           </p>
@@ -1611,7 +1611,7 @@ export const OnboardingWizard: React.FC = () => {
                                     <span>{p.name}</span>
                                     <span
                                       className={`font-mono-tabular text-[11px] ${
-                                        count === 0 ? 'text-[#8C4A4F] dark:text-[#C48A8E]' : 'text-ink-muted'
+                                        count === 0 ? 'text-danger' : 'text-ink-muted'
                                       }`}
                                     >
                                       {count}
@@ -1683,7 +1683,7 @@ export const OnboardingWizard: React.FC = () => {
                             </div>
 
                             {selectedTopics.length === 0 && topicsTargetProfile && (
-                              <p className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+                              <p className="text-xs font-medium text-danger">
                                 {t('onboarding.step3MinTopicInline', {
                                   name: topicsTargetProfile.name,
                                 })}
@@ -1790,7 +1790,7 @@ export const OnboardingWizard: React.FC = () => {
                                 <span
                                   className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                                     selected
-                                      ? 'bg-black/15 text-primary-fg'
+                                      ? 'bg-overlay-tint text-primary-fg'
                                       : 'bg-surface-elevated text-primary'
                                   }`}
                                 >
@@ -1928,7 +1928,7 @@ export const OnboardingWizard: React.FC = () => {
                                       {preset.swatches.map((hex, i) => (
                                         <span
                                           key={`${preset.id}-${i}`}
-                                          className="w-3.5 h-3.5 rounded-full border border-black/15"
+                                          className="w-3.5 h-3.5 rounded-full border border-hairline"
                                           style={{ backgroundColor: hex }}
                                         />
                                       ))}
@@ -2103,7 +2103,7 @@ export const OnboardingWizard: React.FC = () => {
       {/* ================================================================== */}
       {wizard.isReaderSheetOpen && (
         <div
-          className="sheet-backdrop fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+          className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
           role="dialog"
           aria-modal="true"
           aria-label={
@@ -2143,7 +2143,7 @@ export const OnboardingWizard: React.FC = () => {
               className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
             >
               {wizard.sheetError && (
-                <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+                <p role="alert" className="text-xs font-medium text-danger">
                   {wizard.sheetError}
                 </p>
               )}

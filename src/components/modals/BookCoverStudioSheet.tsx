@@ -156,7 +156,7 @@ export const BookCoverStudioSheet: React.FC<BookCoverStudioSheetProps> = ({
   return (
     <div
       data-cover-studio-sheet="true"
-      className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="fixed inset-0 z-[75] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div
@@ -174,7 +174,7 @@ export const BookCoverStudioSheet: React.FC<BookCoverStudioSheetProps> = ({
         {/* Sheet Header */}
         <div className="px-5 pt-4 pb-2 flex items-start justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="shrink-0 rounded-lg overflow-hidden shadow-md ring-1 ring-black/10 dark:ring-white/10">
+            <div className="shrink-0 rounded-lg overflow-hidden shadow-md ring-1 ring-hairline">
               <BookCover book={book} size="sm" aspectRatio={coverAspectRatio} />
             </div>
             <div className="min-w-0">
@@ -251,7 +251,7 @@ export const BookCoverStudioSheet: React.FC<BookCoverStudioSheetProps> = ({
             </form>
 
             {error && (
-              <p role="alert" className="text-xs text-[#8C4A4F] dark:text-[#C48A8E]">
+              <p role="alert" className="text-xs text-danger">
                 {error}
               </p>
             )}
@@ -331,7 +331,7 @@ export const BookCoverStudioSheet: React.FC<BookCoverStudioSheetProps> = ({
                   await onClearCover();
                   onClose();
                 }}
-                className="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 transition-colors cursor-pointer"
+                className="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold text-danger hover:bg-danger/10 transition-colors cursor-pointer"
               >
                 Reset to Cloth Cover
               </button>

@@ -73,8 +73,7 @@ export const PASSPORT_STAMPS = [
     caption: 'COMPLETED',
     icon: 'check',
     symbol: '✓',
-    color: 'bg-emerald-600 text-white border-emerald-700',
-    inkColor: '#059669',
+    color: 'lr-stamp-emerald',
     rotation: '-6deg',
   },
   {
@@ -83,8 +82,7 @@ export const PASSPORT_STAMPS = [
     caption: 'TOP PICK',
     icon: 'heartFilled',
     symbol: '❤️',
-    color: 'bg-rose-600 text-white border-rose-700',
-    inkColor: '#e11d48',
+    color: 'lr-stamp-rose',
     rotation: '4deg',
   },
   {
@@ -93,8 +91,7 @@ export const PASSPORT_STAMPS = [
     caption: 'EXCELLENT',
     icon: 'starFilled',
     symbol: '★',
-    color: 'bg-amber-500 text-white border-amber-600',
-    inkColor: '#d97706',
+    color: 'lr-stamp-amber',
     rotation: '-4deg',
   },
   {
@@ -103,8 +100,7 @@ export const PASSPORT_STAMPS = [
     caption: 'SPELLBOUND',
     icon: 'sparkles',
     symbol: '✨',
-    color: 'bg-purple-600 text-white border-purple-700',
-    inkColor: '#7c3aed',
+    color: 'lr-stamp-purple',
     rotation: '8deg',
   },
   {
@@ -113,8 +109,7 @@ export const PASSPORT_STAMPS = [
     caption: 'DISCOVERY',
     icon: 'compass',
     symbol: '🧭',
-    color: 'bg-indigo-600 text-white border-indigo-700',
-    inkColor: '#4f46e5',
+    color: 'lr-stamp-indigo',
     rotation: '-8deg',
   },
   {
@@ -123,8 +118,7 @@ export const PASSPORT_STAMPS = [
     caption: 'HONOR',
     icon: 'award',
     symbol: '🏆',
-    color: 'bg-yellow-600 text-white border-yellow-700',
-    inkColor: '#ca8a04',
+    color: 'lr-stamp-yellow',
     rotation: '5deg',
   },
   {
@@ -133,8 +127,7 @@ export const PASSPORT_STAMPS = [
     caption: 'NIGHT READ',
     icon: 'moon',
     symbol: '🌙',
-    color: 'bg-sky-700 text-white border-sky-800',
-    inkColor: '#0369a1',
+    color: 'lr-stamp-sky',
     rotation: '-3deg',
   },
   {
@@ -143,8 +136,7 @@ export const PASSPORT_STAMPS = [
     caption: 'SMART',
     icon: 'book',
     symbol: '🦉',
-    color: 'bg-teal-700 text-white border-teal-800',
-    inkColor: '#0f766e',
+    color: 'lr-stamp-teal',
     rotation: '6deg',
   },
 ];
@@ -159,7 +151,7 @@ export const PASSPORT_ACHIEVEMENTS = [
     description: 'Read every volume in a dedicated book collection or story cycle',
     icon: 'award',
     badgeText: 'Complete Series',
-    colorClass: 'text-amber-700 bg-amber-50 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300',
+    colorClass: 'lr-ach-amber',
   },
   {
     id: 'bedtime-champion',
@@ -167,7 +159,7 @@ export const PASSPORT_ACHIEVEMENTS = [
     description: 'Listened to 7 evening read-alouds without missing a single night',
     icon: 'moon',
     badgeText: '7 Nights in a Row',
-    colorClass: 'text-indigo-700 bg-indigo-50 border-indigo-300 dark:bg-indigo-950/40 dark:text-indigo-300',
+    colorClass: 'lr-ach-indigo',
   },
   {
     id: 'silly-voices',
@@ -175,7 +167,7 @@ export const PASSPORT_ACHIEVEMENTS = [
     description: 'Created 3 hilarious or mysterious character voices during storytime',
     icon: 'sparkles',
     badgeText: 'Great Voices',
-    colorClass: 'text-rose-700 bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300',
+    colorClass: 'lr-ach-rose',
   },
   {
     id: 'pillow-fort',
@@ -183,7 +175,7 @@ export const PASSPORT_ACHIEVEMENTS = [
     description: 'Built a secret blanket fort with a flashlight for cozy reading',
     icon: 'compass',
     badgeText: 'Cozy Fort',
-    colorClass: 'text-emerald-700 bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300',
+    colorClass: 'lr-ach-emerald',
   },
   {
     id: 'curious-questions',
@@ -191,7 +183,7 @@ export const PASSPORT_ACHIEVEMENTS = [
     description: 'Asked "Why?" or predicted how the story would end before the last page',
     icon: 'search',
     badgeText: 'Deep Thinker',
-    colorClass: 'text-sky-700 bg-sky-50 border-sky-300 dark:bg-sky-950/40 dark:text-sky-300',
+    colorClass: 'lr-ach-sky',
   },
   {
     id: 'first-chapter',
@@ -199,7 +191,7 @@ export const PASSPORT_ACHIEVEMENTS = [
     description: 'Tackled an early chapter book and read to the exciting climax',
     icon: 'book',
     badgeText: 'Chapter Master',
-    colorClass: 'text-purple-700 bg-purple-50 border-purple-300 dark:bg-purple-950/40 dark:text-purple-300',
+    colorClass: 'lr-ach-purple',
   },
 ];
 
@@ -333,16 +325,16 @@ export const DEFAULT_PASSPORT_PRESETS = [
  * Printable cut-out sticker token definitions for the 'stamp-sheet' layout.
  */
 export const PRINTABLE_STICKER_TOKENS = [
-  { id: 'tok-1', title: 'READ IT!', subtitle: 'Finished Book', icon: 'check', color: '#059669', symbol: '✓' },
-  { id: 'tok-2', title: 'FAVORITE', subtitle: '5 Stars Loved', icon: 'heartFilled', color: '#e11d48', symbol: '❤️' },
-  { id: 'tok-3', title: 'GOLD STAR', subtitle: 'Story Master', icon: 'starFilled', color: '#d97706', symbol: '★' },
-  { id: 'tok-4', title: 'WIZARD', subtitle: 'Spellbound Read', icon: 'sparkles', color: '#7c3aed', symbol: '✨' },
-  { id: 'tok-5', title: 'EXPLORER', subtitle: 'Discovery Trip', icon: 'compass', color: '#4f46e5', symbol: '🧭' },
-  { id: 'tok-6', title: 'NIGHT OWL', subtitle: 'Bedtime Read', icon: 'moon', color: '#0369a1', symbol: '🌙' },
-  { id: 'tok-7', title: 'CHAMPION', subtitle: 'Grand Reader', icon: 'award', color: '#ca8a04', symbol: '🏆' },
-  { id: 'tok-8', title: 'SUPER SMILE', subtitle: 'Fun & Giggles', icon: 'sparkles', color: '#f59e0b', symbol: '😄' },
-  { id: 'tok-9', title: 'PAW PRINT', subtitle: 'Animal Friend', icon: 'book', color: '#0d9488', symbol: '🐾' },
-  { id: 'tok-10', title: 'ROCKET', subtitle: 'Fast Reader', icon: 'compass', color: '#dc2626', symbol: '🚀' },
-  { id: 'tok-11', title: 'HONOR MEDAL', subtitle: 'Great Effort', icon: 'award', color: '#b45309', symbol: '🎖️' },
-  { id: 'tok-12', title: 'STORY QUEST', subtitle: 'New Horizon', icon: 'book', color: '#2563eb', symbol: '📖' },
+  { id: 'tok-1', title: 'READ IT!', subtitle: 'Finished Book', icon: 'check', badgeClass: 'lr-stamp-emerald', symbol: '✓' },
+  { id: 'tok-2', title: 'FAVORITE', subtitle: '5 Stars Loved', icon: 'heartFilled', badgeClass: 'lr-stamp-rose', symbol: '❤️' },
+  { id: 'tok-3', title: 'GOLD STAR', subtitle: 'Story Master', icon: 'starFilled', badgeClass: 'lr-stamp-amber', symbol: '★' },
+  { id: 'tok-4', title: 'WIZARD', subtitle: 'Spellbound Read', icon: 'sparkles', badgeClass: 'lr-stamp-purple', symbol: '✨' },
+  { id: 'tok-5', title: 'EXPLORER', subtitle: 'Discovery Trip', icon: 'compass', badgeClass: 'lr-stamp-indigo', symbol: '🧭' },
+  { id: 'tok-6', title: 'NIGHT OWL', subtitle: 'Bedtime Read', icon: 'moon', badgeClass: 'lr-stamp-sky', symbol: '🌙' },
+  { id: 'tok-7', title: 'CHAMPION', subtitle: 'Grand Reader', icon: 'award', badgeClass: 'lr-stamp-yellow', symbol: '🏆' },
+  { id: 'tok-8', title: 'SUPER SMILE', subtitle: 'Fun & Giggles', icon: 'sparkles', badgeClass: 'lr-stamp-amber', symbol: '😄' },
+  { id: 'tok-9', title: 'PAW PRINT', subtitle: 'Animal Friend', icon: 'book', badgeClass: 'lr-stamp-teal', symbol: '🐾' },
+  { id: 'tok-10', title: 'ROCKET', subtitle: 'Fast Reader', icon: 'compass', badgeClass: 'lr-stamp-rose', symbol: '🚀' },
+  { id: 'tok-11', title: 'HONOR MEDAL', subtitle: 'Great Effort', icon: 'award', badgeClass: 'lr-stamp-amber', symbol: '🎖️' },
+  { id: 'tok-12', title: 'STORY QUEST', subtitle: 'New Horizon', icon: 'book', badgeClass: 'lr-stamp-indigo', symbol: '📖' },
 ];

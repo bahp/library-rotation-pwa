@@ -6,6 +6,7 @@ import { BottomNav } from './BottomNav.js';
 import { Toast } from '../common/Toast.js';
 import { ProfileSwitcherSheet } from './ProfileSwitcherSheet.js';
 import { NotificationCenterModal } from './NotificationCenterModal.js';
+import { SearchModal } from '../modals/SearchModal.js';
 import { Icon } from '../common/Icon.js';
 
 interface AppShellProps {
@@ -94,6 +95,9 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Notification Center & History Modal */}
       <NotificationCenterModal />
+
+      {/* Global Search & Scan Entry Window */}
+      <SearchModal />
     </div>
   );
 };

@@ -101,7 +101,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
     <div
       data-found-book-sheet="true"
       data-backdrop-action="close-found-book-sheet"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       role="dialog"
       aria-modal="true"
       aria-labelledby="found-book-sheet-title"
@@ -241,7 +241,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                   onClick={() => setIntakeLoved(!intakeLoved)}
                   className={`col-span-3 min-h-[48px] px-2.5 py-2 rounded-lg text-xs font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 transition-colors cursor-pointer ${
                     intakeLoved
-                      ? 'bg-[#8C4A4F] text-[#FFFCF5] shadow-xs'
+                      ? 'bg-loved text-loved-fg shadow-xs'
                       : 'bg-surface-subtle hover:bg-surface-elevated text-ink border border-edge'
                   }`}
                 >

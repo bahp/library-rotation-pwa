@@ -274,7 +274,7 @@ export const RotationsView: React.FC = () => {
               onClick={() => {
                 if (isMobileViewport) setIsGeneratorOpen(false);
               }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end justify-center p-0 overflow-hidden sm:static sm:inset-auto sm:z-auto sm:bg-transparent sm:backdrop-blur-none sm:block"
+              className="fixed inset-0 z-50 bg-scrim backdrop-blur-sm flex items-end justify-center p-0 overflow-hidden sm:static sm:inset-auto sm:z-auto sm:bg-transparent sm:backdrop-blur-none sm:block"
             >
               <div
                 onClick={(e) => e.stopPropagation()}

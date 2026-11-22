@@ -132,7 +132,7 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="cover-studio-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
@@ -219,7 +219,7 @@ export const CoverStudioModal: React.FC<CoverStudioModalProps> = ({
         </form>
 
         {error && (
-          <p className="mt-2 text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
+          <p className="mt-2 text-xs text-danger font-medium">
             {error}
           </p>
         )}

@@ -244,7 +244,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
                     : 'opacity-80 hover:opacity-100'
                 }`}
               >
-                {isSelected && <Icon name="check" className="w-4 h-4 text-[#FFFCF5]" />}
+                {isSelected && <Icon name="check" className="w-4 h-4" />}
               </button>
             );
           })}
@@ -340,7 +340,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="profile-form-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div
@@ -390,7 +390,7 @@ export const ProfileFormSheet: React.FC<ProfileFormSheetProps> = ({
         </div>
 
         {error && (
-          <div className="mt-3 p-2.5 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
+          <div className="mt-3 p-2.5 rounded-lg bg-danger/10 border border-danger/35 text-xs text-danger font-medium">
             {error}
           </div>
         )}

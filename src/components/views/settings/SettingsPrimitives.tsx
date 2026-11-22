@@ -55,9 +55,9 @@ interface SettingsMenuRowProps {
 
 const ICON_TONE_CLASSES: Record<NonNullable<SettingsMenuRowProps['iconTone']>, string> = {
   teal: 'bg-primary/10 text-primary',
-  amber: 'bg-[#9E6E32]/12 text-[#9E6E32] dark:bg-[#D0AD55]/15 dark:text-[#D0AD55]',
-  indigo: 'bg-[#394E61]/12 text-[#394E61] dark:bg-[#94A8B8]/15 dark:text-[#94A8B8]',
-  rose: 'bg-[#8C4A4F]/12 text-[#8C4A4F] dark:bg-[#C48A8E]/15 dark:text-[#C48A8E]',
+  amber: 'bg-warning/12 text-warning',
+  indigo: 'bg-info/12 text-info',
+  rose: 'bg-danger/12 text-danger',
   slate: 'bg-surface-elevated text-ink-secondary',
 };
 

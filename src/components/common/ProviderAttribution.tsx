@@ -140,21 +140,19 @@ export const ProviderAttribution: React.FC<ProviderAttributionProps> = ({
   const displayEntries = catalogEntries.length > 0 ? catalogEntries : ordered.slice(0, 2);
 
   return (
-    <span
+    <div
       data-provider-provenance={displayEntries.map((e) => e.id).join('+')}
-      className={`inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[11px] leading-tight ${className}`}
+      className={`flex flex-col items-start gap-1 text-[11px] leading-tight ${className}`}
     >
       {prefix && (
-        <span className="text-ink-secondary mr-0.5">{prefix}</span>
+        <span className="text-ink-secondary font-medium">{prefix}</span>
       )}
-      {displayEntries.map((entry, idx) => (
-        <React.Fragment key={`${entry.id}-${idx}`}>
-          {idx > 0 && (
-            <span aria-hidden="true" className="text-ink-muted px-0.5">
-              +
-            </span>
-          )}
-          <span className="inline-flex items-center gap-1 whitespace-nowrap font-medium text-ink">
+      <div className="flex flex-col gap-1 w-full">
+        {displayEntries.map((entry, idx) => (
+          <span
+            key={`${entry.id}-${idx}`}
+            className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-ink"
+          >
             <ProviderLogo providerId={entry.id} />
             <span>{entry.label}</span>
             {includeExternalIds && entry.externalId && (
@@ -166,8 +164,8 @@ export const ProviderAttribution: React.FC<ProviderAttributionProps> = ({
               </span>
             )}
           </span>
-        </React.Fragment>
-      ))}
-    </span>
+        ))}
+      </div>
+    </div>
   );
 };

@@ -101,6 +101,27 @@ export const ScanView: React.FC = () => {
   booksRef.current = state.books;
 
   useEffect(() => {
+    const resolved = resolveScanEntryState(routeParams);
+    const nextTab = resolved.intakeTab === 'isbn' ? 'search' : (resolved.intakeTab as 'scanner' | 'search' | 'manual');
+    if (routeParams.get('tab')) {
+      if (nextTab !== 'scanner') {
+        scanner.stopCamera();
+      }
+      setActiveTab(nextTab);
+    }
+    if (routeParams.get('mode')) {
+      setScanMode(resolved.scanMode);
+      scanner.setMode(resolved.scanMode);
+    }
+    const prefillTitle = routeParams.get('title');
+    const prefillAuthors = routeParams.get('authors');
+    const prefillIsbn = routeParams.get('isbn');
+    if (prefillTitle !== null) setManualTitle(prefillTitle);
+    if (prefillAuthors !== null) setManualAuthors(prefillAuthors);
+    if (prefillIsbn !== null) setManualIsbn(prefillIsbn);
+  }, [routeParams, scanner]);
+
+  useEffect(() => {
     scanner.initSupport().catch(() => {});
   }, [scanner]);
 
@@ -390,18 +411,18 @@ export const ScanView: React.FC = () => {
   const isTorchOn = Boolean(scannerState.torchOn);
 
   const frameBorderClasses = isLocked
-    ? 'border-2 border-[#A8B59A] bg-[#142321]/50 shadow-[0_0_0_4px_rgba(168,181,154,0.28)]'
+    ? 'border-2 lr-scanner-locked-ring'
     : isActiveSweep
-      ? 'border-2 border-[#D0AD55] bg-transparent'
-      : 'border-2 border-[#F0E7D5]/60 group-hover:border-[#D0AD55] bg-[#142321]/35';
+      ? 'border-2 border-scanner-accent bg-transparent'
+      : 'border-2 border-scanner-ink/60 group-hover:border-scanner-accent bg-scanner/35';
 
-  const cornerAccentColor = isLocked ? 'border-[#A8B59A]' : 'border-[#D0AD55]';
+  const cornerAccentColor = isLocked ? 'border-scanner-locked' : 'border-scanner-accent';
 
   const sweepLineClasses = isLocked
-    ? 'bg-[#A8B59A] top-1/2 -translate-y-1/2 h-0.5 shadow-[0_0_10px_rgba(168,181,154,0.85)]'
+    ? 'lr-scanner-locked-dot top-1/2 -translate-y-1/2 h-0.5'
     : isActiveSweep
-      ? 'bg-[#D0AD55] top-0 h-0.5 shadow-[0_0_12px_rgba(208,173,85,0.85)] animate-scan-sweep'
-      : 'bg-[#F0E7D5]/30 top-1/2 -translate-y-1/2 h-px';
+      ? 'lr-scanner-accent-dot top-0 h-0.5 animate-scan-sweep'
+      : 'bg-scanner-ink/30 top-1/2 -translate-y-1/2 h-px';
 
   let lockReadoutText = canTapViewportToStart
     ? `Tap Frame to Start · ${activeMode.label}`
@@ -438,7 +459,7 @@ export const ScanView: React.FC = () => {
         <img
           src={scannerState.uploadedPreviewUrl}
           alt="Uploaded book scan preview"
-          className="absolute inset-0 z-0 w-full h-full object-contain bg-[#142321]"
+          className="absolute inset-0 z-0 w-full h-full object-contain bg-scanner"
         />
       )}
 
@@ -468,19 +489,19 @@ export const ScanView: React.FC = () => {
 
         {showCenterBadge && (
           <span
-            className={`px-3 py-1 rounded-md bg-[#142321]/90 border border-[#F0E7D5]/20 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
-              isLocked ? 'text-[#A8B59A] font-semibold' : 'text-[#F0E7D5]'
+            className={`px-3 py-1 rounded-md bg-scanner/90 border border-scanner-ink/20 text-[11px] font-mono-tabular tracking-wide inline-flex items-center gap-1.5 text-center ${
+              isLocked ? 'text-scanner-locked font-semibold' : 'text-scanner-ink'
             }`}
           >
             {canTapViewportToStart && !isLocked && !(isSearching && pendingIsbn) && (
-              <Icon name="camera" className="w-3.5 h-3.5 text-[#D0AD55]" />
+              <Icon name="camera" className="w-3.5 h-3.5 text-scanner-accent" />
             )}
             <span>{lockReadoutText}</span>
           </span>
         )}
       </div>
 
-      <span className="relative z-10 mt-3 px-3 py-1 rounded-md bg-[#142321]/80 text-[11px] text-[#F0E7D5]/90 text-center max-w-sm">
+      <span className="relative z-10 mt-3 px-3 py-1 rounded-md bg-scanner/80 text-[11px] text-scanner-ink/90 text-center max-w-sm">
         {activeMode.hint}
       </span>
     </>
@@ -577,12 +598,12 @@ export const ScanView: React.FC = () => {
                   data-action="start-camera-scan"
                   aria-label={`Start camera in ${activeMode.label} mode`}
                   onClick={handleStartCamera}
-                  className="group w-full relative h-64 sm:h-80 rounded-xl bg-[#142321] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-[#3B4436] shadow-inner cursor-pointer transition-transform active:scale-[0.996]"
+                  className="group w-full relative h-64 sm:h-80 rounded-xl bg-scanner flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-scanner-edge shadow-inner cursor-pointer transition-transform active:scale-[0.996]"
                 >
                   {viewportInner}
                 </button>
               ) : (
-                <div className="w-full relative h-64 sm:h-80 rounded-xl bg-[#142321] flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-[#3B4436] shadow-inner">
+                <div className="w-full relative h-64 sm:h-80 rounded-xl bg-scanner flex flex-col items-center justify-center overflow-hidden p-4 select-none border border-scanner-edge shadow-inner">
                   {viewportInner}
                 </div>
               )}
@@ -617,13 +638,13 @@ export const ScanView: React.FC = () => {
                         type="button"
                         data-action="stop-camera-scan"
                         onClick={() => scanner.stopCamera()}
-                        className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-[#8C4A4F] hover:opacity-90 active:scale-[0.98] text-[#FFFCF5] text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                        className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-danger-solid hover:bg-danger-solid-hover active:scale-[0.98] text-danger-solid-fg text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                       >
                         <Icon name="close" className="w-4 h-4" />
                         <span>Stop</span>
                       </button>
 
-                      {(scanMode === 'cover' || scanMode === 'isbn-ocr') && (
+                      {scanMode === 'cover' && (
                         <button
                           type="button"
                           data-action="capture-live-frame"
@@ -631,7 +652,7 @@ export const ScanView: React.FC = () => {
                           className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg text-xs font-semibold transition-all inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
                         >
                           <Icon name="camera" className="w-4 h-4" />
-                          <span>{scanMode === 'cover' ? 'Capture Cover' : 'Read ISBN'}</span>
+                          <span>Capture Cover</span>
                         </button>
                       )}
 
@@ -644,7 +665,7 @@ export const ScanView: React.FC = () => {
                         title="Toggle rear camera flashlight"
                         className={`min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg text-xs font-semibold transition-all active:scale-[0.98] inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                           isTorchOn
-                            ? 'bg-accent text-[#FFFCF5] shadow-xs'
+                            ? 'bg-accent text-accent-fg shadow-xs'
                             : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
                         }`}
                       >
@@ -691,24 +712,24 @@ export const ScanView: React.FC = () => {
                         <Icon name="scan" className="w-4 h-4" />
                         <span>Full-Screen View</span>
                       </button>
+
+                      <label
+                        htmlFor="scan-photo-upload-input"
+                        className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge active:scale-[0.98] text-xs font-semibold text-ink transition-all inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                      >
+                        <Icon name="photo" className="w-4 h-4" />
+                        <span>Upload Photo</span>
+                        <input
+                          id="scan-photo-upload-input"
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          className="sr-only"
+                        />
+                      </label>
                     </>
                   )}
-
-                  <label
-                    htmlFor="scan-photo-upload-input"
-                    className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge active:scale-[0.98] text-xs font-semibold text-ink transition-all inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  >
-                    <Icon name="photo" className="w-4 h-4" />
-                    <span>Upload Photo</span>
-                    <input
-                      id="scan-photo-upload-input"
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="sr-only"
-                    />
-                  </label>
 
                   {(isLocked || scannerState.uploadedPreviewUrl) && (
                     <button
@@ -814,9 +835,9 @@ export const ScanView: React.FC = () => {
               {(scannerState.errorMessage || (searchError && !notFoundIsbn)) && (
                 <div
                   role="alert"
-                  className="rounded-xl bg-surface-elevated border border-[#8C4A4F]/40 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  className="rounded-xl bg-danger/10 border border-danger/35 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                 >
-                  <p className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+                  <p className="text-xs font-medium text-danger">
                     {scannerState.errorMessage || searchError}
                   </p>
                   <button
@@ -957,7 +978,7 @@ export const ScanView: React.FC = () => {
               )}
 
               {searchError && (
-                <p role="alert" className="text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
+                <p role="alert" className="text-xs text-danger font-medium">
                   {searchError}
                 </p>
               )}
@@ -971,7 +992,7 @@ export const ScanView: React.FC = () => {
               className="space-y-3.5 bg-surface p-4 sm:p-5 rounded-xl border border-edge shadow-2xs text-xs"
             >
               {manualError && (
-                <p role="alert" className="text-xs text-[#8C4A4F] dark:text-[#C48A8E] font-medium">
+                <p role="alert" className="text-xs text-danger font-medium">
                   {manualError}
                 </p>
               )}

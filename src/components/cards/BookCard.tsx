@@ -182,7 +182,7 @@ export const BookCard: React.FC<BookCardProps> = ({
               aria-label={book.loved ? 'Remove from loved' : 'Mark as loved'}
               className={`shrink-0 min-h-[44px] min-w-[44px] rounded-lg flex items-center justify-center transition-colors border cursor-pointer ${
                 book.loved
-                  ? 'text-[#8C4A4F] dark:text-[#C48A8E] bg-surface-elevated border-[#8C4A4F]/40'
+                  ? 'text-loved bg-surface-elevated border-loved/45'
                   : 'text-ink-muted hover:text-ink bg-surface-subtle hover:bg-surface-elevated border-edge'
               }`}
             >
@@ -291,7 +291,7 @@ export const BookCard: React.FC<BookCardProps> = ({
               aria-label={book.loved ? 'Remove from loved' : 'Mark as loved'}
               className={`shrink-0 min-h-[38px] min-w-[38px] sm:min-h-[36px] sm:min-w-[36px] rounded-lg flex items-center justify-center transition-colors border cursor-pointer ${
                 book.loved
-                  ? 'text-[#8C4A4F] dark:text-[#C48A8E] bg-surface-elevated border-[#8C4A4F]/40'
+                  ? 'text-loved bg-surface-elevated border-loved/45'
                   : 'text-ink-muted hover:text-ink bg-surface-subtle hover:bg-surface-elevated border-edge'
               }`}
             >

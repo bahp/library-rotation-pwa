@@ -155,7 +155,7 @@ export const PlayView: React.FC = () => {
           {/* Backdrop */}
           <div
             onClick={() => setActiveAppId(null)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity animate-fade-in"
+            className="fixed inset-0 bg-scrim backdrop-blur-sm transition-opacity animate-fade-in"
           />
 
           {/* Bottom Sheet Container */}

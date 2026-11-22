@@ -51,6 +51,8 @@ export interface AppContextType {
   isNotificationCenterOpen: boolean;
   setIsNotificationCenterOpen: (open: boolean) => void;
   unreadNotificationCount: number;
+  isSearchOpen: boolean;
+  setIsSearchOpen: (open: boolean) => void;
 
   // AI Modals
   aiTagModal: { isOpen: boolean; bookId: string | null };
@@ -100,6 +102,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState(false);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
       return typeof localStorage !== 'undefined' && localStorage.getItem('lr_sidebar_collapsed') === '1';
@@ -181,6 +184,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Close transient sheets on route change
       setIsFilterDrawerOpen(false);
       setIsProfileSwitcherOpen(false);
+      setIsSearchOpen(false);
     });
 
     const handlePwaUpdate = () => {
@@ -300,6 +304,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     isNotificationCenterOpen,
     setIsNotificationCenterOpen,
     unreadNotificationCount,
+    isSearchOpen,
+    setIsSearchOpen,
     aiTagModal,
     setAiTagModal,
     aiCuratorModal,

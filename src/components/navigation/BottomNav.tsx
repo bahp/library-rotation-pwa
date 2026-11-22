@@ -50,7 +50,7 @@ export const BottomNav: React.FC = () => {
       }
       className={`md:hidden fixed bottom-0 left-0 right-0 z-40 pb-safe px-safe ${
         useNativeChrome
-          ? 'backdrop-blur-xl border-t border-edge/50 shadow-[0_-10px_28px_-8px_rgba(0,0,0,0.3)]'
+          ? 'backdrop-blur-xl border-t border-edge/50 shadow-nav-bottom'
           : 'bg-surface border-t border-edge shadow-lg'
       }`}
     >
@@ -99,9 +99,9 @@ export const BottomNav: React.FC = () => {
                       : 'w-11 h-11 rounded-xl'
                   } ${
                     isActive
-                      ? 'bg-primary text-primary-fg shadow-[0_10px_26px_-4px_color-mix(in_srgb,var(--primary)_65%,transparent)] ring-2 ring-accent/45 scale-[1.03]'
+                      ? 'bg-primary text-primary-fg shadow-nav-fab ring-2 ring-accent/45 scale-[1.03]'
                       : useNativeChrome
-                        ? 'text-ink border border-edge/85 shadow-[0_10px_24px_-4px_rgba(0,0,0,0.35)] group-hover:text-primary'
+                        ? 'text-ink border border-edge/85 shadow-nav-fab-idle group-hover:text-primary'
                         : 'bg-surface-elevated text-ink border border-edge shadow-xs ring-2 ring-surface group-hover:text-primary'
                   }`}
                 >

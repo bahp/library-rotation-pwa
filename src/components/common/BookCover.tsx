@@ -157,7 +157,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
     >
       {/* Cloth-bound Fallback always underneath */}
       <div
-        className={`lr-cover-fallback absolute inset-0 flex overflow-hidden ${radiusClass} ${palette.bg} ${palette.text} border border-black/15 dark:border-white/10`}
+        className={`lr-cover-fallback absolute inset-0 flex overflow-hidden ${radiusClass} ${palette.bg} ${palette.text} border border-hairline`}
       >
         <div className={`${isGrid ? 'w-3' : 'w-2'} h-full shrink-0 ${palette.spine}`} />
         <div className={`flex-1 ${isGrid ? 'p-2.5 sm:p-3' : 'p-2'} flex flex-col justify-between min-w-0 text-left`}>
@@ -204,7 +204,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
         <div className="pointer-events-none absolute top-1.5 right-1.5 z-20">
           <span
             aria-label="Loved favorite"
-            className="w-5 h-5 rounded-full bg-[#8C4A4F]/95 text-[#FFFCF5] flex items-center justify-center shadow-xs"
+            className="w-5 h-5 rounded-full bg-loved/95 text-loved-fg flex items-center justify-center shadow-xs"
           >
             <Icon name="heartFilled" className="w-3 h-3" />
           </span>

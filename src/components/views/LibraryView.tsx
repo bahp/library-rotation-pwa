@@ -4,7 +4,14 @@ import { ClearableInput } from '../common/ClearableInput.js';
 import { Icon } from '../common/Icon.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { FilterDrawer, LibraryFilterControls } from '../modals/FilterDrawer.js';
+import { ReaderFilterSheet } from '../modals/ReaderFilterSheet.js';
+import { AiCollectionSearchSheet } from '../modals/AiCollectionSearchSheet.js';
+import { FoundBookSheet } from '../modals/FoundBookSheet.js';
+import { NativeBarcodeScannerModal } from '../scan/NativeBarcodeScannerModal.js';
 import { BookCover } from '../common/BookCover.js';
+import { acquireCameraStream } from '../../features/scan/camera-access.js';
+import type { BookCandidate } from '../../features/catalog/normalizer.js';
+import type { BookCondition } from '../../types/models.js';
 import {
   computeOwnerInitials,
   formatBookBinding,
@@ -33,7 +40,6 @@ export const LibraryView: React.FC = () => {
     globalSearchQuery,
     setGlobalSearchQuery,
     setInspectedBookId,
-    setAiRecsModal,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState(
@@ -48,9 +54,13 @@ export const LibraryView: React.FC = () => {
   const [freshnessFilter, setFreshnessFilter] = useState('all');
   const [sortBy, setSortBy] = useState('default');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [isReaderSheetOpen, setIsReaderSheetOpen] = useState(false);
+  const [isAiSearchOpen, setIsAiSearchOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
-  const [isSyncingCatalog, setIsSyncingCatalog] = useState(false);
-  const [syncProgressLabel, setSyncProgressLabel] = useState('');
+  const [isQuickScannerOpen, setIsQuickScannerOpen] = useState(false);
+  const [prewarmedStreamPromise, setPrewarmedStreamPromise] =
+    useState<Promise<MediaStream> | null>(null);
+  const [foundCandidate, setFoundCandidate] = useState<BookCandidate | null>(null);
 
   React.useEffect(() => {
     setSearchQuery(globalSearchQuery);
@@ -122,41 +132,6 @@ export const LibraryView: React.FC = () => {
     () => state.books.filter((b) => Boolean(b.loved)).length,
     [state.books]
   );
-
-  const booksNeedingSyncCount = useMemo(() => {
-    return state.books.filter((b) => {
-      const hasGoogle = (b.sources || []).some(
-        (s) => String(s?.provider || '').toLowerCase() === 'google-books'
-      );
-      return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear;
-    }).length;
-  }, [state.books]);
-
-  const handleSyncCatalogMetadata = async () => {
-    if (isSyncingCatalog) return;
-    setIsSyncingCatalog(true);
-    setSyncProgressLabel('Syncing…');
-    try {
-      const res = await store.syncExistingCatalogMetadata(catalogService, {
-        onProgress: ({ current, total }: { current: number; total: number }) => {
-          setSyncProgressLabel(`${current}/${total}`);
-        },
-      });
-      if (res.updatedCount > 0) {
-        store.notify(
-          `Updated metadata for ${res.updatedCount} ${res.updatedCount === 1 ? 'book' : 'books'}.`,
-          'success'
-        );
-      } else {
-        store.notify('All library books already have current metadata.', 'info');
-      }
-    } catch (err) {
-      store.notify(err instanceof Error ? err.message : String(err), 'error');
-    } finally {
-      setIsSyncingCatalog(false);
-      setSyncProgressLabel('');
-    }
-  };
 
   // Effective unified owners list
   const effectiveOwners = useMemo(() => {
@@ -395,6 +370,140 @@ export const LibraryView: React.FC = () => {
     [state.profiles]
   );
 
+  const toggleOwnerFilter = (ownerKey: string) => {
+    const target = ownerKey.trim();
+    if (!target) return;
+
+    const baseList =
+      ownerFilter === 'custom' && selectedOwners.length > 0
+        ? [...selectedOwners]
+        : ownerFilter === 'active-reader' && activeProfile
+          ? [activeProfile.id, 'shared']
+          : ownerFilter !== 'all' && ownerFilter !== 'custom'
+            ? [ownerFilter]
+            : [];
+
+    const targetLower = target.toLowerCase();
+    const exists = baseList.some((o) => o.toLowerCase() === targetLower);
+    const nextList = exists
+      ? baseList.filter((o) => o.toLowerCase() !== targetLower)
+      : [...baseList, target];
+
+    if (nextList.length === 0) {
+      setOwnerFilter('all');
+      setSelectedOwners([]);
+      return;
+    }
+
+    if (
+      activeProfile &&
+      nextList.length === 2 &&
+      nextList.some((o) => o.toLowerCase() === activeProfile.id.toLowerCase()) &&
+      nextList.some((o) => o.toLowerCase() === 'shared')
+    ) {
+      setOwnerFilter('active-reader');
+      setSelectedOwners([]);
+      return;
+    }
+
+    setOwnerFilter('custom');
+    setSelectedOwners(nextList);
+  };
+
+  const selectAllReaders = () => {
+    setOwnerFilter('all');
+    setSelectedOwners([]);
+  };
+
+  const readersPillLabel = useMemo(() => {
+    if (effectiveOwners.length === 0) return 'All Readers';
+    const firstKey = effectiveOwners[0].toLowerCase();
+    const firstLabel = firstKey === 'shared' ? 'Shared' : profileNameMap.get(firstKey) || effectiveOwners[0];
+    if (effectiveOwners.length === 1) return firstLabel;
+    return `${firstLabel} +${effectiveOwners.length - 1}`;
+  }, [effectiveOwners, profileNameMap]);
+
+  const handleOpenQuickScanner = () => {
+    setPrewarmedStreamPromise(acquireCameraStream('environment'));
+    setIsQuickScannerOpen(true);
+  };
+
+  const handleQuickIsbnDetected = async (isbn13: string) => {
+    setIsQuickScannerOpen(false);
+    setPrewarmedStreamPromise(null);
+
+    const localMatch = state.books.find(
+      (b) => b.isbn13 === isbn13 || b.isbn10 === isbn13
+    );
+
+    try {
+      const res = await catalogService.lookupByIsbn(isbn13, {
+        retainRaw: state.settings?.retainRawProviderPayloads,
+        enabledProviderIds: state.settings?.enabledMetadataProviders,
+      });
+      if (res.candidate) {
+        setFoundCandidate(res.candidate);
+        return;
+      }
+      if (localMatch) {
+        setInspectedBookId(localMatch.id);
+        return;
+      }
+      store.notify(`ISBN ${isbn13} not found online — add manually.`, 'info');
+      navigate('scan', { tab: 'manual', isbn: isbn13 });
+    } catch (err) {
+      if (localMatch) {
+        setInspectedBookId(localMatch.id);
+      } else {
+        store.notify(err instanceof Error ? err.message : String(err), 'error');
+      }
+    }
+  };
+
+  const handleQuickTitleDetected = async (titleQuery: string) => {
+    setIsQuickScannerOpen(false);
+    setPrewarmedStreamPromise(null);
+    try {
+      const res = await catalogService.searchBooks(
+        { query: titleQuery },
+        {
+          retainRaw: state.settings?.retainRawProviderPayloads,
+          enabledProviderIds: state.settings?.enabledMetadataProviders,
+          limit: 5,
+        }
+      );
+      if (res.candidates[0]) {
+        setFoundCandidate(res.candidates[0]);
+      } else {
+        store.notify(`No online match for "${titleQuery}".`, 'info');
+      }
+    } catch (err) {
+      store.notify(err instanceof Error ? err.message : String(err), 'error');
+    }
+  };
+
+  const handleAddQuickCandidate = async (
+    candidate: BookCandidate,
+    status: 'owned' | 'wishlist',
+    opts?: { condition?: BookCondition; owners?: string[]; loved?: boolean }
+  ) => {
+    try {
+      await store.addBookFromCandidate(candidate, {
+        collectionStatus: status,
+        condition: opts?.condition || 'good',
+        owners: opts?.owners || (activeProfile ? [activeProfile.id, 'shared'] : ['shared']),
+        loved: opts?.loved || false,
+      });
+      setFoundCandidate(null);
+      store.notify(
+        `Added "${candidate.title}" to ${status === 'owned' ? 'Library' : 'Wishlist'}`,
+        'success'
+      );
+    } catch (err) {
+      store.notify(err instanceof Error ? err.message : String(err), 'error');
+    }
+  };
+
   const sharedFilterProps = {
     catalogFilter,
     setCatalogFilter,
@@ -418,72 +527,7 @@ export const LibraryView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 text-left min-w-0 overflow-x-clip">
-      {/* Header Row */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
-            {isForActiveReader && activeProfile
-              ? `For ${activeProfile.name} & Shared`
-              : isAllBooksScope
-                ? state.settings?.householdName
-                  ? `${state.settings.householdName} · All Household Books`
-                  : 'All Household Books'
-                : 'Custom Reader Selection'}
-          </p>
-          <h1 className="font-display text-3xl sm:text-[34px] font-semibold tracking-tight text-ink leading-tight mt-0.5">
-            Family Library
-            <span className="text-xs font-sans font-semibold text-ink-secondary font-mono-tabular ml-2.5 px-2 py-0.5 rounded-md bg-surface-elevated border border-edge align-middle">
-              {filteredBooks.length}/{state.books.length}
-            </span>
-          </h1>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {booksNeedingSyncCount > 0 && (
-            <button
-              type="button"
-              data-action="sync-library-metadata"
-              disabled={isSyncingCatalog}
-              onClick={handleSyncCatalogMetadata}
-              title={`Fetch missing covers, page counts, or publication years for ${booksNeedingSyncCount} books`}
-              className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-elevated disabled:opacity-60 border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
-            >
-              <Icon name="refresh" className={`w-3.5 h-3.5 ${isSyncingCatalog ? 'animate-spin' : ''}`} />
-              <span>
-                {isSyncingCatalog
-                  ? syncProgressLabel || 'Syncing…'
-                  : `Sync Metadata (${booksNeedingSyncCount})`}
-              </span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            data-action="open-ai-recommendations"
-            onClick={() => setAiRecsModal({ isOpen: true })}
-            title="Get AI book recommendations & collection gap analysis"
-            className="min-h-[44px] sm:min-h-[40px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-elevated text-ink border border-edge text-xs font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
-          >
-            <Icon name="sparkles" className="w-4 h-4 text-accent" />
-            <span>AI Discover</span>
-          </button>
-
-          <a
-            href="#/scan"
-            onClick={(e) => {
-              e.preventDefault();
-              navigate('scan');
-            }}
-            aria-label="Scan or add a new book"
-            className="min-h-[44px] sm:min-h-[40px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-xs transition-all active:scale-[0.98] shrink-0 whitespace-nowrap"
-          >
-            <Icon name="plus" className="w-4 h-4" />
-            <span>Add Book</span>
-          </a>
-        </div>
-      </div>
-
+    <div className="space-y-4 text-left min-w-0 overflow-x-clip">
       {/* Desktop 2-Column Layout: Persistent Collapsible Filter Sidebar + Responsive Catalog Grid */}
       <div className="lg:flex lg:items-start lg:gap-6">
         {isDesktopSidebarOpen && (
@@ -526,106 +570,93 @@ export const LibraryView: React.FC = () => {
 
         {/* Right Main Catalog Workspace */}
         <div className="flex-1 min-w-0 space-y-3.5">
-          {/* Search + Controls Row */}
-          <div className="space-y-2">
-            <div className="relative min-w-0">
-              <span className="pointer-events-none absolute inset-y-0 left-3 z-10 flex items-center text-ink-muted">
-                <Icon name="search" className="w-4 h-4" />
-              </span>
-              <ClearableInput
-                id="catalog-search-input"
-                value={searchQuery}
-                onValueChange={handleSearchChange}
-                placeholder="Search title, author, ISBN, owner, or topic…"
-                className="w-full h-11 pl-9 pr-9 rounded-lg bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              {/* Mobile Filter Drawer Trigger */}
-              <button
-                type="button"
-                data-action="open-library-filters"
-                aria-label="Open library filters sidebar"
-                onClick={() => setIsFilterDrawerOpen(true)}
-                className={`lg:hidden min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap shrink-0 cursor-pointer ${
-                  activeFilterCount > 0
-                    ? 'bg-primary text-primary-fg'
-                    : 'bg-surface text-ink border border-edge hover:bg-surface-elevated'
-                }`}
-              >
-                <Icon name="filter" className="w-3.5 h-3.5" />
-                <span>Filters</span>
-                {activeFilterCount > 0 && (
-                  <span className="font-mono-tabular text-[11px]">({activeFilterCount})</span>
-                )}
-              </button>
-
-              {/* Desktop Sidebar Toggle */}
-              <button
-                type="button"
-                onClick={() => setIsDesktopSidebarOpen((prev) => !prev)}
-                aria-pressed={isDesktopSidebarOpen}
-                className={`hidden lg:inline-flex min-h-[38px] px-3 py-1 rounded-lg text-xs font-semibold items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  isDesktopSidebarOpen
-                    ? 'bg-surface-elevated text-ink border border-edge'
-                    : 'bg-surface text-ink border border-edge hover:bg-surface-elevated'
-                }`}
-              >
-                <Icon name="filter" className="w-3.5 h-3.5" />
-                <span>{isDesktopSidebarOpen ? 'Hide Filters' : 'Show Filters'}</span>
-                {activeFilterCount > 0 && (
-                  <span className="font-mono-tabular text-[11px]">({activeFilterCount})</span>
-                )}
-              </button>
-
-              {activeProfile && (
-                <div
-                  role="group"
-                  aria-label="Reader book scope"
-                  className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge shrink-0"
-                >
+          {/* Search + Thin Horizontal Pill Strip */}
+          <div className="space-y-2.5">
+            <ClearableInput
+              id="catalog-search-input"
+              value={searchQuery}
+              onValueChange={handleSearchChange}
+              leadingIcon={<Icon name="search" className="w-4 h-4" />}
+              placeholder="Search your collection"
+              aria-label="Search your collection"
+              trailingWidth="double"
+              className="h-11 rounded-xl bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
+              trailingElement={
+                <div className="flex items-center gap-0.5">
                   <button
                     type="button"
-                    data-action="set-owner-filter"
-                    data-owner="active-reader"
-                    aria-pressed={isForActiveReader ? 'true' : 'false'}
-                    onClick={() => {
-                      setOwnerFilter('active-reader');
-                      setSelectedOwners([]);
-                    }}
-                    className={`min-h-[34px] px-2.5 py-1 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
-                      isForActiveReader
-                        ? 'bg-surface text-ink shadow-2xs'
-                        : 'text-ink-secondary hover:text-ink'
-                    }`}
+                    data-action="open-ai-collection-search"
+                    aria-label="AI book search"
+                    title="AI book search"
+                    onClick={() => setIsAiSearchOpen(true)}
+                    className="min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-accent hover:bg-surface-subtle transition-colors cursor-pointer"
                   >
-                    <span
-                      className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center shrink-0 ${activeToneClass}`}
-                    >
-                      {computeOwnerInitials(activeProfile.name)}
-                    </span>
-                    <span>For {activeProfile.name}</span>
+                    <Icon name="sparkles" className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
-                    data-action="set-owner-filter"
-                    data-owner="all"
-                    aria-pressed={isAllBooksScope ? 'true' : 'false'}
+                    data-action="open-library-filters"
+                    aria-label={
+                      activeFilterCount > 0
+                        ? `Open filters sidebar (${activeFilterCount} active)`
+                        : 'Open filters sidebar'
+                    }
                     onClick={() => {
-                      setOwnerFilter('all');
-                      setSelectedOwners([]);
+                      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                        setIsFilterDrawerOpen(true);
+                      } else {
+                        setIsDesktopSidebarOpen((prev) => !prev);
+                      }
                     }}
-                    className={`min-h-[34px] px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                      isAllBooksScope
-                        ? 'bg-surface text-ink shadow-2xs'
-                        : 'text-ink-secondary hover:text-ink'
+                    className={`relative min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                      activeFilterCount > 0
+                        ? 'text-primary bg-primary/10 hover:bg-primary/15'
+                        : 'text-ink-secondary hover:text-ink hover:bg-surface-subtle'
                     }`}
                   >
-                    All Books
+                    <Icon name="sliders" className="w-4 h-4" />
+                    {activeFilterCount > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-primary"
+                      />
+                    )}
                   </button>
                 </div>
-              )}
+              }
+            />
+
+            {/* Thin Horizontal Scrolling Pills Row */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {/* Multi-Select Readers Dropdown Pill */}
+              <button
+                type="button"
+                data-action="open-reader-filter-sheet"
+                aria-expanded={isReaderSheetOpen ? 'true' : 'false'}
+                onClick={() => setIsReaderSheetOpen(true)}
+                className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  effectiveOwners.length > 0
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface text-ink border border-edge hover:bg-surface-elevated'
+                }`}
+              >
+                {effectiveOwners.length === 1 && effectiveOwners[0].toLowerCase() !== 'shared' && (() => {
+                  const matchedChoice = ownerChoices.find(
+                    (c) => c.key.toLowerCase() === effectiveOwners[0].toLowerCase()
+                  );
+                  const pillTone =
+                    AVATAR_TONES[matchedChoice?.tone || 'teal'] || AVATAR_TONES.teal;
+                  return (
+                    <span
+                      className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center shrink-0 ${pillTone}`}
+                    >
+                      {readersPillLabel.charAt(0).toUpperCase()}
+                    </span>
+                  );
+                })()}
+                <span>{readersPillLabel}</span>
+                <Icon name="chevronDown" className="w-3.5 h-3.5 opacity-80" />
+              </button>
 
               <button
                 type="button"
@@ -633,10 +664,10 @@ export const LibraryView: React.FC = () => {
                 data-filter="all"
                 aria-pressed={catalogFilter === 'all' ? 'true' : 'false'}
                 onClick={() => setCatalogFilter('all')}
-                className={`min-h-[38px] px-3 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   catalogFilter === 'all'
-                    ? 'bg-primary text-primary-fg'
-                    : 'bg-surface text-ink-secondary border border-edge hover:text-ink'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface text-ink-secondary border border-edge hover:text-ink hover:bg-surface-elevated'
                 }`}
               >
                 All
@@ -648,16 +679,18 @@ export const LibraryView: React.FC = () => {
                 data-filter="wishlist"
                 aria-pressed={catalogFilter === 'wishlist' ? 'true' : 'false'}
                 aria-label={`Wishlist, ${wishlistCount} ${wishlistCount === 1 ? 'book' : 'books'}`}
-                title="Wishlist"
-                onClick={() => setCatalogFilter('wishlist')}
-                className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                onClick={() =>
+                  setCatalogFilter((prev) => (prev === 'wishlist' ? 'all' : 'wishlist'))
+                }
+                className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   catalogFilter === 'wishlist'
-                    ? 'bg-primary text-primary-fg'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
                     : 'bg-surface text-accent border border-edge hover:bg-surface-elevated'
                 }`}
               >
                 <Icon name="bookmark" className="w-3.5 h-3.5" />
-                <span className="font-mono-tabular">{wishlistCount}</span>
+                <span>Wishlist</span>
+                <span className="font-mono-tabular text-[11px] opacity-85">{wishlistCount}</span>
               </button>
 
               <button
@@ -666,22 +699,58 @@ export const LibraryView: React.FC = () => {
                 data-filter="loved"
                 aria-pressed={catalogFilter === 'loved' ? 'true' : 'false'}
                 aria-label={`Loved, ${lovedCount} ${lovedCount === 1 ? 'book' : 'books'}`}
-                title="Loved favorites"
-                onClick={() => setCatalogFilter('loved')}
-                className={`min-h-[38px] px-2.5 py-1 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                onClick={() =>
+                  setCatalogFilter((prev) => (prev === 'loved' ? 'all' : 'loved'))
+                }
+                className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   catalogFilter === 'loved'
-                    ? 'bg-[#8C4A4F] text-[#FFFCF5] shadow-2xs'
-                    : 'bg-surface text-[#8C4A4F] dark:text-[#C48A8E] border border-edge hover:bg-surface-elevated'
+                    ? 'bg-loved text-loved-fg shadow-2xs'
+                    : 'bg-surface text-danger border border-edge hover:bg-surface-elevated'
                 }`}
               >
-                <Icon name={catalogFilter === 'loved' ? 'heartFilled' : 'heart'} className="w-3.5 h-3.5" />
-                <span className="font-mono-tabular">{lovedCount}</span>
+                <Icon
+                  name={catalogFilter === 'loved' ? 'heartFilled' : 'heart'}
+                  className="w-3.5 h-3.5"
+                />
+                <span>Loved</span>
+                <span className="font-mono-tabular text-[11px] opacity-85">{lovedCount}</span>
               </button>
+
+              {[
+                { id: 'hardcover', label: 'Hardcover' },
+                { id: 'board-book', label: 'Board Book' },
+                { id: 'paperback', label: 'Paperback' },
+              ].map((fmt) => {
+                const active = selectedFormats.includes(fmt.id);
+                return (
+                  <button
+                    key={fmt.id}
+                    type="button"
+                    data-action="toggle-library-format"
+                    data-format={fmt.id}
+                    aria-pressed={active ? 'true' : 'false'}
+                    onClick={() =>
+                      setSelectedFormats((prev) =>
+                        prev.includes(fmt.id)
+                          ? prev.filter((f) => f !== fmt.id)
+                          : [...prev, fmt.id]
+                      )
+                    }
+                    className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                      active
+                        ? 'bg-primary text-primary-fg shadow-2xs'
+                        : 'bg-surface text-ink-secondary border border-edge hover:text-ink hover:bg-surface-elevated'
+                    }`}
+                  >
+                    {fmt.label}
+                  </button>
+                );
+              })}
 
               <div
                 role="group"
                 aria-label="Catalog layout"
-                className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge shrink-0 ml-auto"
+                className="inline-flex items-center p-0.5 rounded-full bg-surface-subtle border border-edge shrink-0 ml-auto"
               >
                 <button
                   type="button"
@@ -691,7 +760,7 @@ export const LibraryView: React.FC = () => {
                   aria-label="Grid view"
                   title="Grid view"
                   onClick={() => store.updateSettings({ bookViewMode: 'grid' })}
-                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                  className={`min-h-[30px] min-w-[30px] px-2 rounded-full inline-flex items-center justify-center transition-colors cursor-pointer ${
                     viewMode === 'grid'
                       ? 'bg-primary text-primary-fg shadow-2xs'
                       : 'text-ink-secondary hover:text-ink'
@@ -707,7 +776,7 @@ export const LibraryView: React.FC = () => {
                   aria-label="List view"
                   title="List view"
                   onClick={() => store.updateSettings({ bookViewMode: 'list' })}
-                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                  className={`min-h-[30px] min-w-[30px] px-2 rounded-full inline-flex items-center justify-center transition-colors cursor-pointer ${
                     viewMode === 'list'
                       ? 'bg-primary text-primary-fg shadow-2xs'
                       : 'text-ink-secondary hover:text-ink'
@@ -939,7 +1008,7 @@ export const LibraryView: React.FC = () => {
                           )}
                           {book.loved && (
                             <span
-                              className="w-6 h-6 rounded-full bg-surface-elevated text-[#8C4A4F] dark:text-[#C48A8E] inline-flex items-center justify-center border border-edge"
+                              className="w-6 h-6 rounded-full bg-surface-elevated text-danger inline-flex items-center justify-center border border-edge"
                               title="Loved favorite"
                             >
                               <Icon name="heartFilled" className="w-3.5 h-3.5" />
@@ -1038,7 +1107,7 @@ export const LibraryView: React.FC = () => {
                       {book.loved && (
                         <span
                           data-cover-slot={COVER_BADGE_SLOTS.affection.slot}
-                          className={`${COVER_BADGE_SLOTS.affection.positionClass} w-6 h-6 rounded-full bg-surface/95 text-[#8C4A4F] dark:text-[#C48A8E] flex items-center justify-center shadow-xs border border-edge`}
+                          className={`${COVER_BADGE_SLOTS.affection.positionClass} w-6 h-6 rounded-full bg-surface/95 text-danger flex items-center justify-center shadow-xs border border-edge`}
                           title="Loved favorite"
                         >
                           <Icon name="heartFilled" className="w-3.5 h-3.5" />
@@ -1175,6 +1244,36 @@ export const LibraryView: React.FC = () => {
         </div>
       </div>
 
+      {/* Mobile Floating Bottom-Right + Scan Button */}
+      <button
+        type="button"
+        data-action="library-floating-scan"
+        onClick={handleOpenQuickScanner}
+        aria-label="Scan barcode to add book"
+        title="Scan book"
+        className="md:hidden fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] right-4 z-30 w-13 h-13 rounded-full bg-primary hover:bg-primary-hover text-primary-fg shadow-xl active:scale-95 flex items-center justify-center border border-primary-fg/20 transition-transform cursor-pointer"
+      >
+        <Icon name="plus" className="w-6 h-6" strokeWidth={2.2} />
+      </button>
+
+      {/* AI Collection Search Slide-Up Sheet */}
+      <AiCollectionSearchSheet
+        isOpen={isAiSearchOpen}
+        onClose={() => setIsAiSearchOpen(false)}
+        householdName={state.settings?.householdName}
+      />
+
+      {/* Multi-Select Readers Slide-Up Sheet */}
+      <ReaderFilterSheet
+        isOpen={isReaderSheetOpen}
+        onClose={() => setIsReaderSheetOpen(false)}
+        ownerChoices={ownerChoices}
+        effectiveOwners={effectiveOwners}
+        onToggleOwner={toggleOwnerFilter}
+        onSelectAll={selectAllReaders}
+        filteredCount={filteredBooks.length}
+      />
+
       {/* Mobile Filter Drawer */}
       <FilterDrawer
         isOpen={isFilterDrawerOpen}
@@ -1183,6 +1282,45 @@ export const LibraryView: React.FC = () => {
         filteredCount={filteredBooks.length}
         activeFilterCount={activeFilterCount}
         onResetAll={resetAllFilters}
+      />
+
+      {/* Direct Barcode Scanner launched from Library Floating + */}
+      <NativeBarcodeScannerModal
+        isOpen={isQuickScannerOpen}
+        initialMode="barcode"
+        prewarmedStreamPromise={prewarmedStreamPromise}
+        onDetectedIsbn={(isbn13) => {
+          void handleQuickIsbnDetected(isbn13);
+        }}
+        onDetectedTitle={(titleQuery) => {
+          void handleQuickTitleDetected(titleQuery);
+        }}
+        onClose={() => {
+          setIsQuickScannerOpen(false);
+          setPrewarmedStreamPromise(null);
+        }}
+      />
+
+      {/* Found Book Sheet for saving scanned books directly from Library */}
+      <FoundBookSheet
+        candidate={foundCandidate}
+        isOpen={Boolean(foundCandidate)}
+        onAddOwned={(cand, opts) => handleAddQuickCandidate(cand, 'owned', opts)}
+        onAddWishlist={(cand, opts) => handleAddQuickCandidate(cand, 'wishlist', opts)}
+        onRescan={() => {
+          setFoundCandidate(null);
+          handleOpenQuickScanner();
+        }}
+        onEditManual={(cand) => {
+          setFoundCandidate(null);
+          navigate('scan', {
+            tab: 'manual',
+            title: cand.title,
+            authors: cand.authors.join(', '),
+            isbn: cand.isbn13 || cand.isbn10 || '',
+          });
+        }}
+        onClose={() => setFoundCandidate(null)}
       />
     </div>
   );

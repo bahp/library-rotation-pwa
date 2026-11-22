@@ -172,7 +172,7 @@ export const NotificationCenterModal: React.FC = () => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="notification-center-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
       onClick={closeModal}
     >
       <div
@@ -236,7 +236,7 @@ export const NotificationCenterModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => store.clearNotificationHistory()}
-                className="text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:underline px-2 py-1 cursor-pointer"
+                className="text-[11px] font-semibold text-danger hover:underline px-2 py-1 cursor-pointer"
               >
                 Clear history
               </button>

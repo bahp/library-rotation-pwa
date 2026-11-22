@@ -8,11 +8,11 @@
  * @type {Record<string, string>}
  */
 export const AVATAR_TONES = Object.freeze({
-  teal: 'bg-[#244B40] text-[#FFFCF5] dark:bg-[#82A699] dark:text-[#142321]',
-  amber: 'bg-[#9E6E32] text-[#FFFCF5] dark:bg-[#D0AD55] dark:text-[#142321]',
-  indigo: 'bg-[#394E61] text-[#FFFCF5] dark:bg-[#94A8B8] dark:text-[#142321]',
-  rose: 'bg-[#8C4A4F] text-[#FFFCF5] dark:bg-[#C48A8E] dark:text-[#142321]',
-  emerald: 'bg-[#4B6F52] text-[#FFFCF5] dark:bg-[#A8B59A] dark:text-[#142321]',
+  teal: 'bg-reader-teal text-reader-teal-fg',
+  amber: 'bg-reader-amber text-reader-amber-fg',
+  indigo: 'bg-reader-indigo text-reader-indigo-fg',
+  rose: 'bg-reader-rose text-reader-rose-fg',
+  emerald: 'bg-reader-emerald text-reader-emerald-fg',
 });
 
 /**
@@ -20,11 +20,11 @@ export const AVATAR_TONES = Object.freeze({
  * @type {Record<string, string>}
  */
 export const AVATAR_TONE_PILL_STYLES = Object.freeze({
-  teal: 'bg-[#244B40] text-[#FFFCF5] border-[#244B40] dark:bg-[#243831] dark:text-[#F0E7D5] dark:border-[#82A699] shadow-2xs',
-  amber: 'bg-[#9E6E32] text-[#FFFCF5] border-[#9E6E32] dark:bg-[#2E2A1E] dark:text-[#F0E7D5] dark:border-[#D0AD55] shadow-2xs',
-  indigo: 'bg-[#394E61] text-[#FFFCF5] border-[#394E61] dark:bg-[#222E38] dark:text-[#F0E7D5] dark:border-[#94A8B8] shadow-2xs',
-  rose: 'bg-[#8C4A4F] text-[#FFFCF5] border-[#8C4A4F] dark:bg-[#332224] dark:text-[#F0E7D5] dark:border-[#C48A8E] shadow-2xs',
-  emerald: 'bg-[#4B6F52] text-[#FFFCF5] border-[#4B6F52] dark:bg-[#223328] dark:text-[#F0E7D5] dark:border-[#A8B59A] shadow-2xs',
+  teal: 'lr-reader-pill-teal shadow-2xs',
+  amber: 'lr-reader-pill-amber shadow-2xs',
+  indigo: 'lr-reader-pill-indigo shadow-2xs',
+  rose: 'lr-reader-pill-rose shadow-2xs',
+  emerald: 'lr-reader-pill-emerald shadow-2xs',
 });
 
 /**
@@ -32,11 +32,11 @@ export const AVATAR_TONE_PILL_STYLES = Object.freeze({
  * @type {Record<string, string>}
  */
 export const AVATAR_TONE_BORDER_STYLES = Object.freeze({
-  teal: 'bg-surface text-ink border-2 border-[#244B40] dark:border-[#82A699] shadow-2xs',
-  amber: 'bg-surface text-ink border-2 border-[#9E6E32] dark:border-[#D0AD55] shadow-2xs',
-  indigo: 'bg-surface text-ink border-2 border-[#394E61] dark:border-[#94A8B8] shadow-2xs',
-  rose: 'bg-surface text-ink border-2 border-[#8C4A4F] dark:border-[#C48A8E] shadow-2xs',
-  emerald: 'bg-surface text-ink border-2 border-[#4B6F52] dark:border-[#A8B59A] shadow-2xs',
+  teal: 'bg-surface text-ink border-2 border-reader-teal shadow-2xs',
+  amber: 'bg-surface text-ink border-2 border-reader-amber shadow-2xs',
+  indigo: 'bg-surface text-ink border-2 border-reader-indigo shadow-2xs',
+  rose: 'bg-surface text-ink border-2 border-reader-rose shadow-2xs',
+  emerald: 'bg-surface text-ink border-2 border-reader-emerald shadow-2xs',
 });
 
 /**
@@ -49,11 +49,11 @@ export const AVATAR_TONE_CLASSES = AVATAR_TONES;
  * Selectable profile avatar tone swatches for Add/Edit Reader Profile forms.
  */
 export const PROFILE_AVATAR_TONE_OPTIONS = Object.freeze([
-  { id: 'teal', label: 'Forest Leaf', swatch: 'bg-[#244B40] dark:bg-[#82A699]' },
-  { id: 'amber', label: 'Antique Brass', swatch: 'bg-[#9E6E32] dark:bg-[#D0AD55]' },
-  { id: 'indigo', label: 'Slate Ink', swatch: 'bg-[#394E61] dark:bg-[#94A8B8]' },
-  { id: 'rose', label: 'Pressed Rose', swatch: 'bg-[#8C4A4F] dark:bg-[#C48A8E]' },
-  { id: 'emerald', label: 'Dried Sage', swatch: 'bg-[#4B6F52] dark:bg-[#A8B59A]' },
+  { id: 'teal', label: 'Forest Leaf', swatch: 'bg-reader-teal' },
+  { id: 'amber', label: 'Antique Brass', swatch: 'bg-reader-amber' },
+  { id: 'indigo', label: 'Slate Ink', swatch: 'bg-reader-indigo' },
+  { id: 'rose', label: 'Pressed Rose', swatch: 'bg-reader-rose' },
+  { id: 'emerald', label: 'Dried Sage', swatch: 'bg-reader-emerald' },
 ]);
 
 /**
@@ -62,29 +62,29 @@ export const PROFILE_AVATAR_TONE_OPTIONS = Object.freeze([
  */
 export const BOOK_SPINE_PALETTES_BY_KEY = Object.freeze({
   teal: {
-    bg: 'bg-[#244B40] dark:bg-[#1E3F35]',
-    spine: 'bg-[#17312A]/65',
-    text: 'text-[#F5F0E5]',
+    bg: 'bg-spine-teal',
+    spine: 'bg-spine-teal-edge/65',
+    text: 'text-spine-teal-fg',
   },
   indigo: {
-    bg: 'bg-[#324352] dark:bg-[#273542]',
-    spine: 'bg-[#1C2833]/65',
-    text: 'text-[#F5F0E5]',
+    bg: 'bg-spine-indigo',
+    spine: 'bg-spine-indigo-edge/65',
+    text: 'text-spine-indigo-fg',
   },
   amber: {
-    bg: 'bg-[#8F652E] dark:bg-[#765122]',
-    spine: 'bg-[#563B17]/60',
-    text: 'text-[#FFFCF5]',
+    bg: 'bg-spine-amber',
+    spine: 'bg-spine-amber-edge/60',
+    text: 'text-spine-amber-fg',
   },
   rose: {
-    bg: 'bg-[#7E4044] dark:bg-[#673337]',
-    spine: 'bg-[#4C2326]/60',
-    text: 'text-[#FFFAF9]',
+    bg: 'bg-spine-rose',
+    spine: 'bg-spine-rose-edge/60',
+    text: 'text-spine-rose-fg',
   },
   emerald: {
-    bg: 'bg-[#3B5942] dark:bg-[#2E4634]',
-    spine: 'bg-[#223627]/60',
-    text: 'text-[#F5F0E5]',
+    bg: 'bg-spine-emerald',
+    spine: 'bg-spine-emerald-edge/60',
+    text: 'text-spine-emerald-fg',
   },
 });
 
@@ -130,8 +130,8 @@ export const COVER_CATALOG_BADGE_STYLES = Object.freeze({
     'bg-surface/95 text-ink border border-edge',
   saved:
     'bg-surface-subtle/95 text-ink border border-secondary/60',
-  torn: 'bg-accent/95 text-[#FFFCF5] border border-accent',
-  damaged: 'bg-[#8C4A4F]/95 text-[#FFFCF5] border border-[#8C4A4F]',
+  torn: 'bg-accent/95 text-accent-fg border border-accent',
+  damaged: 'bg-danger-solid/95 text-danger-solid-fg border border-danger-solid',
 });
 
 /**
@@ -146,7 +146,7 @@ export const COVER_ROTATION_ADORNO_STYLES = Object.freeze({
   'stale-unread': {
     icon: 'clock',
     pillClass:
-      'bg-accent/95 text-[#FFFCF5] border-edge/50',
+      'bg-accent/95 text-accent-fg border-edge/50',
   },
   'on-shelf': {
     icon: 'library',

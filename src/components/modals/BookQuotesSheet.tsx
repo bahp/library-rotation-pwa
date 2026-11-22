@@ -119,7 +119,7 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
   return (
     <div
       data-backdrop-action="close-quote-sheet"
-      className="fixed inset-0 z-[75] bg-black/65 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+      className="fixed inset-0 z-[75] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
       onClick={onClose}
     >
       <div
@@ -158,7 +158,7 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 pb-5 pt-2 space-y-4">
           {error && (
-            <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+            <p role="alert" className="text-xs font-medium text-danger">
               {error}
             </p>
           )}
@@ -198,7 +198,7 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
                   <button
                     type="button"
                     onClick={() => setImageDataUrl('')}
-                    className="min-h-[32px] px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 cursor-pointer"
+                    className="min-h-[32px] px-2.5 py-1 rounded-lg text-[11px] font-semibold text-danger hover:bg-danger/10 cursor-pointer"
                   >
                     Remove photo
                   </button>
@@ -296,14 +296,14 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-danger hover:bg-danger/10 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Icon name="trash" className="w-3.5 h-3.5" />
                   <span>Delete this note</span>
                 </button>
               ) : (
-                <div className="rounded-xl bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                <div className="rounded-xl bg-danger/10 border border-danger/35 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-danger">
                     Delete this note?
                   </span>
                   <div className="flex items-center gap-2 ml-auto">
@@ -318,7 +318,7 @@ export const BookQuotesSheet: React.FC<BookQuotesSheetProps> = ({
                       type="button"
                       disabled={saving}
                       onClick={handleDeleteConfirmed}
-                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold cursor-pointer"
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold cursor-pointer"
                     >
                       Confirm Delete
                     </button>

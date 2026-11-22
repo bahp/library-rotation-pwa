@@ -73,7 +73,7 @@ export const RotationEditorModal: React.FC<RotationEditorModalProps> = ({
       aria-modal="true"
       aria-labelledby="rotation-picker-modal-title"
       data-backdrop-action="close-rotation-modal"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div

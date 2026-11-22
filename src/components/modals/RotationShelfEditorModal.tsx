@@ -126,7 +126,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-rotation-sheet-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
       onClick={handleSaveAndClose}
     >
       <div
@@ -556,7 +556,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                         disabled={!canRemove}
                         title={!canRemove ? 'At least one book required' : 'Remove from shelf'}
                         aria-label={`Remove ${book.title} from shelf`}
-                        className="min-h-[42px] rounded-lg bg-surface hover:bg-[#8C4A4F]/10 disabled:opacity-35 border border-edge-subtle text-ink-secondary hover:text-[#8C4A4F] dark:hover:text-[#C48A8E] transition-colors flex items-center justify-center"
+                        className="min-h-[42px] rounded-lg bg-surface hover:bg-danger/10 disabled:opacity-35 border border-edge-subtle text-ink-secondary hover:text-danger transition-colors flex items-center justify-center"
                       >
                         <Icon name="close" className="w-4 h-4" />
                       </button>
@@ -598,14 +598,14 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-[#8C4A4F]/10 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-danger hover:bg-danger/10 transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
                   >
                     <Icon name="trash" className="w-3.5 h-3.5" />
                     <span>Delete Shelf</span>
                   </button>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-1.5">
-                    <span className="text-xs font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg bg-danger/10 border border-danger/35 px-3 py-1.5">
+                    <span className="text-xs font-semibold text-danger">
                       Delete this shelf?
                     </span>
                     <button
@@ -614,7 +614,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                         onDelete();
                         onClose();
                       }}
-                      className="min-h-[34px] px-3 py-1 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold transition-colors"
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold transition-colors"
                     >
                       Yes, Delete
                     </button>

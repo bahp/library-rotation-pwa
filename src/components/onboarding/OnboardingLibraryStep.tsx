@@ -420,7 +420,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
           className="min-h-[88px] sm:min-h-[104px] p-3.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.98] text-primary-fg text-left flex flex-col justify-between gap-2 shadow-sm transition-all cursor-pointer"
         >
           <div className="flex items-center justify-between w-full">
-            <span className="w-8 h-8 rounded-lg bg-black/15 flex items-center justify-center">
+            <span className="w-8 h-8 rounded-lg bg-overlay-tint flex items-center justify-center">
               <Icon name="scan" className="w-4 h-4" />
             </span>
             <span className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
@@ -582,7 +582,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       {/* Modal Sheet: Search Title / Author (Google Books + Open Library) */}
       {activeSheet === 'search' && (
         <div
-          className="sheet-backdrop fixed inset-0 z-40 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+          className="sheet-backdrop fixed inset-0 z-40 bg-scrim backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
           role="dialog"
           aria-modal="true"
           aria-label="Search book title or author"
@@ -662,7 +662,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
               </form>
 
               {searchError && (
-                <p className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">{searchError}</p>
+                <p className="text-xs font-medium text-danger">{searchError}</p>
               )}
 
               {isSearching && <SearchResultsSkeleton rows={3} />}
@@ -720,7 +720,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       {/* Modal Sheet: Manual Book Entry */}
       {activeSheet === 'manual' && (
         <div
-          className="sheet-backdrop fixed inset-0 z-40 bg-black/55 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
+          className="sheet-backdrop fixed inset-0 z-40 bg-scrim backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 text-left"
           role="dialog"
           aria-modal="true"
           aria-label="Add book manually"
@@ -748,7 +748,7 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
 
             <form onSubmit={handleManualSubmit} className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5">
               {manualError && (
-                <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+                <p role="alert" className="text-xs font-medium text-danger">
                   {manualError}
                 </p>
               )}

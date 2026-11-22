@@ -143,7 +143,7 @@ export function renderPresetCornerDecoration(preset) {
     <span
       aria-hidden="true"
       data-preset-decoration="${escapeHtml(motifKey)}"
-      class="pointer-events-none select-none absolute top-2.5 right-2.5 w-12 h-12 sm:w-14 sm:h-14 text-forest-700/16 dark:text-[#5ED3DA]/18 flex items-center justify-center"
+      class="pointer-events-none select-none absolute top-2.5 right-2.5 w-12 h-12 sm:w-14 sm:h-14 text-primary/16 dark:text-highlight/20 flex items-center justify-center"
     >
       <svg
         viewBox="0 0 24 24"

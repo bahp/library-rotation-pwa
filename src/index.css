@@ -26,6 +26,177 @@
  * Edit palette colors, font pairings, badge tints, and card radii here in one place.
  * ============================================================================ */
 
+:where(:root) {
+  /* Elevation & Surface Shadows (Light Mode Defaults) */
+  --elevation-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 6px 18px -6px rgba(20, 35, 33, 0.12),
+    0 2px 5px -1px rgba(20, 35, 33, 0.06);
+  --elevation-nav-top: 0 4px 20px -6px rgba(0, 0, 0, 0.22);
+  --elevation-nav-bottom: 0 -10px 28px -8px rgba(0, 0, 0, 0.30);
+  --elevation-nav-fab: 0 10px 26px -4px color-mix(in srgb, var(--primary) 65%, transparent);
+  --elevation-nav-fab-idle: 0 10px 24px -4px rgba(0, 0, 0, 0.35);
+  --elevation-tooltip: 0 6px 14px rgba(0, 0, 0, 0.32);
+  --elevation-float: 0 6px 18px -4px rgba(0, 0, 0, 0.35);
+  --elevation-cover: 0 12px 28px -8px rgba(0, 0, 0, 0.42);
+  --elevation-cover-hero: 0 22px 46px -12px rgba(0, 0, 0, 0.52), 0 4px 12px -4px rgba(0, 0, 0, 0.28);
+  --elevation-preset-glow: 0 1px 2px rgba(0, 0, 0, 0.08);
+
+  /* Overlay, Glass & Hairline Tokens */
+  --scrim-dense: rgba(15, 16, 15, 0.70);
+  --hairline-ring: rgba(20, 35, 33, 0.14);
+  --overlay-tint: rgba(20, 35, 33, 0.08);
+  --glass-surface: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+  --accent-fg: #FFFCF5;
+
+  /* Semantic Status, Alert & Attribution Tokens */
+  --danger: #8C4A4F;
+  --danger-solid: #8C4A4F;
+  --danger-solid-hover: #7A3F44;
+  --danger-solid-fg: #FFFCF5;
+  --danger-fg: #FFFCF5;
+  --warning: #9E6E32;
+  --warning-fg: #FFFCF5;
+  --info: #394E61;
+  --info-fg: #FFFCF5;
+  --success: #396D59;
+  --success-fg: #FFFCF5;
+  --loved: var(--danger-solid);
+  --loved-fg: var(--danger-solid-fg);
+  --goodreads-ink: #6B5335;
+
+  /* Reader Tone Foreground & Pill Tokens */
+  --reader-teal-fg: #FFFCF5;
+  --reader-amber-fg: #FFFCF5;
+  --reader-indigo-fg: #FFFCF5;
+  --reader-rose-fg: #FFFCF5;
+  --reader-emerald-fg: #FFFCF5;
+  --reader-teal-pill-bg: var(--reader-teal);
+  --reader-amber-pill-bg: var(--reader-amber);
+  --reader-indigo-pill-bg: var(--reader-indigo);
+  --reader-rose-pill-bg: var(--reader-rose);
+  --reader-emerald-pill-bg: var(--reader-emerald);
+  --reader-pill-fg: #FFFCF5;
+
+  /* Cloth-Bound Fallback Book Spine Tokens */
+  --spine-teal-bg: #244B40;
+  --spine-teal-edge: #17312A;
+  --spine-teal-fg: #F5F0E5;
+  --spine-indigo-bg: #324352;
+  --spine-indigo-edge: #1C2833;
+  --spine-indigo-fg: #F5F0E5;
+  --spine-amber-bg: #8F652E;
+  --spine-amber-edge: #563B17;
+  --spine-amber-fg: #FFFCF5;
+  --spine-rose-bg: #7E4044;
+  --spine-rose-edge: #4C2326;
+  --spine-rose-fg: #FFFAF9;
+  --spine-emerald-bg: #3B5942;
+  --spine-emerald-edge: #223627;
+  --spine-emerald-fg: #F5F0E5;
+
+  /* Artwork Contrast Preview & Opaque Slide Paper */
+  --preview-light-bg: #FAF7F2;
+  --preview-light-edge: #E3DDD1;
+  --preview-dark-bg: #101713;
+  --preview-dark-edge: #26352C;
+  --illustration-paper: #FCF9F2;
+
+  /* Camera Viewfinder / Barcode Scanner & Code Block Chamber Tokens */
+  --scanner-bg: #142321;
+  --scanner-surface: #1C2D29;
+  --scanner-surface-hover: #243831;
+  --scanner-surface-active: #2F463E;
+  --scanner-border: #3B4436;
+  --scanner-text: #F0E7D5;
+  --scanner-muted: #B5AA96;
+  --scanner-subtle: #887F70;
+  --scanner-accent: #D0AD55;
+  --scanner-accent-hover: #DFC16F;
+  --scanner-accent-fg: #142321;
+  --scanner-locked: #A8B59A;
+  --scanner-locked-fg: #142321;
+  --scanner-scrim: rgba(20, 35, 33, 0.68);
+  --scanner-error-bg: #2A181A;
+  --scanner-error-fg: #C48A8E;
+  --scanner-error-border: #C48A8E;
+  --code-bg: #142321;
+  --code-surface: #243831;
+  --code-surface-hover: #314B42;
+  --code-border: #3B4436;
+  --code-text: #F0E7D5;
+
+  /* Reading Passport Studio Base Tokens (Classic Theme tracks Active App Theme) */
+  --passport-paper: var(--surface-subtle);
+  --passport-card: color-mix(in srgb, var(--surface) 95%, transparent);
+  --passport-edge: var(--border);
+  --passport-dashed: var(--text-muted);
+  --passport-slot: color-mix(in srgb, var(--background) 65%, transparent);
+  --passport-ink: var(--text-primary);
+  --passport-muted: var(--text-secondary);
+  --passport-accent: var(--primary);
+  --passport-header-bg: linear-gradient(90deg, var(--sidebar-bg) 0%, var(--sidebar-surface) 50%, var(--sidebar-bg) 100%);
+  --passport-header-fg: var(--sidebar-text);
+  --passport-header-border: color-mix(in srgb, var(--sidebar-accent) 45%, transparent);
+  --passport-mrz-bg: #161A1D;
+  --passport-mrz-fg: #67C5E8;
+  --passport-gold: #D4AF37;
+  --passport-gold-deep: #B45309;
+  --passport-gold-light: #FEF3C7;
+  --passport-gold-ink: #451A03;
+  --passport-milestone-bg: rgba(245, 158, 11, 0.10);
+  --passport-milestone-border: rgba(217, 119, 6, 0.45);
+  --passport-milestone-ink: #B45309;
+}
+
+:where(.dark) {
+  /* Elevation & Surface Shadows (Dark Mode Defaults) */
+  --elevation-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 12px 26px -8px rgba(0, 0, 0, 0.58),
+    0 3px 8px -2px rgba(0, 0, 0, 0.34);
+  --elevation-preset-glow: 0 2px 6px rgba(0, 0, 0, 0.45);
+
+  --scrim-dense: rgba(8, 10, 9, 0.78);
+  --hairline-ring: rgba(255, 255, 255, 0.14);
+  --overlay-tint: rgba(255, 255, 255, 0.10);
+  --accent-fg: var(--background);
+
+  --danger: #C48A8E;
+  --danger-fg: #142321;
+  --warning: #D0AD55;
+  --warning-fg: #142321;
+  --info: #94A8B8;
+  --info-fg: #142321;
+  --success: #82A699;
+  --success-fg: #142321;
+  --goodreads-ink: #D5BA90;
+
+  --reader-teal-fg: var(--background);
+  --reader-amber-fg: var(--background);
+  --reader-indigo-fg: var(--background);
+  --reader-rose-fg: var(--background);
+  --reader-emerald-fg: var(--background);
+  --reader-teal-pill-bg: color-mix(in srgb, var(--reader-teal) 18%, var(--surface));
+  --reader-amber-pill-bg: color-mix(in srgb, var(--reader-amber) 18%, var(--surface));
+  --reader-indigo-pill-bg: color-mix(in srgb, var(--reader-indigo) 18%, var(--surface));
+  --reader-rose-pill-bg: color-mix(in srgb, var(--reader-rose) 18%, var(--surface));
+  --reader-emerald-pill-bg: color-mix(in srgb, var(--reader-emerald) 18%, var(--surface));
+  --reader-pill-fg: var(--text-primary);
+
+  --spine-teal-bg: #1E3F35;
+  --spine-indigo-bg: #273542;
+  --spine-amber-bg: #765122;
+  --spine-rose-bg: #673337;
+  --spine-emerald-bg: #2E4634;
+
+  --passport-accent: var(--highlight);
+  --passport-gold-ink: #FDE68A;
+  --passport-milestone-bg: rgba(245, 158, 11, 0.14);
+  --passport-milestone-border: rgba(245, 158, 11, 0.40);
+  --passport-milestone-ink: #FBBF24;
+}
+
 [data-theme="darker-teal"] {
   /* Light Theme — Darker Teal (Default Light — Sidebar rgb(30, 50, 44) #1E322C) */
   --font-display-theme: 'Fraunces', Georgia, serif;
@@ -70,6 +241,12 @@
   --reader-indigo: #3B5570;
   --reader-rose: #984B55;
   --reader-emerald: #396D59;
+
+  --accent-fg: #FFFCF5;
+  --danger: #984B55;
+  --warning: #B38B43;
+  --info: #3B5570;
+  --success: #396D59;
 }
 
 :root,
@@ -125,6 +302,28 @@
   --lr-safe-bottom: env(safe-area-inset-bottom, 0px);
   --lr-safe-left: env(safe-area-inset-left, 0px);
   --lr-safe-right: env(safe-area-inset-right, 0px);
+
+  --accent-fg: #FFFDF8;
+  --danger: #944A54;
+  --warning: #A65E32;
+  --info: #3B5470;
+  --success: #4B6F52;
+  --scanner-bg: #2A221B;
+  --scanner-surface: #352B23;
+  --scanner-surface-hover: #3F3329;
+  --scanner-surface-active: #4D3E32;
+  --scanner-border: #524338;
+  --scanner-text: #F7F1E7;
+  --scanner-muted: #C8BAA7;
+  --scanner-accent: #DFB584;
+  --scanner-accent-hover: #EAD0AD;
+  --scanner-accent-fg: #2A221B;
+  --scanner-scrim: rgba(42, 34, 27, 0.72);
+  --code-bg: #2A221B;
+  --code-surface: #352B23;
+  --code-surface-hover: #473A30;
+  --code-border: #524338;
+  --code-text: #F7F1E7;
 }
 
 [data-theme="classic-teal"] {
@@ -170,6 +369,28 @@
   --reader-indigo: #395572;
   --reader-rose: #9E4A56;
   --reader-emerald: #2F7D63;
+
+  --accent-fg: #FFFFFF;
+  --danger: #9E4A56;
+  --warning: #B38239;
+  --info: #2D6F8A;
+  --success: #2F7D63;
+  --scanner-bg: #0D423E;
+  --scanner-surface: #13504B;
+  --scanner-surface-hover: #175B55;
+  --scanner-surface-active: #1F6E67;
+  --scanner-border: #26706A;
+  --scanner-text: #F8F5EE;
+  --scanner-muted: #B4CECC;
+  --scanner-accent: #7CC3D8;
+  --scanner-accent-hover: #9DD5E6;
+  --scanner-accent-fg: #0D423E;
+  --scanner-scrim: rgba(13, 66, 62, 0.72);
+  --code-bg: #0D423E;
+  --code-surface: #13504B;
+  --code-surface-hover: #1F635D;
+  --code-border: #26706A;
+  --code-text: #F8F5EE;
 }
 
 [data-theme="antique-paper"] {
@@ -215,6 +436,12 @@
   --reader-indigo: #394E61;
   --reader-rose: #8C4A4F;
   --reader-emerald: #4B6F52;
+
+  --accent-fg: #FFFCF5;
+  --danger: #8C4A4F;
+  --warning: #9E6E32;
+  --info: #394E61;
+  --success: #4B6F52;
 }
 
 [data-theme="sky-blue"] {
@@ -260,6 +487,28 @@
   --reader-indigo: #2F6CA8;
   --reader-rose: #9E5266;
   --reader-emerald: #3E785D;
+
+  --accent-fg: #FFFFFF;
+  --danger: #9E5266;
+  --warning: #8C6E42;
+  --info: #2F6CA8;
+  --success: #3E785D;
+  --scanner-bg: #122132;
+  --scanner-surface: #192E45;
+  --scanner-surface-hover: #213B57;
+  --scanner-surface-active: #2A496B;
+  --scanner-border: #335375;
+  --scanner-text: #F0F5FA;
+  --scanner-muted: #AFC3D7;
+  --scanner-accent: #8DB6D9;
+  --scanner-accent-hover: #A9CBE6;
+  --scanner-accent-fg: #122132;
+  --scanner-scrim: rgba(18, 33, 50, 0.72);
+  --code-bg: #122132;
+  --code-surface: #192E45;
+  --code-surface-hover: #254160;
+  --code-border: #335375;
+  --code-text: #F0F5FA;
 }
 
 [data-theme="sage-green"] {
@@ -305,6 +554,28 @@
   --reader-indigo: #465B70;
   --reader-rose: #8E5058;
   --reader-emerald: #4B683B;
+
+  --accent-fg: #FAFCF7;
+  --danger: #8E5058;
+  --warning: #8A6D3B;
+  --info: #465B70;
+  --success: #4B683B;
+  --scanner-bg: #1B271B;
+  --scanner-surface: #243524;
+  --scanner-surface-hover: #2E422E;
+  --scanner-surface-active: #395039;
+  --scanner-border: #425B42;
+  --scanner-text: #F1F3EA;
+  --scanner-muted: #B7C4B3;
+  --scanner-accent: #A5B58B;
+  --scanner-accent-hover: #BCC9A5;
+  --scanner-accent-fg: #1B271B;
+  --scanner-scrim: rgba(27, 39, 27, 0.72);
+  --code-bg: #1B271B;
+  --code-surface: #243524;
+  --code-surface-hover: #314731;
+  --code-border: #425B42;
+  --code-text: #F1F3EA;
 }
 
 [data-theme="blush-pink"] {
@@ -350,6 +621,28 @@
   --reader-indigo: #5B5072;
   --reader-rose: #9E4357;
   --reader-emerald: #52735B;
+
+  --accent-fg: #FFF9F9;
+  --danger: #9E4357;
+  --warning: #9E6846;
+  --info: #5B5072;
+  --success: #52735B;
+  --scanner-bg: #2B1A20;
+  --scanner-surface: #39222A;
+  --scanner-surface-hover: #472B35;
+  --scanner-surface-active: #573541;
+  --scanner-border: #633D4A;
+  --scanner-text: #FBF0EF;
+  --scanner-muted: #D6B8BE;
+  --scanner-accent: #D99AA6;
+  --scanner-accent-hover: #E7B5BE;
+  --scanner-accent-fg: #2B1A20;
+  --scanner-scrim: rgba(43, 26, 32, 0.72);
+  --code-bg: #2B1A20;
+  --code-surface: #39222A;
+  --code-surface-hover: #4E2F3A;
+  --code-border: #633D4A;
+  --code-text: #FBF0EF;
 }
 
 [data-theme="classic-light"] {
@@ -395,6 +688,28 @@
   --reader-indigo: #3F5168;
   --reader-rose: #8C4E58;
   --reader-emerald: #446A52;
+
+  --accent-fg: #FFFFFF;
+  --danger: #8C4E58;
+  --warning: #8A6A42;
+  --info: #3F5168;
+  --success: #446A52;
+  --scanner-bg: #1A1D20;
+  --scanner-surface: #24282C;
+  --scanner-surface-hover: #2E3338;
+  --scanner-surface-active: #393F45;
+  --scanner-border: #434950;
+  --scanner-text: #F5F5F3;
+  --scanner-muted: #B7BDC2;
+  --scanner-accent: #D0AD55;
+  --scanner-accent-hover: #DFC16F;
+  --scanner-accent-fg: #1A1D20;
+  --scanner-scrim: rgba(26, 29, 32, 0.72);
+  --code-bg: #1A1D20;
+  --code-surface: #24282C;
+  --code-surface-hover: #33383D;
+  --code-border: #434950;
+  --code-text: #F5F5F3;
 }
 
 .dark,
@@ -441,6 +756,30 @@
   --reader-indigo: #94A8B8;
   --reader-rose: #C48A8E;
   --reader-emerald: #91A58A;
+
+  --accent-fg: #101713;
+  --danger: #C48A8E;
+  --warning: #C49A55;
+  --info: #94A8B8;
+  --success: #91A58A;
+  --scanner-bg: #101713;
+  --scanner-surface: #19251F;
+  --scanner-surface-hover: #213028;
+  --scanner-surface-active: #2A3D33;
+  --scanner-border: #33483C;
+  --scanner-text: #F1EBDD;
+  --scanner-muted: #B3B0A1;
+  --scanner-accent: #C49A55;
+  --scanner-accent-hover: #D6B06F;
+  --scanner-accent-fg: #101713;
+  --scanner-locked: #91A58A;
+  --scanner-locked-fg: #101713;
+  --scanner-scrim: rgba(16, 23, 19, 0.72);
+  --code-bg: #101713;
+  --code-surface: #19251F;
+  --code-surface-hover: #233A2E;
+  --code-border: #33483C;
+  --code-text: #F1EBDD;
 }
 
 .dark[data-theme="midnight-ink"],
@@ -487,6 +826,30 @@
   --reader-indigo: #9CC8E8;
   --reader-rose: #C88C9D;
   --reader-emerald: #7DB89E;
+
+  --accent-fg: #0B1420;
+  --danger: #C88C9D;
+  --warning: #D2A86A;
+  --info: #9CC8E8;
+  --success: #7DB89E;
+  --scanner-bg: #0B1420;
+  --scanner-surface: #152538;
+  --scanner-surface-hover: #1C314A;
+  --scanner-surface-active: #243E5C;
+  --scanner-border: #2B4766;
+  --scanner-text: #E8F0F7;
+  --scanner-muted: #A6BACD;
+  --scanner-accent: #9CC8E8;
+  --scanner-accent-hover: #B6D8F0;
+  --scanner-accent-fg: #0B1420;
+  --scanner-locked: #7DB89E;
+  --scanner-locked-fg: #0B1420;
+  --scanner-scrim: rgba(11, 20, 32, 0.74);
+  --code-bg: #0B1420;
+  --code-surface: #152538;
+  --code-surface-hover: #1C3D5E;
+  --code-border: #2B4766;
+  --code-text: #E8F0F7;
 }
 
 .dark[data-theme="warm-library"],
@@ -533,6 +896,30 @@
   --reader-indigo: #94A6BC;
   --reader-rose: #C88A8E;
   --reader-emerald: #9EB591;
+
+  --accent-fg: #17120E;
+  --danger: #C88A8E;
+  --warning: #E8BC78;
+  --info: #94A6BC;
+  --success: #9EB591;
+  --scanner-bg: #17120E;
+  --scanner-surface: #292017;
+  --scanner-surface-hover: #362A1E;
+  --scanner-surface-active: #47331E;
+  --scanner-border: #4D3C2C;
+  --scanner-text: #F3E8D7;
+  --scanner-muted: #C1B09B;
+  --scanner-accent: #E8BC78;
+  --scanner-accent-hover: #F2CC91;
+  --scanner-accent-fg: #17120E;
+  --scanner-locked: #9EB591;
+  --scanner-locked-fg: #17120E;
+  --scanner-scrim: rgba(23, 18, 14, 0.74);
+  --code-bg: #17120E;
+  --code-surface: #292017;
+  --code-surface-hover: #47331E;
+  --code-border: #4D3C2C;
+  --code-text: #F3E8D7;
 }
 
 .dark[data-theme="plum-noir"],
@@ -579,6 +966,30 @@
   --reader-indigo: #A49CC8;
   --reader-rose: #DCA4C6;
   --reader-emerald: #96B59C;
+
+  --accent-fg: #19121C;
+  --danger: #DCA4C6;
+  --warning: #D2A679;
+  --info: #A49CC8;
+  --success: #96B59C;
+  --scanner-bg: #19121C;
+  --scanner-surface: #2B1D30;
+  --scanner-surface-hover: #37253D;
+  --scanner-surface-active: #47294E;
+  --scanner-border: #4E3556;
+  --scanner-text: #F3E7F0;
+  --scanner-muted: #C3B0C0;
+  --scanner-accent: #DCA4C6;
+  --scanner-accent-hover: #E9BED8;
+  --scanner-accent-fg: #19121C;
+  --scanner-locked: #96B59C;
+  --scanner-locked-fg: #19121C;
+  --scanner-scrim: rgba(25, 18, 28, 0.74);
+  --code-bg: #19121C;
+  --code-surface: #2B1D30;
+  --code-surface-hover: #47294E;
+  --code-border: #4E3556;
+  --code-text: #F3E7F0;
 }
 
 .dark[data-theme="slate-minimal"],
@@ -625,6 +1036,30 @@
   --reader-indigo: #8DAAC7;
   --reader-rose: #C88C96;
   --reader-emerald: #8CB8A4;
+
+  --accent-fg: #101417;
+  --danger: #C88C96;
+  --warning: #CCA86E;
+  --info: #8DAAC7;
+  --success: #8CB8A4;
+  --scanner-bg: #15191D;
+  --scanner-surface: #242C33;
+  --scanner-surface-hover: #2D3740;
+  --scanner-surface-active: #37434E;
+  --scanner-border: #3E4B57;
+  --scanner-text: #EDF1F3;
+  --scanner-muted: #ADB6BD;
+  --scanner-accent: #39B8C3;
+  --scanner-accent-hover: #58CBD5;
+  --scanner-accent-fg: #101417;
+  --scanner-locked: #8CB8A4;
+  --scanner-locked-fg: #101417;
+  --scanner-scrim: rgba(21, 25, 29, 0.74);
+  --code-bg: #15191D;
+  --code-surface: #242C33;
+  --code-surface-hover: #1D464F;
+  --code-border: #3E4B57;
+  --code-text: #EDF1F3;
 }
 
 .dark[data-theme="forest-library"],
@@ -671,6 +1106,12 @@
   --reader-indigo: #94A8B8;
   --reader-rose: #C48A8E;
   --reader-emerald: #A8B59A;
+
+  --accent-fg: #142321;
+  --danger: #C48A8E;
+  --warning: #D0AD55;
+  --info: #94A8B8;
+  --success: #A8B59A;
 }
 
 .dark[data-theme="midnight-library"],
@@ -717,6 +1158,30 @@
   --reader-indigo: #92A7BD;
   --reader-rose: #CC8E92;
   --reader-emerald: #96B597;
+
+  --accent-fg: #0F100F;
+  --danger: #CC8E92;
+  --warning: #E0B654;
+  --info: #92A7BD;
+  --success: #96B597;
+  --scanner-bg: #0F100F;
+  --scanner-surface: #181918;
+  --scanner-surface-hover: #222321;
+  --scanner-surface-active: #2E2F2C;
+  --scanner-border: #343532;
+  --scanner-text: #F4F2EC;
+  --scanner-muted: #9E9B92;
+  --scanner-accent: #E0B654;
+  --scanner-accent-hover: #EBC66E;
+  --scanner-accent-fg: #0F100F;
+  --scanner-locked: #96B597;
+  --scanner-locked-fg: #0F100F;
+  --scanner-scrim: rgba(15, 16, 15, 0.74);
+  --code-bg: #0F100F;
+  --code-surface: #181918;
+  --code-surface-hover: #2B2A26;
+  --code-border: #343532;
+  --code-text: #F4F2EC;
 }
 
 .dark[data-theme="hylle-editorial"],
@@ -763,6 +1228,30 @@
   --reader-indigo: #94A8BA;
   --reader-rose: #C88C90;
   --reader-emerald: #8FB295;
+
+  --accent-fg: #14120B;
+  --danger: #C88C90;
+  --warning: #D2B35B;
+  --info: #94A8BA;
+  --success: #8FB295;
+  --scanner-bg: #0B0D0C;
+  --scanner-surface: #141513;
+  --scanner-surface-hover: #1B1D1A;
+  --scanner-surface-active: #262823;
+  --scanner-border: #2F312B;
+  --scanner-text: #F3EFE6;
+  --scanner-muted: #9C9688;
+  --scanner-accent: #D2B35B;
+  --scanner-accent-hover: #DFC26E;
+  --scanner-accent-fg: #14120B;
+  --scanner-locked: #8FB295;
+  --scanner-locked-fg: #0B0D0C;
+  --scanner-scrim: rgba(11, 13, 12, 0.76);
+  --code-bg: #0B0D0C;
+  --code-surface: #141513;
+  --code-surface-hover: #1B1D1A;
+  --code-border: #2F312B;
+  --code-text: #F3EFE6;
 }
 
 @theme inline {
@@ -783,6 +1272,7 @@
   --color-primary-fg: var(--primary-fg);
   --color-secondary: var(--secondary);
   --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
   --color-highlight: var(--highlight);
 
   --color-ink: var(--text-primary);
@@ -791,6 +1281,27 @@
 
   --color-edge: var(--border);
   --color-edge-subtle: var(--border-subtle);
+
+  /* Overlays, Hairlines & Semantic Status */
+  --color-scrim: var(--scrim);
+  --color-scrim-dense: var(--scrim-dense);
+  --color-hairline: var(--hairline-ring);
+  --color-overlay-tint: var(--overlay-tint);
+  --color-glass-surface: var(--glass-surface);
+  --color-danger: var(--danger);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-solid-hover: var(--danger-solid-hover);
+  --color-danger-solid-fg: var(--danger-solid-fg);
+  --color-danger-fg: var(--danger-fg);
+  --color-warning: var(--warning);
+  --color-warning-fg: var(--warning-fg);
+  --color-info: var(--info);
+  --color-info-fg: var(--info-fg);
+  --color-success: var(--success);
+  --color-success-fg: var(--success-fg);
+  --color-loved: var(--loved);
+  --color-loved-fg: var(--loved-fg);
+  --color-goodreads: var(--goodreads-ink);
 
   /* Sidebar Utilities */
   --color-sidebar: var(--sidebar-bg);
@@ -801,17 +1312,82 @@
   --color-sidebar-active: var(--sidebar-active-bg);
   --color-sidebar-accent: var(--sidebar-accent);
 
-  /* Reader Profile Tokens */
+  /* Reader Profile & Spine Tokens */
   --color-reader-teal: var(--reader-teal);
-  --color-reader-teal-dark: #82A699;
+  --color-reader-teal-dark: var(--reader-teal);
+  --color-reader-teal-fg: var(--reader-teal-fg);
   --color-reader-amber: var(--reader-amber);
-  --color-reader-amber-dark: #D0AD55;
+  --color-reader-amber-dark: var(--reader-amber);
+  --color-reader-amber-fg: var(--reader-amber-fg);
   --color-reader-indigo: var(--reader-indigo);
-  --color-reader-indigo-dark: #94A8B8;
+  --color-reader-indigo-dark: var(--reader-indigo);
+  --color-reader-indigo-fg: var(--reader-indigo-fg);
   --color-reader-rose: var(--reader-rose);
-  --color-reader-rose-dark: #C48A8E;
+  --color-reader-rose-dark: var(--reader-rose);
+  --color-reader-rose-fg: var(--reader-rose-fg);
   --color-reader-emerald: var(--reader-emerald);
-  --color-reader-emerald-dark: #A8B59A;
+  --color-reader-emerald-dark: var(--reader-emerald);
+  --color-reader-emerald-fg: var(--reader-emerald-fg);
+
+  --color-spine-teal: var(--spine-teal-bg);
+  --color-spine-teal-edge: var(--spine-teal-edge);
+  --color-spine-teal-fg: var(--spine-teal-fg);
+  --color-spine-indigo: var(--spine-indigo-bg);
+  --color-spine-indigo-edge: var(--spine-indigo-edge);
+  --color-spine-indigo-fg: var(--spine-indigo-fg);
+  --color-spine-amber: var(--spine-amber-bg);
+  --color-spine-amber-edge: var(--spine-amber-edge);
+  --color-spine-amber-fg: var(--spine-amber-fg);
+  --color-spine-rose: var(--spine-rose-bg);
+  --color-spine-rose-edge: var(--spine-rose-edge);
+  --color-spine-rose-fg: var(--spine-rose-fg);
+  --color-spine-emerald: var(--spine-emerald-bg);
+  --color-spine-emerald-edge: var(--spine-emerald-edge);
+  --color-spine-emerald-fg: var(--spine-emerald-fg);
+
+  /* Preview Stage, Scanner Chamber & Code Viewer Tokens */
+  --color-preview-light: var(--preview-light-bg);
+  --color-preview-light-edge: var(--preview-light-edge);
+  --color-preview-dark: var(--preview-dark-bg);
+  --color-preview-dark-edge: var(--preview-dark-edge);
+  --color-illustration-paper: var(--illustration-paper);
+
+  --color-scanner: var(--scanner-bg);
+  --color-scanner-surface: var(--scanner-surface);
+  --color-scanner-surface-hover: var(--scanner-surface-hover);
+  --color-scanner-surface-active: var(--scanner-surface-active);
+  --color-scanner-edge: var(--scanner-border);
+  --color-scanner-ink: var(--scanner-text);
+  --color-scanner-muted: var(--scanner-muted);
+  --color-scanner-subtle: var(--scanner-subtle);
+  --color-scanner-accent: var(--scanner-accent);
+  --color-scanner-accent-hover: var(--scanner-accent-hover);
+  --color-scanner-accent-fg: var(--scanner-accent-fg);
+  --color-scanner-locked: var(--scanner-locked);
+  --color-scanner-locked-fg: var(--scanner-locked-fg);
+  --color-scanner-scrim: var(--scanner-scrim);
+  --color-scanner-error: var(--scanner-error-bg);
+  --color-scanner-error-ink: var(--scanner-error-fg);
+  --color-scanner-error-edge: var(--scanner-error-border);
+
+  --color-code: var(--code-bg);
+  --color-code-surface: var(--code-surface);
+  --color-code-surface-hover: var(--code-surface-hover);
+  --color-code-edge: var(--code-border);
+  --color-code-ink: var(--code-text);
+
+  /* Card Radii & Elevation Shadows */
+  --radius-card: var(--card-radius);
+  --shadow-card: var(--elevation-card);
+  --shadow-nav-top: var(--elevation-nav-top);
+  --shadow-nav-bottom: var(--elevation-nav-bottom);
+  --shadow-nav-fab: var(--elevation-nav-fab);
+  --shadow-nav-fab-idle: var(--elevation-nav-fab-idle);
+  --shadow-tooltip: var(--elevation-tooltip);
+  --shadow-float: var(--elevation-float);
+  --shadow-cover: var(--elevation-cover);
+  --shadow-cover-hero: var(--elevation-cover-hero);
+  --shadow-preset-glow: var(--elevation-preset-glow);
 
   /* Legacy Alias Bridges (Preserve safety for utility classes across views/modals) */
   --color-linen-50: var(--background);
@@ -1228,18 +1804,242 @@
 
 /* Native App Card Volume & Elevation (subtle top bevel + soft grounded drop shadow) */
 .lr-card {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 6px 18px -6px rgba(20, 35, 33, 0.12),
-    0 2px 5px -1px rgba(20, 35, 33, 0.06);
+  box-shadow: var(--elevation-card);
 }
 
-.dark .lr-card {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 12px 26px -8px rgba(0, 0, 0, 0.58),
-    0 3px 8px -2px rgba(0, 0, 0, 0.34);
+/* Theme-driven Reader Profile Pills (solid in light themes, tinted slate in dark themes) */
+.lr-reader-pill-teal {
+  background-color: var(--reader-teal-pill-bg);
+  color: var(--reader-pill-fg);
+  border-color: var(--reader-teal);
 }
+.lr-reader-pill-amber {
+  background-color: var(--reader-amber-pill-bg);
+  color: var(--reader-pill-fg);
+  border-color: var(--reader-amber);
+}
+.lr-reader-pill-indigo {
+  background-color: var(--reader-indigo-pill-bg);
+  color: var(--reader-pill-fg);
+  border-color: var(--reader-indigo);
+}
+.lr-reader-pill-rose {
+  background-color: var(--reader-rose-pill-bg);
+  color: var(--reader-pill-fg);
+  border-color: var(--reader-rose);
+}
+.lr-reader-pill-emerald {
+  background-color: var(--reader-emerald-pill-bg);
+  color: var(--reader-pill-fg);
+  border-color: var(--reader-emerald);
+}
+
+/* Scanner Lock / Sweep Glow Utilities */
+.lr-scanner-locked-frame {
+  border-color: var(--scanner-locked);
+  background-color: color-mix(in srgb, var(--scanner-locked) 15%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--scanner-locked) 45%, transparent);
+}
+.lr-scanner-locked-ring {
+  border-color: var(--scanner-locked);
+  background-color: color-mix(in srgb, var(--scanner-bg) 50%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--scanner-locked) 28%, transparent);
+}
+.lr-scanner-sweep-line {
+  background: linear-gradient(90deg, transparent 0%, var(--scanner-accent) 50%, transparent 100%);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--scanner-accent) 90%, transparent);
+}
+.lr-scanner-locked-dot {
+  background-color: var(--scanner-locked);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--scanner-locked) 85%, transparent);
+}
+.lr-scanner-accent-dot {
+  background-color: var(--scanner-accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--scanner-accent) 85%, transparent);
+}
+
+/* Reading Passport & Certificate Studio Themes (Single-source-of-truth variables) */
+.lr-passport-doc {
+  background-color: var(--passport-paper);
+  border-color: var(--passport-edge);
+  color: var(--passport-ink);
+}
+.lr-passport-header {
+  background: var(--passport-header-bg);
+  color: var(--passport-header-fg);
+  border-color: var(--passport-header-border);
+}
+.lr-passport-card {
+  background-color: var(--passport-card);
+  border-color: var(--passport-edge);
+  color: var(--passport-ink);
+}
+.lr-passport-ink { color: var(--passport-ink); }
+.lr-passport-muted { color: var(--passport-muted); }
+.lr-passport-accent { color: var(--passport-accent); }
+.lr-passport-divider { border-color: var(--passport-edge); }
+.lr-passport-slot {
+  border-color: var(--passport-dashed);
+  background-color: var(--passport-slot);
+}
+.lr-passport-slot:hover { border-color: var(--passport-accent); }
+.lr-passport-stamp-placeholder {
+  border-color: var(--passport-dashed);
+  color: var(--passport-muted);
+}
+.lr-passport-mrz {
+  background-color: var(--passport-mrz-bg);
+  color: var(--passport-mrz-fg);
+}
+.lr-passport-gold-frame {
+  border-color: var(--passport-gold);
+}
+.lr-passport-gold-frame-double {
+  border-color: var(--passport-gold-deep);
+}
+.lr-passport-gold-badge {
+  background: linear-gradient(135deg, var(--passport-gold) 0%, var(--passport-gold-deep) 100%);
+  border-color: var(--passport-gold-light);
+  color: #451A03;
+}
+.lr-passport-gold-kicker { color: var(--passport-gold-ink); }
+.lr-passport-milestone {
+  background-color: var(--passport-milestone-bg);
+  border-color: var(--passport-milestone-border);
+}
+.lr-passport-milestone-badge {
+  background-color: var(--passport-gold-deep);
+  color: #FFFCF5;
+}
+.lr-passport-milestone-ink { color: var(--passport-milestone-ink); }
+
+.lr-passport-theme-classic {
+  /* Inherits active app theme's passport variables directly */
+}
+.lr-passport-theme-magic {
+  --passport-paper: color-mix(in srgb, #312E81 12%, var(--surface));
+  --passport-card: color-mix(in srgb, var(--surface) 95%, transparent);
+  --passport-edge: color-mix(in srgb, #A855F7 42%, var(--border));
+  --passport-dashed: #9333EA;
+  --passport-accent: #7E22CE;
+  --passport-header-bg: linear-gradient(90deg, #3B0764 0%, #312E81 50%, #581C87 100%);
+  --passport-header-fg: #FDE68A;
+  --passport-header-border: rgba(168, 85, 247, 0.45);
+}
+:where(.dark) .lr-passport-theme-magic {
+  --passport-paper: rgba(30, 27, 75, 0.32);
+  --passport-accent: #D8B4FE;
+  --passport-dashed: #C084FC;
+}
+.lr-passport-theme-night {
+  --passport-paper: color-mix(in srgb, #0F172A 10%, var(--surface));
+  --passport-card: color-mix(in srgb, var(--surface) 95%, transparent);
+  --passport-edge: color-mix(in srgb, #38BDF8 42%, var(--border));
+  --passport-dashed: #0284C7;
+  --passport-accent: #0369A1;
+  --passport-header-bg: linear-gradient(90deg, #020617 0%, #0C4A6E 50%, #0F172A 100%);
+  --passport-header-fg: #BAE6FD;
+  --passport-header-border: rgba(2, 132, 199, 0.45);
+}
+:where(.dark) .lr-passport-theme-night {
+  --passport-paper: rgba(15, 23, 42, 0.42);
+  --passport-accent: #7DD3FC;
+  --passport-dashed: #38BDF8;
+}
+.lr-passport-theme-explorer {
+  --passport-paper: color-mix(in srgb, #FEF3C7 55%, var(--surface));
+  --passport-card: color-mix(in srgb, var(--surface) 95%, transparent);
+  --passport-edge: color-mix(in srgb, #F59E0B 45%, var(--border));
+  --passport-dashed: #D97706;
+  --passport-accent: #92400E;
+  --passport-header-bg: linear-gradient(90deg, #92400E 0%, #78350F 50%, #451A03 100%);
+  --passport-header-fg: #FFFBEB;
+  --passport-header-border: rgba(245, 158, 11, 0.45);
+}
+:where(.dark) .lr-passport-theme-explorer {
+  --passport-paper: rgba(120, 53, 15, 0.22);
+  --passport-accent: #FCD34D;
+  --passport-dashed: #FBBF24;
+}
+.lr-passport-theme-forest {
+  --passport-paper: color-mix(in srgb, #D1FAE5 42%, var(--surface));
+  --passport-card: color-mix(in srgb, var(--surface) 95%, transparent);
+  --passport-edge: color-mix(in srgb, #10B981 42%, var(--border));
+  --passport-dashed: #059669;
+  --passport-accent: #065F46;
+  --passport-header-bg: linear-gradient(90deg, #064E3B 0%, #143D32 50%, #0B261F 100%);
+  --passport-header-fg: #D1FAE5;
+  --passport-header-border: rgba(16, 185, 129, 0.45);
+}
+:where(.dark) .lr-passport-theme-forest {
+  --passport-paper: rgba(6, 78, 59, 0.26);
+  --passport-accent: #6EE7B7;
+  --passport-dashed: #34D399;
+}
+.lr-passport-theme-ink-saver {
+  --passport-paper: #FFFFFF;
+  --passport-card: #FFFFFF;
+  --passport-edge: #1C1917;
+  --passport-dashed: #1C1917;
+  --passport-slot: #FFFFFF;
+  --passport-ink: #000000;
+  --passport-muted: #292524;
+  --passport-accent: #000000;
+  --passport-header-bg: #FFFFFF;
+  --passport-header-fg: #000000;
+  --passport-header-border: #000000;
+}
+
+.lr-cert-bg-stars {
+  background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+  color: #F8FAFC;
+}
+.lr-cert-bg-parchment {
+  background: radial-gradient(circle at center, #FFFDF8 0%, #FEF3C7 100%);
+}
+.lr-cert-bg-meadow {
+  background: radial-gradient(circle at center, #F0FDF4 0%, #DCFCE7 100%);
+}
+.lr-cert-bg-gradient {
+  background: radial-gradient(circle at center, var(--surface) 0%, var(--surface-subtle) 100%);
+}
+.lr-cert-ink-stars {
+  --passport-ink: #F8FAFC;
+  --passport-muted: #CBD5E1;
+  --passport-gold-ink: #FCD34D;
+  --passport-card: rgba(15, 23, 42, 0.88);
+  --passport-edge: rgba(251, 191, 36, 0.35);
+}
+.lr-cert-ink-paper {
+  --passport-ink: #1C1917;
+  --passport-muted: #57534E;
+  --passport-gold-ink: #92400E;
+  --passport-card: rgba(255, 255, 255, 0.92);
+  --passport-edge: rgba(180, 83, 9, 0.25);
+}
+
+/* Passport Stamp & Achievement Palette Classes */
+.lr-stamp-emerald { background-color: #059669; color: #FFFFFF; border-color: #047857; }
+.lr-stamp-rose    { background-color: #E11D48; color: #FFFFFF; border-color: #BE123C; }
+.lr-stamp-amber   { background-color: #F59E0B; color: #FFFFFF; border-color: #D97706; }
+.lr-stamp-purple  { background-color: #9333EA; color: #FFFFFF; border-color: #7E22CE; }
+.lr-stamp-indigo  { background-color: #4F46E5; color: #FFFFFF; border-color: #4338CA; }
+.lr-stamp-yellow  { background-color: #CA8A04; color: #FFFFFF; border-color: #A16207; }
+.lr-stamp-sky     { background-color: #0369A1; color: #FFFFFF; border-color: #075985; }
+.lr-stamp-teal    { background-color: #0F766E; color: #FFFFFF; border-color: #115E59; }
+
+.lr-ach-amber   { color: #B45309; background-color: #FFFBEB; border-color: #FCD34D; }
+.lr-ach-indigo  { color: #4338CA; background-color: #EEF2FF; border-color: #A5B4FC; }
+.lr-ach-rose    { color: #BE123C; background-color: #FFF1F2; border-color: #FDA4AF; }
+.lr-ach-emerald { color: #047857; background-color: #ECFDF5; border-color: #6EE7B7; }
+.lr-ach-sky     { color: #0369A1; background-color: #F0F9FF; border-color: #7DD3FC; }
+.lr-ach-purple  { color: #7E22CE; background-color: #FAF5FF; border-color: #D8B4FE; }
+:where(.dark) .lr-ach-amber   { color: #FCD34D; background-color: rgba(69, 26, 3, 0.45); border-color: rgba(217, 119, 6, 0.5); }
+:where(.dark) .lr-ach-indigo  { color: #A5B4FC; background-color: rgba(30, 27, 75, 0.45); border-color: rgba(99, 102, 241, 0.5); }
+:where(.dark) .lr-ach-rose    { color: #FDA4AF; background-color: rgba(76, 5, 25, 0.45); border-color: rgba(225, 29, 72, 0.5); }
+:where(.dark) .lr-ach-emerald { color: #6EE7B7; background-color: rgba(2, 44, 34, 0.45); border-color: rgba(16, 185, 129, 0.5); }
+:where(.dark) .lr-ach-sky     { color: #7DD3FC; background-color: rgba(8, 47, 73, 0.45); border-color: rgba(14, 165, 233, 0.5); }
+:where(.dark) .lr-ach-purple  { color: #D8B4FE; background-color: rgba(59, 7, 100, 0.45); border-color: rgba(168, 85, 247, 0.5); }
 
 /* Settings hierarchical sub-menu slide transitions (compositor-only transform + opacity) */
 @keyframes lr-slide-in-right {

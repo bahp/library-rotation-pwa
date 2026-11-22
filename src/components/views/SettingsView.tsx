@@ -1243,8 +1243,7 @@ export const SettingsView: React.FC = () => {
                           <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">
                               <div
-                                className="relative w-20 aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center p-1.5 shrink-0"
-                                style={{ backgroundColor: 'var(--sidebar-bg)' }}
+                                className="relative w-20 aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center p-1.5 shrink-0 bg-sidebar"
                               >
                                 {activeArtworkStyle !== 'natural' && (
                                   <div
@@ -2310,7 +2309,7 @@ export const SettingsView: React.FC = () => {
                           googleTone === 'success'
                             ? 'bg-secondary/15 hover:bg-secondary/25 text-ink border border-secondary/45'
                             : googleTone === 'error'
-                              ? 'bg-[#8C4A4F]/10 hover:bg-[#8C4A4F]/20 text-[#8C4A4F] dark:text-[#C48A8E] border border-[#8C4A4F]/35'
+                              ? 'bg-danger/10 hover:bg-danger/20 text-danger border border-danger/35'
                               : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
                         }`}
                       >
@@ -2321,7 +2320,7 @@ export const SettingsView: React.FC = () => {
                             <Icon name="check" className="w-3.5 h-3.5" />
                           </span>
                         ) : googleTone === 'error' ? (
-                          <span className="inline-flex text-[#8C4A4F] dark:text-[#C48A8E]">
+                          <span className="inline-flex text-danger">
                             <Icon name="close" className="w-3.5 h-3.5" />
                           </span>
                         ) : (
@@ -2340,14 +2339,14 @@ export const SettingsView: React.FC = () => {
                         role={googleTone === 'error' ? 'alert' : 'status'}
                         className={`rounded-lg px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium leading-relaxed ${
                           googleTone === 'error'
-                            ? 'bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-[#8C4A4F] dark:text-[#C48A8E]'
+                            ? 'bg-danger/10 border border-danger/35 text-danger'
                             : 'bg-secondary/12 border border-secondary/35 text-ink'
                         }`}
                       >
                         <span
                           className={`mt-0.5 w-4 h-4 rounded-full inline-flex items-center justify-center shrink-0 ${
                             googleTone === 'error'
-                              ? 'bg-[#8C4A4F] text-[#FFFCF5]'
+                              ? 'bg-danger-solid text-danger-solid-fg'
                               : 'bg-primary text-primary-fg'
                           }`}
                         >
@@ -2497,7 +2496,7 @@ export const SettingsView: React.FC = () => {
                         {proxyError && (
                           <div
                             role="alert"
-                            className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 px-3 py-2 text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]"
+                            className="rounded-lg bg-danger/10 border border-danger/35 px-3 py-2 text-xs font-medium text-danger"
                           >
                             {proxyError}
                           </div>
@@ -2547,13 +2546,13 @@ export const SettingsView: React.FC = () => {
                           URL above:
                         </p>
                         <div className="relative group/code">
-                          <pre className="p-2.5 rounded-lg bg-[#142321] text-[#F0E7D5] border border-[#3B4436] font-mono-tabular text-[11px] overflow-x-auto">
+                          <pre className="p-2.5 rounded-lg bg-code text-code-ink border border-code-edge font-mono-tabular text-[11px] overflow-x-auto">
                             {GOOGLE_BOOKS_WORKER_SAMPLE_SCRIPT}
                           </pre>
                           <button
                             type="button"
                             onClick={() => copyToClipboard(GOOGLE_BOOKS_WORKER_SAMPLE_SCRIPT, 'books')}
-                            className="absolute top-2 right-2 px-2 py-1 rounded bg-[#243831] hover:bg-[#314B42] text-[#F0E7D5] text-[10px] font-semibold transition-colors cursor-pointer"
+                            className="absolute top-2 right-2 px-2 py-1 rounded bg-code-surface hover:bg-code-surface-hover text-code-ink text-[10px] font-semibold transition-colors cursor-pointer"
                           >
                             {copiedBooksScript ? 'Copied!' : 'Copy'}
                           </button>
@@ -2616,14 +2615,14 @@ export const SettingsView: React.FC = () => {
                         role={catalogSyncTone === 'error' ? 'alert' : 'status'}
                         className={`rounded-lg px-3.5 py-2.5 flex items-start gap-2.5 text-xs font-medium leading-relaxed ${
                           catalogSyncTone === 'error'
-                            ? 'bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-[#8C4A4F] dark:text-[#C48A8E]'
+                            ? 'bg-danger/10 border border-danger/35 text-danger'
                             : 'bg-secondary/12 border border-secondary/35 text-ink'
                         }`}
                       >
                         <span
                           className={`mt-0.5 w-4 h-4 rounded-full inline-flex items-center justify-center shrink-0 ${
                             catalogSyncTone === 'error'
-                              ? 'bg-[#8C4A4F] text-[#FFFCF5]'
+                              ? 'bg-danger-solid text-danger-solid-fg'
                               : 'bg-primary text-primary-fg'
                           }`}
                         >
@@ -3060,7 +3059,7 @@ export const SettingsView: React.FC = () => {
                       role="status"
                       className={`rounded-lg px-3.5 py-2.5 text-xs font-medium flex items-start gap-2 ${
                         llmTone === 'error'
-                          ? 'bg-[#8C4A4F]/10 text-[#8C4A4F] dark:text-[#C48A8E] border border-[#8C4A4F]/35'
+                          ? 'bg-danger/10 text-danger border border-danger/35'
                           : 'bg-secondary/12 text-ink border border-secondary/35'
                       }`}
                     >
@@ -3106,13 +3105,13 @@ export const SettingsView: React.FC = () => {
                       <li>Paste this script into your Worker and click <strong>Deploy</strong>:</li>
                     </ol>
                     <div className="relative group/llmcode">
-                      <pre className="p-3 rounded-lg bg-[#142321] text-[#F0E7D5] border border-[#3B4436] font-mono-tabular text-[11px] overflow-x-auto leading-relaxed">
+                      <pre className="p-3 rounded-lg bg-code text-code-ink border border-code-edge font-mono-tabular text-[11px] overflow-x-auto leading-relaxed">
                         {CLOUDFLARE_WORKER_SAMPLE_SCRIPT}
                       </pre>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(CLOUDFLARE_WORKER_SAMPLE_SCRIPT, 'llm')}
-                        className="absolute top-2 right-2 px-2.5 py-1 rounded bg-[#243831] hover:bg-[#314B42] text-[#F0E7D5] text-[10px] font-semibold transition-colors cursor-pointer"
+                        className="absolute top-2 right-2 px-2.5 py-1 rounded bg-code-surface hover:bg-code-surface-hover text-code-ink text-[10px] font-semibold transition-colors cursor-pointer"
                       >
                         {copiedLlmScript ? 'Copied!' : 'Copy Script'}
                       </button>
@@ -3256,7 +3255,7 @@ export const SettingsView: React.FC = () => {
                             className={`text-[11px] mt-1.5 ${
                               adapter.available
                                 ? 'text-primary'
-                                : 'text-[#9E6E32] dark:text-[#D0AD55]'
+                                : 'text-warning'
                             }`}
                           >
                             {adapter.reason}
@@ -3320,7 +3319,7 @@ export const SettingsView: React.FC = () => {
                       </div>
 
                       {customEndpointError && (
-                        <p role="alert" className="text-xs font-medium text-[#8C4A4F] dark:text-[#C48A8E]">
+                        <p role="alert" className="text-xs font-medium text-danger">
                           {customEndpointError}
                         </p>
                       )}
@@ -3699,7 +3698,7 @@ export const SettingsView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setConfirmResetOpen(true)}
-                      className="min-h-[44px] px-4 py-2 rounded-lg border border-[#8C4A4F]/40 hover:bg-[#8C4A4F]/10 text-[#8C4A4F] dark:text-[#C48A8E] text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 rounded-lg border border-danger/40 hover:bg-danger/10 text-danger text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                     >
                       {t('settings.resetSeedBtn')}
                     </button>
@@ -3707,7 +3706,7 @@ export const SettingsView: React.FC = () => {
                     <div
                       role="alertdialog"
                       aria-labelledby="confirm-reset-title"
-                      className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 p-4 space-y-3"
+                      className="rounded-lg bg-danger/10 border border-danger/35 p-4 space-y-3"
                     >
                       <div>
                         <p
@@ -3724,7 +3723,7 @@ export const SettingsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={handleConfirmResetSeed}
-                          className="min-h-[42px] px-4 py-1.5 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold transition-colors cursor-pointer"
+                          className="min-h-[42px] px-4 py-1.5 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold transition-colors cursor-pointer"
                         >
                           {t('settings.resetSeedConfirmAction')}
                         </button>
@@ -3857,14 +3856,14 @@ export const SettingsView: React.FC = () => {
                       type="button"
                       data-action="dev-clear-all-test-data"
                       onClick={() => setConfirmClearAllOpen(true)}
-                      className="min-h-[44px] px-4 py-2 rounded-lg border border-[#8C4A4F]/40 hover:bg-[#8C4A4F]/10 text-[#8C4A4F] dark:text-[#C48A8E] text-xs font-semibold cursor-pointer"
+                      className="min-h-[44px] px-4 py-2 rounded-lg border border-danger/40 hover:bg-danger/10 text-danger text-xs font-semibold cursor-pointer"
                     >
                       {t('devTools.clearAllBtn')}
                     </button>
                   ) : (
                     <div
                       role="alertdialog"
-                      className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 p-4 space-y-2.5"
+                      className="rounded-lg bg-danger/10 border border-danger/35 p-4 space-y-2.5"
                     >
                       <p className="text-xs font-semibold text-ink">
                         Erase all local books, profiles, rotations, and saved QA snapshots?
@@ -3876,7 +3875,7 @@ export const SettingsView: React.FC = () => {
                             setConfirmClearAllOpen(false);
                             await store.clearAllTestData();
                           }}
-                          className="min-h-[40px] px-4 py-1.5 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold cursor-pointer"
+                          className="min-h-[40px] px-4 py-1.5 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold cursor-pointer"
                         >
                           Confirm Clear All
                         </button>
@@ -4155,7 +4154,7 @@ export const SettingsView: React.FC = () => {
             onClick={() => openSection('query-usage')}
             className={`p-4 rounded-xl border flex items-center justify-between gap-3 text-xs leading-relaxed cursor-pointer transition-colors ${
               alert.level === 'error'
-                ? 'bg-[#8C4A4F]/10 border-[#8C4A4F]/35 text-[#8C4A4F] dark:text-[#C48A8E]'
+                ? 'bg-danger/10 border-danger/35 text-danger'
                 : 'bg-accent/12 border-accent/35 text-ink'
             } shadow-xs`}
           >

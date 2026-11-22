@@ -31,7 +31,7 @@ export const WelcomeSetupModal: React.FC<WelcomeSetupModalProps> = ({ isOpen, on
       role="dialog"
       aria-modal="true"
       aria-labelledby="welcome-setup-title"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
       <div

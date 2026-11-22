@@ -59,7 +59,7 @@ export const AiRecommendationsModal: React.FC<AiRecommendationsModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-recs-modal-title"
-      className="sheet-backdrop fixed inset-0 z-[70] bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="sheet-backdrop fixed inset-0 z-[70] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <div
@@ -160,7 +160,7 @@ export const AiRecommendationsModal: React.FC<AiRecommendationsModalProps> = ({
           )}
 
           {error && (
-            <div className="p-3 rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 text-xs text-[#8C4A4F] dark:text-[#C48A8E]">
+            <div className="p-3 rounded-lg bg-danger/10 border border-danger/35 text-xs text-danger">
               {error}
             </div>
           )}

@@ -453,7 +453,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({
     <div
       data-library-filter-drawer="true"
       data-backdrop-action="close-library-filters"
-      className="sheet-backdrop fixed inset-0 z-50 bg-[#142321]/60 backdrop-blur-xs flex justify-start lg:hidden"
+      className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex justify-start lg:hidden"
       role="dialog"
       aria-modal="true"
       aria-labelledby="library-filter-drawer-title"

@@ -16,6 +16,7 @@ export const Header: React.FC = () => {
     setEditingProfileId,
     setIsNotificationCenterOpen,
     unreadNotificationCount,
+    setIsSearchOpen,
     globalSearchQuery,
     setGlobalSearchQuery,
     submitGlobalSearch,
@@ -100,21 +101,28 @@ export const Header: React.FC = () => {
         sidebarCollapsed ? 'lg:left-[76px]' : 'lg:left-64'
       } z-30 ${
         useNativeChrome
-          ? 'backdrop-blur-xl border-b border-edge/60 shadow-[0_4px_20px_-6px_rgba(0,0,0,0.22)]'
+          ? 'backdrop-blur-xl border-b border-edge/60 shadow-nav-top'
           : 'bg-surface border-b border-edge-subtle'
       } pt-safe px-safe transition-[left,background-color,border-color] duration-200 ease-out`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
-        {/* Zone 1 (Mobile/Tablet): Brand Wordmark */}
+        {/* Zone 1 (Mobile/Tablet): Bunko App Logo + Wordmark + Optional Household Name */}
         <a
           href="#/home"
-          className="flex lg:hidden items-center gap-2.5 text-ink focus-visible:outline-2 focus-visible:outline-primary rounded-lg whitespace-nowrap shrink-0"
+          className="flex lg:hidden items-center gap-2.5 text-ink focus-visible:outline-2 focus-visible:outline-primary rounded-lg whitespace-nowrap shrink-0 min-w-0"
         >
           <span className="w-8 h-8 rounded-lg bg-primary text-primary-fg flex items-center justify-center shadow-2xs shrink-0 border border-accent/30">
-            <Icon name="book" className="w-4 h-4" />
+            <Icon name="bookOpen" className="w-4 h-4" />
           </span>
-          <span className="font-display text-[19px] sm:text-xl font-semibold tracking-tight whitespace-nowrap">
-            Library Rotation
+          <span className="flex flex-col min-w-0">
+            <span className="font-display text-[21px] font-semibold tracking-tight leading-none whitespace-nowrap">
+              bunko
+            </span>
+            {state.settings?.householdName?.trim() && (
+              <span className="text-[10px] font-medium text-ink-muted leading-tight truncate max-w-[150px] mt-0.5">
+                {state.settings.householdName.trim()}
+              </span>
+            )}
           </span>
         </a>
 
@@ -188,8 +196,9 @@ export const Header: React.FC = () => {
           })}
         </nav>
 
-        {/* Zone 3: Quick Actions, Theme Switch, Reader Switcher & Settings */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Zone 3: Mobile (Search, Notifications, Clean Avatar) & Desktop Utilities */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Desktop Add Book & Theme Switch */}
           <a
             href="#/scan"
             onClick={(e) => {
@@ -207,45 +216,89 @@ export const Header: React.FC = () => {
             onClick={handleToggleTheme}
             aria-label={`Theme: ${effectiveTheme.label}. Switch to ${nextTheme} mode`}
             title={`Switch to ${nextTheme} mode (currently ${effectiveTheme.label})`}
-            className="hidden sm:flex min-h-[38px] min-w-[38px] rounded-lg border border-edge bg-surface-subtle hover:bg-surface-elevated text-ink-secondary hover:text-ink items-center justify-center transition-colors cursor-pointer shrink-0"
+            className="hidden lg:flex min-h-[38px] min-w-[38px] rounded-lg border border-edge bg-surface-subtle hover:bg-surface-elevated text-ink-secondary hover:text-ink items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <Icon name={isCurrentlyDark ? 'moon' : 'sun'} className="w-4 h-4" />
           </button>
 
+          {/* Mobile & Tablet Search Trigger -> Opens Search & Add Window */}
           <button
             type="button"
+            data-action="open-search-window"
+            onClick={() => setIsSearchOpen(true)}
+            aria-label="Search and add books"
+            title="Search and add books"
+            className="lg:hidden min-h-[44px] min-w-[44px] rounded-full text-ink-secondary hover:text-ink hover:bg-surface-elevated active:scale-95 flex items-center justify-center transition-all cursor-pointer shrink-0"
+          >
+            <Icon name="search" className="w-5 h-5" strokeWidth={1.9} />
+          </button>
+
+          {/* Mobile & Tablet Notifications Trigger */}
+          <button
+            type="button"
+            data-action="open-notifications"
             onClick={() => setIsNotificationCenterOpen(true)}
             aria-label={
               unreadNotificationCount > 0
                 ? `Notifications (${unreadNotificationCount} unread)`
                 : 'Notifications'
             }
-            className="lg:hidden relative min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-lg text-ink-secondary hover:text-ink hover:bg-surface-elevated flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            className="lg:hidden relative min-h-[44px] min-w-[44px] rounded-full text-ink-secondary hover:text-ink hover:bg-surface-elevated active:scale-95 flex items-center justify-center transition-all cursor-pointer shrink-0"
           >
-            <Icon name="bell" className="w-[18px] h-[18px]" />
+            <Icon name="bell" className="w-5 h-5" strokeWidth={1.9} />
             {unreadNotificationCount > 0 && (
               <span
                 aria-hidden="true"
-                className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-accent text-[#FFFCF5] text-[9px] font-bold font-mono-tabular flex items-center justify-center ring-2 ring-surface"
+                className="absolute top-2 right-2 min-w-[16px] h-4 px-1 rounded-full bg-accent text-accent-fg text-[9px] font-bold font-mono-tabular flex items-center justify-center ring-2 ring-surface"
               >
                 {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
               </span>
             )}
           </button>
 
+          {/* Mobile & Tablet Clean User Avatar (no decoration, no bounding box, no dropdown arrow) */}
+          {activeProfile ? (
+            <button
+              type="button"
+              data-action="open-profile-switcher"
+              onClick={() => setIsProfileSwitcherOpen(true)}
+              aria-label={`Reader profile and settings, current reader is ${activeProfile.name}`}
+              className="lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full active:scale-95 transition-transform cursor-pointer shrink-0"
+            >
+              <span
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${toneClass}`}
+              >
+                {initial}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              data-action="open-profile-switcher"
+              onClick={() => setIsProfileSwitcherOpen(true)}
+              aria-label="Reader profiles and settings"
+              className="lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full active:scale-95 transition-transform cursor-pointer shrink-0"
+            >
+              <span className="w-8 h-8 rounded-full bg-surface-elevated text-ink-secondary flex items-center justify-center">
+                <Icon name="profiles" className="w-4 h-4" />
+              </span>
+            </button>
+          )}
+
+          {/* Desktop Profile Switcher */}
           {activeProfile ? (
             <button
               type="button"
               onClick={() => setIsProfileSwitcherOpen(true)}
               aria-label={`Switch reader profile, current reader is ${activeProfile.name}`}
-              className="min-h-[44px] sm:min-h-[38px] max-w-[190px] sm:max-w-[230px] flex items-center gap-1.5 px-2 sm:pl-1.5 sm:pr-2.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated active:scale-[0.98] border border-edge transition-all cursor-pointer shrink-0 overflow-hidden"
+              className="hidden lg:flex min-h-[38px] max-w-[230px] items-center gap-2 pl-1.5 pr-2.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated active:scale-[0.98] border border-edge transition-all cursor-pointer shrink-0 overflow-hidden"
             >
               <span
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${toneClass}`}
               >
                 {initial}
               </span>
-              <span className="hidden sm:flex items-baseline gap-1 min-w-0 text-left">
+              <span className="flex items-baseline gap-1 min-w-0 text-left">
                 <span className="text-xs font-semibold text-ink leading-tight truncate max-w-[100px]">
                   {activeProfile.name}
                 </span>
@@ -264,28 +317,15 @@ export const Header: React.FC = () => {
                 setEditingProfileId(null);
                 setIsProfileFormOpen(true);
               }}
-              className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated active:scale-[0.98] border border-edge text-xs font-semibold text-ink flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 cursor-pointer"
+              className="hidden lg:flex min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated active:scale-[0.98] border border-edge text-xs font-semibold text-ink items-center gap-1.5 transition-all whitespace-nowrap shrink-0 cursor-pointer"
             >
               <Icon name="plus" className="w-3.5 h-3.5" />
               <span>{t('profiles.newReader')}</span>
             </button>
           )}
-
-          {/* Settings button (compact bar utility on mobile & tablet; sidebar holds Settings on lg+) */}
-          <a
-            href="#/settings"
-            aria-label={t('nav.settings')}
-            aria-current={currentRoute === 'settings' ? 'page' : undefined}
-            className={`lg:hidden min-h-[44px] min-w-[44px] sm:min-h-[38px] sm:min-w-[38px] rounded-lg flex items-center justify-center active:scale-95 transition-all shrink-0 ${
-              currentRoute === 'settings'
-                ? 'bg-primary text-primary-fg'
-                : 'text-ink-secondary hover:text-ink hover:bg-surface-elevated'
-            }`}
-          >
-            <Icon name="settings" className="w-[18px] h-[18px]" />
-          </a>
         </div>
       </div>
     </header>
   );
 };
+

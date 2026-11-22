@@ -635,7 +635,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
           role="dialog"
           aria-modal="true"
           aria-labelledby="preset-form-sheet-title"
-          className="sheet-backdrop fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
+          className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
           onClick={() => setIsFormOpen(false)}
         >
           <div
@@ -675,7 +675,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
               {formError && (
                 <p
                   role="alert"
-                  className="rounded-lg bg-surface-elevated border border-[#8C4A4F]/40 px-3.5 py-2 font-semibold text-[#8C4A4F] dark:text-[#C48A8E]"
+                  className="rounded-lg bg-danger/10 border border-danger/35 px-3.5 py-2 font-semibold text-danger"
                 >
                   {formError}
                 </p>
@@ -900,8 +900,8 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                     <div
                       className={`relative aspect-[4/3] w-full rounded-xl border overflow-hidden flex items-center justify-center p-2 transition-colors ${
                         previewSurface === 'dark'
-                          ? 'bg-[#101713] border-[#26352C]'
-                          : 'bg-[#FAF7F2] border-[#E3DDD1]'
+                          ? 'bg-preview-dark border-preview-dark-edge'
+                          : 'bg-preview-light border-preview-light-edge'
                       }`}
                     >
                       <img
@@ -1082,7 +1082,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                             className="w-full px-3 py-2 rounded-lg bg-surface border border-edge text-[11px] text-ink placeholder:text-ink-muted"
                           />
                           {artError && (
-                            <p className="text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E]">
+                            <p className="text-[11px] font-semibold text-danger">
                               {artError}
                             </p>
                           )}

@@ -116,7 +116,7 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
       role="dialog"
       aria-modal="true"
       aria-labelledby="ai-tag-modal-title"
-      className="sheet-backdrop fixed inset-0 z-[70] bg-[#142321]/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
+      className="sheet-backdrop fixed inset-0 z-[70] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4"
       onClick={onClose}
     >
       <div
@@ -165,8 +165,8 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
               <AiTagsSkeleton />
             </div>
           ) : error ? (
-            <div className="rounded-lg bg-[#8C4A4F]/10 border border-[#8C4A4F]/35 p-4 space-y-2">
-              <p className="font-semibold text-[#8C4A4F] dark:text-[#C48A8E] flex items-center gap-1.5">
+            <div className="rounded-lg bg-danger/10 border border-danger/35 p-4 space-y-2">
+              <p className="font-semibold text-danger flex items-center gap-1.5">
                 <Icon name="close" className="w-4 h-4" />
                 <span>LLM Query Error</span>
               </p>
@@ -176,7 +176,7 @@ export const AiTaggingModal: React.FC<AiTaggingModalProps> = ({ bookId, isOpen, 
               <button
                 type="button"
                 onClick={() => handleRunQuery(book.id)}
-                className="px-3 py-1.5 rounded-lg bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] font-semibold text-xs cursor-pointer"
+                className="px-3 py-1.5 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg font-semibold text-xs cursor-pointer"
               >
                 Retry
               </button>

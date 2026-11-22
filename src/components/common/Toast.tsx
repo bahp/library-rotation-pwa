@@ -9,7 +9,7 @@ export const Toast: React.FC = () => {
 
   const toneClasses = {
     success: 'bg-primary text-primary-fg border border-accent/40 shadow-lg',
-    error: 'bg-[#8C4A4F] text-[#FFFCF5] border border-[#C48A8E]/40 shadow-lg',
+    error: 'bg-danger-solid text-danger-solid-fg border border-danger/60 shadow-lg',
     info: 'bg-surface-elevated text-ink border border-edge shadow-lg',
   }[toast.tone || 'success'];
 
@@ -34,7 +34,7 @@ export const Toast: React.FC = () => {
         <button
           type="button"
           onClick={() => store.dismissToast()}
-          className="ml-1 p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded transition-colors cursor-pointer"
+          className="ml-1 p-1 hover:bg-overlay-tint rounded transition-colors cursor-pointer"
           aria-label="Dismiss message"
         >
           <Icon name="close" className="w-3.5 h-3.5" />

@@ -179,7 +179,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                         'linear-gradient(to top right, transparent 4%, rgba(0,0,0,0.45) 30%, rgba(0,0,0,1) 66%)',
                     }
               }
-              className="w-full h-full object-contain object-right-top opacity-92 dark:opacity-88 drop-shadow-[0_1px_2px_rgba(0,0,0,0.08)] dark:drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
+              className="w-full h-full object-contain object-right-top opacity-92 dark:opacity-88 [filter:drop-shadow(var(--elevation-preset-glow))]"
             />
           </div>
         )
@@ -272,7 +272,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
 
       <div className="relative z-10 mt-4 pt-3 border-t border-edge-subtle space-y-2">
         {confirmDelete && onDelete ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-elevated border border-[#8C4A4F]/50 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-surface-elevated border border-danger/50 px-3 py-2">
             <span className="text-xs font-semibold text-ink">
               Delete preset?
             </span>
@@ -283,7 +283,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                   onDelete(preset);
                   setConfirmDelete(false);
                 }}
-                className="min-h-[32px] px-2.5 py-1 rounded bg-[#8C4A4F] hover:bg-[#7A3F44] text-[#FFFCF5] text-xs font-semibold cursor-pointer"
+                className="min-h-[32px] px-2.5 py-1 rounded bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold cursor-pointer"
               >
                 Delete
               </button>
@@ -350,7 +350,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(true)}
-                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-[#8C4A4F] dark:text-[#C48A8E] hover:bg-surface-elevated transition-colors cursor-pointer"
+                  className="min-h-[34px] px-2 py-1 rounded-lg text-[11px] font-semibold text-danger hover:bg-surface-elevated transition-colors cursor-pointer"
                 >
                   Delete
                 </button>
