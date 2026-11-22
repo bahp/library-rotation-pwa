@@ -2643,6 +2643,7 @@ export function createAppStore(storage, deps = {}) {
         historySet.add(bookId);
         readingSet.delete(bookId);
       } else if (cleanStatus === 'reading') {
+        readingSet.delete(bookId);
         readingSet.add(bookId);
         historySet.delete(bookId);
       } else {
@@ -2721,7 +2722,8 @@ export function createAppStore(storage, deps = {}) {
    *   varietyMix?: boolean,
    *   requiredFormat?: import('../types/models.js').BookFormat | 'any',
    *   seed?: string,
-   *   profileId?: string
+   *   profileId?: string,
+   *   keepOtherActive?: boolean
    * }} input
    */
   async function generateRotation(input) {
@@ -2813,7 +2815,7 @@ export function createAppStore(storage, deps = {}) {
     };
 
     const updatedExisting =
-      targetStatus === 'active'
+      targetStatus === 'active' && !input.keepOtherActive
         ? state.rotations.map((r) =>
             r.profileId === profile.id && r.status === 'active'
               ? { ...r, status: /** @type {const} */ ('saved') }
@@ -3205,6 +3207,52 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
+   * Toggles a rotation between `'active'` and `'saved'` without displacing other active shelves,
+   * allowing multiple simultaneous active shelves (e.g., Home and Grandma's House).
+   * @param {string} rotationId
+   */
+  async function toggleRotationActive(rotationId) {
+    const target = state.rotations.find((r) => r.id === rotationId);
+    if (!target) return;
+    const now = new Date().toISOString();
+    const activating = target.status !== 'active';
+    const nextStatus = activating ? /** @type {const} */ ('active') : /** @type {const} */ ('saved');
+
+    const nextRotations = state.rotations.map((r) => {
+      if (r.id !== rotationId) return r;
+      return {
+        ...r,
+        status: nextStatus,
+        ...(activating
+          ? {
+              activatedAt: now,
+              slotAddedAt: syncRotationSlotAddedAt(r.slotAddedAt, r.bookIds, now, {
+                resetAll: true,
+              }),
+            }
+          : {}),
+        updatedAt: now,
+      };
+    });
+
+    const updatedBooks = activating
+      ? recordBooksRotated(state.books, target.bookIds, {
+          rotatedAt: now,
+          rotationId: target.id,
+          profileId: target.profileId,
+        })
+      : state.books;
+
+    await commit({ ...state, books: updatedBooks, rotations: nextRotations });
+    notify(
+      activating
+        ? `"${target.title}" is now an active rotation.`
+        : `Moved "${target.title}" to saved shelves.`,
+      activating ? 'success' : 'info'
+    );
+  }
+
+  /**
    * Updates an existing rotation shelf's name (`title`), description (`rules.objective`),
    * and any rotation rule parameters (`count`, `swapDays`, `cooldownDays`, `preferredTags`,
    * `requiredFormat`, `varietyMix`, `seed`) while preserving books, read completion status,
@@ -3224,7 +3272,7 @@ export function createAppStore(storage, deps = {}) {
    *   varietyMix?: boolean,
    *   seed?: string
    * }} patch
-   * @param {{ silent?: boolean, skipIfUnchanged?: boolean }} [options]
+   * @param {{ silent?: boolean, skipIfUnchanged?: boolean, keepOtherActive?: boolean }} [options]
    */
   async function updateRotationDetails(rotationId, patch, options = {}) {
     const existing = state.rotations.find((r) => r.id === rotationId);
@@ -3336,7 +3384,7 @@ export function createAppStore(storage, deps = {}) {
 
     const nextRotations = state.rotations.map((r) => {
       if (r.id === rotationId) return updatedRotation;
-      if (activatingNow && r.profileId === existing.profileId && r.status === 'active') {
+      if (!options.keepOtherActive && activatingNow && r.profileId === existing.profileId && r.status === 'active') {
         return { ...r, status: /** @type {const} */ ('saved') };
       }
       return r;
@@ -4307,6 +4355,7 @@ export function createAppStore(storage, deps = {}) {
     removeBookFromRotation,
     deleteRotation,
     setActiveRotation,
+    toggleRotationActive,
     updateRotationDetails,
     addRotationPreset,
     updateRotationPreset,

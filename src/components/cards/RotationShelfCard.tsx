@@ -179,13 +179,17 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               </button>
             </div>
 
-            {!isActive && onActivate && (
+            {onActivate && (
               <button
                 type="button"
                 onClick={onActivate}
-                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors shadow-2xs whitespace-nowrap cursor-pointer"
+                className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink-secondary hover:text-ink'
+                    : 'bg-primary hover:bg-primary-hover text-primary-fg shadow-2xs'
+                }`}
               >
-                Activate
+                {isActive ? 'Move to Saved' : 'Activate'}
               </button>
             )}
 

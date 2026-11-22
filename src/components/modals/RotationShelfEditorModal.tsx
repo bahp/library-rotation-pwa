@@ -106,7 +106,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
         preferredTags: tagsList,
         seed: editSeed.trim() || undefined,
         varietyMix: editVarietyMix,
-      });
+      }, { keepOtherActive: true });
     } catch (err) {
       store.notify(err instanceof Error ? err.message : String(err), 'error');
     }

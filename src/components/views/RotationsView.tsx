@@ -15,7 +15,6 @@ export const RotationsView: React.FC = () => {
     state,
     store,
     activeProfile,
-    activeRotation,
     currentRoute,
     navigate,
     routeParams,
@@ -61,13 +60,14 @@ export const RotationsView: React.FC = () => {
 
   useBodyScrollLock(isGeneratorOpen && isMobileViewport);
 
+  const activeRotations = state.rotations.filter(
+    (r) => r.profileId === activeProfile?.id && r.status === 'active'
+  );
   const savedRotations = state.rotations.filter(
     (r) => r.profileId === activeProfile?.id && r.status !== 'active'
   );
 
-  const orderedRotations = activeRotation
-    ? [activeRotation, ...savedRotations]
-    : savedRotations;
+  const orderedRotations = [...activeRotations, ...savedRotations];
 
   const topLibraryTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -135,6 +135,7 @@ export const RotationsView: React.FC = () => {
         cooldownDays: Number(cooldownDays),
         varietyMix,
         seed: seed.trim() || undefined,
+        keepOtherActive: true,
       });
 
       setIsGeneratorOpen(false);
@@ -179,8 +180,8 @@ export const RotationsView: React.FC = () => {
     await store.toggleRotationBookRead(rotId, bookId);
   };
 
-  const handleActivateRotation = async (rotId: string) => {
-    await store.setActiveRotation(rotId);
+  const handleToggleRotationActive = async (rotId: string) => {
+    await store.toggleRotationActive(rotId);
   };
 
   const handleDeleteRotation = async (rotId: string) => {
@@ -816,7 +817,7 @@ export const RotationsView: React.FC = () => {
                         navigate('rotations');
                       }
                     }}
-                    onActivate={isActive ? undefined : () => handleActivateRotation(rot.id)}
+                    onActivate={() => handleToggleRotationActive(rot.id)}
                     onDelete={() => handleDeleteRotation(rot.id)}
                     onSwapBook={(bookId) => handleSwapBook(rot.id, bookId)}
                     onReplaceBook={(bookId) => handleReplaceBook(rot.id, bookId)}

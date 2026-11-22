@@ -1,38 +1,43 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { Icon } from '../common/Icon.js';
+import { BookSectionViewToggle, type SectionBookLayout } from '../common/BookSectionViewToggle.js';
+import { HorizontalBookCarousel } from '../common/HorizontalBookCarousel.js';
 import { ShelfPlacementModal } from '../modals/ShelfPlacementModal.js';
 import { getProfileRecommendations } from '../../features/tagging/recommendations.js';
 import { computeRotationSchedule } from '../../features/rotations/rotation-schedule.js';
-import {
-  findMatchingStartDatePresets,
-  getAllRotationPresets,
-} from '../../features/rotations/rotation-presets.js';
-import { findStaleShelfBooks } from '../../features/rotations/usage-insights.js';
 import { normalizeCollectionStatus } from '../../types/models.js';
-import type { Book } from '../../types/models.js';
+import type { Book, RotationShelf } from '../../types/models.js';
 
-function loadDismissedKeys(storageKey: string): string[] {
+function loadSectionLayout(key: string, fallback: SectionBookLayout): SectionBookLayout {
   try {
-    const raw = localStorage.getItem(storageKey);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    const val = localStorage.getItem(key);
+    if (val === 'scroll' || val === 'grid' || val === 'list') return val;
   } catch {
-    return [];
+    // ignore storage errors
+  }
+  return fallback;
+}
+
+function saveSectionLayout(key: string, mode: SectionBookLayout): void {
+  try {
+    localStorage.setItem(key, mode);
+  } catch {
+    // ignore storage errors
   }
 }
 
-function saveDismissedKey(storageKey: string, current: string[], key: string): string[] {
-  if (!key || current.includes(key)) return current;
-  const next = [...current, key];
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(next));
-  } catch {
-    // Ignore storage quota errors
-  }
-  return next;
+function formatRelativeActiveLabel(iso?: string): string {
+  if (!iso) return 'Active';
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return 'Active';
+  const diffDays = Math.max(0, Math.floor((Date.now() - time) / (1000 * 60 * 60 * 24)));
+  if (diffDays === 0) return 'Active today';
+  if (diffDays === 1) return 'Active yesterday';
+  if (diffDays < 30) return `Active ${diffDays}d ago`;
+  return new Date(time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 export const HomeView: React.FC = () => {
@@ -47,44 +52,72 @@ export const HomeView: React.FC = () => {
     t,
   } = useApp();
 
-  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>(() =>
-    loadDismissedKeys('lr_dismissed_swap_reminders_v1')
-  );
-  const [dismissedPresetAlerts, setDismissedPresetAlerts] = useState<string[]>(() =>
-    loadDismissedKeys('lr_dismissed_preset_alerts_v1')
-  );
-  const [dismissedStaleAlerts, setDismissedStaleAlerts] = useState<string[]>(() =>
-    loadDismissedKeys('lr_dismissed_stale_alerts_v1')
-  );
   const [isPlacementOpen, setIsPlacementOpen] = useState(false);
+  const [selectedRotationId, setSelectedRotationId] = useState<string | null>(null);
+  const [shelfLayout, setShelfLayout] = useState<SectionBookLayout>(() =>
+    loadSectionLayout('bunko_home_shelf_layout_v1', 'scroll')
+  );
+  const [recsLayout, setRecsLayout] = useState<SectionBookLayout>(() =>
+    loadSectionLayout('bunko_home_recs_layout_v1', 'scroll')
+  );
 
-  const shelfBooks = useMemo(() => {
-    if (!activeRotation) return [];
-    const bookMap = new Map(state.books.map((b: Book) => [b.id, b]));
-    return activeRotation.bookIds
-      .map((id: string) => bookMap.get(id))
-      .filter((b): b is Book => Boolean(b));
-  }, [state.books, activeRotation]);
+  const handleShelfLayoutChange = (mode: SectionBookLayout) => {
+    setShelfLayout(mode);
+    saveSectionLayout('bunko_home_shelf_layout_v1', mode);
+  };
 
-  const readBookIds = useMemo(() => {
-    return new Set(activeRotation?.completedBookIds || []);
-  }, [activeRotation]);
+  const handleRecsLayoutChange = (mode: SectionBookLayout) => {
+    setRecsLayout(mode);
+    saveSectionLayout('bunko_home_recs_layout_v1', mode);
+  };
 
-  const pickedBookIds = useMemo(() => {
-    return new Set(activeRotation?.pickedBookIds || []);
-  }, [activeRotation]);
+  const bookMap = useMemo(() => {
+    return new Map(state.books.map((b: Book) => [b.id, b]));
+  }, [state.books]);
 
-  const profileRotations = useMemo(() => {
+  const activeRotations = useMemo(() => {
     if (!activeProfile) return [];
     return state.rotations
-      .filter((r) => r.profileId === activeProfile.id)
+      .filter((r) => r.profileId === activeProfile.id && r.status === 'active')
       .slice()
       .sort((a, b) => {
-        const aTime = new Date(a.createdAt || a.updatedAt || 0).getTime();
-        const bTime = new Date(b.createdAt || b.updatedAt || 0).getTime();
+        const aTime = new Date(a.activatedAt || a.updatedAt || a.createdAt || 0).getTime();
+        const bTime = new Date(b.activatedAt || b.updatedAt || b.createdAt || 0).getTime();
         return bTime - aTime;
       });
   }, [state.rotations, activeProfile]);
+
+  useEffect(() => {
+    if (
+      selectedRotationId &&
+      !activeRotations.some((r) => r.id === selectedRotationId)
+    ) {
+      setSelectedRotationId(null);
+    }
+  }, [activeRotations, selectedRotationId]);
+
+  const displayedRotation: RotationShelf | null = useMemo(() => {
+    if (selectedRotationId) {
+      const matched = activeRotations.find((r) => r.id === selectedRotationId);
+      if (matched) return matched;
+    }
+    return activeRotations[0] || activeRotation || null;
+  }, [activeRotations, selectedRotationId, activeRotation]);
+
+  const shelfBooks = useMemo(() => {
+    if (!displayedRotation) return [];
+    return displayedRotation.bookIds
+      .map((id: string) => bookMap.get(id))
+      .filter((b): b is Book => Boolean(b));
+  }, [bookMap, displayedRotation]);
+
+  const readBookIds = useMemo(() => {
+    return new Set(displayedRotation?.completedBookIds || []);
+  }, [displayedRotation]);
+
+  const pickedBookIds = useMemo(() => {
+    return new Set(displayedRotation?.pickedBookIds || []);
+  }, [displayedRotation]);
 
   const recommendations = useMemo(() => {
     if (!activeProfile) return [];
@@ -92,45 +125,14 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 5,
+      limit: 8,
     });
   }, [state.books, activeProfile, state.rotations]);
 
   const activeSchedule = useMemo(() => {
-    if (!activeRotation || !activeProfile) return null;
-    return computeRotationSchedule(activeRotation, activeProfile);
-  }, [activeRotation, activeProfile]);
-
-  const matchingPresetAlerts = useMemo(() => {
-    if (!activeProfile) return [];
-    const allPresets = getAllRotationPresets(state);
-    const profileRotations = state.rotations.filter(
-      (r) => r.profileId === activeProfile.id
-    );
-    return findMatchingStartDatePresets(allPresets, new Date(), {
-      activeRotation,
-      profileRotations,
-      dismissedAlertKeys: dismissedPresetAlerts,
-      daysBefore: state.settings?.presetAlertDaysBefore ?? 2,
-      daysAfter: state.settings?.presetAlertDaysAfter ?? 5,
-    });
-  }, [state, activeProfile, activeRotation, dismissedPresetAlerts]);
-
-  const staleSpotlight = useMemo(() => {
-    if (state.settings?.enableStaleBookSpotlight === false || !activeRotation) {
-      return { staleItems: [], dismissKey: '' };
-    }
-    return findStaleShelfBooks({
-      rotation: activeRotation,
-      books: state.books,
-      staleBookDays: state.settings?.staleBookDays ?? 10,
-    });
-  }, [
-    state.settings?.enableStaleBookSpotlight,
-    state.settings?.staleBookDays,
-    activeRotation,
-    state.books,
-  ]);
+    if (!displayedRotation || !activeProfile) return null;
+    return computeRotationSchedule(displayedRotation, activeProfile);
+  }, [displayedRotation, activeProfile]);
 
   const wishlistCount = useMemo(() => {
     return state.books.filter(
@@ -138,61 +140,51 @@ export const HomeView: React.FC = () => {
     ).length;
   }, [state.books]);
 
+  // Most recently clicked "Reading" book for active profile
+  const currentReadingBook: Book | null = useMemo(() => {
+    const readingIds = activeProfile?.currentlyReadingBookIds;
+    if (!Array.isArray(readingIds) || readingIds.length === 0) return null;
+    for (let i = readingIds.length - 1; i >= 0; i -= 1) {
+      const candidate = bookMap.get(readingIds[i]);
+      if (candidate) return candidate;
+    }
+    return null;
+  }, [activeProfile?.currentlyReadingBookIds, bookMap]);
+
   const handleTogglePicked = async (bookId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!activeRotation) return;
-    await store.toggleRotationBookPicked(activeRotation.id, bookId);
+    if (!displayedRotation) return;
+    await store.toggleRotationBookPicked(displayedRotation.id, bookId);
   };
 
-  const handleActivateRotation = async (rotId: string) => {
-    await store.setActiveRotation(rotId);
+  const handleMarkCurrentBookRead = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentReadingBook) return;
+    await store.setProfileBookReadingStatus(activeProfile?.id, currentReadingBook.id, 'read');
+    store.notify(`Marked "${currentReadingBook.title}" as read!`, 'success');
   };
 
-  const handleDismissSwapAlert = (cycleKey: string) => {
-    setDismissedAlerts((prev) =>
-      saveDismissedKey('lr_dismissed_swap_reminders_v1', prev, cycleKey)
-    );
+  const handleToggleCurrentBookLoved = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentReadingBook) return;
+    await store.toggleBookLoved(currentReadingBook.id);
   };
 
-  const handleDismissPresetAlert = (alertKey: string) => {
-    setDismissedPresetAlerts((prev) =>
-      saveDismissedKey('lr_dismissed_preset_alerts_v1', prev, alertKey)
-    );
-  };
-
-  const handleDismissStaleAlert = (dismissKey: string) => {
-    setDismissedStaleAlerts((prev) =>
-      saveDismissedKey('lr_dismissed_stale_alerts_v1', prev, dismissKey)
-    );
-  };
-
-  const handleGeneratePresetMatch = async (presetId: string, title: string) => {
-    try {
-      await store.generateRotationFromPreset(presetId, {
-        profileId: activeProfile?.id,
-      });
-      store.notify(`Generated "${title}" shelf!`, 'success');
-    } catch (err) {
-      store.notify(err instanceof Error ? err.message : String(err), 'error');
-    }
-  };
-
-  const completedCount = activeRotation
-    ? activeRotation.completedBookIds.filter((id) => activeRotation.bookIds.includes(id)).length
+  const completedCount = displayedRotation
+    ? displayedRotation.completedBookIds.filter((id) => displayedRotation.bookIds.includes(id)).length
     : 0;
-  const pickedCount = activeRotation
-    ? (activeRotation.pickedBookIds || []).filter((id) => activeRotation.bookIds.includes(id)).length
+  const pickedCount = displayedRotation
+    ? (displayedRotation.pickedBookIds || []).filter((id) => displayedRotation.bookIds.includes(id)).length
     : 0;
   const progressPct =
     shelfBooks.length > 0 ? Math.round((completedCount / shelfBooks.length) * 100) : 0;
 
   // Circular SVG Progress Ring geometry
-  const ringRadius = 24;
+  const ringRadius = 22;
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringDashOffset = ringCircumference - (progressPct / 100) * ringCircumference;
 
   const coverAspectRatio = state.settings?.coverAspectRatio || 'square';
-  const viewMode = state.settings?.bookViewMode || 'grid';
   const cardSize = state.settings?.bookCardSize || 'compact';
   const shelfGridClass =
     cardSize === 'compact'
@@ -200,208 +192,216 @@ export const HomeView: React.FC = () => {
       : cardSize === 'large'
         ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5'
         : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4';
-  const householdLabel = state.settings?.householdName?.trim();
-  const topPresetMatch = matchingPresetAlerts[0] || null;
-  const showStaleBanner =
-    staleSpotlight.staleItems.length > 0 &&
-    Boolean(staleSpotlight.dismissKey) &&
-    !dismissedStaleAlerts.includes(staleSpotlight.dismissKey);
-  const leadStale = staleSpotlight.staleItems[0] || null;
-  const offShelfRotatableCount = useMemo(() => {
-    if (!activeRotation) return 0;
-    return state.books.filter(
-      (b) =>
-        normalizeCollectionStatus(b.collectionStatus) === 'owned' &&
-        !b.excludeFromRotations &&
-        !activeRotation.bookIds.includes(b.id)
-    ).length;
-  }, [state.books, activeRotation]);
+
+  const renderShelfBookCard = (book: Book, isCarouselItem: boolean) => {
+    const isRead = readBookIds.has(book.id);
+    const isPicked = pickedBookIds.has(book.id);
+    const isReadPreviously = Boolean(
+      activeProfile?.readHistoryBookIds?.includes(book.id)
+    );
+    const primaryAuthor = book.authors[0] || 'Unknown Author';
+
+    const badgeAriaLabel = isPicked
+      ? `Unmark ${book.title} as picked in this rotation`
+      : isReadPreviously
+        ? `Read previously · Mark ${book.title} as picked in this rotation`
+        : `Mark ${book.title} as picked and read`;
+
+    return (
+      <article
+        key={book.id}
+        data-book-card={book.id}
+        className={`group flex flex-col justify-between min-w-0 rounded-xl border lr-card transition-all ${
+          isCarouselItem
+            ? 'w-[31%] min-w-[106px] max-w-[144px] sm:w-[138px] shrink-0 snap-start p-1.5 sm:p-2'
+            : cardSize === 'compact'
+              ? 'p-1.5 sm:p-2'
+              : cardSize === 'large'
+                ? 'p-3 sm:p-3.5'
+                : 'p-2.5 sm:p-3'
+        } ${
+          isRead || isPicked
+            ? 'bg-surface border-primary/45'
+            : 'bg-surface border-edge hover:border-secondary'
+        }`}
+      >
+        <div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setInspectedBookId(book.id)}
+              aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
+              className="block w-full rounded-lg overflow-hidden bg-surface-subtle transition-transform active:scale-[0.985] cursor-pointer"
+            >
+              <BookCover
+                book={book}
+                size="grid"
+                aspectRatio={coverAspectRatio}
+                showBadges
+                hideRotationAdorno
+                activeProfile={activeProfile}
+                profiles={state.profiles}
+                isReadOnActiveShelf={isRead}
+                isPickedInRotation={isPicked}
+              />
+            </button>
+
+            {/* 44x44px Thumb Hitbox for 1-Tap Read/Picked Toggle */}
+            <button
+              type="button"
+              onClick={(e) => handleTogglePicked(book.id, e)}
+              aria-pressed={isPicked}
+              aria-label={badgeAriaLabel}
+              className="absolute -bottom-1 -left-1 z-20 min-h-[44px] min-w-[44px] flex items-end justify-start p-2.5 cursor-pointer"
+            >
+              {isRead ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-primary text-primary-fg border-surface">
+                  <Icon name="check" className="w-2.5 h-2.5" />
+                  <span>Read</span>
+                </span>
+              ) : isPicked ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-primary text-primary-fg border-surface">
+                  <Icon name="bookmarkFilled" className="w-2.5 h-2.5" />
+                  <span>Picked</span>
+                </span>
+              ) : isReadPreviously ? (
+                <span
+                  title="Read previously (not picked in this rotation)"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-surface/95 text-primary border-edge"
+                >
+                  <Icon name="check" className="w-2.5 h-2.5" />
+                  <span>Read</span>
+                </span>
+              ) : (
+                <span className="w-6 h-6 rounded-full flex items-center justify-center shadow-xs border transition-colors bg-surface/95 border-edge text-ink-muted hover:text-ink">
+                  <Icon name="check" className="w-3 h-3" />
+                </span>
+              )}
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setInspectedBookId(book.id)}
+            className="mt-1.5 w-full text-left min-w-0 rounded cursor-pointer"
+          >
+            <h2
+              className={`font-sans ${
+                isCarouselItem || cardSize === 'compact'
+                  ? 'text-xs sm:text-[13px]'
+                  : cardSize === 'large'
+                    ? 'text-sm sm:text-base'
+                    : 'text-[13px] sm:text-sm'
+              } font-semibold text-ink leading-tight line-clamp-2 ${
+                isRead ? 'opacity-75' : ''
+              }`}
+            >
+              {book.title}
+            </h2>
+            <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
+              {primaryAuthor}
+            </p>
+          </button>
+        </div>
+      </article>
+    );
+  };
+
+  const renderRecCoverCard = (
+    book: Book,
+    matchReasons: string[],
+    isCarouselItem: boolean
+  ) => {
+    const primaryAuthor = book.authors[0] || 'Unknown Author';
+    return (
+      <article
+        key={book.id}
+        data-book-card={`rec-${book.id}`}
+        className={`group flex flex-col justify-between min-w-0 rounded-xl border border-edge bg-surface-subtle/60 hover:border-secondary p-1.5 sm:p-2 transition-all ${
+          isCarouselItem
+            ? 'w-[31%] min-w-[106px] max-w-[144px] sm:w-[138px] shrink-0 snap-start'
+            : ''
+        }`}
+      >
+        <div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setInspectedBookId(book.id)}
+              aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
+              className="block w-full rounded-lg overflow-hidden bg-surface-subtle transition-transform active:scale-[0.985] cursor-pointer"
+            >
+              <BookCover
+                book={book}
+                size="grid"
+                aspectRatio={coverAspectRatio}
+                showBadges
+                hideRotationAdorno
+                activeProfile={activeProfile}
+                profiles={state.profiles}
+              />
+            </button>
+
+            {displayedRotation && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await store.addBooksToRotationManual(displayedRotation.id, [book.id]);
+                  store.notify(`Added "${book.title}" to active shelf!`, 'success');
+                }}
+                aria-label={`Add ${book.title} to active shelf`}
+                title="Add to active shelf"
+                className="absolute -bottom-1 -right-1 z-20 min-h-[40px] min-w-[40px] flex items-end justify-end p-2 cursor-pointer"
+              >
+                <span className="w-7 h-7 rounded-full bg-surface/95 hover:bg-primary hover:text-primary-fg border border-edge text-ink shadow-xs flex items-center justify-center transition-colors">
+                  <Icon name="plus" className="w-3.5 h-3.5" />
+                </span>
+              </button>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setInspectedBookId(book.id)}
+            className="mt-1.5 w-full text-left min-w-0 rounded cursor-pointer"
+          >
+            <h3 className="font-sans text-xs sm:text-[13px] font-semibold text-ink leading-tight line-clamp-2">
+              {book.title}
+            </h3>
+            <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
+              {primaryAuthor}
+            </p>
+            <p className="text-[10px] font-semibold text-primary truncate leading-tight mt-0.5">
+              {matchReasons[0] || 'Fresh pick'}
+            </p>
+          </button>
+        </div>
+      </article>
+    );
+  };
 
   return (
-    <div className="space-y-6 text-left">
-      {/* Contextual Alerts Stack: Swap Day, Seasonal Preset Match, Stale Book Spotlight */}
-      <div className="space-y-2.5 empty:hidden">
-        {activeRotation && activeSchedule?.isDue && !dismissedAlerts.includes(activeSchedule.reminderKey) && (
-          <div
-            role="region"
-            aria-label="Library Swap Day reminder"
-            className="rounded-xl border border-accent/45 bg-surface p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card"
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="p-2 rounded-lg bg-surface-elevated border border-accent/30 text-accent shrink-0">
-                <Icon name="calendar" className="w-4 h-4" />
-              </span>
-              <div className="min-w-0">
-                <h2 className="font-display text-base font-semibold text-ink leading-snug">
-                  Library Swap Day · {activeRotation.title}
-                </h2>
-                <p className="text-xs text-ink-secondary mt-0.5">
-                  {activeSchedule.activeScheduleLine} · Keep reading, or swap fresh books onto the shelf.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 pl-10 sm:pl-0">
-              <a
-                href="#/rotations"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('rotations');
-                }}
-                className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap inline-flex items-center transition-colors"
-              >
-                Swap Books
-              </a>
-              <button
-                type="button"
-                onClick={() => handleDismissSwapAlert(activeSchedule.reminderKey)}
-                aria-label="Dismiss swap reminder"
-                className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-surface-elevated cursor-pointer transition-colors"
-              >
-                <Icon name="close" className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {topPresetMatch && (
-          <div
-            role="region"
-            aria-label="Seasonal collection preset reminder"
-            data-preset-alert-banner="true"
-            className="rounded-xl border border-edge bg-surface p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card"
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="p-2 rounded-lg bg-surface-elevated border border-edge-subtle text-primary shrink-0">
-                <Icon name="sparkles" className="w-4 h-4" />
-              </span>
-              <div className="min-w-0">
-                <h2 className="font-display text-base font-semibold text-ink leading-snug">
-                  Seasonal Shelf Idea · {topPresetMatch.preset.title}
-                  <span className="font-sans text-xs font-normal text-ink-secondary">
-                    {' '}· {topPresetMatch.schedule.countdownLabel}
-                  </span>
-                </h2>
-                <p className="text-xs text-ink-secondary mt-0.5 line-clamp-2">
-                  {topPresetMatch.preset.description}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0 pl-10 sm:pl-0">
-              <button
-                type="button"
-                onClick={() =>
-                  handleGeneratePresetMatch(topPresetMatch.preset.id, topPresetMatch.preset.title)
-                }
-                className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
-              >
-                Generate Shelf
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('presets')}
-                className="min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink whitespace-nowrap transition-colors cursor-pointer"
-              >
-                Browse
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDismissPresetAlert(topPresetMatch.schedule.alertKey)}
-                aria-label="Dismiss seasonal reminder"
-                className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-surface-elevated cursor-pointer transition-colors"
-              >
-                <Icon name="close" className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {showStaleBanner && activeRotation && leadStale && (
-          <div
-            role="status"
-            data-stale-spotlight-banner="true"
-            className="rounded-xl border border-edge bg-surface p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card"
-          >
-            <div className="flex items-start gap-3 min-w-0">
-              <span className="p-2 rounded-lg bg-surface-elevated border border-edge-subtle text-accent shrink-0">
-                <Icon name="clock" className="w-4 h-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-semibold text-ink leading-snug">
-                  Stale Book Spotlight · Unread {leadStale.daysOnShelf}d
-                </p>
-                <p className="text-xs text-ink-secondary mt-0.5 leading-snug">
-                  “{leadStale.book.title}”
-                  {staleSpotlight.staleItems.length > 1
-                    ? ` (+${staleSpotlight.staleItems.length - 1} more)`
-                    : ''}{' '}
-                  hasn’t been marked read on {activeProfile?.name || 'this'}’s shelf. Read together or swap fresh?
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5 shrink-0 pl-10 sm:pl-0">
-              <button
-                type="button"
-                onClick={() => store.toggleRotationBookRead(activeRotation.id, leadStale.book.id)}
-                className="min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1 whitespace-nowrap cursor-pointer transition-colors"
-              >
-                <Icon name="check" className="w-3.5 h-3.5 text-primary" />
-                <span>Mark Read</span>
-              </button>
-              {offShelfRotatableCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => store.replaceRotationBookRandom(activeRotation.id, leadStale.book.id)}
-                  className="min-h-[38px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 whitespace-nowrap transition-colors cursor-pointer"
-                >
-                  <Icon name="refresh" className="w-3.5 h-3.5" />
-                  <span>Swap Fresh</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => navigate('rotations', { edit: activeRotation.id })}
-                  className="min-h-[38px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
-                >
-                  Review Shelf
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => handleDismissStaleAlert(staleSpotlight.dismissKey)}
-                aria-label="Dismiss stale book spotlight"
-                className="min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-surface-elevated cursor-pointer transition-colors"
-              >
-                <Icon name="close" className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Editorial Hero + Circular Reading Progress Ring Card */}
-      {activeRotation ? (
-        <section aria-labelledby="active-shelf-heading" className="space-y-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-edge-subtle">
+    <div className={`space-y-5 text-left ${currentReadingBook ? 'pb-24' : ''}`}>
+      {/* Current Rotation Section */}
+      {displayedRotation ? (
+        <section aria-labelledby="active-shelf-heading" className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 pb-2 border-b border-edge-subtle">
             <div className="min-w-0 flex-1 space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-                {householdLabel ? `${householdLabel} · ` : ''}
-                {t('home.booksInRotation')}
-              </p>
               <h1
                 id="active-shelf-heading"
-                className="font-display text-3xl sm:text-4xl font-semibold text-ink leading-[1.06] tracking-tight"
+                className="font-display text-2xl sm:text-4xl font-semibold text-ink leading-[1.08] tracking-tight"
               >
-                {activeRotation.title}
+                {displayedRotation.title}
               </h1>
-              {activeRotation.rules?.objective && (
-                <p className="text-sm text-ink-secondary leading-snug line-clamp-2 max-w-2xl">
-                  {activeRotation.rules.objective}
+              {displayedRotation.rules?.objective && (
+                <p className="text-xs sm:text-sm text-ink-secondary leading-snug line-clamp-2 max-w-2xl">
+                  {displayedRotation.rules.objective}
                 </p>
               )}
               {activeSchedule && (
                 <p
                   data-rotation-schedule="active"
-                  className={`flex items-center gap-1.5 text-xs sm:text-[13px] leading-tight ${
+                  className={`flex items-center gap-1.5 text-xs leading-tight ${
                     activeSchedule.isDue
                       ? 'font-semibold text-accent'
                       : activeSchedule.isDueSoon
@@ -415,14 +415,14 @@ export const HomeView: React.FC = () => {
               )}
             </div>
 
-            {/* Elevated Circular Progress Ring Widget */}
-            <div className="rounded-xl bg-surface border border-edge px-4 py-3 lr-card flex items-center justify-between sm:justify-start gap-4 shrink-0">
-              <div className="flex items-center gap-3.5">
-                <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
-                  <svg className="w-14 h-14 -rotate-90" viewBox="0 0 60 60" aria-hidden="true">
+            {/* Compact Reading Progress Ring & Quick Shelf Actions */}
+            <div className="rounded-xl bg-surface border border-edge px-3.5 py-2.5 lr-card flex items-center justify-between sm:justify-start gap-3.5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
+                  <svg className="w-12 h-12 -rotate-90" viewBox="0 0 56 56" aria-hidden="true">
                     <circle
-                      cx="30"
-                      cy="30"
+                      cx="28"
+                      cy="28"
                       r={ringRadius}
                       fill="none"
                       stroke="currentColor"
@@ -430,8 +430,8 @@ export const HomeView: React.FC = () => {
                       className="text-edge-subtle"
                     />
                     <circle
-                      cx="30"
-                      cy="30"
+                      cx="28"
+                      cy="28"
                       r={ringRadius}
                       fill="none"
                       stroke="currentColor"
@@ -442,7 +442,7 @@ export const HomeView: React.FC = () => {
                       className="text-primary dark:text-accent transition-all duration-300"
                     />
                   </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold font-mono-tabular text-ink">
+                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold font-mono-tabular text-ink">
                     {progressPct}%
                   </span>
                 </div>
@@ -451,7 +451,7 @@ export const HomeView: React.FC = () => {
                   <p className="text-xs font-semibold text-ink leading-tight">
                     Reading progress
                   </p>
-                  <p className="text-xs font-mono-tabular text-ink-secondary mt-0.5">
+                  <p className="text-[11px] font-mono-tabular text-ink-secondary mt-0.5">
                     {completedCount} of {shelfBooks.length} {shelfBooks.length === 1 ? 'book' : 'books'}
                     {pickedCount > 0 ? ` · ${pickedCount} picked` : ''}
                   </p>
@@ -463,16 +463,16 @@ export const HomeView: React.FC = () => {
                   type="button"
                   onClick={() => setIsPlacementOpen(true)}
                   aria-label="Stock shelf checklist"
-                  className="min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                  className="min-h-[40px] sm:min-h-[36px] px-2.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
                 >
                   <Icon name="checklist" className="w-3.5 h-3.5 text-primary" />
                   <span>Stock</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate('rotations', { edit: activeRotation.id })}
+                  onClick={() => navigate('rotations', { edit: displayedRotation.id })}
                   aria-label="Edit active rotation"
-                  className="min-h-[44px] sm:min-h-[38px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                  className="min-h-[40px] sm:min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
                 >
                   <span>Edit</span>
                 </button>
@@ -480,47 +480,46 @@ export const HomeView: React.FC = () => {
             </div>
           </div>
 
-          {/* Shelf Layout & Catalog Shortcut Toolbar */}
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <div className="flex items-center gap-2.5 ml-auto shrink-0">
+          {/* Shelf View Switcher (Scroll / Grid / List) & View All Books */}
+          <div className="flex items-center justify-between gap-2.5">
+            {activeRotations.length > 1 ? (
               <div
-                role="group"
-                aria-label="Shelf view layout"
-                className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge"
+                role="tablist"
+                aria-label="Active shelves"
+                className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge overflow-x-auto no-scrollbar max-w-full"
               >
-                <button
-                  type="button"
-                  data-action="set-book-view-mode"
-                  data-view-mode="grid"
-                  aria-pressed={viewMode === 'grid'}
-                  aria-label="Grid view"
-                  title="Grid view"
-                  onClick={() => store.updateSettings({ bookViewMode: 'grid' })}
-                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
-                    viewMode === 'grid'
-                      ? 'bg-primary text-primary-fg shadow-2xs'
-                      : 'text-ink-secondary hover:text-ink'
-                  }`}
-                >
-                  <Icon name="grid" className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  data-action="set-book-view-mode"
-                  data-view-mode="list"
-                  aria-pressed={viewMode === 'list'}
-                  aria-label="List view"
-                  title="List view"
-                  onClick={() => store.updateSettings({ bookViewMode: 'list' })}
-                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
-                    viewMode === 'list'
-                      ? 'bg-primary text-primary-fg shadow-2xs'
-                      : 'text-ink-secondary hover:text-ink'
-                  }`}
-                >
-                  <Icon name="list" className="w-3.5 h-3.5" />
-                </button>
+                {activeRotations.map((rot) => {
+                  const selected = rot.id === displayedRotation.id;
+                  return (
+                    <button
+                      key={rot.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      onClick={() => setSelectedRotationId(rot.id)}
+                      className={`min-h-[32px] px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                        selected
+                          ? 'bg-primary text-primary-fg shadow-2xs'
+                          : 'text-ink-secondary hover:text-ink'
+                      }`}
+                    >
+                      {rot.title}
+                    </button>
+                  );
+                })}
               </div>
+            ) : (
+              <span className="text-xs font-medium text-ink-secondary">
+                Current shelf
+              </span>
+            )}
+
+            <div className="flex items-center gap-2.5 ml-auto shrink-0">
+              <BookSectionViewToggle
+                value={shelfLayout}
+                onChange={handleShelfLayoutChange}
+                ariaLabel="Current shelf layout"
+              />
 
               <a
                 href="#/library"
@@ -528,279 +527,148 @@ export const HomeView: React.FC = () => {
                   e.preventDefault();
                   navigate('library');
                 }}
-                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 whitespace-nowrap"
+                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-0.5 whitespace-nowrap"
               >
-                <span>View all books</span>
+                <span>All books</span>
                 <Icon name="chevronRight" className="w-3.5 h-3.5" />
               </a>
             </div>
           </div>
 
-          {/* Primary Shelf Books Grid or List + "Manage your rotation" Anchor Card */}
+          {/* Shelf Books (Horizontal Scroll with Dots / Grid / List) */}
           {shelfBooks.length > 0 ? (
-            viewMode === 'list' ? (
-              <div className="space-y-2">
-                {shelfBooks.map((book) => {
-                  const isRead = readBookIds.has(book.id);
-                  const isPicked = pickedBookIds.has(book.id);
-                  const isReadPreviously = Boolean(
-                    activeProfile?.readHistoryBookIds?.includes(book.id)
-                  );
-                  const primaryAuthor = book.authors[0] || 'Unknown Author';
+            <div className="space-y-3.5">
+              {shelfLayout === 'scroll' ? (
+                <HorizontalBookCarousel
+                  itemCount={shelfBooks.length}
+                  ariaLabel={`${displayedRotation.title} books`}
+                >
+                  {shelfBooks.map((book) => renderShelfBookCard(book, true))}
+                </HorizontalBookCarousel>
+              ) : shelfLayout === 'list' ? (
+                <div className="space-y-2">
+                  {shelfBooks.map((book) => {
+                    const isRead = readBookIds.has(book.id);
+                    const isPicked = pickedBookIds.has(book.id);
+                    const isReadPreviously = Boolean(
+                      activeProfile?.readHistoryBookIds?.includes(book.id)
+                    );
+                    const primaryAuthor = book.authors[0] || 'Unknown Author';
 
-                  const badgeAriaLabel = isPicked
-                    ? `Unmark ${book.title} as picked in this rotation`
-                    : isReadPreviously
-                      ? `Read previously · Mark ${book.title} as picked in this rotation`
-                      : `Mark ${book.title} as picked and read`;
+                    const badgeAriaLabel = isPicked
+                      ? `Unmark ${book.title} as picked in this rotation`
+                      : isReadPreviously
+                        ? `Read previously · Mark ${book.title} as picked in this rotation`
+                        : `Mark ${book.title} as picked and read`;
 
-                  return (
-                    <article
-                      key={book.id}
-                      data-book-card={book.id}
-                      className={`group flex items-center justify-between gap-3 rounded-xl border p-2 sm:p-2.5 lr-card transition-all ${
-                        isRead || isPicked
-                          ? 'bg-surface border-primary/45'
-                          : 'bg-surface border-edge hover:border-secondary'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setInspectedBookId(book.id)}
-                        aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
-                        className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
-                      >
-                        <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle">
-                          <BookCover
-                            book={book}
-                            size="sm"
-                            aspectRatio={coverAspectRatio}
-                            showBadges
-                            hideRotationAdorno
-                            activeProfile={activeProfile}
-                            profiles={state.profiles}
-                            isReadOnActiveShelf={isRead}
-                            isPickedInRotation={isPicked}
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h2
-                            className={`font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate ${
-                              isRead ? 'opacity-75' : ''
-                            }`}
-                          >
-                            {book.title}
-                          </h2>
-                          <p className="text-xs text-ink-secondary truncate leading-tight mt-0.5">
-                            {primaryAuthor}
-                          </p>
-                          <p className="text-[11px] text-ink-muted truncate leading-tight mt-0.5">
-                            {isRead
-                              ? 'Read in this rotation'
-                              : isPicked
-                                ? 'Picked for reading'
-                                : isReadPreviously
-                                  ? 'Read previously'
-                                  : 'On active shelf'}
-                          </p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleTogglePicked(book.id, e)}
-                        aria-pressed={isPicked}
-                        aria-label={badgeAriaLabel}
-                        className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
+                    return (
+                      <article
+                        key={book.id}
+                        data-book-card={book.id}
+                        className={`group flex items-center justify-between gap-3 rounded-xl border p-2 sm:p-2.5 lr-card transition-all ${
                           isRead || isPicked
-                            ? 'bg-primary text-primary-fg shadow-2xs'
-                            : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
+                            ? 'bg-surface border-primary/45'
+                            : 'bg-surface border-edge hover:border-secondary'
                         }`}
                       >
-                        <Icon
-                          name={isPicked && !isRead ? 'bookmarkFilled' : 'check'}
-                          className="w-3.5 h-3.5"
-                        />
-                        <span>
-                          {isRead ? 'Read' : isPicked ? 'Picked' : 'Mark Read'}
-                        </span>
-                      </button>
-                    </article>
-                  );
-                })}
-
-                {/* Compact List Anchor Bar: Manage Your Rotation */}
-                <div className="rounded-xl bg-surface-elevated border border-edge p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-9 h-9 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shrink-0">
-                      <Icon name="rotations" className="w-4 h-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <h2 className="font-display text-base font-semibold text-ink leading-tight">
-                        Manage your rotation
-                      </h2>
-                      <p className="text-xs text-ink-secondary truncate">
-                        Swap, stock, or draw fresh books for this cycle.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setIsPlacementOpen(true)}
-                      className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-subtle border border-edge text-xs font-semibold text-ink cursor-pointer"
-                    >
-                      Stock Checklist
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate('rotations', { edit: activeRotation.id })}
-                      className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-                    >
-                      <span>Edit Rotation</span>
-                      <Icon name="chevronRight" className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-            <div className={shelfGridClass}>
-              {shelfBooks.map((book) => {
-                const isRead = readBookIds.has(book.id);
-                const isPicked = pickedBookIds.has(book.id);
-                const isReadPreviously = Boolean(
-                  activeProfile?.readHistoryBookIds?.includes(book.id)
-                );
-                const primaryAuthor = book.authors[0] || 'Unknown Author';
-
-                const badgeAriaLabel = isPicked
-                  ? `Unmark ${book.title} as picked in this rotation`
-                  : isReadPreviously
-                    ? `Read previously · Mark ${book.title} as picked in this rotation`
-                    : `Mark ${book.title} as picked and read`;
-
-                return (
-                  <article
-                    key={book.id}
-                    data-book-card={book.id}
-                    className={`group flex flex-col justify-between min-w-0 rounded-xl border ${
-                      cardSize === 'compact' ? 'p-1.5 sm:p-2' : cardSize === 'large' ? 'p-3 sm:p-3.5' : 'p-2.5 sm:p-3'
-                    } lr-card transition-all ${
-                      isRead || isPicked
-                        ? 'bg-surface border-primary/45'
-                        : 'bg-surface border-edge hover:border-secondary'
-                    }`}
-                  >
-                    <div>
-                      <div className="relative">
                         <button
                           type="button"
                           onClick={() => setInspectedBookId(book.id)}
                           aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
-                          className="block w-full rounded-lg overflow-hidden bg-surface-subtle transition-transform active:scale-[0.985] cursor-pointer"
+                          className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
                         >
-                          <BookCover
-                            book={book}
-                            size="grid"
-                            aspectRatio={coverAspectRatio}
-                            showBadges
-                            hideRotationAdorno
-                            activeProfile={activeProfile}
-                            profiles={state.profiles}
-                            isReadOnActiveShelf={isRead}
-                            isPickedInRotation={isPicked}
-                          />
+                          <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle">
+                            <BookCover
+                              book={book}
+                              size="sm"
+                              aspectRatio={coverAspectRatio}
+                              showBadges
+                              hideRotationAdorno
+                              activeProfile={activeProfile}
+                              profiles={state.profiles}
+                              isReadOnActiveShelf={isRead}
+                              isPickedInRotation={isPicked}
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h2
+                              className={`font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate ${
+                                isRead ? 'opacity-75' : ''
+                              }`}
+                            >
+                              {book.title}
+                            </h2>
+                            <p className="text-xs text-ink-secondary truncate leading-tight mt-0.5">
+                              {primaryAuthor}
+                            </p>
+                            <p className="text-[11px] text-ink-muted truncate leading-tight mt-0.5">
+                              {isRead
+                                ? 'Read in this rotation'
+                                : isPicked
+                                  ? 'Picked for reading'
+                                  : isReadPreviously
+                                    ? 'Read previously'
+                                    : 'On active shelf'}
+                            </p>
+                          </div>
                         </button>
 
-                        {/* 44x44px Thumb Hitbox for 1-Tap Read/Picked Toggle */}
                         <button
                           type="button"
                           onClick={(e) => handleTogglePicked(book.id, e)}
                           aria-pressed={isPicked}
                           aria-label={badgeAriaLabel}
-                          className="absolute -bottom-1 -left-1 z-20 min-h-[44px] min-w-[44px] flex items-end justify-start p-2.5 cursor-pointer"
-                        >
-                          {isRead ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-primary text-primary-fg border-surface">
-                              <Icon name="check" className="w-2.5 h-2.5" />
-                              <span>Read</span>
-                            </span>
-                          ) : isPicked ? (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-primary text-primary-fg border-surface">
-                              <Icon name="bookmarkFilled" className="w-2.5 h-2.5" />
-                              <span>Picked</span>
-                            </span>
-                          ) : isReadPreviously ? (
-                            <span
-                              title="Read previously (not picked in this rotation)"
-                              className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md shadow-xs border bg-surface/95 text-primary border-edge"
-                            >
-                              <Icon name="check" className="w-2.5 h-2.5" />
-                              <span>Read</span>
-                            </span>
-                          ) : (
-                            <span className="w-6 h-6 rounded-full flex items-center justify-center shadow-xs border transition-colors bg-surface/95 border-edge text-ink-muted hover:text-ink">
-                              <Icon name="check" className="w-3 h-3" />
-                            </span>
-                          )}
-                        </button>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setInspectedBookId(book.id)}
-                        className="mt-1.5 w-full text-left min-w-0 rounded cursor-pointer"
-                      >
-                        <h2
-                          className={`font-sans ${
-                            cardSize === 'compact'
-                              ? 'text-xs sm:text-[13px]'
-                              : cardSize === 'large'
-                                ? 'text-sm sm:text-base'
-                                : 'text-[13px] sm:text-sm'
-                          } font-semibold text-ink leading-tight line-clamp-2 ${
-                            isRead ? 'opacity-75' : ''
+                          className={`min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer ${
+                            isRead || isPicked
+                              ? 'bg-primary text-primary-fg shadow-2xs'
+                              : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink'
                           }`}
                         >
-                          {book.title}
-                        </h2>
-                        <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
-                          {primaryAuthor}
-                        </p>
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+                          <Icon
+                            name={isPicked && !isRead ? 'bookmarkFilled' : 'check'}
+                            className="w-3.5 h-3.5"
+                          />
+                          <span>
+                            {isRead ? 'Read' : isPicked ? 'Picked' : 'Mark Read'}
+                          </span>
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={shelfGridClass}>
+                  {shelfBooks.map((book) => renderShelfBookCard(book, false))}
+                </div>
+              )}
 
-              {/* Dedicated Editorial Anchor Bar: Manage Your Rotation (full row so small screens never cramp) */}
-              <div className="col-span-full rounded-xl bg-surface-elevated border border-edge p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 lr-card">
+              {/* Compact Anchor Bar: Manage Your Rotation */}
+              <div className="rounded-xl bg-surface-elevated border border-edge p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-10 h-10 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shrink-0 shadow-2xs">
-                    <Icon name="rotations" className="w-5 h-5" />
+                  <span className="w-9 h-9 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shrink-0">
+                    <Icon name="rotations" className="w-4 h-4" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="font-display text-lg font-semibold text-ink leading-tight">
+                    <h2 className="font-display text-base font-semibold text-ink leading-tight">
                       Manage your rotation
                     </h2>
-                    <p className="text-xs text-ink-secondary leading-relaxed mt-0.5">
+                    <p className="text-xs text-ink-secondary truncate">
                       Swap, stock, or draw fresh books for this cycle.
                     </p>
                   </div>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2 shrink-0 sm:justify-end">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <button
                     type="button"
                     onClick={() => setIsPlacementOpen(true)}
-                    className="min-h-[40px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-subtle border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center transition-colors whitespace-nowrap cursor-pointer"
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-subtle border border-edge text-xs font-semibold text-ink cursor-pointer"
                   >
-                    Open Stock Checklist
+                    Stock Checklist
                   </button>
                   <button
                     type="button"
-                    onClick={() => navigate('rotations', { edit: activeRotation.id })}
-                    className="min-h-[40px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center justify-center gap-1.5 shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
+                    onClick={() => navigate('rotations', { edit: displayedRotation.id })}
+                    className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
                   >
                     <span>Edit Rotation</span>
                     <Icon name="chevronRight" className="w-3.5 h-3.5" />
@@ -808,7 +676,6 @@ export const HomeView: React.FC = () => {
                 </div>
               </div>
             </div>
-            )
           ) : (
             <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 lr-card">
               <BotanicalIllustration variant="empty-shelf" className="w-40 h-auto mx-auto" />
@@ -828,7 +695,7 @@ export const HomeView: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate('rotations', { edit: activeRotation.id })}
+                  onClick={() => navigate('rotations', { edit: displayedRotation.id })}
                   className="min-h-[42px] px-4 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink cursor-pointer transition-colors"
                 >
                   Edit Shelf
@@ -840,10 +707,6 @@ export const HomeView: React.FC = () => {
       ) : (
         <section className="rounded-xl bg-surface border border-edge p-6 sm:p-10 text-center space-y-3 lr-card">
           <BotanicalIllustration variant="empty-shelf" className="w-44 h-auto mx-auto" />
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">
-            {householdLabel ? `${householdLabel} · ` : ''}
-            {t('home.booksInRotation')}
-          </p>
           <h1 className="font-display text-2xl sm:text-3xl font-semibold text-ink">
             No active shelf rotation for {activeProfile?.name || 'Reader'}
           </h1>
@@ -885,133 +748,118 @@ export const HomeView: React.FC = () => {
       {recommendations.length > 0 && (
         <section
           aria-labelledby="up-next-heading"
-          className="rounded-xl bg-surface border border-edge p-3.5 sm:p-4 space-y-2.5 lr-card"
+          className="rounded-xl bg-surface border border-edge p-3.5 sm:p-4 space-y-3 lr-card"
         >
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <Icon name="starFilled" className="w-4 h-4 text-accent shrink-0" />
               <h2
                 id="up-next-heading"
-                className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight"
+                className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight truncate"
               >
-                Suggested next for {activeProfile?.name || 'Reader'}
+                Suggested for {activeProfile?.name || 'Reader'}
               </h2>
             </div>
-            <div className="flex items-center gap-2.5 ml-auto shrink-0">
-              <div
-                role="group"
-                aria-label="Recommendations layout"
-                className="inline-flex items-center p-0.5 rounded-lg bg-surface-subtle border border-edge"
-              >
-                <button
-                  type="button"
-                  aria-pressed={viewMode === 'grid'}
-                  aria-label="Grid view"
-                  title="Grid view"
-                  onClick={() => store.updateSettings({ bookViewMode: 'grid' })}
-                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
-                    viewMode === 'grid'
-                      ? 'bg-primary text-primary-fg shadow-2xs'
-                      : 'text-ink-secondary hover:text-ink'
-                  }`}
-                >
-                  <Icon name="grid" className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={viewMode === 'list'}
-                  aria-label="List view"
-                  title="List view"
-                  onClick={() => store.updateSettings({ bookViewMode: 'list' })}
-                  className={`min-h-[34px] min-w-[34px] px-2 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
-                    viewMode === 'list'
-                      ? 'bg-primary text-primary-fg shadow-2xs'
-                      : 'text-ink-secondary hover:text-ink'
-                  }`}
-                >
-                  <Icon name="list" className="w-3.5 h-3.5" />
-                </button>
-              </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
+                data-action="open-ai-recommendations"
                 onClick={() => setAiRecsModal({ isOpen: true })}
-                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1 whitespace-nowrap cursor-pointer"
+                aria-label="See AI recommendations"
+                title="See AI recommendations"
+                className="min-h-[34px] min-w-[34px] rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-accent inline-flex items-center justify-center transition-colors cursor-pointer"
               >
-                <Icon name="sparkles" className="w-3.5 h-3.5" />
-                <span>See AI recommendations</span>
-                <Icon name="chevronRight" className="w-3.5 h-3.5" />
+                <Icon name="sparkles" className="w-4 h-4" />
               </button>
+
+              <BookSectionViewToggle
+                value={recsLayout}
+                onChange={handleRecsLayoutChange}
+                ariaLabel="Recommendations layout"
+              />
             </div>
           </div>
 
-          <div
-            className={
-              viewMode === 'list'
-                ? 'space-y-1.5'
-                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2'
-            }
-          >
-            {recommendations.map(({ book, matchReasons }) => (
-              <div
-                key={book.id}
-                data-book-card={`rec-${book.id}`}
-                className="rounded-lg bg-surface-subtle border border-edge-subtle p-2 flex items-center justify-between gap-2 lr-card"
-              >
-                <button
-                  type="button"
-                  onClick={() => setInspectedBookId(book.id)}
-                  className="flex items-center gap-2.5 min-w-0 text-left flex-1 cursor-pointer"
+          {recsLayout === 'scroll' ? (
+            <HorizontalBookCarousel
+              itemCount={recommendations.length}
+              ariaLabel={`Suggested books for ${activeProfile?.name || 'Reader'}`}
+            >
+              {recommendations.map(({ book, matchReasons }) =>
+                renderRecCoverCard(book, matchReasons, true)
+              )}
+            </HorizontalBookCarousel>
+          ) : recsLayout === 'grid' ? (
+            <div className={shelfGridClass}>
+              {recommendations.map(({ book, matchReasons }) =>
+                renderRecCoverCard(book, matchReasons, false)
+              )}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {recommendations.map(({ book, matchReasons }) => (
+                <div
+                  key={book.id}
+                  data-book-card={`rec-${book.id}`}
+                  className="rounded-lg bg-surface-subtle border border-edge-subtle p-2 flex items-center justify-between gap-2 lr-card"
                 >
-                  <BookCover book={book} size="xs" aspectRatio={coverAspectRatio} />
-                  <span className="min-w-0 space-y-0.5">
-                    <span className="block font-sans text-[13px] font-semibold text-ink truncate leading-tight">
-                      {book.title}
-                    </span>
-                    <span className="block text-[11px] text-ink-secondary truncate leading-tight">
-                      {book.authors[0] || 'Unknown Author'}
-                    </span>
-                    <span className="inline-block text-[10px] text-primary truncate leading-tight font-semibold">
-                      {matchReasons[0] || 'Fresh pick'}
-                    </span>
-                  </span>
-                </button>
-                {activeRotation && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      await store.addBooksToRotationManual(activeRotation.id, [book.id]);
-                      store.notify(`Added "${book.title}" to active shelf!`, 'success');
-                    }}
-                    aria-label={`Add ${book.title} to active shelf`}
-                    title="Add to active shelf"
-                    className="min-h-[36px] min-w-[36px] rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    onClick={() => setInspectedBookId(book.id)}
+                    className="flex items-center gap-2.5 min-w-0 text-left flex-1 cursor-pointer"
                   >
-                    <Icon name="plus" className="w-4 h-4" />
+                    <BookCover book={book} size="xs" aspectRatio={coverAspectRatio} />
+                    <span className="min-w-0 space-y-0.5">
+                      <span className="block font-sans text-[13px] font-semibold text-ink truncate leading-tight">
+                        {book.title}
+                      </span>
+                      <span className="block text-[11px] text-ink-secondary truncate leading-tight">
+                        {book.authors[0] || 'Unknown Author'}
+                      </span>
+                      <span className="inline-block text-[10px] text-primary truncate leading-tight font-semibold">
+                        {matchReasons[0] || 'Fresh pick'}
+                      </span>
+                    </span>
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
+                  {displayedRotation && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await store.addBooksToRotationManual(displayedRotation.id, [book.id]);
+                        store.notify(`Added "${book.title}" to active shelf!`, 'success');
+                      }}
+                      aria-label={`Add ${book.title} to active shelf`}
+                      title="Add to active shelf"
+                      className="min-h-[36px] min-w-[36px] rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                    >
+                      <Icon name="plus" className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
-      {/* Lower Two-Column Row: Saved Rotations Switcher & Household Collection Summary */}
+      {/* Lower Row: Active Rotations List & Household Collection Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
-        {profileRotations.length > 0 && (
+        {activeRotations.length > 0 && (
           <section
-            aria-labelledby="saved-rotations-heading"
-            className="lg:col-span-7 rounded-xl bg-surface border border-edge p-3.5 sm:p-4 space-y-2.5 lr-card"
+            aria-labelledby="active-rotations-heading"
+            className="lg:col-span-7 rounded-xl bg-surface border border-edge p-3.5 sm:p-4 space-y-3 lr-card"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-baseline gap-2">
                 <h2
-                  id="saved-rotations-heading"
-                  className="font-display text-lg font-semibold text-ink"
+                  id="active-rotations-heading"
+                  className="font-display text-lg sm:text-xl font-semibold text-ink"
                 >
-                  {t('home.savedRotations')}
+                  Active Rotations
                 </h2>
                 <span className="text-xs font-mono-tabular text-ink-secondary">
-                  ({profileRotations.length})
+                  ({activeRotations.length})
                 </span>
               </div>
               <div className="flex items-center gap-3 ml-auto">
@@ -1034,51 +882,77 @@ export const HomeView: React.FC = () => {
             </div>
 
             <div className="divide-y divide-edge-subtle">
-              {profileRotations.slice(0, 3).map((rot) => {
-                const isRotActive = rot.status === 'active' || rot.id === activeRotation?.id;
-                const createdTimestamp = rot.createdAt || rot.updatedAt;
-                const createdLabel = createdTimestamp
-                  ? new Date(createdTimestamp).toLocaleDateString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric',
-                    })
-                  : '';
+              {activeRotations.map((rot) => {
+                const isSelected = displayedRotation?.id === rot.id;
+                const leadBook = rot.bookIds
+                  .map((id) => bookMap.get(id))
+                  .find((b): b is Book => Boolean(b));
+                const rotCompletedCount = rot.completedBookIds.filter((id) =>
+                  rot.bookIds.includes(id)
+                ).length;
+                const activeStamp = rot.activatedAt || rot.updatedAt || rot.createdAt;
+                const primaryTag = rot.rules?.preferredTags?.[0];
 
                 return (
-                  <div
+                  <button
                     key={rot.id}
-                    className="py-2 first:pt-0.5 last:pb-0 flex items-center justify-between gap-3"
+                    type="button"
+                    onClick={() => {
+                      setSelectedRotationId(rot.id);
+                      if (typeof window !== 'undefined') {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }}
+                    className={`w-full py-2.5 first:pt-1 last:pb-1 px-2 -mx-2 rounded-xl flex items-center justify-between gap-3 text-left transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-surface-subtle/80'
+                        : 'hover:bg-surface-subtle/50'
+                    }`}
                   >
-                    <div className="min-w-0">
-                      <p className="font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate">
-                        {rot.title}
-                      </p>
-                      <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
-                        <span>
-                          {rot.bookIds.length} {rot.bookIds.length === 1 ? 'book' : 'books'}
-                        </span>
-                        {createdLabel && (
-                          <span className="font-mono-tabular">{` · ${createdLabel}`}</span>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-11 h-11 rounded-lg overflow-hidden bg-surface-subtle border border-edge-subtle shrink-0 flex items-center justify-center">
+                        {leadBook ? (
+                          <BookCover book={leadBook} size="xs" aspectRatio="square" />
+                        ) : (
+                          <Icon name="rotations" className="w-4 h-4 text-ink-muted" />
                         )}
-                        {rot.rules?.objective ? ` · ${rot.rules.objective}` : ''}
-                      </p>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate">
+                          {rot.title}
+                        </p>
+                        <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
+                          <span className="font-mono-tabular">
+                            {rot.bookIds.length} {rot.bookIds.length === 1 ? 'book' : 'books'}
+                          </span>
+                          <span aria-hidden="true"> · </span>
+                          <span className="font-mono-tabular">
+                            {rotCompletedCount}/{rot.bookIds.length} read
+                          </span>
+                          <span aria-hidden="true"> · </span>
+                          <span>{formatRelativeActiveLabel(activeStamp)}</span>
+                        </p>
+                      </div>
                     </div>
-                    {isRotActive ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-surface-subtle border border-edge text-xs font-semibold text-primary shrink-0">
-                        <Icon name="check" className="w-3 h-3" />
-                        <span>Active</span>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleActivateRotation(rot.id)}
-                        className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors shrink-0 cursor-pointer"
-                      >
-                        Activate
-                      </button>
-                    )}
-                  </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {primaryTag && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-ink-secondary capitalize max-w-[100px] truncate">
+                          <Icon name="tag" className="w-3 h-3 text-accent shrink-0" />
+                          <span className="truncate">{primaryTag}</span>
+                        </span>
+                      )}
+                      {isSelected ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary">
+                          <Icon name="check" className="w-3 h-3" />
+                          <span>Viewing</span>
+                        </span>
+                      ) : (
+                        <Icon name="chevronRight" className="w-4 h-4 text-ink-muted" />
+                      )}
+                    </div>
+                  </button>
                 );
               })}
             </div>
@@ -1088,7 +962,7 @@ export const HomeView: React.FC = () => {
         <section
           aria-label="Active collection summary"
           className={`${
-            profileRotations.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'
+            activeRotations.length > 0 ? 'lg:col-span-5' : 'lg:col-span-12'
           } rounded-xl bg-surface border border-edge p-3.5 sm:p-4 flex flex-col justify-between gap-3.5 lr-card`}
         >
           <div>
@@ -1126,8 +1000,82 @@ export const HomeView: React.FC = () => {
         </section>
       </div>
 
+      {/* Floating Bottom "Current Read" Preview Bar (shows last-clicked Reading book) */}
+      {currentReadingBook && (
+        <div
+          role="region"
+          aria-label="Currently reading preview"
+          data-current-read-bar="true"
+          style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 92%, transparent)' }}
+          className="fixed bottom-[calc(4.65rem+env(safe-area-inset-bottom,0px))] inset-x-3 sm:inset-x-6 md:bottom-6 md:right-6 md:left-auto md:w-[390px] z-30 backdrop-blur-xl rounded-2xl border border-edge shadow-xl px-3 py-2 flex items-center justify-between gap-2.5"
+        >
+          <button
+            type="button"
+            onClick={() => setInspectedBookId(currentReadingBook.id)}
+            aria-label={`Open currently reading book ${currentReadingBook.title}`}
+            className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+          >
+            <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle shadow-2xs">
+              <BookCover
+                book={currentReadingBook}
+                size="xs"
+                aspectRatio={coverAspectRatio}
+              />
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="min-w-0">
+                <p className="font-sans text-[13px] font-semibold text-ink leading-tight truncate">
+                  {currentReadingBook.title}
+                </p>
+                <p className="text-[11px] text-ink-secondary leading-tight truncate">
+                  by {currentReadingBook.authors[0] || 'Unknown Author'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1 flex-1 max-w-[110px] rounded-full bg-surface-elevated overflow-hidden">
+                  <div className="h-full w-1/2 rounded-full bg-primary dark:bg-accent" />
+                </div>
+                <span className="text-[10px] font-medium text-ink-muted whitespace-nowrap">
+                  Reading
+                </span>
+              </div>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleMarkCurrentBookRead}
+              aria-label={`Mark ${currentReadingBook.title} as read`}
+              title="Mark as read"
+              className="min-h-[40px] min-w-[40px] rounded-xl text-ink-secondary hover:text-primary hover:bg-surface-elevated flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <Icon name="check" className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={handleToggleCurrentBookLoved}
+              aria-pressed={Boolean(currentReadingBook.loved)}
+              aria-label={currentReadingBook.loved ? 'Remove Loved mark' : 'Mark as Loved'}
+              title={currentReadingBook.loved ? 'Loved' : 'Mark as Loved'}
+              className={`min-h-[40px] min-w-[40px] rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
+                currentReadingBook.loved
+                  ? 'text-loved hover:bg-surface-elevated'
+                  : 'text-ink-secondary hover:text-loved hover:bg-surface-elevated'
+              }`}
+            >
+              <Icon
+                name={currentReadingBook.loved ? 'heartFilled' : 'heart'}
+                className="w-4 h-4"
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
       <ShelfPlacementModal
-        rotation={activeRotation}
+        rotation={displayedRotation}
         isOpen={isPlacementOpen}
         onClose={() => setIsPlacementOpen(false)}
       />
