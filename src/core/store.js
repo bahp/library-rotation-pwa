@@ -3904,6 +3904,7 @@ export function createAppStore(storage, deps = {}) {
       bookDetailStyle: state.settings.bookDetailStyle,
       bookViewMode: state.settings.bookViewMode,
       bookCardSize: state.settings.bookCardSize,
+      bookCardCustomWidth: state.settings.bookCardCustomWidth,
       bookCardInfoPlacement: state.settings.bookCardInfoPlacement,
       showBookCoverOverlays: state.settings.showBookCoverOverlays,
       bookCardFields: state.settings.bookCardFields,

@@ -24,6 +24,8 @@ export {
   normalizeSidebarDividerStyle,
   normalizeBottomNavStyle,
   normalizeBookCardShadow,
+  normalizeBookCardSize,
+  normalizeBookCardCustomWidth,
   normalizeBookCardInfoPlacement,
   normalizeBookCardFields,
   normalizeBookCardSectionOverrides,

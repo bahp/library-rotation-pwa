@@ -180,6 +180,8 @@ settings:
   bookCardCompact: "Compact"
   bookCardRegular: "Regular"
   bookCardLarge: "Large"
+  bookCardCustom: "Custom"
+  bookCardCustomWidthLabel: "Custom Card Width"
   sidebarArtworkLabel: "Sidebar Artwork"
   sidebarArtworkTheme: "Theme Default"
   sidebarArtworkEngraving: "Engraving"

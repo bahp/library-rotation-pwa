@@ -238,6 +238,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                   profiles={state.profiles}
                   layout="list"
                   size={rotCardConfig.size}
+                  customWidth={rotCardConfig.customWidth}
                   aspectRatio={rotCardConfig.aspectRatio}
                   infoPlacement={rotCardConfig.infoPlacement}
                   showCoverOverlays={rotCardConfig.showCoverOverlays}
@@ -270,8 +271,8 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
           </BookCoverList>
         ) : (
           <BookCoverGrid
-            density="dense"
             size={rotCardConfig.size}
+            customWidth={rotCardConfig.customWidth}
             infoPlacement={rotCardConfig.infoPlacement}
             className="pt-1"
           >
@@ -287,6 +288,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                   profiles={state.profiles}
                   layout="grid"
                   size={rotCardConfig.size}
+                  customWidth={rotCardConfig.customWidth}
                   aspectRatio={rotCardConfig.aspectRatio}
                   infoPlacement={rotCardConfig.infoPlacement}
                   showCoverOverlays={rotCardConfig.showCoverOverlays}

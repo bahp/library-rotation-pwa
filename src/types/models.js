@@ -48,7 +48,7 @@
  */
 
 /**
- * @typedef {'compact' | 'regular' | 'large'} BookCardSize
+ * @typedef {'compact' | 'regular' | 'large' | 'custom'} BookCardSize
  */
 
 /**
@@ -66,6 +66,7 @@
 /**
  * @typedef {Object} BookCardDisplayConfig
  * @property {BookCardSize} [size]
+ * @property {number} [customWidth]
  * @property {BookCardInfoPlacement} [infoPlacement]
  * @property {boolean} [showCoverOverlays]
  * @property {BookCardMetaField[]} [fields]
@@ -318,7 +319,8 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {ThemePresetId} [themePreset] - Selected centralized theme preset
  * @property {BookDetailStyle} [bookDetailStyle] - Preferred Book Detail view ('compact' | 'editorial')
  * @property {BookViewMode} [bookViewMode] - Default shelf & catalog view ('grid' | 'list')
- * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large')
+ * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large' | 'custom')
+ * @property {number} [bookCardCustomWidth] - Custom book card target width in pixels (88..260, default 136)
  * @property {BookCardInfoPlacement} [bookCardInfoPlacement] - Where metadata sits on cover cards ('below' | 'overlay' | 'cover-only')
  * @property {boolean} [showBookCoverOverlays] - Show corner badges, loved hearts, and owner monograms on covers (default: true)
  * @property {BookCardMetaField[]} [bookCardFields] - Ordered list of metadata fields displayed on book cards

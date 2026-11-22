@@ -16,10 +16,12 @@ import {
   DEFAULT_PRESET_ILLUSTRATION_PROMPT,
   NUMERIC_BOUNDS,
   detectDeviceLanguage,
+  normalizeBookCardCustomWidth,
   normalizeBookCardFields,
   normalizeBookCardInfoPlacement,
   normalizeBookCardSectionOverrides,
   normalizeBookCardShadow,
+  normalizeBookCardSize,
   normalizeBottomNavStyle,
   normalizeLanguage,
   normalizeSidebarDividerStyle,
@@ -440,10 +442,8 @@ export function createSafeDefaultSettings(overrides = {}) {
         (overrides.theme === 'dark' ? DEFAULT_DARK_THEME_PRESET : DEFAULT_LIGHT_THEME_PRESET),
       bookDetailStyle: overrides.bookDetailStyle === 'compact' ? 'compact' : 'editorial',
       bookViewMode: overrides.bookViewMode === 'list' ? 'list' : 'grid',
-      bookCardSize:
-        overrides.bookCardSize === 'regular' || overrides.bookCardSize === 'large'
-          ? overrides.bookCardSize
-          : 'compact',
+      bookCardSize: normalizeBookCardSize(overrides.bookCardSize),
+      bookCardCustomWidth: normalizeBookCardCustomWidth(overrides.bookCardCustomWidth),
       bookCardInfoPlacement: normalizeBookCardInfoPlacement(overrides.bookCardInfoPlacement),
       showBookCoverOverlays: overrides.showBookCoverOverlays !== false,
       bookCardFields: normalizeBookCardFields(overrides.bookCardFields),

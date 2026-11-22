@@ -913,6 +913,7 @@ export const LibraryView: React.FC = () => {
                     profiles={state.profiles}
                     layout="list"
                     size={libraryCardConfig.size}
+                    customWidth={libraryCardConfig.customWidth}
                     aspectRatio={libraryCardConfig.aspectRatio}
                     infoPlacement={libraryCardConfig.infoPlacement}
                     showCoverOverlays={libraryCardConfig.showCoverOverlays}
@@ -928,6 +929,7 @@ export const LibraryView: React.FC = () => {
             ) : (
               <BookCoverGrid
                 size={libraryCardConfig.size}
+                customWidth={libraryCardConfig.customWidth}
                 infoPlacement={libraryCardConfig.infoPlacement}
                 className="relative z-0 pt-1"
               >
@@ -939,6 +941,7 @@ export const LibraryView: React.FC = () => {
                     profiles={state.profiles}
                     layout="grid"
                     size={libraryCardConfig.size}
+                    customWidth={libraryCardConfig.customWidth}
                     aspectRatio={libraryCardConfig.aspectRatio}
                     infoPlacement={libraryCardConfig.infoPlacement}
                     showCoverOverlays={libraryCardConfig.showCoverOverlays}

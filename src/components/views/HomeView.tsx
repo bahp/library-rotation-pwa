@@ -288,6 +288,7 @@ export const HomeView: React.FC = () => {
         profiles={state.profiles}
         layout={isCarouselItem ? 'carousel' : 'grid'}
         size={shelfCardConfig.size}
+        customWidth={shelfCardConfig.customWidth}
         aspectRatio={shelfCardConfig.aspectRatio}
         infoPlacement={shelfCardConfig.infoPlacement}
         showCoverOverlays={shelfCardConfig.showCoverOverlays}
@@ -338,6 +339,7 @@ export const HomeView: React.FC = () => {
         profiles={state.profiles}
         layout={isCarouselItem ? 'carousel' : 'grid'}
         size={suggestedCardConfig.size}
+        customWidth={suggestedCardConfig.customWidth}
         aspectRatio={suggestedCardConfig.aspectRatio}
         infoPlacement={suggestedCardConfig.infoPlacement}
         showCoverOverlays={suggestedCardConfig.showCoverOverlays}
@@ -519,6 +521,7 @@ export const HomeView: React.FC = () => {
                         profiles={state.profiles}
                         layout="list"
                         size={shelfCardConfig.size}
+                        customWidth={shelfCardConfig.customWidth}
                         aspectRatio={shelfCardConfig.aspectRatio}
                         infoPlacement={shelfCardConfig.infoPlacement}
                         showCoverOverlays={shelfCardConfig.showCoverOverlays}
@@ -565,6 +568,7 @@ export const HomeView: React.FC = () => {
               ) : (
                 <BookCoverGrid
                   size={shelfCardConfig.size}
+                  customWidth={shelfCardConfig.customWidth}
                   infoPlacement={shelfCardConfig.infoPlacement}
                 >
                   {shelfBooks.map((book) => renderShelfBookCard(book, false))}
@@ -645,31 +649,53 @@ export const HomeView: React.FC = () => {
           aria-labelledby="up-next-heading"
           className="space-y-3"
         >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
               <h2
                 id="up-next-heading"
-                className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight truncate"
+                className="font-display text-xl sm:text-2xl font-semibold text-ink leading-tight truncate"
               >
                 Suggested for {activeProfile?.name || 'Reader'}
               </h2>
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                type="button"
-                data-action="open-ai-recommendations"
-                onClick={() => setAiRecsModal({ isOpen: true })}
-                aria-label="See AI recommendations"
-                title="See AI recommendations"
-                className="min-h-[34px] min-w-[34px] rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-accent inline-flex items-center justify-center transition-colors cursor-pointer"
-              >
-                <Icon name="sparkles" className="w-4 h-4" />
-              </button>
+            <div
+              data-home-suggested-bar="true"
+              style={{
+                backgroundColor: 'var(--capsule-bg)',
+                borderColor: 'var(--capsule-border)',
+              }}
+              className="w-full rounded-full border px-2 sm:px-3 py-1 flex items-center justify-between gap-1 shadow-2xs"
+            >
+              <div className="flex items-center min-w-0 flex-1">
+                <button
+                  type="button"
+                  data-action="open-ai-recommendations"
+                  onClick={() => setAiRecsModal({ isOpen: true })}
+                  aria-label="See AI recommendations"
+                  className="min-h-[38px] px-3 sm:px-4 rounded-full text-xs sm:text-[13px] font-medium text-ink hover:bg-surface-subtle inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                >
+                  <Icon name="sparkles" className="w-4 h-4 text-accent shrink-0" />
+                  <span>AI Picks</span>
+                </button>
+                <span aria-hidden="true" className="w-px h-5 bg-edge-subtle mx-0.5 sm:mx-1.5 shrink-0" />
+                <button
+                  type="button"
+                  onClick={() => navigate('library')}
+                  aria-label="Browse all books in library"
+                  className="min-h-[38px] px-3 sm:px-4 rounded-full text-xs sm:text-[13px] font-medium text-ink hover:bg-surface-subtle inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                >
+                  <Icon name="library" className="w-4 h-4 text-ink-secondary shrink-0" />
+                  <span>Library</span>
+                </button>
+              </div>
+
+              <span aria-hidden="true" className="w-px h-5 bg-edge-subtle mr-1 sm:mr-1.5 shrink-0" />
 
               <BookSectionViewToggle
                 value={recsLayout}
                 onChange={handleRecsLayoutChange}
+                variant="capsule"
                 ariaLabel="Recommendations layout"
               />
             </div>
@@ -687,6 +713,7 @@ export const HomeView: React.FC = () => {
           ) : recsLayout === 'grid' ? (
             <BookCoverGrid
               size={suggestedCardConfig.size}
+              customWidth={suggestedCardConfig.customWidth}
               infoPlacement={suggestedCardConfig.infoPlacement}
             >
               {recommendations.map(({ book, matchReasons }) =>
@@ -704,6 +731,7 @@ export const HomeView: React.FC = () => {
                   profiles={state.profiles}
                   layout="list"
                   size={suggestedCardConfig.size}
+                  customWidth={suggestedCardConfig.customWidth}
                   aspectRatio={suggestedCardConfig.aspectRatio}
                   infoPlacement={suggestedCardConfig.infoPlacement}
                   showCoverOverlays={suggestedCardConfig.showCoverOverlays}

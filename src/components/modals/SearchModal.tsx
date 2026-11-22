@@ -18,6 +18,7 @@ import {
 } from '../../features/scan/frame-processor.js';
 import { createOcrEngine } from '../../features/scan/ocr-engine.js';
 import { formatBookBinding, formatCollectionStatus, normalizeIsbn } from '../../types/models.js';
+import { AVATAR_TONES } from '../../config/index.js';
 import type { Book, BookCondition, ScanMode } from '../../types/models.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
 
@@ -81,6 +82,7 @@ export const SearchModal: React.FC = () => {
     activeProfile,
     isSearchOpen,
     setIsSearchOpen,
+    setIsProfileSwitcherOpen,
     setInspectedBookId,
     submitGlobalSearch,
     navigate,
@@ -520,6 +522,9 @@ export const SearchModal: React.FC = () => {
 
   const trimmedQuery = query.trim();
   const showResults = trimmedQuery.length > 0;
+  const avatarTone = activeProfile?.avatarTone || 'teal';
+  const avatarToneClass = AVATAR_TONES[avatarTone] || AVATAR_TONES.teal;
+  const avatarInitial = activeProfile?.name ? activeProfile.name.charAt(0).toUpperCase() : 'R';
 
   return (
     <>
@@ -528,25 +533,29 @@ export const SearchModal: React.FC = () => {
         aria-modal="true"
         aria-label="Search and add books"
         data-search-window="true"
-        className="fixed inset-0 z-50 bg-canvas sm:bg-scrim sm:backdrop-blur-sm sm:flex sm:items-start sm:justify-center sm:pt-12 sm:p-4"
+        style={{ backgroundColor: 'var(--search-overlay-bg)' }}
+        className="fixed inset-0 z-50 backdrop-blur-2xl sm:backdrop-blur-lg sm:flex sm:items-start sm:justify-center sm:pt-12 sm:p-4"
         onClick={closeSearch}
       >
         <div
           onClick={(e) => e.stopPropagation()}
-          className="w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-xl bg-canvas sm:bg-surface sm:rounded-2xl sm:border sm:border-edge sm:shadow-2xl flex flex-col overflow-hidden pt-safe pb-safe sm:pt-0 sm:pb-0"
+          style={{
+            borderColor: 'var(--search-glass-border)',
+          }}
+          className="animate-search-sheet-up w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-xl bg-transparent sm:bg-surface/80 sm:backdrop-blur-2xl sm:rounded-3xl sm:border sm:shadow-2xl flex flex-col overflow-hidden pt-safe pb-safe sm:pt-0 sm:pb-0"
         >
-          {/* Sticky Top Search Bar */}
+          {/* Sticky Top Frosted Search Bar */}
           <form
             onSubmit={handleSubmit}
-            className="shrink-0 px-3 sm:px-4 py-3 border-b border-edge-subtle bg-surface flex items-center gap-2"
+            className="shrink-0 px-3.5 sm:px-5 pt-3 pb-2.5 flex items-center gap-2"
           >
             <button
               type="button"
               onClick={closeSearch}
               aria-label="Close search"
-              className="min-h-[44px] min-w-[44px] rounded-xl text-ink-secondary hover:text-ink hover:bg-surface-subtle active:scale-95 flex items-center justify-center transition-all cursor-pointer shrink-0"
+              className="min-h-[44px] px-2.5 rounded-full text-sm font-semibold text-secondary hover:text-ink hover:bg-surface/45 active:scale-95 inline-flex items-center justify-center transition-all cursor-pointer shrink-0"
             >
-              <Icon name="arrowLeft" className="w-5 h-5" />
+              Close
             </button>
 
             <ClearableInput
@@ -554,88 +563,141 @@ export const SearchModal: React.FC = () => {
               id="search-window-input"
               value={query}
               onValueChange={setQuery}
-              leadingIcon={<Icon name="search" className="w-4 h-4" />}
-              placeholder="Search books, authors, genres, ..."
+              leadingIcon={<Icon name="search" className="w-4 h-4 text-ink-secondary" />}
+              placeholder="Search books, authors, genres…"
               aria-label="Search books, authors, genres, or ISBN"
               enterKeyHint="search"
               containerClassName="flex-1 min-w-0"
-              className="h-11 rounded-xl bg-surface-subtle border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:bg-surface focus:outline-none focus:border-primary transition-colors"
+              style={{
+                backgroundColor: 'var(--search-glass-input)',
+                borderColor: 'var(--search-glass-border)',
+              }}
+              className="h-11 rounded-full border backdrop-blur-md text-base sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary shadow-xs transition-colors"
             />
+
+            {activeProfile && (
+              <button
+                type="button"
+                onClick={() => {
+                  closeSearch();
+                  setIsProfileSwitcherOpen(true);
+                }}
+                aria-label={`Switch reader profile, current reader is ${activeProfile.name}`}
+                className="sm:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full active:scale-95 transition-transform cursor-pointer shrink-0"
+              >
+                <span
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-xs ring-1 ring-surface/70 ${avatarToneClass}`}
+                >
+                  {avatarInitial}
+                </span>
+              </button>
+            )}
           </form>
 
-          {/* Scrollable Body */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6 text-left">
+          {/* Scrollable Frosted Body */}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-5 pt-1 pb-6 space-y-6 text-left">
             {!showResults ? (
               <div className="space-y-6 pb-2">
-                {/* Full-Width Scan & Entry Actions */}
-                <section aria-label="Scan and add book options" className="space-y-2">
-                  {/* Primary: Scan barcode / QR */}
+                {/* Frosted Glass Scan & Entry Cards */}
+                <section aria-label="Scan and add book options" className="space-y-2.5">
+                  {/* Featured Primary Frosted Card: Scan Book Cover or Barcode */}
                   <button
                     type="button"
                     data-action="search-scan-barcode"
                     onClick={() => handleOpenScanner('barcode')}
-                    className="w-full min-h-[52px] px-4 py-3 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.99] text-primary-fg flex items-center gap-3 shadow-sm transition-all cursor-pointer"
+                    style={{
+                      backgroundColor: 'var(--search-glass-card-strong)',
+                      borderColor: 'var(--search-glass-border)',
+                    }}
+                    className="w-full min-h-[58px] px-4 py-3.5 rounded-2xl border backdrop-blur-md hover:border-primary/45 active:scale-[0.99] text-ink flex items-center justify-between gap-3 shadow-sm transition-all cursor-pointer"
                   >
-                    <Icon name="scan" className="w-5 h-5 shrink-0" />
-                    <span className="text-sm font-semibold leading-tight text-left">
-                      Scan barcode / QR
+                    <span className="flex items-center gap-3 min-w-0">
+                      <span className="w-9 h-9 rounded-xl bg-primary/12 text-primary flex items-center justify-center shrink-0">
+                        <Icon name="scan" className="w-5 h-5" />
+                      </span>
+                      <span className="text-[15px] font-semibold leading-tight text-left truncate">
+                        Scan Book Cover or Barcode
+                      </span>
                     </span>
+                    <Icon name="chevronRight" className="w-4 h-4 text-ink-muted shrink-0" />
                   </button>
 
-                  {/* Full-width secondary scan & entry buttons */}
-                  <button
-                    type="button"
-                    data-action="search-scan-isbn-text"
-                    onClick={() => handleOpenScanner('isbn-ocr')}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-surface border border-edge hover:bg-surface-elevated active:scale-[0.99] flex items-center gap-3 text-left transition-all cursor-pointer"
-                  >
-                    <Icon name="hash" className="w-4.5 h-4.5 text-ink-secondary shrink-0" />
-                    <span className="text-sm font-medium text-ink leading-tight">
-                      Scan ISBN text
-                    </span>
-                  </button>
+                  {/* Secondary Frosted Glass Action Rows */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      data-action="search-scan-isbn-text"
+                      onClick={() => handleOpenScanner('isbn-ocr')}
+                      style={{
+                        backgroundColor: 'var(--search-glass-card)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="min-h-[48px] px-3.5 py-2.5 rounded-2xl border backdrop-blur-md hover:border-primary/40 active:scale-[0.99] flex items-center gap-2.5 text-left shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Icon name="hash" className="w-4 h-4 text-ink-secondary shrink-0" />
+                      <span className="text-[13px] font-medium text-ink leading-tight truncate">
+                        Scan ISBN Text
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    data-action="search-scan-cover"
-                    onClick={() => handleOpenScanner('cover')}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-surface border border-edge hover:bg-surface-elevated active:scale-[0.99] flex items-center gap-3 text-left transition-all cursor-pointer"
-                  >
-                    <Icon name="bookOpen" className="w-4.5 h-4.5 text-ink-secondary shrink-0" />
-                    <span className="text-sm font-medium text-ink leading-tight">
-                      Scan cover
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      data-action="search-scan-cover"
+                      onClick={() => handleOpenScanner('cover')}
+                      style={{
+                        backgroundColor: 'var(--search-glass-card)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="min-h-[48px] px-3.5 py-2.5 rounded-2xl border backdrop-blur-md hover:border-primary/40 active:scale-[0.99] flex items-center gap-2.5 text-left shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Icon name="bookOpen" className="w-4 h-4 text-ink-secondary shrink-0" />
+                      <span className="text-[13px] font-medium text-ink leading-tight truncate">
+                        Scan Cover
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    data-action="search-upload-photo"
-                    disabled={isAnalyzingPhoto}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-surface border border-edge hover:bg-surface-elevated active:scale-[0.99] disabled:opacity-60 flex items-center gap-3 text-left transition-all cursor-pointer"
-                  >
-                    <Icon name="photo" className="w-4.5 h-4.5 text-ink-secondary shrink-0" />
-                    <span className="text-sm font-medium text-ink leading-tight">
-                      {isAnalyzingPhoto ? 'Reading photo…' : 'Upload photo'}
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      data-action="search-type-manual"
+                      onClick={() => handleGoToManualEntry()}
+                      style={{
+                        backgroundColor: 'var(--search-glass-card)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="min-h-[48px] px-3.5 py-2.5 rounded-2xl border backdrop-blur-md hover:border-primary/40 active:scale-[0.99] flex items-center gap-2.5 text-left shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Icon name="edit" className="w-4 h-4 text-ink-secondary shrink-0" />
+                      <span className="text-[13px] font-medium text-ink leading-tight truncate">
+                        Type details
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    data-action="search-type-manual"
-                    onClick={() => handleGoToManualEntry()}
-                    className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-surface border border-edge hover:bg-surface-elevated active:scale-[0.99] flex items-center gap-3 text-left transition-all cursor-pointer"
-                  >
-                    <Icon name="edit" className="w-4.5 h-4.5 text-ink-secondary shrink-0" />
-                    <span className="text-sm font-medium text-ink leading-tight">
-                      Type details manually
-                    </span>
-                  </button>
+                    <button
+                      type="button"
+                      data-action="search-upload-photo"
+                      disabled={isAnalyzingPhoto}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        backgroundColor: 'var(--search-glass-card)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="min-h-[48px] px-3.5 py-2.5 rounded-2xl border backdrop-blur-md hover:border-primary/40 active:scale-[0.99] disabled:opacity-60 flex items-center gap-2.5 text-left shadow-2xs transition-all cursor-pointer"
+                    >
+                      <Icon name="photo" className="w-4 h-4 text-ink-secondary shrink-0" />
+                      <span className="text-[13px] font-medium text-ink leading-tight truncate">
+                        {isAnalyzingPhoto ? 'Reading photo…' : 'Upload photo'}
+                      </span>
+                    </button>
+                  </div>
 
                   {photoStatusText && (
                     <p
                       role="status"
-                      className="rounded-xl bg-surface border border-edge px-3.5 py-2.5 text-xs font-medium text-ink-secondary"
+                      style={{
+                        backgroundColor: 'var(--search-glass-card-strong)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="rounded-xl border backdrop-blur-md px-3.5 py-2.5 text-xs font-medium text-ink-secondary"
                     >
                       {photoStatusText}
                     </p>
@@ -644,16 +706,16 @@ export const SearchModal: React.FC = () => {
                   {photoError && (
                     <p
                       role="alert"
-                      className="rounded-xl bg-danger/10 border border-danger/35 px-3.5 py-2.5 text-xs font-medium text-danger"
+                      className="rounded-xl bg-danger/15 backdrop-blur-md border border-danger/35 px-3.5 py-2.5 text-xs font-medium text-danger"
                     >
                       {photoError}
                     </p>
                   )}
                 </section>
 
-                {/* Popular Search Categories — Compact Topic Pills */}
+                {/* Popular Search Categories — Frosted Topic Pills */}
                 <section aria-label="Popular search categories" className="space-y-2.5">
-                  <h2 className="text-xs font-medium text-ink-secondary">
+                  <h2 className="text-xs font-semibold text-ink">
                     Popular Search Categories
                   </h2>
 
@@ -665,7 +727,11 @@ export const SearchModal: React.FC = () => {
                           key={category.id}
                           type="button"
                           onClick={() => handleSelectQuickQuery(category.query)}
-                          className="min-h-[36px] px-3.5 py-1.5 rounded-full bg-surface border border-edge hover:bg-surface-elevated active:scale-95 inline-flex items-center gap-1.5 text-xs font-medium text-ink transition-all cursor-pointer whitespace-nowrap"
+                          style={{
+                            backgroundColor: 'var(--search-glass-card)',
+                            borderColor: 'var(--search-glass-border)',
+                          }}
+                          className="min-h-[36px] px-3.5 py-1.5 rounded-full border backdrop-blur-md hover:border-primary/45 active:scale-95 inline-flex items-center gap-1.5 text-xs font-medium text-ink shadow-2xs transition-all cursor-pointer whitespace-nowrap"
                         >
                           <span>{category.label}</span>
                           {matchCount > 0 && (
@@ -679,20 +745,20 @@ export const SearchModal: React.FC = () => {
                   </div>
                 </section>
 
-                {/* Recent Searches — Low-Emphasis List at Bottom */}
+                {/* Recent Searches — Clean Low-Emphasis List */}
                 {recentSearches.length > 0 && (
                   <section
                     aria-label="Recent searches"
-                    className="pt-2 border-t border-edge-subtle space-y-1"
+                    className="pt-2 border-t border-edge-subtle/70 space-y-1.5"
                   >
                     <div className="flex items-center justify-between">
-                      <h2 className="text-xs font-medium text-ink-muted">
+                      <h2 className="text-xs font-semibold text-ink">
                         Recent Searches
                       </h2>
                       <button
                         type="button"
                         onClick={clearAllRecentSearches}
-                        className="text-xs font-medium text-ink-muted hover:text-ink py-1 px-1.5 rounded transition-colors cursor-pointer"
+                        className="text-xs font-semibold text-secondary hover:text-ink py-1 px-1.5 rounded transition-colors cursor-pointer"
                       >
                         Clear
                       </button>
@@ -702,21 +768,21 @@ export const SearchModal: React.FC = () => {
                       {recentSearches.map((item) => (
                         <div
                           key={item}
-                          className="flex items-center justify-between min-h-[38px] rounded-lg hover:bg-surface-subtle transition-colors"
+                          className="flex items-center justify-between min-h-[40px] rounded-xl hover:bg-surface/45 transition-colors"
                         >
                           <button
                             type="button"
                             onClick={() => handleSelectQuickQuery(item)}
-                            className="flex-1 min-w-0 min-h-[38px] px-1.5 flex items-center gap-2.5 text-left cursor-pointer"
+                            className="flex-1 min-w-0 min-h-[40px] px-1.5 flex items-center gap-2.5 text-left cursor-pointer"
                           >
                             <Icon name="clock" className="w-3.5 h-3.5 text-ink-muted shrink-0" />
-                            <span className="text-xs text-ink-secondary truncate">{item}</span>
+                            <span className="text-[13px] font-medium text-ink truncate">{item}</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => removeRecentSearch(item)}
                             aria-label={`Remove recent search ${item}`}
-                            className="min-h-[38px] min-w-[38px] flex items-center justify-center text-ink-muted hover:text-ink rounded-lg cursor-pointer shrink-0"
+                            className="min-h-[40px] min-w-[40px] flex items-center justify-center text-ink-muted hover:text-ink rounded-xl cursor-pointer shrink-0"
                           >
                             <Icon name="x" className="w-3.5 h-3.5" />
                           </button>
@@ -732,7 +798,7 @@ export const SearchModal: React.FC = () => {
                 {/* In Your Library Matches */}
                 <section aria-label="Matches in your library" className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
                       In Your Library ({libraryMatches.length})
                     </h2>
                     <button
@@ -749,7 +815,13 @@ export const SearchModal: React.FC = () => {
                   </div>
 
                   {libraryMatches.length > 0 ? (
-                    <div className="rounded-xl bg-surface border border-edge divide-y divide-edge-subtle overflow-hidden">
+                    <div
+                      style={{
+                        backgroundColor: 'var(--search-glass-card-strong)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="rounded-2xl border backdrop-blur-md divide-y divide-edge-subtle/70 overflow-hidden shadow-xs"
+                    >
                       {libraryMatches.map((book) => (
                         <button
                           key={book.id}
@@ -759,7 +831,7 @@ export const SearchModal: React.FC = () => {
                             closeSearch();
                             setInspectedBookId(book.id);
                           }}
-                          className="w-full p-3 hover:bg-surface-subtle active:scale-[0.995] flex items-center justify-between gap-3 text-left transition-all cursor-pointer"
+                          className="w-full p-3 hover:bg-surface/65 active:scale-[0.995] flex items-center justify-between gap-3 text-left transition-all cursor-pointer"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <BookCover
@@ -794,7 +866,7 @@ export const SearchModal: React.FC = () => {
                 {/* Online Catalog Results */}
                 <section aria-label="Online book catalog results" className="space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-muted">
+                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
                       Online Catalog
                     </h2>
                     <button
@@ -811,11 +883,23 @@ export const SearchModal: React.FC = () => {
                   </div>
 
                   {isSearchingOnline ? (
-                    <div className="rounded-xl bg-surface border border-edge p-4">
+                    <div
+                      style={{
+                        backgroundColor: 'var(--search-glass-card-strong)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="rounded-2xl border backdrop-blur-md p-4"
+                    >
                       <SearchResultsSkeleton rows={3} />
                     </div>
                   ) : onlineCandidates.length > 0 ? (
-                    <div className="rounded-xl bg-surface border border-edge divide-y divide-edge-subtle px-3.5">
+                    <div
+                      style={{
+                        backgroundColor: 'var(--search-glass-card-strong)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="rounded-2xl border backdrop-blur-md divide-y divide-edge-subtle/70 px-3.5 shadow-xs"
+                    >
                       {onlineCandidates.map((cand, idx) => {
                         const pseudoBook = {
                           ...cand,
@@ -881,19 +965,31 @@ export const SearchModal: React.FC = () => {
                       })}
                     </div>
                   ) : hasSearchedOnline && onlineError ? (
-                    <div className="rounded-xl bg-surface border border-edge p-4 space-y-2.5">
+                    <div
+                      style={{
+                        backgroundColor: 'var(--search-glass-card-strong)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="rounded-2xl border backdrop-blur-md p-4 space-y-2.5"
+                    >
                       <p className="text-xs text-ink-secondary">{onlineError}</p>
                       <button
                         type="button"
                         onClick={() => handleGoToManualEntry()}
-                        className="min-h-[40px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 cursor-pointer"
+                        className="min-h-[40px] px-3.5 py-2 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 cursor-pointer"
                       >
                         <Icon name="edit" className="w-3.5 h-3.5" />
                         <span>Type details manually</span>
                       </button>
                     </div>
                   ) : (
-                    <div className="rounded-xl bg-surface border border-edge p-4 flex items-center justify-between gap-3">
+                    <div
+                      style={{
+                        backgroundColor: 'var(--search-glass-card-strong)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="rounded-2xl border backdrop-blur-md p-4 flex items-center justify-between gap-3"
+                    >
                       <p className="text-xs text-ink-secondary">
                         Type at least 3 characters or press Search to query Google Books &amp; Open Library.
                       </p>

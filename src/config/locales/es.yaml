@@ -180,6 +180,8 @@ settings:
   bookCardCompact: "Compacto"
   bookCardRegular: "Normal"
   bookCardLarge: "Grande"
+  bookCardCustom: "Personalizado"
+  bookCardCustomWidthLabel: "Ancho Personalizado"
   sidebarArtworkLabel: "Ilustración de Barra Lateral"
   sidebarArtworkTheme: "Según Tema"
   sidebarArtworkEngraving: "Grabado Botánico"

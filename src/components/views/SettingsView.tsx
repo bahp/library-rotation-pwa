@@ -15,12 +15,23 @@ import {
   DARK_THEME_PRESET_IDS,
   DEFAULT_LIGHT_THEME_PRESET,
   ALL_BOOK_CARD_FIELDS,
+  NUMERIC_BOUNDS,
+  normalizeBookCardCustomWidth,
   normalizeLanguage,
   resolveEffectiveThemeConfig,
   resolveBookCardDisplayConfig,
 } from '../../config/index.js';
 import { DEFAULT_PRESET_ILLUSTRATION_PROMPT } from '../../config/defaults.js';
 import {
+  BookCoverCard,
+  BookCoverGrid,
+  BookCoverList,
+  BookCoverSlide,
+  getBookCardWidthTokens,
+} from '../common/BookCoverCard.js';
+import type { SectionBookLayout } from '../common/BookSectionViewToggle.js';
+import {
+  type Book,
   type ThemePresetId,
   type BookDetailStyle,
   type BookViewMode,
@@ -309,6 +320,7 @@ export const SettingsView: React.FC = () => {
     'themes'
   );
   const [cardConfigScope, setCardConfigScope] = useState<'global' | BookCardSectionKey>('global');
+  const [cardPreviewLayout, setCardPreviewLayout] = useState<SectionBookLayout>('grid');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -397,6 +409,9 @@ export const SettingsView: React.FC = () => {
     if (cardConfigScope === 'global') {
       const updates: Record<string, unknown> = {};
       if (patch.size !== undefined) updates.bookCardSize = patch.size;
+      if (patch.customWidth !== undefined) {
+        updates.bookCardCustomWidth = normalizeBookCardCustomWidth(patch.customWidth);
+      }
       if (patch.infoPlacement !== undefined) updates.bookCardInfoPlacement = patch.infoPlacement;
       if (patch.showCoverOverlays !== undefined) {
         updates.showBookCoverOverlays = patch.showCoverOverlays;
@@ -414,6 +429,9 @@ export const SettingsView: React.FC = () => {
         [cardConfigScope]: {
           ...currentSection,
           ...patch,
+          ...(patch.customWidth !== undefined
+            ? { customWidth: normalizeBookCardCustomWidth(patch.customWidth) }
+            : {}),
         },
       },
     });
@@ -423,6 +441,7 @@ export const SettingsView: React.FC = () => {
     if (cardConfigScope === 'global') {
       await store.updateSettings({
         bookCardSize: 'compact',
+        bookCardCustomWidth: NUMERIC_BOUNDS.bookCardCustomWidthDefault,
         bookCardInfoPlacement: 'below',
         showBookCoverOverlays: true,
         bookCardFields: ['title', 'author', 'ageFormat', 'usage'],
@@ -1310,35 +1329,284 @@ export const SettingsView: React.FC = () => {
                         </p>
                       )}
 
-                      {/* Card Size */}
-                      <div>
-                        <p className="text-xs font-semibold text-ink">
-                          {t('settings.bookCardSizeLabel')}
-                        </p>
-                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface border border-edge max-w-md">
-                          {[
-                            { id: 'compact' as const, label: t('settings.bookCardCompact') },
-                            { id: 'regular' as const, label: t('settings.bookCardRegular') },
-                            { id: 'large' as const, label: t('settings.bookCardLarge') },
-                          ].map((item) => {
-                            const active = scopedConfig.size === item.id;
-                            return (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => void updateScopedBookCardConfig({ size: item.id })}
-                                aria-pressed={active}
-                                className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                                  active
-                                    ? 'bg-primary text-primary-fg shadow-xs'
-                                    : 'text-ink-secondary hover:text-ink'
-                                }`}
+                      {/* Live Interactive Book Card Preview */}
+                      {(() => {
+                        const fallbackSamples: Book[] = [
+                          {
+                            id: 'preview-sample-1',
+                            isbn13: '9780000000001',
+                            title: 'The Snowy Day',
+                            authors: ['Ezra Jack Keats'],
+                            publishedYear: 1962,
+                            pageCount: 40,
+                            format: 'hardcover',
+                            ageMin: 2,
+                            ageMax: 6,
+                            readingStage: 'picture-book',
+                            tags: ['winter', 'bedtime'],
+                            collectionStatus: 'owned',
+                            condition: 'good',
+                            loved: true,
+                            owners: activeProfile ? [activeProfile.id] : ['shared'],
+                            spineColor: 'amber',
+                            sources: [],
+                            addedAt: '',
+                          },
+                          {
+                            id: 'preview-sample-2',
+                            isbn13: '9780000000002',
+                            title: 'Where the Wild Things Are',
+                            authors: ['Maurice Sendak'],
+                            publishedYear: 1963,
+                            pageCount: 48,
+                            format: 'hardcover',
+                            ageMin: 3,
+                            ageMax: 8,
+                            readingStage: 'picture-book',
+                            tags: ['imagination', 'animals'],
+                            collectionStatus: 'owned',
+                            condition: 'good',
+                            loved: false,
+                            owners: ['shared'],
+                            spineColor: 'emerald',
+                            sources: [],
+                            addedAt: '',
+                          },
+                          {
+                            id: 'preview-sample-3',
+                            isbn13: '9780000000003',
+                            title: 'Goodnight Moon',
+                            authors: ['Margaret Wise Brown'],
+                            publishedYear: 1947,
+                            pageCount: 32,
+                            format: 'board-book',
+                            ageMin: 0,
+                            ageMax: 4,
+                            readingStage: 'board-toddler',
+                            tags: ['bedtime'],
+                            collectionStatus: 'wishlist',
+                            condition: 'good',
+                            loved: false,
+                            owners: ['shared'],
+                            spineColor: 'indigo',
+                            sources: [],
+                            addedAt: '',
+                          },
+                        ];
+                        const previewBooks =
+                          state.books.length > 0 ? state.books.slice(0, 3) : fallbackSamples;
+                        const tokens = getBookCardWidthTokens(
+                          scopedConfig.size,
+                          scopedConfig.customWidth,
+                          scopedConfig.infoPlacement
+                        );
+                        const widthBadge =
+                          tokens.sm === tokens.lg
+                            ? `${tokens.lg}px`
+                            : `${tokens.sm}–${tokens.lg}px`;
+
+                        return (
+                          <div
+                            data-book-card-preview="true"
+                            className="rounded-xl bg-canvas border border-edge p-3 sm:p-3.5 space-y-2.5"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
+                                  Live Preview
+                                </span>
+                                <span className="text-[11px] font-mono-tabular text-ink-muted">
+                                  · {widthBadge}
+                                </span>
+                              </div>
+                              <div
+                                role="group"
+                                aria-label="Preview layout mode"
+                                className="inline-flex items-center p-0.5 rounded-lg bg-surface border border-edge"
                               >
-                                {item.label}
-                              </button>
-                            );
-                          })}
+                                {(
+                                  [
+                                    { id: 'grid' as const, icon: 'grid', label: 'Grid' },
+                                    { id: 'scroll' as const, icon: 'bookOpen', label: 'Carousel' },
+                                    { id: 'list' as const, icon: 'list', label: 'List' },
+                                  ]
+                                ).map((mode) => {
+                                  const selected = cardPreviewLayout === mode.id;
+                                  return (
+                                    <button
+                                      key={mode.id}
+                                      type="button"
+                                      onClick={() => setCardPreviewLayout(mode.id)}
+                                      aria-pressed={selected}
+                                      aria-label={`Preview in ${mode.label} layout`}
+                                      className={`min-h-[28px] px-2 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 transition-colors cursor-pointer ${
+                                        selected
+                                          ? 'bg-primary text-primary-fg shadow-2xs'
+                                          : 'text-ink-secondary hover:text-ink'
+                                      }`}
+                                    >
+                                      <Icon name={mode.icon} className="w-3 h-3" />
+                                      <span className="hidden sm:inline">{mode.label}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {cardPreviewLayout === 'list' ? (
+                              <BookCoverList>
+                                {previewBooks.slice(0, 2).map((sampleBook, idx) => (
+                                  <BookCoverCard
+                                    key={sampleBook.id}
+                                    dataBookCard={`preview-${sampleBook.id}`}
+                                    book={sampleBook}
+                                    activeProfile={activeProfile}
+                                    profiles={state.profiles}
+                                    layout="list"
+                                    size={scopedConfig.size}
+                                    customWidth={scopedConfig.customWidth}
+                                    aspectRatio={scopedConfig.aspectRatio}
+                                    infoPlacement={scopedConfig.infoPlacement}
+                                    showCoverOverlays={scopedConfig.showCoverOverlays}
+                                    fields={scopedConfig.fields}
+                                    usage={{
+                                      compactRecencyLabel: idx === 0 ? 'On active shelf' : 'Rotated 14d ago',
+                                      isCurrentlyOnActiveShelf: idx === 0,
+                                    }}
+                                    onInspect={() => {}}
+                                  />
+                                ))}
+                              </BookCoverList>
+                            ) : cardPreviewLayout === 'scroll' ? (
+                              <BookCoverSlide
+                                itemCount={previewBooks.length}
+                                ariaLabel="Book card live preview carousel"
+                              >
+                                {previewBooks.map((sampleBook, idx) => (
+                                  <BookCoverCard
+                                    key={sampleBook.id}
+                                    dataBookCard={`preview-${sampleBook.id}`}
+                                    book={sampleBook}
+                                    activeProfile={activeProfile}
+                                    profiles={state.profiles}
+                                    layout="carousel"
+                                    size={scopedConfig.size}
+                                    customWidth={scopedConfig.customWidth}
+                                    aspectRatio={scopedConfig.aspectRatio}
+                                    infoPlacement={scopedConfig.infoPlacement}
+                                    showCoverOverlays={scopedConfig.showCoverOverlays}
+                                    fields={scopedConfig.fields}
+                                    usage={{
+                                      compactRecencyLabel: idx === 0 ? 'On active shelf' : 'Fresh pick',
+                                      isCurrentlyOnActiveShelf: idx === 0,
+                                    }}
+                                    hideBookCoverInternalBadges
+                                    onInspect={() => {}}
+                                  />
+                                ))}
+                              </BookCoverSlide>
+                            ) : (
+                              <BookCoverGrid
+                                size={scopedConfig.size}
+                                customWidth={scopedConfig.customWidth}
+                                infoPlacement={scopedConfig.infoPlacement}
+                              >
+                                {previewBooks.map((sampleBook, idx) => (
+                                  <BookCoverCard
+                                    key={sampleBook.id}
+                                    dataBookCard={`preview-${sampleBook.id}`}
+                                    book={sampleBook}
+                                    activeProfile={activeProfile}
+                                    profiles={state.profiles}
+                                    layout="grid"
+                                    size={scopedConfig.size}
+                                    customWidth={scopedConfig.customWidth}
+                                    aspectRatio={scopedConfig.aspectRatio}
+                                    infoPlacement={scopedConfig.infoPlacement}
+                                    showCoverOverlays={scopedConfig.showCoverOverlays}
+                                    fields={scopedConfig.fields}
+                                    usage={{
+                                      compactRecencyLabel: idx === 0 ? 'On active shelf' : 'Fresh pick',
+                                      isCurrentlyOnActiveShelf: idx === 0,
+                                    }}
+                                    hideBookCoverInternalBadges
+                                    onInspect={() => {}}
+                                  />
+                                ))}
+                              </BookCoverGrid>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Card Size */}
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs font-semibold text-ink">
+                            {t('settings.bookCardSizeLabel')}
+                          </p>
+                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 rounded-lg bg-surface border border-edge max-w-lg">
+                            {[
+                              { id: 'compact' as const, label: t('settings.bookCardCompact') },
+                              { id: 'regular' as const, label: t('settings.bookCardRegular') },
+                              { id: 'large' as const, label: t('settings.bookCardLarge') },
+                              { id: 'custom' as const, label: t('settings.bookCardCustom') },
+                            ].map((item) => {
+                              const active = scopedConfig.size === item.id;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  data-card-size-option={item.id}
+                                  onClick={() => void updateScopedBookCardConfig({ size: item.id })}
+                                  aria-pressed={active}
+                                  className={`min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                    active
+                                      ? 'bg-primary text-primary-fg shadow-xs'
+                                      : 'text-ink-secondary hover:text-ink'
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
+
+                        {scopedConfig.size === 'custom' && (
+                          <div className="rounded-lg bg-surface border border-edge p-3 max-w-lg space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <label
+                                htmlFor="book-card-custom-width-slider"
+                                className="text-xs font-semibold text-ink"
+                              >
+                                {t('settings.bookCardCustomWidthLabel')}
+                              </label>
+                              <span className="text-xs font-mono-tabular font-semibold text-primary">
+                                {scopedConfig.customWidth}px
+                              </span>
+                            </div>
+                            <input
+                              id="book-card-custom-width-slider"
+                              type="range"
+                              min={NUMERIC_BOUNDS.bookCardCustomWidthMin}
+                              max={NUMERIC_BOUNDS.bookCardCustomWidthMax}
+                              step={4}
+                              value={scopedConfig.customWidth}
+                              onChange={(e) =>
+                                void updateScopedBookCardConfig({
+                                  customWidth: Number(e.target.value),
+                                })
+                              }
+                              className="w-full accent-primary cursor-pointer"
+                            />
+                            <div className="flex items-center justify-between text-[10px] font-mono-tabular text-ink-muted">
+                              <span>{NUMERIC_BOUNDS.bookCardCustomWidthMin}px</span>
+                              <span>136px</span>
+                              <span>{NUMERIC_BOUNDS.bookCardCustomWidthMax}px</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Info Placement: Below / Overlay / Cover Only */}

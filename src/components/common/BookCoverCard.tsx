@@ -12,6 +12,7 @@ import {
   AVATAR_TONES,
   COVER_BADGE_SLOTS,
   COVER_CATALOG_BADGE_STYLES,
+  normalizeBookCardCustomWidth,
 } from '../../config/index.js';
 import type {
   Book,
@@ -39,8 +40,59 @@ export function extractBookPublicationYear(book: Book): string | null {
   return match ? match[1] : null;
 }
 
+export function getBookCardWidthTokens(
+  size: BookCardSize = 'compact',
+  customWidth?: number,
+  infoPlacement: BookCardInfoPlacement = 'below',
+  density: 'standard' | 'dense' = 'standard'
+) {
+  const isCoverOnly = infoPlacement === 'cover-only';
+  const isDense = density === 'dense';
+
+  if (size === 'custom') {
+    const px = normalizeBookCardCustomWidth(customWidth);
+    const tightGap = isDense || isCoverOnly || px <= 120;
+    return {
+      sm: px,
+      lg: px,
+      gapSm: tightGap ? '0.5rem' : '0.75rem',
+      gapLg: tightGap ? '0.625rem' : '0.875rem',
+      effectiveTier: (px < 130 ? 'compact' : px >= 200 ? 'large' : 'regular') as 'compact' | 'regular' | 'large',
+    };
+  }
+
+  if (size === 'large') {
+    return {
+      sm: 204,
+      lg: 222,
+      gapSm: isDense ? '0.75rem' : '0.875rem',
+      gapLg: isDense ? '1rem' : '1.25rem',
+      effectiveTier: 'large' as const,
+    };
+  }
+
+  if (size === 'regular') {
+    return {
+      sm: 150,
+      lg: 168,
+      gapSm: isDense || isCoverOnly ? '0.625rem' : '0.75rem',
+      gapLg: isDense || isCoverOnly ? '0.75rem' : '1rem',
+      effectiveTier: 'regular' as const,
+    };
+  }
+
+  return {
+    sm: 104,
+    lg: 126,
+    gapSm: isDense || isCoverOnly ? '0.5rem' : '0.625rem',
+    gapLg: isDense || isCoverOnly ? '0.625rem' : '0.75rem',
+    effectiveTier: 'compact' as const,
+  };
+}
+
 export interface BookCoverGridProps {
   size?: BookCardSize;
+  customWidth?: number;
   density?: 'standard' | 'dense';
   infoPlacement?: BookCardInfoPlacement;
   className?: string;
@@ -49,32 +101,30 @@ export interface BookCoverGridProps {
 
 export const BookCoverGrid: React.FC<BookCoverGridProps> = ({
   size = 'compact',
+  customWidth,
   density = 'standard',
   infoPlacement = 'below',
   className = '',
   children,
 }) => {
-  const isCoverOnly = infoPlacement === 'cover-only';
-  let gridClass = '';
-  if (density === 'dense') {
-    gridClass =
-      size === 'compact'
-        ? 'grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 pt-1'
-        : size === 'large'
-          ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 pt-1'
-          : 'grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-1';
-  } else {
-    gridClass =
-      size === 'compact'
-        ? isCoverOnly
-          ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5'
-          : 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3'
-        : size === 'large'
-          ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-5'
-          : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4';
-  }
+  const tokens = getBookCardWidthTokens(size, customWidth, infoPlacement, density);
 
-  return <div className={`${gridClass} ${className}`}>{children}</div>;
+  return (
+    <div
+      data-book-grid-size={size}
+      style={
+        {
+          '--lr-card-min-sm': `${tokens.sm}px`,
+          '--lr-card-min-lg': `${tokens.lg}px`,
+          '--lr-grid-gap': tokens.gapSm,
+          '--lr-grid-gap-lg': tokens.gapLg,
+        } as React.CSSProperties
+      }
+      className={`lr-book-grid ${className}`}
+    >
+      {children}
+    </div>
+  );
 };
 
 export interface BookCoverListProps {
@@ -113,6 +163,7 @@ export interface BookCoverCardProps {
   profiles?: ChildProfile[];
   layout?: 'grid' | 'carousel' | 'list';
   size?: BookCardSize;
+  customWidth?: number;
   aspectRatio?: CoverAspectRatio;
   infoPlacement?: BookCardInfoPlacement;
   showCoverOverlays?: boolean;
@@ -141,6 +192,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   profiles = [],
   layout = 'grid',
   size = 'compact',
+  customWidth,
   aspectRatio = 'square',
   infoPlacement = 'below',
   showCoverOverlays = true,
@@ -162,6 +214,8 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   listTrailingAction,
   className = '',
 }) => {
+  const widthTokens = getBookCardWidthTokens(size, customWidth, infoPlacement);
+  const sizeTier = widthTokens.effectiveTier;
   const primaryAuthor = (book.authors && book.authors[0]) || 'Unknown Author';
   const fieldSet = new Set<BookCardMetaField>(fields);
   const yearLabel = extractBookPublicationYear(book);
@@ -225,7 +279,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
           <div className="shrink-0 rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle">
             <BookCover
               book={book}
-              size={size === 'large' ? 'md' : 'sm'}
+              size={sizeTier === 'large' ? 'md' : sizeTier === 'regular' ? 'sm' : 'xs'}
               aspectRatio={aspectRatio}
               showBadges={showCoverOverlays && !hideBookCoverInternalBadges}
               hideRotationAdorno={!showCoverOverlays || !showUsageAdorno}
@@ -346,34 +400,27 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   const isCoverOnly = infoPlacement === 'cover-only';
   const isOverlay = infoPlacement === 'overlay';
 
-  const carouselWidthClass =
-    size === 'large'
-      ? 'w-[44%] min-w-[144px] max-w-[190px] sm:w-[178px] shrink-0 snap-start'
-      : size === 'regular'
-        ? 'w-[37%] min-w-[126px] max-w-[166px] sm:w-[158px] shrink-0 snap-start'
-        : 'w-[31%] min-w-[106px] max-w-[144px] sm:w-[138px] shrink-0 snap-start';
+  const carouselWidthClass = isCarousel ? 'lr-book-slide-card' : '';
 
   const outerCardClass = isCoverOnly
-    ? `group isolate relative min-w-0 transition-transform ${
-        isCarousel ? carouselWidthClass : ''
-      }`
+    ? `group isolate relative min-w-0 transition-transform ${carouselWidthClass}`
     : isOverlay
       ? `group isolate relative flex flex-col min-w-0 rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle border ${
           highlightState === 'picked' || highlightState === 'read' || highlightState === 'selected'
             ? 'border-primary/60 ring-2 ring-primary/25'
             : 'border-edge hover:border-secondary'
-        } lr-card transition-all ${isCarousel ? carouselWidthClass : ''}`
+        } lr-card transition-all ${carouselWidthClass}`
       : `group isolate flex flex-col justify-between min-w-0 rounded-[var(--radius-card)] bg-surface border ${
           highlightState === 'picked' || highlightState === 'read' || highlightState === 'selected'
             ? 'border-primary/50'
             : 'border-edge hover:border-secondary'
         } ${
-          isCarousel || size === 'compact'
+          sizeTier === 'compact'
             ? 'p-1.5 sm:p-2'
-            : size === 'large'
+            : sizeTier === 'large'
               ? 'p-3 sm:p-3.5'
-              : 'p-2.5'
-        } lr-card transition-all ${isCarousel ? carouselWidthClass : ''}`;
+              : 'p-2 sm:p-2.5'
+        } lr-card transition-all ${carouselWidthClass}`;
 
   const coverHighlightRing =
     isCoverOnly &&
@@ -442,14 +489,25 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
       Boolean(customMetaLine));
 
   const titleSizeClass =
-    isCarousel || size === 'compact'
+    sizeTier === 'compact'
       ? 'text-xs sm:text-[13px]'
-      : size === 'large'
+      : sizeTier === 'large'
         ? 'text-sm sm:text-base'
         : 'text-[13px] sm:text-sm';
 
   return (
-    <article data-book-card={dataBookCard ?? book.id} className={`${outerCardClass} ${className}`}>
+    <article
+      data-book-card={dataBookCard ?? book.id}
+      style={
+        isCarousel
+          ? ({
+              '--lr-card-min-sm': `${widthTokens.sm}px`,
+              '--lr-card-min-lg': `${widthTokens.lg}px`,
+            } as React.CSSProperties)
+          : undefined
+      }
+      className={`${outerCardClass} ${className}`}
+    >
       <div className="relative">
         <button
           type="button"
@@ -550,7 +608,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
                 {fieldSet.has('title') && (
                   <h2
                     className={`font-sans ${
-                      size === 'large' ? 'text-[13px] sm:text-sm' : 'text-[11px] sm:text-xs'
+                      sizeTier === 'large' ? 'text-[13px] sm:text-sm' : 'text-[11px] sm:text-xs'
                     } font-semibold leading-tight line-clamp-2 drop-shadow-xs`}
                   >
                     {book.title}

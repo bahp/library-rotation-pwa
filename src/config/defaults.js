@@ -38,6 +38,9 @@ export const NUMERIC_BOUNDS = Object.freeze({
   aiTimeoutDefaultMs: 6000,
   aiTimeoutMinMs: 1500,
   aiTimeoutMaxMs: 20000,
+  bookCardCustomWidthDefault: 136,
+  bookCardCustomWidthMin: 88,
+  bookCardCustomWidthMax: 260,
 });
 
 /**
@@ -105,12 +108,39 @@ export const VALID_BOOK_CARD_SECTIONS = Object.freeze([
   'rotations',
 ]);
 
-const VALID_BOOK_CARD_SIZES = new Set(['compact', 'regular', 'large']);
+const VALID_BOOK_CARD_SIZES = new Set(['compact', 'regular', 'large', 'custom']);
 const VALID_BOOK_CARD_PLACEMENTS = new Set(['below', 'overlay', 'cover-only']);
 /** @type {Set<string>} */
 const VALID_BOOK_CARD_FIELDS_SET = new Set(ALL_BOOK_CARD_FIELDS);
 /** @type {Set<string>} */
 const VALID_BOOK_CARD_SECTIONS_SET = new Set(VALID_BOOK_CARD_SECTIONS);
+
+/**
+ * @param {unknown} rawSize
+ * @returns {import('../types/models.js').BookCardSize}
+ */
+export function normalizeBookCardSize(rawSize) {
+  const val = String(rawSize || '').trim().toLowerCase();
+  if (VALID_BOOK_CARD_SIZES.has(val)) {
+    return /** @type {import('../types/models.js').BookCardSize} */ (val);
+  }
+  return 'compact';
+}
+
+/**
+ * @param {unknown} rawWidth
+ * @returns {number}
+ */
+export function normalizeBookCardCustomWidth(rawWidth) {
+  const num = Number(rawWidth);
+  if (!Number.isFinite(num)) {
+    return NUMERIC_BOUNDS.bookCardCustomWidthDefault;
+  }
+  return Math.max(
+    NUMERIC_BOUNDS.bookCardCustomWidthMin,
+    Math.min(NUMERIC_BOUNDS.bookCardCustomWidthMax, Math.round(num))
+  );
+}
 
 /**
  * @param {unknown} rawPlacement
@@ -164,6 +194,9 @@ export function normalizeBookCardSectionOverrides(rawOverrides) {
     if (typeof cfg.size === 'string' && VALID_BOOK_CARD_SIZES.has(cfg.size)) {
       nextCfg.size = /** @type {import('../types/models.js').BookCardSize} */ (cfg.size);
     }
+    if (cfg.customWidth !== undefined && cfg.customWidth !== null && Number.isFinite(Number(cfg.customWidth))) {
+      nextCfg.customWidth = normalizeBookCardCustomWidth(cfg.customWidth);
+    }
     if (typeof cfg.infoPlacement === 'string' && VALID_BOOK_CARD_PLACEMENTS.has(cfg.infoPlacement)) {
       nextCfg.infoPlacement = /** @type {import('../types/models.js').BookCardInfoPlacement} */ (
         cfg.infoPlacement
@@ -189,6 +222,7 @@ export function normalizeBookCardSectionOverrides(rawOverrides) {
  * @param {import('../types/models.js').BookCardSectionKey} [section]
  * @returns {{
  *   size: import('../types/models.js').BookCardSize,
+ *   customWidth: number,
  *   infoPlacement: import('../types/models.js').BookCardInfoPlacement,
  *   showCoverOverlays: boolean,
  *   fields: import('../types/models.js').BookCardMetaField[],
@@ -197,10 +231,8 @@ export function normalizeBookCardSectionOverrides(rawOverrides) {
  * }}
  */
 export function resolveBookCardDisplayConfig(settings, section) {
-  const globalSize =
-    settings?.bookCardSize && VALID_BOOK_CARD_SIZES.has(settings.bookCardSize)
-      ? settings.bookCardSize
-      : 'compact';
+  const globalSize = normalizeBookCardSize(settings?.bookCardSize);
+  const globalCustomWidth = normalizeBookCardCustomWidth(settings?.bookCardCustomWidth);
   const globalPlacement = normalizeBookCardInfoPlacement(settings?.bookCardInfoPlacement);
   const globalOverlays = settings?.showBookCoverOverlays !== false;
   const globalFields = Array.isArray(settings?.bookCardFields)
@@ -215,6 +247,10 @@ export function resolveBookCardDisplayConfig(settings, section) {
 
   return {
     size: sectionOverride?.size || globalSize,
+    customWidth:
+      sectionOverride?.customWidth !== undefined
+        ? normalizeBookCardCustomWidth(sectionOverride.customWidth)
+        : globalCustomWidth,
     infoPlacement: sectionOverride?.infoPlacement || globalPlacement,
     showCoverOverlays:
       typeof sectionOverride?.showCoverOverlays === 'boolean'
@@ -245,6 +281,7 @@ export function createDefaultAppSettings() {
     bookDetailStyle: 'editorial',
     bookViewMode: 'grid',
     bookCardSize: 'compact',
+    bookCardCustomWidth: NUMERIC_BOUNDS.bookCardCustomWidthDefault,
     bookCardInfoPlacement: 'below',
     showBookCoverOverlays: true,
     bookCardFields: [...DEFAULT_BOOK_CARD_FIELDS],

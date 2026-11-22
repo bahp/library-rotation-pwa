@@ -53,7 +53,7 @@ export const ClearableInput = React.forwardRef<HTMLInputElement, ClearableInputP
     return (
       <div className={`relative flex items-center ${containerClassName}`}>
         {leadingIcon && (
-          <span className="pointer-events-none absolute left-3.5 flex items-center text-ink-muted">
+          <span className="pointer-events-none absolute left-3.5 z-10 flex items-center text-ink-muted">
             {leadingIcon}
           </span>
         )}
@@ -75,13 +75,13 @@ export const ClearableInput = React.forwardRef<HTMLInputElement, ClearableInputP
             data-action="clear-input"
             data-target-input={id}
             aria-label="Clear input"
-            className={`absolute ${clearRightClass} min-h-[36px] min-w-[36px] flex items-center justify-center text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-primary rounded-full transition-colors cursor-pointer`}
+            className={`absolute ${clearRightClass} z-10 min-h-[36px] min-w-[36px] flex items-center justify-center text-ink-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-primary rounded-full transition-colors cursor-pointer`}
           >
             <Icon name="x" className="w-4 h-4" />
           </button>
         )}
         {trailingElement && (
-          <div className="absolute right-1.5 flex items-center">
+          <div className="absolute right-1.5 z-10 flex items-center">
             {trailingElement}
           </div>
         )}
