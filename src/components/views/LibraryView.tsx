@@ -570,8 +570,11 @@ export const LibraryView: React.FC = () => {
 
         {/* Right Main Catalog Workspace */}
         <div className="flex-1 min-w-0 space-y-3.5">
-          {/* Search + Thin Horizontal Pill Strip */}
-          <div className="space-y-2.5">
+          {/* Floating Sticky Search + Pills + Active Tags Bar */}
+          <div
+            data-library-floating-controls="true"
+            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px)+0.5rem)] sm:top-[calc(4rem+env(safe-area-inset-top,0px)+0.75rem)] z-20 -mx-1 px-2.5 py-2.5 sm:mx-0 sm:px-3 sm:py-3 rounded-2xl bg-surface/92 backdrop-blur-xl border border-edge shadow-[var(--elevation-card)] space-y-2.5 transition-shadow"
+          >
             <ClearableInput
               id="catalog-search-input"
               value={searchQuery}
@@ -580,7 +583,7 @@ export const LibraryView: React.FC = () => {
               placeholder="Search your collection"
               aria-label="Search your collection"
               trailingWidth="double"
-              className="h-11 rounded-xl bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
+              className="h-11 rounded-xl bg-surface-subtle/90 border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
               trailingElement={
                 <div className="flex items-center gap-0.5">
                   <button
@@ -589,7 +592,7 @@ export const LibraryView: React.FC = () => {
                     aria-label="AI book search"
                     title="AI book search"
                     onClick={() => setIsAiSearchOpen(true)}
-                    className="min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-accent hover:bg-surface-subtle transition-colors cursor-pointer"
+                    className="min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center text-accent hover:bg-surface-elevated transition-colors cursor-pointer"
                   >
                     <Icon name="sparkles" className="w-4 h-4" />
                   </button>
@@ -611,7 +614,7 @@ export const LibraryView: React.FC = () => {
                     className={`relative min-h-[38px] min-w-[38px] rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
                       activeFilterCount > 0
                         ? 'text-primary bg-primary/10 hover:bg-primary/15'
-                        : 'text-ink-secondary hover:text-ink hover:bg-surface-subtle'
+                        : 'text-ink-secondary hover:text-ink hover:bg-surface-elevated'
                     }`}
                   >
                     <Icon name="sliders" className="w-4 h-4" />
@@ -627,7 +630,7 @@ export const LibraryView: React.FC = () => {
             />
 
             {/* Thin Horizontal Scrolling Pills Row */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-4 px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-2.5 px-2.5 sm:-mx-3 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {/* Multi-Select Readers Dropdown Pill */}
               <button
                 type="button"

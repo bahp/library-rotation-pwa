@@ -1704,7 +1704,7 @@ export function createAppStore(storage, deps = {}) {
 
   /**
    * Saves or activates a curated rotation plan.
-   * @param {{ title?: string, objective?: string, bookIds: string[], profileId?: string, setActive?: boolean }} params
+   * @param {{ title?: string, objective?: string, bookIds: string[], profileId?: string, setActive?: boolean, keepOtherActive?: boolean, swapDays?: number, cooldownDays?: number, preferredTags?: string[] }} params
    */
   async function saveCuratedRotation(params) {
     const profileId = params.profileId || state.activeProfileId;
@@ -1714,6 +1714,17 @@ export function createAppStore(storage, deps = {}) {
     const newRotationId = createId('rot');
     const nowIso = new Date().toISOString();
     const shouldActivate = Boolean(params.setActive);
+    const swapDays =
+      params.swapDays !== undefined && Number(params.swapDays) >= 1
+        ? Math.max(1, Math.min(90, Math.trunc(Number(params.swapDays))))
+        : 14;
+    const cooldownDays =
+      params.cooldownDays !== undefined && !Number.isNaN(Number(params.cooldownDays))
+        ? Math.max(0, Math.min(90, Math.trunc(Number(params.cooldownDays))))
+        : 14;
+    const preferredTags = Array.isArray(params.preferredTags)
+      ? params.preferredTags.map((t) => String(t).trim().toLowerCase()).filter(Boolean)
+      : [];
 
     const newRotation = {
       id: newRotationId,
@@ -1722,9 +1733,9 @@ export function createAppStore(storage, deps = {}) {
       rules: {
         count: bookIds.length,
         objective: params.objective || 'AI Curated Shelf',
-        preferredTags: [],
-        cooldownDays: 14,
-        swapDays: 14,
+        preferredTags,
+        cooldownDays,
+        swapDays,
         varietyMix: true,
         requiredFormat: /** @type {const} */ ('any'),
         seed: createId('seed'),
@@ -1737,10 +1748,13 @@ export function createAppStore(storage, deps = {}) {
       createdAt: nowIso,
       updatedAt: nowIso,
       ...(shouldActivate ? { activatedAt: nowIso } : {}),
+      slotAddedAt: syncRotationSlotAddedAt(undefined, bookIds, nowIso, {
+        resetAll: true,
+      }),
     };
 
     let nextRotations = state.rotations;
-    if (shouldActivate) {
+    if (shouldActivate && !params.keepOtherActive) {
       nextRotations = nextRotations.map((r) =>
         r.profileId === profileId && r.status === 'active'
           ? { ...r, status: /** @type {const} */ ('saved'), updatedAt: nowIso }
@@ -3548,7 +3562,7 @@ export function createAppStore(storage, deps = {}) {
    * swap cycle, cooldown, binding preference, and deterministic seed.
    *
    * @param {string} presetId
-   * @param {{ profileId?: string, status?: 'active' | 'saved' }} [options]
+   * @param {{ profileId?: string, status?: 'active' | 'saved', keepOtherActive?: boolean, title?: string, count?: number, swapDays?: number }} [options]
    */
   async function generateRotationFromPreset(presetId, options = {}) {
     const allPresets = getAllRotationPresets(state);
@@ -3558,17 +3572,18 @@ export function createAppStore(storage, deps = {}) {
     }
 
     return generateRotation({
-      title: preset.title,
+      title: options.title?.trim() || preset.title,
       objective: preset.description,
       status: options.status,
-      count: preset.count,
+      count: options.count ?? preset.count,
       preferredTags: preset.preferredTags,
       cooldownDays: preset.cooldownDays,
-      swapDays: preset.swapDays,
+      swapDays: options.swapDays ?? preset.swapDays,
       varietyMix: preset.varietyMix,
       requiredFormat: preset.requiredFormat,
       seed: preset.seed,
       profileId: options.profileId,
+      keepOtherActive: options.keepOtherActive,
     });
   }
 
