@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
+import { BrandEmblem, resolveBrandWordmark } from '../common/BrandEmblem.js';
 import { AVATAR_TONES, resolveEffectiveThemeConfig } from '../../config/index.js';
 import { formatProfileAgeLabel } from '../../types/models.js';
 import type { ThemeMode } from '../../types/models.js';
@@ -86,43 +87,50 @@ export const Header: React.FC = () => {
     }
   };
 
-  const useNativeChrome = state.settings?.nativeAppStyle !== false;
+  const translucentTopBar =
+    state.settings?.translucentTopBar ?? (state.settings?.nativeAppStyle !== false);
+  const wordmark = resolveBrandWordmark(effectiveTheme.id);
+  const subtitle = state.settings?.householdName?.trim() || 'READ · EXPLORE · GROW';
 
   return (
     <header
       data-top-header="true"
-      data-native-chrome={useNativeChrome ? 'true' : 'false'}
+      data-translucent-top={translucentTopBar ? 'true' : 'false'}
       style={
-        useNativeChrome
-          ? { backgroundColor: 'color-mix(in srgb, var(--surface) 76%, transparent)' }
+        translucentTopBar
+          ? { backgroundColor: 'color-mix(in srgb, var(--surface) 78%, transparent)' }
           : undefined
       }
       className={`fixed top-0 left-0 right-0 ${
         sidebarCollapsed ? 'lg:left-[76px]' : 'lg:left-64'
       } z-30 ${
-        useNativeChrome
+        translucentTopBar
           ? 'backdrop-blur-xl border-b border-edge/60 shadow-nav-top'
           : 'bg-surface border-b border-edge-subtle'
       } pt-safe px-safe transition-[left,background-color,border-color] duration-200 ease-out`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
-        {/* Zone 1 (Mobile/Tablet): Bunko App Logo + Wordmark + Optional Household Name */}
+        {/* Zone 1 (Mobile/Tablet): Bunko / Theme Emblem + Wordmark + Tagline or Household */}
         <a
           href="#/home"
-          className="flex lg:hidden items-center gap-2.5 text-ink focus-visible:outline-2 focus-visible:outline-primary rounded-lg whitespace-nowrap shrink-0 min-w-0"
+          className="flex lg:hidden items-center gap-2.5 text-ink focus-visible:outline-2 focus-visible:outline-primary rounded-xl whitespace-nowrap shrink-0 min-w-0"
         >
-          <span className="w-8 h-8 rounded-lg bg-primary text-primary-fg flex items-center justify-center shadow-2xs shrink-0 border border-accent/30">
-            <Icon name="bookOpen" className="w-4 h-4" />
-          </span>
+          <BrandEmblem presetId={effectiveTheme.id} size="md" />
           <span className="flex flex-col min-w-0">
-            <span className="font-display text-[21px] font-semibold tracking-tight leading-none whitespace-nowrap">
-              bunko
+            <span
+              style={{
+                textTransform: 'var(--brand-wordmark-transform)' as React.CSSProperties['textTransform'],
+                letterSpacing: 'var(--brand-wordmark-tracking)',
+                color: 'var(--brand-wordmark-color)',
+                fontWeight: 'var(--brand-wordmark-weight)',
+              }}
+              className="font-display text-[22px] sm:text-[24px] leading-none whitespace-nowrap"
+            >
+              {wordmark}
             </span>
-            {state.settings?.householdName?.trim() && (
-              <span className="text-[10px] font-medium text-ink-muted leading-tight truncate max-w-[150px] mt-0.5">
-                {state.settings.householdName.trim()}
-              </span>
-            )}
+            <span className="text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-secondary leading-tight truncate max-w-[170px] mt-0.5">
+              {subtitle}
+            </span>
           </span>
         </a>
 

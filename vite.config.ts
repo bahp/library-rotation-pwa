@@ -84,11 +84,11 @@ export default defineConfig(() => {
         manifest: {
           id: base,
           name: 'Library Rotation',
-          short_name: 'LibRotate',
+          short_name: 'bunko',
           description:
             "A fast, offline-capable mobile-first PWA for families to catalog children's books, manage multiple reader profiles, and organize curated book rotations.",
-          theme_color: '#FFFDF9',
-          background_color: '#FAF6EE',
+          theme_color: '#F6EFE3',
+          background_color: '#F6EFE3',
           display: 'standalone',
           orientation: 'portrait-primary',
           start_url: base,

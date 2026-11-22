@@ -72,6 +72,14 @@
  */
 
 /**
+ * @typedef {'floating' | 'full'} BottomNavStyle
+ */
+
+/**
+ * @typedef {'none' | 'subtle' | 'elevated'} BookCardShadowMode
+ */
+
+/**
  * @typedef {'theme' | 'engraving' | 'illustration' | 'none'} SidebarArtworkMode
  */
 
@@ -320,7 +328,11 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {SidebarArtworkStyle} [sidebarArtworkStyle] - Visual integration treatment for sidebar artwork ('integrated' | 'natural' | 'muted')
  * @property {SidebarDividerStyle} [sidebarDividerStyle] - Separator above active reader card ('line' | 'laurel' | 'folio' | 'japanese' | 'minimal' | 'random')
  * @property {OnboardingLandingMode} [onboardingLandingMode] - Onboarding Step 0 layout ('slideshow' | 'compact')
- * @property {boolean} [nativeAppStyle] - Translucent frosted app bars and floating bottom dock chrome (default: true)
+ * @property {boolean} [nativeAppStyle] - Legacy combined native mobile chrome flag (default: true)
+ * @property {boolean} [translucentTopBar] - Frosted translucent top app bar (default: true)
+ * @property {boolean} [translucentBottomBar] - Frosted translucent bottom navigation bar (default: true)
+ * @property {BottomNavStyle} [bottomNavStyle] - Mobile bottom dock geometry ('floating' | 'full', default: 'floating')
+ * @property {BookCardShadowMode} [bookCardShadow] - Card & cover elevation shadow intensity ('none' | 'subtle' | 'elevated', default: 'subtle')
  * @property {boolean} [notificationsEnabled] - Opt-in flag for browser/swap reminders
  * @property {CoverAspectRatio} coverAspectRatio - Book cover display aspect ratio ('portrait' 3:4 or 'square' 1:1)
  * @property {boolean} dynamicCoverTint - Lightly tint book card backgrounds with dominant cover art color (default: true)

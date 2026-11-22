@@ -29,6 +29,8 @@ import {
   type BookCardMetaField,
   type BookCardSectionKey,
   type BookCardDisplayConfig,
+  type BookCardShadowMode,
+  type BottomNavStyle,
   type SidebarArtworkMode,
   type SidebarArtworkStyle,
   type SidebarDividerStyle,
@@ -476,8 +478,24 @@ export const SettingsView: React.FC = () => {
     await store.updateSettings({ dynamicCoverTintLinearFade });
   };
 
-  const handleToggleNativeAppStyle = async () => {
-    await store.updateSettings({ nativeAppStyle: state.settings.nativeAppStyle === false });
+  const handleToggleTranslucentTopBar = async () => {
+    const current =
+      state.settings.translucentTopBar ?? (state.settings.nativeAppStyle !== false);
+    await store.updateSettings({ translucentTopBar: !current });
+  };
+
+  const handleToggleTranslucentBottomBar = async () => {
+    const current =
+      state.settings.translucentBottomBar ?? (state.settings.nativeAppStyle !== false);
+    await store.updateSettings({ translucentBottomBar: !current });
+  };
+
+  const handleBottomNavStyleChange = async (bottomNavStyle: BottomNavStyle) => {
+    await store.updateSettings({ bottomNavStyle });
+  };
+
+  const handleBookCardShadowChange = async (bookCardShadow: BookCardShadowMode) => {
+    await store.updateSettings({ bookCardShadow });
   };
 
   const [presetPromptDraft, setPresetPromptDraft] = useState(
@@ -1421,6 +1439,45 @@ export const SettingsView: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Book Card Shadows (Separate from Navigation Chrome) */}
+                  <div className="pt-4 border-t border-edge-subtle space-y-2.5">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        {t('settings.bookCardShadowLabel')}
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        {t('settings.bookCardShadowHint')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                      {(
+                        [
+                          { id: 'none' as const, label: t('settings.bookCardShadowNone') },
+                          { id: 'subtle' as const, label: t('settings.bookCardShadowSubtle') },
+                          { id: 'elevated' as const, label: t('settings.bookCardShadowElevated') },
+                        ]
+                      ).map((opt) => {
+                        const active = (state.settings.bookCardShadow || 'subtle') === opt.id;
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            data-card-shadow-option={opt.id}
+                            onClick={() => handleBookCardShadowChange(opt.id)}
+                            aria-pressed={active}
+                            className={`flex-1 min-h-[40px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                              active
+                                ? 'bg-primary text-primary-fg shadow-xs'
+                                : 'text-ink-secondary hover:text-ink'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </section>
               )}
 
@@ -1707,27 +1764,94 @@ export const SettingsView: React.FC = () => {
               {/* SUBSECTION 4: CHROME, SIDEBAR ART & PRESET ILLUSTRATIONS */}
               {appearanceTab === 'chrome' && (
                 <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-5">
-                  {/* Native Mobile App Chrome Switch */}
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p
-                        id="label-native-app-style"
-                        className="text-sm font-semibold text-ink"
-                      >
-                        {t('settings.nativeAppStyleLabel')}
-                      </p>
-                      <p className="text-xs text-ink-secondary mt-0.5">
-                        {t('settings.nativeAppStyleHint')}
-                      </p>
+                  {/* Granular Navigation Chrome Controls */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p
+                          id="label-translucent-top-bar"
+                          className="text-sm font-semibold text-ink"
+                        >
+                          {t('settings.translucentTopBarLabel')}
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          {t('settings.translucentTopBarHint')}
+                        </p>
+                      </div>
+                      <ToggleSwitch
+                        checked={
+                          state.settings.translucentTopBar ??
+                          (state.settings.nativeAppStyle !== false)
+                        }
+                        onChange={handleToggleTranslucentTopBar}
+                        ariaLabelledBy="label-translucent-top-bar"
+                        dataAction="toggle-translucent-top-bar"
+                        onLabel={t('common.on')}
+                        offLabel={t('common.off')}
+                      />
                     </div>
-                    <ToggleSwitch
-                      checked={state.settings.nativeAppStyle !== false}
-                      onChange={handleToggleNativeAppStyle}
-                      ariaLabelledBy="label-native-app-style"
-                      dataAction="toggle-native-app-style"
-                      onLabel={t('common.on')}
-                      offLabel={t('common.off')}
-                    />
+
+                    <div className="flex items-center justify-between gap-4 pt-3 border-t border-edge-subtle">
+                      <div className="min-w-0">
+                        <p
+                          id="label-translucent-bottom-bar"
+                          className="text-sm font-semibold text-ink"
+                        >
+                          {t('settings.translucentBottomBarLabel')}
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          {t('settings.translucentBottomBarHint')}
+                        </p>
+                      </div>
+                      <ToggleSwitch
+                        checked={
+                          state.settings.translucentBottomBar ??
+                          (state.settings.nativeAppStyle !== false)
+                        }
+                        onChange={handleToggleTranslucentBottomBar}
+                        ariaLabelledBy="label-translucent-bottom-bar"
+                        dataAction="toggle-translucent-bottom-bar"
+                        onLabel={t('common.on')}
+                        offLabel={t('common.off')}
+                      />
+                    </div>
+
+                    <div className="pt-3 border-t border-edge-subtle space-y-2.5">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">
+                          {t('settings.bottomNavStyleLabel')}
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          {t('settings.bottomNavStyleHint')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
+                        {(
+                          [
+                            { id: 'floating' as const, label: t('settings.bottomNavStyleFloating') },
+                            { id: 'full' as const, label: t('settings.bottomNavStyleFull') },
+                          ]
+                        ).map((opt) => {
+                          const active = (state.settings.bottomNavStyle || 'floating') === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              data-bottom-nav-option={opt.id}
+                              onClick={() => handleBottomNavStyleChange(opt.id)}
+                              aria-pressed={active}
+                              className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                active
+                                  ? 'bg-primary text-primary-fg shadow-xs'
+                                  : 'text-ink-secondary hover:text-ink'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Sidebar Artwork Mode, Visual Integration & Divider Style */}

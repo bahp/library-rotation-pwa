@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
+import { BrandEmblem, resolveBrandWordmark } from '../common/BrandEmblem.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { AVATAR_TONES, resolveEffectiveThemeConfig } from '../../config/index.js';
 import { SIDEBAR_ILLUSTRATIONS } from '../../config/illustrations.js';
@@ -255,26 +256,31 @@ export const Sidebar: React.FC = () => {
             aria-label="Open sidebar"
             aria-expanded="false"
             title="Open sidebar"
-            className="w-10 h-10 rounded-lg bg-sidebar-surface hover:bg-sidebar-active border border-sidebar-accent/40 text-sidebar-accent flex items-center justify-center shrink-0 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-sidebar-accent"
+            className="w-10 h-10 rounded-xl hover:bg-sidebar-active flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer focus-visible:outline-2 focus-visible:outline-sidebar-accent"
           >
-            <Icon name="book" className="w-[18px] h-[18px]" strokeWidth={1.85} />
+            <BrandEmblem presetId={effectiveTheme.id} size="md" />
           </button>
         </div>
       ) : (
         <div className="h-16 pl-4 pr-3 flex items-center justify-between gap-2 border-b border-sidebar-border shrink-0">
           <a
             href="#/home"
-            className="flex items-center gap-3 min-w-0 focus-visible:outline-2 focus-visible:outline-sidebar-accent rounded-lg"
+            className="flex items-center gap-2.5 min-w-0 focus-visible:outline-2 focus-visible:outline-sidebar-accent rounded-xl"
           >
-            <span className="w-9 h-9 rounded-lg bg-sidebar-surface border border-sidebar-accent/40 text-sidebar-accent flex items-center justify-center shrink-0">
-              <Icon name="book" className="w-4 h-4" strokeWidth={1.85} />
-            </span>
+            <BrandEmblem presetId={effectiveTheme.id} size="md" />
             <div className="min-w-0 text-left">
-              <span className="block font-display text-[19px] font-semibold tracking-tight text-sidebar-text leading-none truncate">
-                Library Rotation
+              <span
+                style={{
+                  textTransform: 'var(--brand-wordmark-transform)' as React.CSSProperties['textTransform'],
+                  letterSpacing: 'var(--brand-wordmark-tracking)',
+                  fontWeight: 'var(--brand-wordmark-weight)',
+                }}
+                className="block font-display text-[22px] text-sidebar-text leading-none truncate"
+              >
+                {resolveBrandWordmark(effectiveTheme.id)}
               </span>
-              <span className="block text-[11px] text-sidebar-muted font-medium truncate mt-1">
-                {householdName || 'Home Library Studio'}
+              <span className="block text-[9.5px] font-semibold uppercase tracking-[0.14em] text-sidebar-muted truncate mt-1">
+                {householdName || 'READ · EXPLORE · GROW'}
               </span>
             </div>
           </a>

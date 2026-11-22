@@ -223,11 +223,7 @@ export const HomeView: React.FC = () => {
   const progressPct =
     shelfBooks.length > 0 ? Math.round((completedCount / shelfBooks.length) * 100) : 0;
 
-  // Compact Circular SVG Progress Ring geometry
-  const ringRadius = 19;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-  const ringDashOffset = ringCircumference - (progressPct / 100) * ringCircumference;
-
+  const bottomNavStyle = state.settings?.bottomNavStyle === 'full' ? 'full' : 'floating';
   const shelfCardConfig = resolveBookCardDisplayConfig(state.settings, 'homeShelf');
   const suggestedCardConfig = resolveBookCardDisplayConfig(state.settings, 'homeSuggested');
   const coverAspectRatio = shelfCardConfig.aspectRatio;
@@ -394,42 +390,29 @@ export const HomeView: React.FC = () => {
               )}
             </div>
 
-            {/* Compact Top-Right Reading Progress Circle */}
+            {/* Top-Right Linear Reading Progress Readout */}
             <div
-              className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center pt-0.5"
+              data-home-progress-readout="true"
+              className="shrink-0 text-right space-y-1 pt-0.5 min-w-[82px]"
               title={`Reading progress: ${completedCount} of ${shelfBooks.length} ${shelfBooks.length === 1 ? 'book' : 'books'} (${progressPct}%)`}
               aria-label={`Reading progress: ${completedCount} of ${shelfBooks.length} books read, ${progressPct}%`}
             >
-              <svg className="w-11 h-11 sm:w-12 sm:h-12 -rotate-90" viewBox="0 0 48 48" aria-hidden="true">
-                <circle
-                  cx="24"
-                  cy="24"
-                  r={ringRadius}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  className="text-edge-subtle"
-                />
-                <circle
-                  cx="24"
-                  cy="24"
-                  r={ringRadius}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray={ringCircumference}
-                  strokeDashoffset={ringDashOffset}
-                  className="text-primary dark:text-accent transition-all duration-300"
-                />
-              </svg>
-              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold font-mono-tabular text-ink">
+              <p className="font-display text-2xl sm:text-[28px] font-bold text-ink leading-none font-mono-tabular">
                 {progressPct}%
-              </span>
+              </p>
+              <p className="font-serif-italic italic text-[11px] sm:text-xs text-ink-secondary leading-none whitespace-nowrap">
+                {completedCount} of {shelfBooks.length} read
+              </p>
+              <div className="h-[3px] w-full rounded-full lr-progress-track overflow-hidden">
+                <div
+                  className="h-full rounded-full lr-progress-fill transition-all duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Active Shelf Tabs (when >1) + Stock & Edit on Left + View Switcher on Right */}
+          {/* Active Shelf Tabs (when >1) + Unified Action & Display Capsule Toolbar */}
           <div className="space-y-2.5">
             {activeRotations.length > 1 && (
               <div
@@ -462,34 +445,44 @@ export const HomeView: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-between gap-2.5">
-              <div className="flex items-center gap-2">
+            <div
+              data-home-action-bar="true"
+              style={{
+                backgroundColor: 'var(--capsule-bg)',
+                borderColor: 'var(--capsule-border)',
+              }}
+              className="w-full rounded-full border px-2 sm:px-3 py-1 flex items-center justify-between gap-1 shadow-2xs"
+            >
+              <div className="flex items-center min-w-0 flex-1">
                 <button
                   type="button"
                   onClick={() => setIsPlacementOpen(true)}
                   aria-label="Stock shelf checklist"
-                  className="min-h-[36px] px-2.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                  className="min-h-[38px] px-3 sm:px-4 rounded-full text-xs sm:text-[13px] font-medium text-ink hover:bg-surface-subtle inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] whitespace-nowrap cursor-pointer"
                 >
-                  <Icon name="checklist" className="w-3.5 h-3.5 text-primary" />
+                  <Icon name="checklist" className="w-4 h-4 text-ink-secondary shrink-0" />
                   <span>Stock</span>
                 </button>
+                <span aria-hidden="true" className="w-px h-5 bg-edge-subtle mx-0.5 sm:mx-1.5 shrink-0" />
                 <button
                   type="button"
                   onClick={() => navigate('rotations', { edit: displayedRotation.id })}
                   aria-label="Edit active rotation"
-                  className="min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                  className="min-h-[38px] px-3 sm:px-4 rounded-full text-xs sm:text-[13px] font-medium text-ink hover:bg-surface-subtle inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] whitespace-nowrap cursor-pointer"
                 >
+                  <Icon name="sliders" className="w-4 h-4 text-ink-secondary shrink-0" />
                   <span>Edit</span>
                 </button>
               </div>
 
-              <div className="flex items-center gap-2 ml-auto shrink-0">
-                <BookSectionViewToggle
-                  value={shelfLayout}
-                  onChange={handleShelfLayoutChange}
-                  ariaLabel="Current shelf layout"
-                />
-              </div>
+              <span aria-hidden="true" className="w-px h-5 bg-edge-subtle mr-1 sm:mr-1.5 shrink-0" />
+
+              <BookSectionViewToggle
+                value={shelfLayout}
+                onChange={handleShelfLayoutChange}
+                variant="capsule"
+                ariaLabel="Current shelf layout"
+              />
             </div>
           </div>
 
@@ -654,7 +647,6 @@ export const HomeView: React.FC = () => {
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <Icon name="starFilled" className="w-4 h-4 text-accent shrink-0" />
               <h2
                 id="up-next-heading"
                 className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight truncate"
@@ -906,7 +898,11 @@ export const HomeView: React.FC = () => {
           aria-label={isBottomBarFinished ? 'Last read preview' : 'Currently reading preview'}
           data-current-read-bar="true"
           style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 92%, transparent)' }}
-          className="fixed bottom-[calc(4.65rem+env(safe-area-inset-bottom,0px))] inset-x-3 sm:inset-x-6 md:bottom-6 md:right-6 md:left-auto md:w-[390px] z-30 backdrop-blur-xl rounded-2xl border border-edge shadow-xl px-3 py-2 flex items-center justify-between gap-2.5"
+          className={`fixed ${
+            bottomNavStyle === 'floating'
+              ? 'bottom-[calc(5.25rem+env(safe-area-inset-bottom,0px))]'
+              : 'bottom-[calc(4.65rem+env(safe-area-inset-bottom,0px))]'
+          } inset-x-3 sm:inset-x-6 md:bottom-6 md:right-6 md:left-auto md:w-[390px] z-30 backdrop-blur-xl rounded-2xl border border-edge shadow-xl px-3 py-2 flex items-center justify-between gap-2.5`}
         >
           <button
             type="button"

@@ -255,6 +255,10 @@ export function createDefaultAppSettings() {
     sidebarDividerStyle: 'laurel',
     onboardingLandingMode: 'slideshow',
     nativeAppStyle: true,
+    translucentTopBar: true,
+    translucentBottomBar: true,
+    bottomNavStyle: 'floating',
+    bookCardShadow: 'subtle',
     notificationsEnabled: false,
     coverAspectRatio: 'square',
     dynamicCoverTint: true,
@@ -315,4 +319,28 @@ export function normalizeSidebarDividerStyle(raw) {
     return /** @type {import('../types/models.js').SidebarDividerStyle} */ (val);
   }
   return 'laurel';
+}
+
+/**
+ * Normalizes mobile bottom navigation geometry ('floating' | 'full').
+ * @param {unknown} raw
+ * @returns {import('../types/models.js').BottomNavStyle}
+ */
+export function normalizeBottomNavStyle(raw) {
+  const val = String(raw || '').trim().toLowerCase();
+  if (val === 'full') return 'full';
+  return 'floating';
+}
+
+/**
+ * Normalizes book card shadow elevation preset ('none' | 'subtle' | 'elevated').
+ * @param {unknown} raw
+ * @returns {import('../types/models.js').BookCardShadowMode}
+ */
+export function normalizeBookCardShadow(raw) {
+  const val = String(raw || '').trim().toLowerCase();
+  if (val === 'none' || val === 'elevated' || val === 'subtle') {
+    return /** @type {import('../types/models.js').BookCardShadowMode} */ (val);
+  }
+  return 'subtle';
 }

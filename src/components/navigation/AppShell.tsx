@@ -15,23 +15,24 @@ interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const { state, pwaStatus, sidebarCollapsed } = useApp();
-  const useNativeChrome = state.settings?.nativeAppStyle !== false;
+  const translucentTopBar =
+    state.settings?.translucentTopBar ?? (state.settings?.nativeAppStyle !== false);
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col bg-canvas text-ink transition-colors selection:bg-primary selection:text-primary-fg overflow-x-clip">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col lr-canvas-atmosphere text-ink transition-colors selection:bg-primary selection:text-primary-fg overflow-x-clip">
       {/* Fixed iOS/PWA Top Safe-Area Curtain */}
       <div
         aria-hidden="true"
         data-safe-top-cover="true"
         style={
-          useNativeChrome
+          translucentTopBar
             ? { backgroundColor: 'color-mix(in srgb, var(--surface) 78%, transparent)' }
             : undefined
         }
         className={`fixed top-0 inset-x-0 ${
           sidebarCollapsed ? 'lg:left-[76px]' : 'lg:left-64'
         } h-safe-top z-40 pointer-events-none ${
-          useNativeChrome ? 'backdrop-blur-xl' : 'bg-surface'
+          translucentTopBar ? 'backdrop-blur-xl' : 'bg-surface'
         } transition-[left] duration-200 ease-out`}
       />
 

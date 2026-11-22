@@ -529,7 +529,7 @@ export const LibraryView: React.FC = () => {
         {isDesktopSidebarOpen && (
           <aside
             aria-label="Library filters sidebar"
-            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-[var(--radius-card)] bg-surface border border-edge shadow-2xs p-4 lg:sticky lg:top-[calc(4rem+env(safe-area-inset-top,0px)+1.25rem)] lg:max-h-[calc(100vh-6.5rem)]"
+            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-[var(--radius-card)] bg-surface border border-edge lr-card p-4 lg:-mt-3 lg:sticky lg:top-[calc(4rem+env(safe-area-inset-top,0px)+1.25rem)] lg:max-h-[calc(100vh-6.5rem)]"
           >
             <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-edge-subtle shrink-0">
               <div className="flex items-center gap-2">
@@ -565,11 +565,12 @@ export const LibraryView: React.FC = () => {
         )}
 
         {/* Right Main Catalog Workspace */}
-        <div className="flex-1 min-w-0 -mt-5 sm:-mt-6 lg:mt-0 space-y-3.5">
+        <div className="flex-1 min-w-0 -mt-5 sm:-mt-6 lg:-mt-8 space-y-3.5">
           {/* Integrated Sticky Search + Pills + Active Tags Bar */}
           <div
             data-library-floating-controls="true"
-            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:top-[calc(4rem+env(safe-area-inset-top,0px))] z-[30] lg:-mt-5 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-5 pb-2.5 bg-canvas border-b border-edge-subtle space-y-2.5 [transform:translate3d(0,0,0)]"
+            style={{ backgroundColor: 'var(--background)' }}
+            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:top-[calc(4rem+env(safe-area-inset-top,0px))] z-20 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-5 pb-2.5 bg-canvas border-b border-edge-subtle space-y-2.5 [transform:translate3d(0,0,0)]"
           >
             <ClearableInput
               id="catalog-search-input"
@@ -579,7 +580,7 @@ export const LibraryView: React.FC = () => {
               placeholder="Search your collection"
               aria-label="Search your collection"
               trailingWidth="double"
-              className="h-11 rounded-xl bg-surface/95 border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
+              className="h-11 rounded-xl bg-surface border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
               trailingElement={
                 <div className="flex items-center gap-0.5">
                   <button

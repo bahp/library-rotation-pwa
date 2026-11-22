@@ -19,6 +19,8 @@ import {
   normalizeBookCardFields,
   normalizeBookCardInfoPlacement,
   normalizeBookCardSectionOverrides,
+  normalizeBookCardShadow,
+  normalizeBottomNavStyle,
   normalizeLanguage,
   normalizeSidebarDividerStyle,
   normalizeThemePresetId,
@@ -38,6 +40,7 @@ const memoryAudioBlobs = new Map();
 const AUXILIARY_STORAGE_KEYS = [
   'lr_theme_pref',
   'lr_theme_preset',
+  'lr_card_shadow',
   'lr_sidebar_collapsed',
   'lr_dismissed_swap_reminders_v1',
   'lr_dismissed_preset_alerts_v1',
@@ -464,6 +467,16 @@ export function createSafeDefaultSettings(overrides = {}) {
       sidebarDividerStyle: normalizeSidebarDividerStyle(overrides.sidebarDividerStyle),
       onboardingLandingMode: overrides.onboardingLandingMode === 'compact' ? 'compact' : 'slideshow',
       nativeAppStyle: overrides.nativeAppStyle !== false,
+      translucentTopBar:
+        typeof overrides.translucentTopBar === 'boolean'
+          ? overrides.translucentTopBar
+          : overrides.nativeAppStyle !== false,
+      translucentBottomBar:
+        typeof overrides.translucentBottomBar === 'boolean'
+          ? overrides.translucentBottomBar
+          : overrides.nativeAppStyle !== false,
+      bottomNavStyle: normalizeBottomNavStyle(overrides.bottomNavStyle),
+      bookCardShadow: normalizeBookCardShadow(overrides.bookCardShadow),
       notificationsEnabled: Boolean(overrides.notificationsEnabled),
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,

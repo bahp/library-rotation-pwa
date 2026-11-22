@@ -25,6 +25,8 @@ import {
   normalizeBookCardFields,
   normalizeBookCardInfoPlacement,
   normalizeBookCardSectionOverrides,
+  normalizeBookCardShadow,
+  normalizeBottomNavStyle,
   normalizeThemePresetId,
   resolveBookCardDisplayConfig,
   resolveEffectiveThemeConfig,
@@ -476,14 +478,38 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(safeDefaults.sidebarArtworkId, 'library-cat');
     assert.equal(safeDefaults.onboardingLandingMode, 'compact');
     assert.equal(safeDefaults.nativeAppStyle, false);
+    assert.equal(safeDefaults.translucentTopBar, false);
+    assert.equal(safeDefaults.translucentBottomBar, false);
+    assert.equal(safeDefaults.bottomNavStyle, 'floating');
+    assert.equal(safeDefaults.bookCardShadow, 'subtle');
     assert.equal(safeDefaults.presetCornerArtSize, 'lg');
     assert.equal(safeDefaults.notificationsEnabled, true);
     assert.equal(
       createSafeDefaultSettings({
         presetCornerArtSize: /** @type {any} */ ('giant'),
+        bottomNavStyle: /** @type {any} */ ('pill-invalid'),
+        bookCardShadow: /** @type {any} */ ('ultra'),
       }).presetCornerArtSize,
       'sm'
     );
+    const explicitChromeDefaults = createSafeDefaultSettings({
+      nativeAppStyle: false,
+      translucentTopBar: true,
+      translucentBottomBar: false,
+      bottomNavStyle: 'full',
+      bookCardShadow: 'elevated',
+    });
+    assert.equal(explicitChromeDefaults.translucentTopBar, true);
+    assert.equal(explicitChromeDefaults.translucentBottomBar, false);
+    assert.equal(explicitChromeDefaults.bottomNavStyle, 'full');
+    assert.equal(explicitChromeDefaults.bookCardShadow, 'elevated');
+    assert.equal(normalizeBottomNavStyle('full'), 'full');
+    assert.equal(normalizeBottomNavStyle('floating'), 'floating');
+    assert.equal(normalizeBottomNavStyle('invalid'), 'floating');
+    assert.equal(normalizeBookCardShadow('none'), 'none');
+    assert.equal(normalizeBookCardShadow('elevated'), 'elevated');
+    assert.equal(normalizeBookCardShadow('invalid'), 'subtle');
+
     const globalFallback = createSafeDefaultSettings();
     assert.equal(globalFallback.themePreset, 'bunko');
     assert.equal(globalFallback.bookDetailStyle, 'editorial');
@@ -496,6 +522,10 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(globalFallback.presetCornerArtSize, 'sm');
     assert.equal(globalFallback.sidebarArtworkId, 'books-reading-lamp');
     assert.equal(globalFallback.nativeAppStyle, true);
+    assert.equal(globalFallback.translucentTopBar, true);
+    assert.equal(globalFallback.translucentBottomBar, true);
+    assert.equal(globalFallback.bottomNavStyle, 'floating');
+    assert.equal(globalFallback.bookCardShadow, 'subtle');
 
     // BookCoverCard display config & section override resolution
     assert.equal(normalizeBookCardInfoPlacement('cover-only'), 'cover-only');

@@ -1,14 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
-  <rect width="128" height="128" rx="28" fill="#123C42"/>
-  <!-- Top clockwise rotation arc (teal) -->
-  <path d="M36 34C46 21 67 18 84 26L92 31" stroke="#5ED3DA" stroke-width="7" stroke-linecap="round"/>
-  <path d="M89 20L94 32L81 34" stroke="#5ED3DA" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Open storybook -->
-  <path d="M64 47C55 42 42 42 32 45V83C42 80 55 80 64 85C73 80 86 80 96 83V45C86 42 73 42 64 47Z" fill="#FAF6EE" stroke="#E5DDC8" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M64 47V85" stroke="#1F6E75" stroke-width="3.5" stroke-linecap="round"/>
-  <path d="M40 55H55M40 64H55M40 73H52" stroke="#9A5B25" stroke-width="3.5" stroke-linecap="round"/>
-  <path d="M73 55H88M73 64H88M73 73H85" stroke="#9A5B25" stroke-width="3.5" stroke-linecap="round"/>
-  <!-- Bottom clockwise rotation arc (ochre) -->
-  <path d="M92 94C82 107 61 110 44 102L36 97" stroke="#E8A849" stroke-width="7" stroke-linecap="round"/>
-  <path d="M39 108L34 96L47 94" stroke="#E8A849" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="128" height="128" rx="28" fill="#F6EFE3" />
+  <circle cx="64" cy="54" r="30" fill="#C94C35" />
+  <path d="M0 90C24 79 45 83 68 92C92 101 110 86 128 84V128H0V90Z" fill="#BA5B3B" opacity="0.55" />
+  <path d="M0 100C28 88 54 96 84 104C104 109 117 101 128 97V128H0V100Z" fill="#9E3C24" opacity="0.82" />
+  <path d="M64 62C53 54 36 53 22 59V88C36 82 53 83 64 91C75 83 92 82 106 88V59C92 53 75 54 64 62Z" fill="#FFFDF7" stroke="#5A3322" stroke-width="2.4" stroke-linejoin="round" />
+  <path d="M64 62V91" stroke="#7A442E" stroke-width="2.2" stroke-linecap="round" />
+  <path d="M30 67C39 63 50 64 58 69M30 75C39 71 50 72 58 77" stroke="#C9A889" stroke-width="1.8" stroke-linecap="round" />
+  <path d="M98 67C89 63 78 64 70 69M98 75C89 71 78 72 70 77" stroke="#C9A889" stroke-width="1.8" stroke-linecap="round" />
 </svg>

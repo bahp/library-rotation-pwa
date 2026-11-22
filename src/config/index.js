@@ -22,6 +22,8 @@ export {
   VALID_BOOK_CARD_SECTIONS,
   normalizePositiveBookCount,
   normalizeSidebarDividerStyle,
+  normalizeBottomNavStyle,
+  normalizeBookCardShadow,
   normalizeBookCardInfoPlacement,
   normalizeBookCardFields,
   normalizeBookCardSectionOverrides,

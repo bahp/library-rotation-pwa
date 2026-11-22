@@ -63,6 +63,7 @@ import {
 } from '../features/tagging/rule-tagger.js';
 import { createTaggingService } from '../features/tagging/tagging-service.js';
 import {
+  normalizeBookCardShadow,
   normalizeLanguage,
   normalizePositiveBookCount,
   resolveEffectiveThemeConfig,
@@ -76,19 +77,21 @@ import {
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
 
 /**
- * Applies light/dark class, `data-theme`, `<meta name="theme-color">`, and `<html lang>`
- * on document.documentElement according to user preference and active theme preset.
+ * Applies light/dark class, `data-theme`, `data-card-shadow`, `<meta name="theme-color">`, and `<html lang>`
+ * on document.documentElement according to user preference, active theme preset, and card shadow setting.
  * @param {import('../types/models.js').ThemeMode} theme
  * @param {string} [language]
  * @param {string} [themePreset]
+ * @param {import('../types/models.js').BookCardShadowMode} [bookCardShadow]
  */
-export function applyThemeToDom(theme, language = 'en', themePreset) {
+export function applyThemeToDom(theme, language = 'en', themePreset, bookCardShadow = 'subtle') {
   if (typeof document === 'undefined' || typeof window === 'undefined') return;
   const prefersDark =
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-color-scheme: dark)').matches;
   const effectiveConfig = resolveEffectiveThemeConfig(theme, themePreset, prefersDark);
   const isDark = effectiveConfig.mode === 'dark';
+  const effectiveShadow = normalizeBookCardShadow(bookCardShadow);
 
   try {
     if (typeof window.localStorage !== 'undefined') {
@@ -96,14 +99,17 @@ export function applyThemeToDom(theme, language = 'en', themePreset) {
       if (themePreset || effectiveConfig.id) {
         window.localStorage.setItem('lr_theme_preset', String(themePreset || effectiveConfig.id));
       }
+      window.localStorage.setItem('lr_card_shadow', effectiveShadow);
     }
   } catch (_) {}
 
   document.documentElement.classList.toggle('dark', isDark);
   if (document.documentElement.dataset) {
     document.documentElement.dataset.theme = effectiveConfig.id;
+    document.documentElement.dataset.cardShadow = effectiveShadow;
   } else if (typeof document.documentElement.setAttribute === 'function') {
     document.documentElement.setAttribute('data-theme', effectiveConfig.id);
+    document.documentElement.setAttribute('data-card-shadow', effectiveShadow);
   }
   if (typeof document.documentElement.setAttribute === 'function') {
     document.documentElement.setAttribute('lang', normalizeLanguage(language));
@@ -237,7 +243,12 @@ export function createAppStore(storage, deps = {}) {
    */
   async function commit(next) {
     state = migrateState(next);
-    applyThemeToDom(state.settings.theme, state.settings.language, state.settings.themePreset);
+    applyThemeToDom(
+      state.settings.theme,
+      state.settings.language,
+      state.settings.themePreset,
+      state.settings.bookCardShadow
+    );
     emit();
     await storage.save(state);
   }
@@ -248,13 +259,23 @@ export function createAppStore(storage, deps = {}) {
   async function init() {
     state = await storage.load();
     initialized = true;
-    applyThemeToDom(state.settings.theme, state.settings.language, state.settings.themePreset);
+    applyThemeToDom(
+      state.settings.theme,
+      state.settings.language,
+      state.settings.themePreset,
+      state.settings.bookCardShadow
+    );
 
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       const media = window.matchMedia('(prefers-color-scheme: dark)');
       media.addEventListener('change', () => {
         if (state.settings.theme === 'system') {
-          applyThemeToDom('system', state.settings.language, state.settings.themePreset);
+          applyThemeToDom(
+            'system',
+            state.settings.language,
+            state.settings.themePreset,
+            state.settings.bookCardShadow
+          );
         }
       });
     }
@@ -3893,6 +3914,10 @@ export function createAppStore(storage, deps = {}) {
       sidebarDividerStyle: state.settings.sidebarDividerStyle,
       onboardingLandingMode: state.settings.onboardingLandingMode,
       nativeAppStyle: state.settings.nativeAppStyle,
+      translucentTopBar: state.settings.translucentTopBar,
+      translucentBottomBar: state.settings.translucentBottomBar,
+      bottomNavStyle: state.settings.bottomNavStyle,
+      bookCardShadow: state.settings.bookCardShadow,
       notificationsEnabled: state.settings.notificationsEnabled,
       coverAspectRatio: state.settings.coverAspectRatio,
       dynamicCoverTint: state.settings.dynamicCoverTint,

@@ -19,7 +19,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="LibRotate" />
+    <meta name="apple-mobile-web-app-title" content="bunko" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -333,8 +333,8 @@
 
         // 2. Apply saved or system color theme, themePreset, AND exact top-bar theme-color before first paint (zero FOUC)
         var LIGHT_PRESETS = {
-          'bunko': { bg: '#F6EFE3', emblem: '#26433B' },
-          'shiori': { bg: '#F6F0EC', emblem: '#444756' },
+          'bunko': { bg: '#F6EFE3', emblem: '#25423A' },
+          'shiori': { bg: '#FAF2ED', emblem: '#444756' },
           'darker-teal': { bg: '#F7F5EE', emblem: '#1E322C' },
           'sunlit-cream': { bg: '#F7F1E7', emblem: '#9E572C' },
           'classic-teal': { bg: '#F8F5EE', emblem: '#115953' },
@@ -345,7 +345,7 @@
           'classic-light': { bg: '#F5F5F3', emblem: '#353B40' },
         };
         var DARK_PRESETS = {
-          'mimir': { bg: '#0D1714', emblem: '#15231E' },
+          'mimir': { bg: '#0B1713', emblem: '#12211C' },
           'forest-brass': { bg: '#101713', emblem: '#19251F' },
           'hylle-editorial': { bg: '#0B0D0C', emblem: '#141513' },
           'midnight-ink': { bg: '#0B1420', emblem: '#152538' },
@@ -358,10 +358,15 @@
         var isDark = false;
         var activePreset = 'bunko';
         var canvasHex = '#F6EFE3';
-        var emblemHex = '#26433B';
+        var emblemHex = '#25423A';
         try {
           var saved = localStorage.getItem('lr_theme_pref') || 'light';
           var savedPreset = localStorage.getItem('lr_theme_preset') || '';
+          var savedShadow = localStorage.getItem('lr_card_shadow') || 'subtle';
+          if (savedShadow !== 'none' && savedShadow !== 'subtle' && savedShadow !== 'elevated') {
+            savedShadow = 'subtle';
+          }
+          document.documentElement.setAttribute('data-card-shadow', savedShadow);
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           isDark = saved === 'dark' || (saved === 'system' && prefersDark);
           if (isDark) {
@@ -437,8 +442,8 @@
             </svg>
           </div>
         </div>
-        <p class="lr-boot-title">Library Rotation</p>
-        <p class="lr-boot-sub">Opening your family shelf…</p>
+        <p class="lr-boot-title">bunko</p>
+        <p class="lr-boot-sub">READ · EXPLORE · GROW</p>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>

@@ -457,7 +457,9 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
           data-book-id={book.id}
           onClick={() => onInspect(book)}
           aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
-          className={`block w-full rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle transition-transform active:scale-[0.98] cursor-pointer ${coverHighlightRing}`}
+          className={`block w-full rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle transition-transform active:scale-[0.98] cursor-pointer ${
+            isCoverOnly ? 'lr-cover-shadow' : ''
+          } ${coverHighlightRing}`}
         >
           <BookCover
             book={book}
