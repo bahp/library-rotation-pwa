@@ -570,10 +570,11 @@ export const LibraryView: React.FC = () => {
 
         {/* Right Main Catalog Workspace */}
         <div className="flex-1 min-w-0 space-y-3.5">
-          {/* Floating Sticky Search + Pills + Active Tags Bar */}
+          {/* Integrated Sticky Search + Pills + Active Tags Bar */}
           <div
             data-library-floating-controls="true"
-            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px)+0.5rem)] sm:top-[calc(4rem+env(safe-area-inset-top,0px)+0.75rem)] z-20 -mx-1 px-2.5 py-2.5 sm:mx-0 sm:px-3 sm:py-3 rounded-2xl bg-surface/92 backdrop-blur-xl border border-edge shadow-[var(--elevation-card)] space-y-2.5 transition-shadow"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--background) 94%, transparent)' }}
+            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:top-[calc(4rem+env(safe-area-inset-top,0px))] z-[25] -mt-5 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-4 pb-2.5 backdrop-blur-xl border-b border-edge-subtle space-y-2.5"
           >
             <ClearableInput
               id="catalog-search-input"
@@ -583,7 +584,7 @@ export const LibraryView: React.FC = () => {
               placeholder="Search your collection"
               aria-label="Search your collection"
               trailingWidth="double"
-              className="h-11 rounded-xl bg-surface-subtle/90 border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
+              className="h-11 rounded-xl bg-surface/95 border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
               trailingElement={
                 <div className="flex items-center gap-0.5">
                   <button
@@ -630,7 +631,7 @@ export const LibraryView: React.FC = () => {
             />
 
             {/* Thin Horizontal Scrolling Pills Row */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-2.5 px-2.5 sm:-mx-3 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-2 overflow-x-auto pb-0.5 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {/* Multi-Select Readers Dropdown Pill */}
               <button
                 type="button"
@@ -931,7 +932,7 @@ export const LibraryView: React.FC = () => {
                     <article
                       key={book.id}
                       data-book-card={book.id}
-                      className="group min-w-0 rounded-xl bg-surface border border-edge hover:border-primary/45 p-2 sm:p-2.5 lr-card transition-all"
+                      className="group isolate min-w-0 rounded-xl bg-surface border border-edge hover:border-primary/45 p-2 sm:p-2.5 lr-card transition-all"
                     >
                       <button
                         type="button"
@@ -1084,7 +1085,7 @@ export const LibraryView: React.FC = () => {
                   <article
                     key={book.id}
                     data-book-card={book.id}
-                    className={`group flex flex-col min-w-0 rounded-xl bg-surface border border-edge ${
+                    className={`group isolate flex flex-col min-w-0 rounded-xl bg-surface border border-edge ${
                       cardSize === 'compact' ? 'p-1.5 sm:p-2' : cardSize === 'large' ? 'p-3' : 'p-2.5'
                     } lr-card hover:border-secondary transition-all`}
                   >

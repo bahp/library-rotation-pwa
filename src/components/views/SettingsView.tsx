@@ -1828,7 +1828,7 @@ export const SettingsView: React.FC = () => {
                 onBack={goBackToRoot}
               />
 
-              {/* Clean stacked vertical list of languages with country flags */}
+              {/* Clean stacked vertical list of languages without flag icons */}
               <section
                 role="radiogroup"
                 aria-label={t('settings.languageLabel')}
@@ -1852,9 +1852,9 @@ export const SettingsView: React.FC = () => {
                       <div className="flex items-center gap-3.5 min-w-0">
                         <span
                           aria-hidden="true"
-                          className="text-2xl leading-none select-none w-9 h-9 rounded-lg bg-surface-subtle border border-edge-subtle flex items-center justify-center shrink-0"
+                          className="text-xs font-bold font-mono-tabular uppercase tracking-wider text-primary leading-none select-none w-9 h-9 rounded-lg bg-surface-subtle border border-edge-subtle flex items-center justify-center shrink-0"
                         >
-                          {opt.flag}
+                          {opt.code}
                         </span>
                         <div className="min-w-0">
                           <p className="text-sm sm:text-base font-semibold text-ink">
@@ -4199,7 +4199,7 @@ export const SettingsView: React.FC = () => {
               iconTone="indigo"
               title={t('settings.rowLanguageTitle')}
               subtitle={t('settings.rowLanguageSubtitle')}
-              value={`${currentLanguageOption.flag} ${currentLanguageOption.nativeLabel}`}
+              value={currentLanguageOption.nativeLabel}
               onClick={() => openSection('language')}
             />
           </SettingsGroup>

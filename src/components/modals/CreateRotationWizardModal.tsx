@@ -13,12 +13,72 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { isBookRotatable } from '../../types/models.js';
 import type { BookFormat, RotationPreset } from '../../types/models.js';
 
+export type QuickRuleId =
+  | 'random-unread'
+  | 'seasonal-match'
+  | 'least-recently-read'
+  | 'never-rotated'
+  | 'reader-favorites'
+  | 'variety-mix';
+
+export const QUICK_RULE_OPTIONS: ReadonlyArray<{
+  id: QuickRuleId;
+  label: string;
+  subtitle: string;
+  objective: string;
+  icon: string;
+}> = [
+  {
+    id: 'random-unread',
+    label: 'Random Unread',
+    subtitle: 'Fresh titles not read yet',
+    objective: 'Random mix of unread books from your library',
+    icon: 'shuffle',
+  },
+  {
+    id: 'seasonal-match',
+    label: 'Seasonal Match',
+    subtitle: 'Tied to this time of year',
+    objective: 'Seasonal themes matched to the current calendar window',
+    icon: 'calendar',
+  },
+  {
+    id: 'least-recently-read',
+    label: 'Least Recently Read',
+    subtitle: 'Longest off the shelf',
+    objective: 'Books that have waited longest off your active shelves',
+    icon: 'clock',
+  },
+  {
+    id: 'never-rotated',
+    label: 'Never Rotated',
+    subtitle: 'Unseen library gems',
+    objective: 'Fresh library books never placed in a rotation yet',
+    icon: 'sparkles',
+  },
+  {
+    id: 'reader-favorites',
+    label: 'Reader Favorites',
+    subtitle: 'Loved books & top topics',
+    objective: 'Loved books and favorite reader topics',
+    icon: 'heart',
+  },
+  {
+    id: 'variety-mix',
+    label: 'Quick Variety Mix',
+    subtitle: 'Balanced authors & themes',
+    objective: 'Balanced mix across authors, topics, and formats',
+    icon: 'dice',
+  },
+];
+
 type CreationMethod = 'preset' | 'custom' | 'ai';
 
 type WizardStep =
   | 'method'
   | 'preset-pick'
   | 'preset-config'
+  | 'quick-rule-config'
   | 'custom-details'
   | 'custom-rules'
   | 'ai-prompt'
@@ -27,6 +87,8 @@ type WizardStep =
 interface CreateRotationWizardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialQuickRule?: QuickRuleId | null;
+  initialPresetId?: string | null;
 }
 
 const AI_STARTER_PROMPTS = [
@@ -39,6 +101,8 @@ const AI_STARTER_PROMPTS = [
 export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps> = ({
   isOpen,
   onClose,
+  initialQuickRule = null,
+  initialPresetId = null,
 }) => {
   const { state, store, activeProfile } = useApp();
   useBodyScrollLock(isOpen);
@@ -49,6 +113,13 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
   const [targetStatus, setTargetStatus] = useState<'active' | 'saved'>('active');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Quick rule direct branch state
+  const [quickRuleId, setQuickRuleId] = useState<QuickRuleId>('random-unread');
+  const [quickRuleTitle, setQuickRuleTitle] = useState('');
+  const [quickRuleUseLimit, setQuickRuleUseLimit] = useState(true);
+  const [quickRuleBookCount, setQuickRuleBookCount] = useState(5);
+  const [quickRuleSwapDays, setQuickRuleSwapDays] = useState(14);
 
   // Preset branch state
   const [presetCategory, setPresetCategory] = useState<string>('all');
@@ -137,26 +208,55 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
   // Reset wizard cleanly whenever opened
   useEffect(() => {
     if (!isOpen) return;
+    const hasActiveForProfile = Boolean(
+      activeProfile &&
+        state.rotations.some((r) => r.profileId === activeProfile.id && r.status === 'active')
+    );
+    const defaultSize = activeProfile?.defaultRotationSize || 5;
+
     setMethod('preset');
-    setStep('method');
-    setTargetStatus('active');
+    setTargetStatus(
+      (initialQuickRule || initialPresetId) && hasActiveForProfile ? 'saved' : 'active'
+    );
     setIsSubmitting(false);
     setError('');
 
     setPresetCategory('all');
     setPresetSearch('');
-    const defaultPreset = allPresets[0] || null;
+    const matchedInitialPreset = initialPresetId
+      ? allPresets.find((p) => p.id === initialPresetId) || null
+      : null;
+    const defaultPreset = matchedInitialPreset || allPresets[0] || null;
     setSelectedPresetId(defaultPreset?.id || '');
     setPresetTitle(defaultPreset?.title || '');
     setPresetUseLimit(true);
-    setPresetBookCount(defaultPreset?.count || activeProfile?.defaultRotationSize || 5);
+    setPresetBookCount(defaultPreset?.count || defaultSize);
     setPresetSwapDays(defaultPreset?.swapDays || 14);
+
+    if (initialPresetId && matchedInitialPreset) {
+      setStep('preset-config');
+    } else if (initialQuickRule && initialQuickRule !== 'seasonal-match') {
+      const ruleMeta =
+        QUICK_RULE_OPTIONS.find((r) => r.id === initialQuickRule) || QUICK_RULE_OPTIONS[0];
+      setQuickRuleId(ruleMeta.id);
+      setQuickRuleTitle(
+        ruleMeta.id === 'reader-favorites'
+          ? `${activeProfile?.name || 'Reader'}’s Favorites`
+          : ruleMeta.label
+      );
+      setQuickRuleUseLimit(true);
+      setQuickRuleBookCount(defaultSize);
+      setQuickRuleSwapDays(14);
+      setStep('quick-rule-config');
+    } else {
+      setStep('method');
+    }
 
     setCustomTitle('');
     setCustomObjective('');
     setCustomTags('');
     setCustomUseLimit(true);
-    setCustomBookCount(activeProfile?.defaultRotationSize || 5);
+    setCustomBookCount(defaultSize);
     setCustomSwapDays(14);
     setCustomCooldownDays(activeProfile?.cooldownDays ?? 14);
     setCustomFormat('any');
@@ -164,12 +264,12 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
 
     setAiObjective(AI_STARTER_PROMPTS[0]);
     setAiUseLimit(true);
-    setAiBookCount(activeProfile?.defaultRotationSize || 5);
+    setAiBookCount(defaultSize);
     setAiTitle('');
     setIsCurating(false);
     setCuratorPlan(null);
     setSelectedAiBookIds(new Set());
-  }, [isOpen, activeProfile?.id]);
+  }, [isOpen, activeProfile?.id, initialQuickRule, initialPresetId]);
 
   if (!isOpen) return null;
 
@@ -233,6 +333,7 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
     setError('');
     switch (step) {
       case 'preset-pick':
+      case 'quick-rule-config':
       case 'custom-details':
       case 'ai-prompt':
         setStep('method');
@@ -297,6 +398,159 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
           count: effectiveCount,
           swapDays: Math.max(1, Math.min(90, Number(presetSwapDays) || 14)),
         });
+        onClose();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
+    if (step === 'quick-rule-config') {
+      if (!activeProfile) {
+        setError('Select or create a reader profile first.');
+        return;
+      }
+      const rotatable = state.books.filter((b) => isBookRotatable(b));
+      if (rotatable.length === 0) {
+        setError('Add owned books to your library before creating a rotation.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        const ruleMeta =
+          QUICK_RULE_OPTIONS.find((r) => r.id === quickRuleId) || QUICK_RULE_OPTIONS[0];
+        const effectiveCount = quickRuleUseLimit
+          ? Math.max(1, Math.min(rotatable.length, Math.min(20, Number(quickRuleBookCount) || 5)))
+          : Math.min(rotatable.length, 20);
+        const swapDays = Math.max(1, Math.min(90, Number(quickRuleSwapDays) || 14));
+        const finalTitle = quickRuleTitle.trim() || ruleMeta.label;
+        const setActive = targetStatus === 'active';
+
+        const activeBookIdSet = new Set(
+          state.rotations
+            .filter((r) => r.profileId === activeProfile.id && r.status === 'active')
+            .flatMap((r) => r.bookIds)
+        );
+        const readHistorySet = new Set(activeProfile.readHistoryBookIds || []);
+        const favoriteTagSet = new Set(
+          (activeProfile.favoriteTopics || []).map((t) => t.toLowerCase().trim())
+        );
+
+        const shuffle = <T,>(items: T[]): T[] => {
+          const copy = [...items];
+          for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+          }
+          return copy;
+        };
+
+        const pickWithPoolPriority = (primary: typeof rotatable, fallback: typeof rotatable): string[] => {
+          const seen = new Set<string>();
+          const out: string[] = [];
+          for (const b of [...primary, ...fallback]) {
+            if (seen.has(b.id)) continue;
+            seen.add(b.id);
+            out.push(b.id);
+            if (out.length >= effectiveCount) break;
+          }
+          return out;
+        };
+
+        if (quickRuleId === 'random-unread') {
+          const offShelfUnread = shuffle(
+            rotatable.filter((b) => !readHistorySet.has(b.id) && !activeBookIdSet.has(b.id))
+          );
+          const anyUnread = shuffle(rotatable.filter((b) => !readHistorySet.has(b.id)));
+          const offShelfAny = shuffle(rotatable.filter((b) => !activeBookIdSet.has(b.id)));
+          const bookIds = pickWithPoolPriority(
+            [...offShelfUnread, ...anyUnread],
+            [...offShelfAny, ...shuffle(rotatable)]
+          );
+          await store.saveCuratedRotation({
+            title: finalTitle,
+            objective: ruleMeta.objective,
+            bookIds,
+            swapDays,
+            setActive,
+            keepOtherActive: true,
+          });
+        } else if (quickRuleId === 'least-recently-read') {
+          const sortedByAge = [...rotatable].sort((a, b) => {
+            const aOff = activeBookIdSet.has(a.id) ? 1 : 0;
+            const bOff = activeBookIdSet.has(b.id) ? 1 : 0;
+            if (aOff !== bOff) return aOff - bOff;
+            const aMs = a.lastRotatedAt ? Date.parse(a.lastRotatedAt) : 0;
+            const bMs = b.lastRotatedAt ? Date.parse(b.lastRotatedAt) : 0;
+            return (Number.isFinite(aMs) ? aMs : 0) - (Number.isFinite(bMs) ? bMs : 0);
+          });
+          await store.saveCuratedRotation({
+            title: finalTitle,
+            objective: ruleMeta.objective,
+            bookIds: sortedByAge.slice(0, effectiveCount).map((b) => b.id),
+            swapDays,
+            setActive,
+            keepOtherActive: true,
+          });
+        } else if (quickRuleId === 'never-rotated') {
+          const sortedNever = [...rotatable].sort((a, b) => {
+            const aNever = !a.lastRotatedAt && (a.rotationCount || 0) === 0 ? 0 : 1;
+            const bNever = !b.lastRotatedAt && (b.rotationCount || 0) === 0 ? 0 : 1;
+            if (aNever !== bNever) return aNever - bNever;
+            const aCount = a.rotationCount || 0;
+            const bCount = b.rotationCount || 0;
+            if (aCount !== bCount) return aCount - bCount;
+            const aAgeFit =
+              activeProfile.age >= a.ageMin && activeProfile.age <= a.ageMax ? 0 : 1;
+            const bAgeFit =
+              activeProfile.age >= b.ageMin && activeProfile.age <= b.ageMax ? 0 : 1;
+            return aAgeFit - bAgeFit;
+          });
+          await store.saveCuratedRotation({
+            title: finalTitle,
+            objective: ruleMeta.objective,
+            bookIds: sortedNever.slice(0, effectiveCount).map((b) => b.id),
+            swapDays,
+            setActive,
+            keepOtherActive: true,
+          });
+        } else if (quickRuleId === 'reader-favorites') {
+          const lovedPool = shuffle(
+            rotatable.filter((b) => b.loved === true && !activeBookIdSet.has(b.id))
+          );
+          const anyLoved = shuffle(rotatable.filter((b) => b.loved === true));
+          const topicMatch = shuffle(
+            rotatable.filter((b) =>
+              (b.tags || []).some((t) => favoriteTagSet.has(t.toLowerCase()))
+            )
+          );
+          const bookIds = pickWithPoolPriority(
+            [...lovedPool, ...anyLoved, ...topicMatch],
+            shuffle(rotatable)
+          );
+          await store.saveCuratedRotation({
+            title: finalTitle,
+            objective: ruleMeta.objective,
+            bookIds,
+            swapDays,
+            setActive,
+            keepOtherActive: true,
+          });
+        } else {
+          await store.generateRotation({
+            title: finalTitle,
+            objective: ruleMeta.objective,
+            status: targetStatus,
+            count: effectiveCount,
+            swapDays,
+            varietyMix: true,
+            seed: `quick-mix-${Date.now()}`,
+            keepOtherActive: true,
+          });
+        }
         onClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
@@ -371,6 +625,11 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
         return { title: 'Use a Preset', subtitle: 'Step 2 of 3 · Pick a collection template' };
       case 'preset-config':
         return { title: 'Use a Preset', subtitle: 'Step 3 of 3 · Name & book limit' };
+      case 'quick-rule-config': {
+        const ruleMeta =
+          QUICK_RULE_OPTIONS.find((r) => r.id === quickRuleId) || QUICK_RULE_OPTIONS[0];
+        return { title: ruleMeta.label, subtitle: 'Quick Rule · Customize & save shelf' };
+      }
       case 'custom-details':
         return { title: 'Customize Rule', subtitle: 'Step 2 of 3 · Name & topics' };
       case 'custom-rules':
@@ -383,7 +642,10 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
   })();
 
   const isFinalStep =
-    step === 'preset-config' || step === 'custom-rules' || step === 'ai-review';
+    step === 'preset-config' ||
+    step === 'quick-rule-config' ||
+    step === 'custom-rules' ||
+    step === 'ai-review';
 
   const continueDisabled =
     isSubmitting ||
@@ -646,6 +908,126 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
               </div>
             </div>
           )}
+
+          {/* BRANCH A2 · DIRECT QUICK RULE CONFIG */}
+          {step === 'quick-rule-config' && (() => {
+            const ruleMeta =
+              QUICK_RULE_OPTIONS.find((r) => r.id === quickRuleId) || QUICK_RULE_OPTIONS[0];
+            return (
+              <div className="space-y-4 text-xs">
+                <div className="rounded-xl bg-surface-subtle border border-edge p-3.5 space-y-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-accent">
+                    Quick Rule
+                  </p>
+                  <p className="font-display text-base font-semibold text-ink">
+                    {ruleMeta.label}
+                  </p>
+                  <p className="text-ink-secondary leading-snug">{ruleMeta.objective}</p>
+                </div>
+
+                <div>
+                  <label htmlFor="wizard-quick-rule-name" className="block font-semibold text-ink mb-1">
+                    Rotation Name
+                  </label>
+                  <input
+                    id="wizard-quick-rule-name"
+                    type="text"
+                    value={quickRuleTitle}
+                    onChange={(e) => setQuickRuleTitle(e.target.value)}
+                    placeholder={ruleMeta.label}
+                    className="w-full h-11 px-3.5 rounded-xl bg-surface-subtle border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted"
+                  />
+                </div>
+
+                <div className="rounded-xl bg-surface-subtle/70 border border-edge p-3.5 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-ink">Book limit</p>
+                      <p className="text-[11px] text-ink-secondary">
+                        Cap how many books are placed on this shelf
+                      </p>
+                    </div>
+                    <label className="inline-flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={quickRuleUseLimit}
+                        onChange={(e) => setQuickRuleUseLimit(e.target.checked)}
+                        className="w-4 h-4 rounded accent-[var(--primary)]"
+                      />
+                      <span className="font-medium text-ink">Add book limit</span>
+                    </label>
+                  </div>
+
+                  {quickRuleUseLimit && (
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="block font-semibold text-ink-secondary mb-1">
+                          Books on Shelf
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={quickRuleBookCount}
+                          onChange={(e) => setQuickRuleBookCount(Number(e.target.value))}
+                          className="w-full h-11 px-3 rounded-xl bg-surface border border-edge font-mono-tabular text-base sm:text-sm font-semibold text-ink"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-ink-secondary mb-1">
+                          Swap Cycle (Days)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={90}
+                          value={quickRuleSwapDays}
+                          onChange={(e) => setQuickRuleSwapDays(Number(e.target.value))}
+                          className="w-full h-11 px-3 rounded-xl bg-surface border border-edge font-mono-tabular text-base sm:text-sm font-semibold text-ink"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <p className="font-semibold text-ink mb-1.5">Shelf Status</p>
+                  <div
+                    role="radiogroup"
+                    aria-label="New shelf initial state"
+                    className="grid grid-cols-2 p-1 rounded-xl bg-surface-subtle border border-edge"
+                  >
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={targetStatus === 'active'}
+                      onClick={() => setTargetStatus('active')}
+                      className={`min-h-[38px] rounded-lg font-semibold transition-colors cursor-pointer ${
+                        targetStatus === 'active'
+                          ? 'bg-primary text-primary-fg shadow-2xs'
+                          : 'text-ink-secondary hover:text-ink'
+                      }`}
+                    >
+                      Active Shelf
+                    </button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={targetStatus === 'saved'}
+                      onClick={() => setTargetStatus('saved')}
+                      className={`min-h-[38px] rounded-lg font-semibold transition-colors cursor-pointer ${
+                        targetStatus === 'saved'
+                          ? 'bg-surface text-ink shadow-2xs'
+                          : 'text-ink-secondary hover:text-ink'
+                      }`}
+                    >
+                      Save for Later
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* BRANCH A · STEP 3: Configure Preset */}
           {step === 'preset-config' && selectedPreset && (

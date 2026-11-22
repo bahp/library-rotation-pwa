@@ -40,6 +40,20 @@ function formatRelativeActiveLabel(iso?: string): string {
   return new Date(time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function formatFinishedDateLabel(iso?: string): string {
+  if (!iso) return 'Last read';
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return 'Last read';
+  const d = new Date(time);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfTarget = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diffDays = Math.round((startOfToday - startOfTarget) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'Last read · Today';
+  if (diffDays === 1) return 'Last read · Yesterday';
+  return `Last read · ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+}
+
 export const HomeView: React.FC = () => {
   const {
     state,
@@ -140,7 +154,7 @@ export const HomeView: React.FC = () => {
     ).length;
   }, [state.books]);
 
-  // Most recently clicked "Reading" book for active profile
+  // Most recently clicked "Reading" book, or fallback to most recently finished book
   const currentReadingBook: Book | null = useMemo(() => {
     const readingIds = activeProfile?.currentlyReadingBookIds;
     if (!Array.isArray(readingIds) || readingIds.length === 0) return null;
@@ -151,36 +165,60 @@ export const HomeView: React.FC = () => {
     return null;
   }, [activeProfile?.currentlyReadingBookIds, bookMap]);
 
+  const lastReadBook: Book | null = useMemo(() => {
+    if (currentReadingBook) return null;
+    const historyIds = activeProfile?.readHistoryBookIds;
+    if (!Array.isArray(historyIds) || historyIds.length === 0) return null;
+    let bestBook: Book | null = null;
+    let bestTime = -1;
+    for (let i = historyIds.length - 1; i >= 0; i -= 1) {
+      const candidate = bookMap.get(historyIds[i]);
+      if (!candidate) continue;
+      const ms = candidate.lastReadAt ? Date.parse(candidate.lastReadAt) : NaN;
+      const validMs = Number.isFinite(ms) ? ms : 0;
+      if (!bestBook || validMs > bestTime) {
+        bestBook = candidate;
+        bestTime = validMs;
+      }
+    }
+    return bestBook;
+  }, [currentReadingBook, activeProfile?.readHistoryBookIds, bookMap]);
+
+  const bottomBarBook = currentReadingBook || lastReadBook;
+  const isBottomBarFinished = !currentReadingBook && Boolean(lastReadBook);
+
   const handleTogglePicked = async (bookId: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!displayedRotation) return;
     await store.toggleRotationBookPicked(displayedRotation.id, bookId);
   };
 
-  const handleMarkCurrentBookRead = async (e: React.MouseEvent) => {
+  const handleToggleBottomBarRead = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentReadingBook) return;
-    await store.setProfileBookReadingStatus(activeProfile?.id, currentReadingBook.id, 'read');
-    store.notify(`Marked "${currentReadingBook.title}" as read!`, 'success');
+    if (!bottomBarBook) return;
+    if (isBottomBarFinished) {
+      await store.setProfileBookReadingStatus(activeProfile?.id, bottomBarBook.id, 'reading');
+      store.notify(`Marked "${bottomBarBook.title}" as currently reading`, 'info');
+    } else {
+      await store.setProfileBookReadingStatus(activeProfile?.id, bottomBarBook.id, 'read');
+      store.notify(`Marked "${bottomBarBook.title}" as read!`, 'success');
+    }
   };
 
   const handleToggleCurrentBookLoved = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!currentReadingBook) return;
-    await store.toggleBookLoved(currentReadingBook.id);
+    if (!bottomBarBook) return;
+    await store.toggleBookLoved(bottomBarBook.id);
   };
 
   const completedCount = displayedRotation
     ? displayedRotation.completedBookIds.filter((id) => displayedRotation.bookIds.includes(id)).length
     : 0;
-  const pickedCount = displayedRotation
-    ? (displayedRotation.pickedBookIds || []).filter((id) => displayedRotation.bookIds.includes(id)).length
-    : 0;
   const progressPct =
     shelfBooks.length > 0 ? Math.round((completedCount / shelfBooks.length) * 100) : 0;
 
-  // Circular SVG Progress Ring geometry
-  const ringRadius = 22;
+  // Compact Circular SVG Progress Ring geometry
+  const ringRadius = 19;
   const ringCircumference = 2 * Math.PI * ringRadius;
   const ringDashOffset = ringCircumference - (progressPct / 100) * ringCircumference;
 
@@ -381,17 +419,22 @@ export const HomeView: React.FC = () => {
   };
 
   return (
-    <div className={`space-y-5 text-left ${currentReadingBook ? 'pb-24' : ''}`}>
+    <div className={`space-y-5 text-left ${bottomBarBook ? 'pb-24' : ''}`}>
       {/* Current Rotation Section */}
       {displayedRotation ? (
-        <section aria-labelledby="active-shelf-heading" className="space-y-4">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5 pb-2 border-b border-edge-subtle">
+        <section aria-labelledby="active-shelf-heading" className="space-y-3.5">
+          <div className="flex items-start justify-between gap-3 pb-2.5 border-b border-edge-subtle">
             <div className="min-w-0 flex-1 space-y-1">
               <h1
                 id="active-shelf-heading"
-                className="font-display text-2xl sm:text-4xl font-semibold text-ink leading-[1.08] tracking-tight"
+                className="font-display text-2xl sm:text-4xl font-semibold text-ink leading-[1.08] tracking-tight flex items-start gap-2.5"
               >
-                {displayedRotation.title}
+                <span
+                  aria-hidden="true"
+                  title="Active shelf"
+                  className="w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15 shrink-0 mt-2 sm:mt-3"
+                />
+                <span className="min-w-0">{displayedRotation.title}</span>
               </h1>
               {displayedRotation.rules?.objective && (
                 <p className="text-xs sm:text-sm text-ink-secondary leading-snug line-clamp-2 max-w-2xl">
@@ -415,74 +458,44 @@ export const HomeView: React.FC = () => {
               )}
             </div>
 
-            {/* Compact Reading Progress Ring & Quick Shelf Actions */}
-            <div className="rounded-xl bg-surface border border-edge px-3.5 py-2.5 lr-card flex items-center justify-between sm:justify-start gap-3.5 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="relative w-12 h-12 shrink-0 flex items-center justify-center">
-                  <svg className="w-12 h-12 -rotate-90" viewBox="0 0 56 56" aria-hidden="true">
-                    <circle
-                      cx="28"
-                      cy="28"
-                      r={ringRadius}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="4.5"
-                      className="text-edge-subtle"
-                    />
-                    <circle
-                      cx="28"
-                      cy="28"
-                      r={ringRadius}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="4.5"
-                      strokeLinecap="round"
-                      strokeDasharray={ringCircumference}
-                      strokeDashoffset={ringDashOffset}
-                      className="text-primary dark:text-accent transition-all duration-300"
-                    />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold font-mono-tabular text-ink">
-                    {progressPct}%
-                  </span>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold text-ink leading-tight">
-                    Reading progress
-                  </p>
-                  <p className="text-[11px] font-mono-tabular text-ink-secondary mt-0.5">
-                    {completedCount} of {shelfBooks.length} {shelfBooks.length === 1 ? 'book' : 'books'}
-                    {pickedCount > 0 ? ` · ${pickedCount} picked` : ''}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 pl-3 border-l border-edge-subtle">
-                <button
-                  type="button"
-                  onClick={() => setIsPlacementOpen(true)}
-                  aria-label="Stock shelf checklist"
-                  className="min-h-[40px] sm:min-h-[36px] px-2.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
-                >
-                  <Icon name="checklist" className="w-3.5 h-3.5 text-primary" />
-                  <span>Stock</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate('rotations', { edit: displayedRotation.id })}
-                  aria-label="Edit active rotation"
-                  className="min-h-[40px] sm:min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
-                >
-                  <span>Edit</span>
-                </button>
-              </div>
+            {/* Compact Top-Right Reading Progress Circle */}
+            <div
+              className="relative w-11 h-11 sm:w-12 sm:h-12 shrink-0 flex items-center justify-center pt-0.5"
+              title={`Reading progress: ${completedCount} of ${shelfBooks.length} ${shelfBooks.length === 1 ? 'book' : 'books'} (${progressPct}%)`}
+              aria-label={`Reading progress: ${completedCount} of ${shelfBooks.length} books read, ${progressPct}%`}
+            >
+              <svg className="w-11 h-11 sm:w-12 sm:h-12 -rotate-90" viewBox="0 0 48 48" aria-hidden="true">
+                <circle
+                  cx="24"
+                  cy="24"
+                  r={ringRadius}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-edge-subtle"
+                />
+                <circle
+                  cx="24"
+                  cy="24"
+                  r={ringRadius}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeDasharray={ringCircumference}
+                  strokeDashoffset={ringDashOffset}
+                  className="text-primary dark:text-accent transition-all duration-300"
+                />
+              </svg>
+              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold font-mono-tabular text-ink">
+                {progressPct}%
+              </span>
             </div>
           </div>
 
-          {/* Shelf View Switcher (Scroll / Grid / List) & View All Books */}
-          <div className="flex items-center justify-between gap-2.5">
-            {activeRotations.length > 1 ? (
+          {/* Active Shelf Tabs (when >1) + Stock & Edit on Left + View Switcher on Right */}
+          <div className="space-y-2.5">
+            {activeRotations.length > 1 && (
               <div
                 role="tablist"
                 aria-label="Active shelves"
@@ -497,41 +510,50 @@ export const HomeView: React.FC = () => {
                       role="tab"
                       aria-selected={selected}
                       onClick={() => setSelectedRotationId(rot.id)}
-                      className={`min-h-[32px] px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                      className={`min-h-[32px] px-2.5 py-1 rounded-md text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                         selected
                           ? 'bg-primary text-primary-fg shadow-2xs'
                           : 'text-ink-secondary hover:text-ink'
                       }`}
                     >
-                      {rot.title}
+                      {selected && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" aria-hidden="true" />
+                      )}
+                      <span>{rot.title}</span>
                     </button>
                   );
                 })}
               </div>
-            ) : (
-              <span className="text-xs font-medium text-ink-secondary">
-                Current shelf
-              </span>
             )}
 
-            <div className="flex items-center gap-2.5 ml-auto shrink-0">
-              <BookSectionViewToggle
-                value={shelfLayout}
-                onChange={handleShelfLayoutChange}
-                ariaLabel="Current shelf layout"
-              />
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPlacementOpen(true)}
+                  aria-label="Stock shelf checklist"
+                  className="min-h-[36px] px-2.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                >
+                  <Icon name="checklist" className="w-3.5 h-3.5 text-primary" />
+                  <span>Stock</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('rotations', { edit: displayedRotation.id })}
+                  aria-label="Edit active rotation"
+                  className="min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-all active:scale-[0.98] whitespace-nowrap cursor-pointer"
+                >
+                  <span>Edit</span>
+                </button>
+              </div>
 
-              <a
-                href="#/library"
-                onClick={(e) => {
-                  e.preventDefault();
-                  navigate('library');
-                }}
-                className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-0.5 whitespace-nowrap"
-              >
-                <span>All books</span>
-                <Icon name="chevronRight" className="w-3.5 h-3.5" />
-              </a>
+              <div className="flex items-center gap-2 ml-auto shrink-0">
+                <BookSectionViewToggle
+                  value={shelfLayout}
+                  onChange={handleShelfLayoutChange}
+                  ariaLabel="Current shelf layout"
+                />
+              </div>
             </div>
           </div>
 
@@ -641,40 +663,6 @@ export const HomeView: React.FC = () => {
                   {shelfBooks.map((book) => renderShelfBookCard(book, false))}
                 </div>
               )}
-
-              {/* Compact Anchor Bar: Manage Your Rotation */}
-              <div className="rounded-xl bg-surface-elevated border border-edge p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 lr-card">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="w-9 h-9 rounded-lg bg-surface border border-edge text-primary inline-flex items-center justify-center shrink-0">
-                    <Icon name="rotations" className="w-4 h-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="font-display text-base font-semibold text-ink leading-tight">
-                      Manage your rotation
-                    </h2>
-                    <p className="text-xs text-ink-secondary truncate">
-                      Swap, stock, or draw fresh books for this cycle.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsPlacementOpen(true)}
-                    className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-subtle border border-edge text-xs font-semibold text-ink cursor-pointer"
-                  >
-                    Stock Checklist
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate('rotations', { edit: displayedRotation.id })}
-                    className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Edit Rotation</span>
-                    <Icon name="chevronRight" className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
             </div>
           ) : (
             <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 lr-card">
@@ -748,7 +736,7 @@ export const HomeView: React.FC = () => {
       {recommendations.length > 0 && (
         <section
           aria-labelledby="up-next-heading"
-          className="rounded-xl bg-surface border border-edge p-3.5 sm:p-4 space-y-3 lr-card"
+          className="space-y-3 md:rounded-xl md:bg-surface md:border md:border-edge md:p-4 md:lr-card"
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -1000,24 +988,24 @@ export const HomeView: React.FC = () => {
         </section>
       </div>
 
-      {/* Floating Bottom "Current Read" Preview Bar (shows last-clicked Reading book) */}
-      {currentReadingBook && (
+      {/* Floating Bottom "Current Read / Last Read" Preview Bar */}
+      {bottomBarBook && (
         <div
           role="region"
-          aria-label="Currently reading preview"
+          aria-label={isBottomBarFinished ? 'Last read preview' : 'Currently reading preview'}
           data-current-read-bar="true"
           style={{ backgroundColor: 'color-mix(in srgb, var(--surface) 92%, transparent)' }}
           className="fixed bottom-[calc(4.65rem+env(safe-area-inset-bottom,0px))] inset-x-3 sm:inset-x-6 md:bottom-6 md:right-6 md:left-auto md:w-[390px] z-30 backdrop-blur-xl rounded-2xl border border-edge shadow-xl px-3 py-2 flex items-center justify-between gap-2.5"
         >
           <button
             type="button"
-            onClick={() => setInspectedBookId(currentReadingBook.id)}
-            aria-label={`Open currently reading book ${currentReadingBook.title}`}
+            onClick={() => setInspectedBookId(bottomBarBook.id)}
+            aria-label={`Open ${isBottomBarFinished ? 'last read' : 'currently reading'} book ${bottomBarBook.title}`}
             className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
           >
             <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle shadow-2xs">
               <BookCover
-                book={currentReadingBook}
+                book={bottomBarBook}
                 size="xs"
                 aspectRatio={coverAspectRatio}
               />
@@ -1026,18 +1014,26 @@ export const HomeView: React.FC = () => {
             <div className="min-w-0 flex-1 space-y-1">
               <div className="min-w-0">
                 <p className="font-sans text-[13px] font-semibold text-ink leading-tight truncate">
-                  {currentReadingBook.title}
+                  {bottomBarBook.title}
                 </p>
                 <p className="text-[11px] text-ink-secondary leading-tight truncate">
-                  by {currentReadingBook.authors[0] || 'Unknown Author'}
+                  by {bottomBarBook.authors[0] || 'Unknown Author'}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-1 flex-1 max-w-[110px] rounded-full bg-surface-elevated overflow-hidden">
-                  <div className="h-full w-1/2 rounded-full bg-primary dark:bg-accent" />
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      isBottomBarFinished
+                        ? 'w-full bg-success'
+                        : 'w-1/2 bg-primary dark:bg-accent'
+                    }`}
+                  />
                 </div>
                 <span className="text-[10px] font-medium text-ink-muted whitespace-nowrap">
-                  Reading
+                  {isBottomBarFinished
+                    ? formatFinishedDateLabel(bottomBarBook.lastReadAt)
+                    : 'Reading'}
                 </span>
               </div>
             </div>
@@ -1046,27 +1042,40 @@ export const HomeView: React.FC = () => {
           <div className="flex items-center gap-0.5 shrink-0">
             <button
               type="button"
-              onClick={handleMarkCurrentBookRead}
-              aria-label={`Mark ${currentReadingBook.title} as read`}
-              title="Mark as read"
-              className="min-h-[40px] min-w-[40px] rounded-xl text-ink-secondary hover:text-primary hover:bg-surface-elevated flex items-center justify-center transition-colors cursor-pointer"
+              onClick={handleToggleBottomBarRead}
+              aria-pressed={isBottomBarFinished}
+              aria-label={
+                isBottomBarFinished
+                  ? `${bottomBarBook.title} finished. Tap to mark as reading again`
+                  : `Mark ${bottomBarBook.title} as read`
+              }
+              title={
+                isBottomBarFinished
+                  ? 'Finished · Tap to mark as reading'
+                  : 'Mark as read'
+              }
+              className={`min-h-[40px] min-w-[40px] rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
+                isBottomBarFinished
+                  ? 'text-success bg-success/12 hover:bg-success/20'
+                  : 'text-ink-secondary hover:text-primary hover:bg-surface-elevated'
+              }`}
             >
               <Icon name="check" className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={handleToggleCurrentBookLoved}
-              aria-pressed={Boolean(currentReadingBook.loved)}
-              aria-label={currentReadingBook.loved ? 'Remove Loved mark' : 'Mark as Loved'}
-              title={currentReadingBook.loved ? 'Loved' : 'Mark as Loved'}
+              aria-pressed={Boolean(bottomBarBook.loved)}
+              aria-label={bottomBarBook.loved ? 'Remove Loved mark' : 'Mark as Loved'}
+              title={bottomBarBook.loved ? 'Loved' : 'Mark as Loved'}
               className={`min-h-[40px] min-w-[40px] rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
-                currentReadingBook.loved
+                bottomBarBook.loved
                   ? 'text-loved hover:bg-surface-elevated'
                   : 'text-ink-secondary hover:text-loved hover:bg-surface-elevated'
               }`}
             >
               <Icon
-                name={currentReadingBook.loved ? 'heartFilled' : 'heart'}
+                name={bottomBarBook.loved ? 'heartFilled' : 'heart'}
                 className="w-4 h-4"
               />
             </button>

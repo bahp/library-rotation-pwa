@@ -124,7 +124,7 @@ export const PresetCard: React.FC<PresetCardProps> = ({
   return (
     <article
       data-preset-card={preset.id}
-      className={`relative overflow-hidden rounded-xl bg-surface border p-5 sm:p-5.5 shadow-2xs flex flex-col justify-between transition-all hover:shadow-md ${
+      className={`isolate relative overflow-hidden rounded-xl bg-surface border p-5 sm:p-5.5 shadow-2xs flex flex-col justify-between transition-all hover:shadow-md ${
         isPaused ? 'opacity-80' : ''
       } ${
         isUpcomingAlert && !isPaused

@@ -31,9 +31,10 @@ const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 
 interface PresetsViewProps {
   embedded?: boolean;
+  onBack?: () => void;
 }
 
-export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) => {
+export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false, onBack }) => {
   const { state, store, activeProfile, activeRotation, navigate, t } = useApp();
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -466,56 +467,54 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
   ];
 
   return (
-    <div className={embedded ? 'space-y-4 text-left' : 'space-y-5 text-left max-w-6xl mx-auto'}>
-      {!embedded && (
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
+    <div
+      className={
+        embedded
+          ? 'space-y-4 text-left pb-20 sm:pb-16'
+          : 'space-y-5 text-left max-w-6xl mx-auto pb-20 sm:pb-16'
+      }
+    >
+      {/* Integrated Sticky Back Link + Search + Category + Month Filter Bar */}
+      <div
+        data-presets-floating-controls="true"
+        style={{ backgroundColor: 'color-mix(in srgb, var(--background) 94%, transparent)' }}
+        className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:top-[calc(4rem+env(safe-area-inset-top,0px))] z-[25] -mt-5 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-4 pb-2.5 backdrop-blur-xl border-b border-edge-subtle space-y-2.5"
+      >
+        {(onBack || !embedded) && (
+          <div className="flex items-center justify-between gap-3">
             <button
               type="button"
-              onClick={() => navigate('rotations')}
-              className="text-xs font-semibold text-ink-secondary hover:text-ink inline-flex items-center gap-1 mb-1.5 cursor-pointer"
+              onClick={() => (onBack ? onBack() : navigate('rotations'))}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-secondary hover:text-ink py-0.5 transition-colors cursor-pointer"
             >
-              <span>← Back to Shelves</span>
+              <Icon name="arrowLeft" className="w-3.5 h-3.5" />
+              <span>Back to Rotations</span>
             </button>
-            <h1 className="font-display text-3xl sm:text-[34px] font-semibold tracking-tight text-ink">
-              Curated Collection Presets
-            </h1>
-            <p className="text-xs sm:text-sm text-ink-secondary mt-0.5">
-              Turnkey seasonal, cultural, and evergreen shelf generators ready in one tap.
-            </p>
+            {!embedded && (
+              <h1 className="font-display text-lg sm:text-xl font-semibold tracking-tight text-ink truncate">
+                Curated Collection Presets
+              </h1>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={openNewPresetForm}
-            className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-          >
-            <Icon name="plus" className="w-4 h-4" />
-            <span>New Preset</span>
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Search + Category + New Preset Toolbar */}
-      <div className="rounded-xl bg-surface border border-edge shadow-2xs p-4 sm:p-5 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
-          <div className="relative flex-1 min-w-0">
-            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-ink-muted">
-              <Icon name="search" className="w-4 h-4" />
-            </span>
-            <ClearableInput
-              id="presets-search-input"
-              value={searchQuery}
-              onValueChange={setSearchQuery}
-              placeholder="Search presets by theme, tag, or objective…"
-              className="w-full h-11 pl-9 pr-9 rounded-lg bg-surface-subtle border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted focus:border-primary"
-            />
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <ClearableInput
+            id="presets-search-input"
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            leadingIcon={<Icon name="search" className="w-4 h-4" />}
+            placeholder="Search presets by theme, tag, or objective…"
+            aria-label="Search collection presets"
+            containerClassName="flex-1 min-w-0"
+            className="h-11 rounded-xl bg-surface/95 border border-edge text-base sm:text-sm text-ink placeholder:text-ink-muted shadow-2xs transition-[border-color,box-shadow] focus:outline-none focus-visible:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 dark:focus:border-[var(--highlight)] dark:focus:ring-[var(--highlight)]/25"
+          />
 
           <select
             aria-label="Filter presets by category"
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-xs font-semibold text-ink sm:w-56"
+            className="h-11 px-3 rounded-xl bg-surface/95 border border-edge text-xs font-semibold text-ink sm:w-56 shadow-2xs focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25"
           >
             {categoryChoices.map((cat) => (
               <option key={cat.id} value={cat.id}>
@@ -523,21 +522,10 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
               </option>
             ))}
           </select>
-
-          {embedded && (
-            <button
-              type="button"
-              onClick={openNewPresetForm}
-              className="min-h-[44px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              <Icon name="plus" className="w-4 h-4" />
-              <span>New Preset</span>
-            </button>
-          )}
         </div>
 
         {/* Compact Year Calendar Month Filter Strip */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 lr-no-scrollbar">
           <button
             type="button"
             onClick={() => setSelectedMonth(null)}
@@ -545,7 +533,7 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
             className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
               selectedMonth === null
                 ? 'bg-primary text-primary-fg'
-                : 'bg-surface-subtle hover:bg-surface-elevated border border-edge-subtle text-ink-secondary'
+                : 'bg-surface/90 hover:bg-surface-elevated border border-edge-subtle text-ink-secondary'
             }`}
           >
             All Months
@@ -572,8 +560,8 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
                     : isNow
                       ? 'bg-surface-elevated border border-primary/45 text-primary'
                       : count > 0
-                        ? 'bg-surface-subtle hover:bg-surface-elevated text-ink'
-                        : 'bg-transparent hover:bg-surface-subtle text-ink-muted'
+                        ? 'bg-surface/90 hover:bg-surface-elevated border border-edge-subtle text-ink'
+                        : 'bg-transparent hover:bg-surface/80 text-ink-muted'
                 }`}
               >
                 <span>{label}</span>
@@ -1136,6 +1124,18 @@ export const PresetsView: React.FC<PresetsViewProps> = ({ embedded = false }) =>
         onSelect={handleSelectPickerArtwork}
         onClose={() => setIsArtworkPickerOpen(false)}
       />
+
+      {/* Floating Bottom-Right + New Preset Button */}
+      <button
+        type="button"
+        data-action="open-new-preset-form"
+        onClick={openNewPresetForm}
+        aria-label="New preset"
+        title="New preset"
+        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] md:bottom-6 right-4 md:right-6 z-30 w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-primary hover:bg-primary-hover text-primary-fg shadow-xl active:scale-95 flex items-center justify-center border border-primary-fg/20 transition-transform cursor-pointer"
+      >
+        <Icon name="plus" className="w-6 h-6" strokeWidth={2.2} />
+      </button>
     </div>
   );
 };
