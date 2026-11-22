@@ -13,8 +13,11 @@ import {
   THEME_PRESETS,
   LIGHT_THEME_PRESET_IDS,
   DARK_THEME_PRESET_IDS,
+  DEFAULT_LIGHT_THEME_PRESET,
+  ALL_BOOK_CARD_FIELDS,
   normalizeLanguage,
   resolveEffectiveThemeConfig,
+  resolveBookCardDisplayConfig,
 } from '../../config/index.js';
 import { DEFAULT_PRESET_ILLUSTRATION_PROMPT } from '../../config/defaults.js';
 import {
@@ -22,6 +25,10 @@ import {
   type BookDetailStyle,
   type BookViewMode,
   type BookCardSize,
+  type BookCardInfoPlacement,
+  type BookCardMetaField,
+  type BookCardSectionKey,
+  type BookCardDisplayConfig,
   type SidebarArtworkMode,
   type SidebarArtworkStyle,
   type SidebarDividerStyle,
@@ -296,6 +303,10 @@ export const SettingsView: React.FC = () => {
   const [copiedBooksScript, setCopiedBooksScript] = useState(false);
   const [refreshingApp, setRefreshingApp] = useState(false);
   const [isSidebarArtworkPickerOpen, setIsSidebarArtworkPickerOpen] = useState(false);
+  const [appearanceTab, setAppearanceTab] = useState<'themes' | 'cards' | 'details' | 'chrome'>(
+    'themes'
+  );
+  const [cardConfigScope, setCardConfigScope] = useState<'global' | BookCardSectionKey>('global');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -378,6 +389,47 @@ export const SettingsView: React.FC = () => {
 
   const handleBookCardSizeChange = async (bookCardSize: BookCardSize) => {
     await store.updateSettings({ bookCardSize });
+  };
+
+  const updateScopedBookCardConfig = async (patch: Partial<BookCardDisplayConfig>) => {
+    if (cardConfigScope === 'global') {
+      const updates: Record<string, unknown> = {};
+      if (patch.size !== undefined) updates.bookCardSize = patch.size;
+      if (patch.infoPlacement !== undefined) updates.bookCardInfoPlacement = patch.infoPlacement;
+      if (patch.showCoverOverlays !== undefined) {
+        updates.showBookCoverOverlays = patch.showCoverOverlays;
+      }
+      if (patch.fields !== undefined) updates.bookCardFields = patch.fields;
+      await store.updateSettings(updates as any);
+      return;
+    }
+
+    const existingOverrides = state.settings.bookCardSectionOverrides || {};
+    const currentSection = existingOverrides[cardConfigScope] || {};
+    await store.updateSettings({
+      bookCardSectionOverrides: {
+        ...existingOverrides,
+        [cardConfigScope]: {
+          ...currentSection,
+          ...patch,
+        },
+      },
+    });
+  };
+
+  const resetScopedBookCardConfig = async () => {
+    if (cardConfigScope === 'global') {
+      await store.updateSettings({
+        bookCardSize: 'compact',
+        bookCardInfoPlacement: 'below',
+        showBookCoverOverlays: true,
+        bookCardFields: ['title', 'author', 'ageFormat', 'usage'],
+      });
+      return;
+    }
+    const nextOverrides = { ...(state.settings.bookCardSectionOverrides || {}) };
+    delete nextOverrides[cardConfigScope];
+    await store.updateSettings({ bookCardSectionOverrides: nextOverrides });
   };
 
   const handleSidebarArtworkChange = async (sidebarArtworkMode: SidebarArtworkMode) => {
@@ -926,7 +978,44 @@ export const SettingsView: React.FC = () => {
             </>
           );
 
-        case 'appearance':
+        case 'appearance': {
+          const activeScope = cardConfigScope === 'global' ? undefined : cardConfigScope;
+          const scopedConfig = resolveBookCardDisplayConfig(state.settings, activeScope);
+          const allFieldLabels: Record<BookCardMetaField, string> = {
+            title: 'Title',
+            author: 'Author',
+            year: 'Year',
+            pages: 'Pages',
+            ageFormat: 'Ages & Binding',
+            usage: 'Rotation Status',
+          };
+          const placementOptions: Array<{
+            id: BookCardInfoPlacement;
+            label: string;
+            hint: string;
+          }> = [
+            { id: 'below', label: 'Below Cover', hint: 'Title & details under cover' },
+            { id: 'overlay', label: 'Overlay', hint: 'Subtle bottom scrim over cover' },
+            { id: 'cover-only', label: 'Cover Only', hint: 'Pure covers with zero text' },
+          ];
+          const scopeTabs: Array<{ id: 'global' | BookCardSectionKey; label: string }> = [
+            { id: 'global', label: 'All Views (Default)' },
+            { id: 'library', label: 'Library' },
+            { id: 'homeShelf', label: 'Home Shelf' },
+            { id: 'homeSuggested', label: 'Suggested' },
+            { id: 'rotations', label: 'Rotations' },
+          ];
+
+          const toggleScopedField = (fieldId: BookCardMetaField) => {
+            const exists = scopedConfig.fields.includes(fieldId);
+            const nextFields = exists
+              ? scopedConfig.fields.filter((f) => f !== fieldId)
+              : ALL_BOOK_CARD_FIELDS.filter(
+                  (f) => f === fieldId || scopedConfig.fields.includes(f)
+                );
+            void updateScopedBookCardConfig({ fields: nextFields });
+          };
+
           return (
             <>
               <SettingsSubViewHeader
@@ -936,16 +1025,49 @@ export const SettingsView: React.FC = () => {
                 onBack={goBackToRoot}
               />
 
-              {/* Theme Presets & Layout Preferences */}
-              <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-6">
-                <div>
+              {/* Clean Subsection Switcher */}
+              <div
+                role="tablist"
+                aria-label="Appearance subsections"
+                className="flex items-center gap-1 p-1 rounded-xl bg-surface border border-edge shadow-2xs overflow-x-auto no-scrollbar"
+              >
+                {[
+                  { id: 'themes' as const, label: 'Themes', icon: 'sun' },
+                  { id: 'cards' as const, label: 'Book Cards', icon: 'grid' },
+                  { id: 'details' as const, label: 'Book Details', icon: 'bookOpen' },
+                  { id: 'chrome' as const, label: 'Chrome & Art', icon: 'sparkles' },
+                ].map((tab) => {
+                  const selected = appearanceTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      onClick={() => setAppearanceTab(tab.id)}
+                      className={`flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+                        selected
+                          ? 'bg-primary text-primary-fg shadow-xs'
+                          : 'text-ink-secondary hover:text-ink hover:bg-surface-subtle'
+                      }`}
+                    >
+                      <Icon name={tab.icon} className="w-3.5 h-3.5 shrink-0" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* SUBSECTION 1: THEMES */}
+              {appearanceTab === 'themes' && (
+                <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-ink">
                         {t('settings.themeLabel')}
                       </p>
                       <p className="text-xs text-ink-secondary mt-0.5">
-                        Choose from 8 curated Light and 8 matte Dark editorial palettes with matching typography.
+                        Choose from {LIGHT_THEME_PRESET_IDS.length} Light and {DARK_THEME_PRESET_IDS.length} matte Dark palettes with matching typography and tokens.
                       </p>
                     </div>
                     <button
@@ -963,7 +1085,7 @@ export const SettingsView: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="mt-4 space-y-4">
+                  <div className="space-y-4">
                     {[
                       { label: t('settings.themeLightGroup'), ids: LIGHT_THEME_PRESET_IDS },
                       { label: t('settings.themeDarkGroup'), ids: DARK_THEME_PRESET_IDS },
@@ -976,6 +1098,7 @@ export const SettingsView: React.FC = () => {
                           {group.ids.map((presetId) => {
                             const preset = THEME_PRESETS[presetId];
                             const active = effectiveThemeConfig.id === preset.id;
+                            const isDefaultLight = preset.id === DEFAULT_LIGHT_THEME_PRESET;
                             return (
                               <button
                                 key={preset.id}
@@ -989,10 +1112,15 @@ export const SettingsView: React.FC = () => {
                                 }`}
                               >
                                 <div className="min-w-0 space-y-0.5">
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1.5">
                                     <p className="text-xs sm:text-sm font-semibold text-ink truncate">
                                       {preset.label}
                                     </p>
+                                    {isDefaultLight && (
+                                      <span className="px-1.5 py-0.5 rounded bg-primary/12 text-primary text-[9px] font-bold uppercase tracking-wider shrink-0">
+                                        Default
+                                      </span>
+                                    )}
                                     {active && (
                                       <Icon name="check" className="w-3.5 h-3.5 text-primary shrink-0" />
                                     )}
@@ -1020,171 +1148,65 @@ export const SettingsView: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </div>
+                </section>
+              )}
 
-                {/* Book Detail Layout: Compact vs. Editorial */}
-                <div className="pt-4 border-t border-edge-subtle">
-                  <p className="text-sm font-semibold text-ink">
-                    {t('settings.bookDetailStyleLabel')}
-                  </p>
-                  <p className="text-xs text-ink-secondary mt-0.5">
-                    Compare the information-dense Compact inspector with the ambient, bento-grid Editorial book view.
-                  </p>
-                  <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
-                    {[
-                      { id: 'compact' as const, label: t('settings.bookDetailCompact') },
-                      { id: 'editorial' as const, label: t('settings.bookDetailEditorial') },
-                    ].map((item) => {
-                      const active = (state.settings.bookDetailStyle || 'editorial') === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => handleBookDetailStyleChange(item.id)}
-                          aria-pressed={active}
-                          className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                            active
-                              ? 'bg-primary text-primary-fg shadow-xs'
-                              : 'text-ink-secondary hover:text-ink'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Shelf & Catalog View Mode + Card Density */}
-                <div className="pt-4 border-t border-edge-subtle grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-ink">
-                      {t('settings.bookViewModeLabel')}
-                    </p>
-                    <p className="text-xs text-ink-secondary mt-0.5">
-                      Show book cards in a visual cover grid or compact scannable rows.
-                    </p>
-                    <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
-                      {[
-                        { id: 'grid' as const, label: t('settings.bookViewGrid'), icon: 'grid' },
-                        { id: 'list' as const, label: t('settings.bookViewList'), icon: 'list' },
-                      ].map((item) => {
-                        const active = (state.settings.bookViewMode || 'grid') === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleBookViewModeChange(item.id)}
-                            aria-pressed={active}
-                            className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
-                              active
-                                ? 'bg-primary text-primary-fg shadow-xs'
-                                : 'text-ink-secondary hover:text-ink'
-                            }`}
-                          >
-                            <Icon name={item.icon} className="w-3.5 h-3.5" />
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-semibold text-ink">
-                      {t('settings.bookCardSizeLabel')}
-                    </p>
-                    <p className="text-xs text-ink-secondary mt-0.5">
-                      Controls card density when browsing shelves in Grid mode.
-                    </p>
-                    <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
-                      {[
-                        { id: 'compact' as const, label: t('settings.bookCardCompact') },
-                        { id: 'regular' as const, label: t('settings.bookCardRegular') },
-                        { id: 'large' as const, label: t('settings.bookCardLarge') },
-                      ].map((item) => {
-                        const active = (state.settings.bookCardSize || 'compact') === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => handleBookCardSizeChange(item.id)}
-                            aria-pressed={active}
-                            className={`flex-1 min-h-[40px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                              active
-                                ? 'bg-primary text-primary-fg shadow-xs'
-                                : 'text-ink-secondary hover:text-ink'
-                            }`}
-                          >
-                            {item.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sidebar Artwork Mode, Visual Integration & Divider Style */}
-                {(() => {
-                  const selectedSidebarArtwork = resolveSidebarArtworkInfo(
-                    state.settings,
-                    sidebarArtworkImg
-                  );
-                  const isDailyRandomArtwork =
-                    String(state.settings.sidebarArtworkId || '').trim().toLowerCase() ===
-                    DAILY_RANDOM_ARTWORK_ID;
-                  const activeMode = state.settings.sidebarArtworkMode || 'theme';
-                  const activeArtworkStyle: SidebarArtworkStyle =
-                    state.settings.sidebarArtworkStyle === 'natural' ||
-                    state.settings.sidebarArtworkStyle === 'muted'
-                      ? state.settings.sidebarArtworkStyle
-                      : 'integrated';
-                  const activeDividerStyle: SidebarDividerStyle = (() => {
-                    const raw = String(state.settings.sidebarDividerStyle || '').trim().toLowerCase();
-                    if (
-                      raw === 'line' ||
-                      raw === 'laurel' ||
-                      raw === 'folio' ||
-                      raw === 'japanese' ||
-                      raw === 'minimal' ||
-                      raw === 'random'
-                    ) {
-                      return raw;
-                    }
-                    return 'laurel';
-                  })();
-                  const resolvedDividerMotif = resolveActiveDividerVariant(activeDividerStyle);
-                  const themeUsesIllustration =
-                    effectiveThemeConfig.sidebarArtworkDefault === 'illustration';
-                  const illustrationActiveInSidebar =
-                    activeMode === 'illustration' ||
-                    (activeMode === 'theme' && themeUsesIllustration);
-
-                  return (
-                    <div className="pt-4 border-t border-edge-subtle space-y-4">
-                      <div>
-                        <p className="text-sm font-semibold text-ink">
-                          {t('settings.sidebarArtworkLabel')}
-                        </p>
-                        <p className="text-xs text-ink-secondary mt-0.5">
-                          Choose the theme default, botanical line engraving, any frameless illustration, or hide sidebar artwork.
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-lg">
+              {/* SUBSECTION 2: BOOK CARDS & COVER DISPLAY */}
+              {appearanceTab === 'cards' && (
+                <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-5">
+                  {/* Global View Mode & Cover Aspect Ratio */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        {t('settings.bookViewModeLabel')}
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        Show book cards in a visual cover grid or scannable list rows.
+                      </p>
+                      <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
                         {[
-                          { id: 'theme' as const, label: t('settings.sidebarArtworkTheme') },
-                          { id: 'engraving' as const, label: t('settings.sidebarArtworkEngraving') },
-                          { id: 'illustration' as const, label: t('settings.sidebarArtworkIllustration') },
-                          { id: 'none' as const, label: t('settings.sidebarArtworkNone') },
+                          { id: 'grid' as const, label: t('settings.bookViewGrid'), icon: 'grid' },
+                          { id: 'list' as const, label: t('settings.bookViewList'), icon: 'list' },
                         ].map((item) => {
-                          const active = activeMode === item.id;
+                          const active = (state.settings.bookViewMode || 'grid') === item.id;
                           return (
                             <button
                               key={item.id}
                               type="button"
-                              data-sidebar-artwork-option={item.id}
-                              onClick={() => handleSidebarArtworkChange(item.id)}
+                              onClick={() => handleBookViewModeChange(item.id)}
+                              aria-pressed={active}
+                              className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+                                active
+                                  ? 'bg-primary text-primary-fg shadow-xs'
+                                  : 'text-ink-secondary hover:text-ink'
+                              }`}
+                            >
+                              <Icon name={item.icon} className="w-3.5 h-3.5" />
+                              <span>{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-semibold text-ink">
+                        {t('settings.coverAspectLabel')}
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        {t('settings.coverAspectHint')}
+                      </p>
+                      <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                        {[
+                          { id: 'square' as const, label: t('settings.coverAspectSquare') },
+                          { id: 'portrait' as const, label: t('settings.coverAspectPortrait') },
+                        ].map((item) => {
+                          const active = (state.settings.coverAspectRatio || 'square') === item.id;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleCoverAspectChange(item.id)}
                               aria-pressed={active}
                               className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                                 active
@@ -1197,384 +1219,96 @@ export const SettingsView: React.FC = () => {
                           );
                         })}
                       </div>
+                    </div>
+                  </div>
 
-                      {activeMode !== 'none' && (
-                        <>
-                          <div>
-                            <p className="text-xs font-semibold text-ink">
-                              {t('settings.sidebarArtworkStyleLabel')}
-                            </p>
-                            <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
-                              {[
-                                {
-                                  id: 'integrated' as const,
-                                  label: t('settings.sidebarArtworkStyleIntegrated'),
-                                },
-                                {
-                                  id: 'natural' as const,
-                                  label: t('settings.sidebarArtworkStyleNatural'),
-                                },
-                                {
-                                  id: 'muted' as const,
-                                  label: t('settings.sidebarArtworkStyleMuted'),
-                                },
-                              ].map((item) => {
-                                const active = activeArtworkStyle === item.id;
-                                return (
-                                  <button
-                                    key={item.id}
-                                    type="button"
-                                    onClick={() => handleSidebarArtworkStyleChange(item.id)}
-                                    aria-pressed={active}
-                                    className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                                      active
-                                        ? 'bg-primary text-primary-fg shadow-xs'
-                                        : 'text-ink-secondary hover:text-ink'
-                                    }`}
-                                  >
-                                    {item.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
+                  {/* Unified BookCoverCard Configuration (Global Default or Per-Section) */}
+                  <div className="pt-4 border-t border-edge-subtle space-y-3.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-ink">
+                          Book Card Layout & Info Fields
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          Configure card size, cover-only mode, overlays, and details globally or per view.
+                        </p>
+                      </div>
+                      {cardConfigScope !== 'global' && scopedConfig.hasCustomOverride && (
+                        <button
+                          type="button"
+                          onClick={resetScopedBookCardConfig}
+                          className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                        >
+                          Reset to Default
+                        </button>
+                      )}
+                    </div>
 
-                          {/* Selected Sidebar Illustration Card + Explorer Button (rendered on active theme's sidebar tone) */}
-                          <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div
-                                className="relative w-20 aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center p-1.5 shrink-0 bg-sidebar"
-                              >
-                                {activeArtworkStyle !== 'natural' && (
-                                  <div
-                                    className="lr-sidebar-artwork-halo pointer-events-none absolute inset-1 rounded-full"
-                                    aria-hidden="true"
-                                  />
-                                )}
-                                <img
-                                  src={selectedSidebarArtwork.src}
-                                  alt={selectedSidebarArtwork.label}
-                                  className={`relative z-10 w-full h-full ${
-                                    selectedSidebarArtwork.isTransparent
-                                      ? 'object-contain'
-                                      : 'object-cover lr-sidebar-artwork-mask'
-                                  } ${
-                                    activeArtworkStyle === 'integrated'
-                                      ? 'lr-sidebar-artwork-integrated'
-                                      : activeArtworkStyle === 'muted'
-                                        ? 'lr-sidebar-artwork-muted'
-                                        : ''
-                                  }`}
-                                />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <p className="text-xs font-semibold text-ink truncate">
-                                    {selectedSidebarArtwork.label}
-                                  </p>
-                                  <span
-                                    className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                                      illustrationActiveInSidebar
-                                        ? 'bg-primary/15 text-primary'
-                                        : 'bg-surface border border-edge text-ink-muted'
-                                    }`}
-                                  >
-                                    {isDailyRandomArtwork && illustrationActiveInSidebar
-                                      ? t('settings.sidebarArtworkRandom')
-                                      : illustrationActiveInSidebar
-                                        ? 'Shown in Sidebar'
-                                        : 'Engraving Active'}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-ink-secondary line-clamp-1 mt-0.5">
-                                  {selectedSidebarArtwork.subject}
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 shrink-0">
-                              <button
-                                type="button"
-                                data-action="toggle-sidebar-artwork-daily-random"
-                                onClick={() =>
-                                  store.updateSettings({
-                                    sidebarArtworkMode: 'illustration',
-                                    sidebarArtworkId: isDailyRandomArtwork
-                                      ? DEFAULT_SIDEBAR_ARTWORK_ID
-                                      : DAILY_RANDOM_ARTWORK_ID,
-                                  })
-                                }
-                                aria-pressed={isDailyRandomArtwork}
-                                className={`min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
-                                  isDailyRandomArtwork
-                                    ? 'bg-primary text-primary-fg border-primary shadow-xs'
-                                    : 'bg-surface hover:bg-surface-elevated border-edge text-ink'
+                    {/* Section Scope Pills */}
+                    <div
+                      role="tablist"
+                      aria-label="Configure book card scope"
+                      className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar"
+                    >
+                      {scopeTabs.map((tab) => {
+                        const selected = cardConfigScope === tab.id;
+                        const hasOverride =
+                          tab.id !== 'global' &&
+                          Boolean(
+                            state.settings.bookCardSectionOverrides?.[tab.id] &&
+                              Object.keys(state.settings.bookCardSectionOverrides[tab.id] || {}).length > 0
+                          );
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            role="tab"
+                            aria-selected={selected}
+                            onClick={() => setCardConfigScope(tab.id)}
+                            className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer border ${
+                              selected
+                                ? 'bg-primary text-primary-fg border-primary shadow-2xs'
+                                : 'bg-surface-subtle text-ink-secondary hover:text-ink border-edge'
+                            }`}
+                          >
+                            <span>{tab.label}</span>
+                            {hasOverride && (
+                              <span
+                                aria-label="Customized"
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  selected ? 'bg-primary-fg' : 'bg-primary'
                                 }`}
-                              >
-                                <Icon name="shuffle" className="w-3.5 h-3.5" />
-                                <span>{t('settings.sidebarArtworkRandom')}</span>
-                              </button>
-                              <button
-                                type="button"
-                                data-action="open-sidebar-artwork-picker"
-                                onClick={() => setIsSidebarArtworkPickerOpen(true)}
-                                className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 shrink-0 cursor-pointer transition-colors"
-                              >
-                                <Icon name="image" className="w-3.5 h-3.5 text-primary" />
-                                <span>Browse Illustrations</span>
-                              </button>
-                            </div>
-                          </div>
-                        </>
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="rounded-xl bg-surface-subtle/60 border border-edge p-3.5 sm:p-4 space-y-4">
+                      {cardConfigScope !== 'global' && !scopedConfig.hasCustomOverride && (
+                        <p className="text-[11px] font-medium text-ink-secondary">
+                          Currently inheriting <span className="font-semibold text-ink">All Views (Default)</span>. Changing any setting below saves a custom rule for this section.
+                        </p>
                       )}
 
-                      {/* Reader Card Separator Style (Laurel, Japanese, Open Folio, Minimal, Line, Daily Random) */}
-                      <div className="pt-2 border-t border-edge-subtle/70">
-                        <p className="text-xs font-semibold text-ink">
-                          {t('settings.sidebarDividerLabel')}
-                        </p>
-                        <p className="text-[11px] text-ink-secondary mt-0.5">
-                          Choose a botanical branch, Japanese sakura crest, open folio, hairline rule, or daily random ornament (also clickable directly in the sidebar).
-                        </p>
-                        <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                          {[
-                            {
-                              id: 'laurel' as const,
-                              label: t('settings.sidebarDividerLaurel'),
-                              motif: 'laurel' as const,
-                            },
-                            {
-                              id: 'japanese' as const,
-                              label: t('settings.sidebarDividerJapanese'),
-                              motif: 'japanese' as const,
-                            },
-                            {
-                              id: 'folio' as const,
-                              label: t('settings.sidebarDividerFolio'),
-                              motif: 'folio' as const,
-                            },
-                            {
-                              id: 'minimal' as const,
-                              label: t('settings.sidebarDividerMinimal'),
-                              motif: 'minimal' as const,
-                            },
-                            {
-                              id: 'line' as const,
-                              label: t('settings.sidebarDividerLine'),
-                              motif: null,
-                            },
-                            {
-                              id: 'random' as const,
-                              label: t('settings.sidebarDividerRandom'),
-                              motif: 'random' as const,
-                            },
-                          ].map((item) => {
-                            const active = activeDividerStyle === item.id;
-                            return (
-                              <button
-                                key={item.id}
-                                type="button"
-                                data-sidebar-divider-option={item.id}
-                                onClick={() => handleSidebarDividerStyleChange(item.id)}
-                                aria-pressed={active}
-                                className={`min-h-[58px] px-2.5 py-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                                  active
-                                    ? 'bg-primary/10 border-primary text-ink ring-1 ring-primary/35'
-                                    : 'bg-surface-subtle/75 hover:bg-surface-elevated border-edge text-ink-secondary hover:text-ink'
-                                }`}
-                              >
-                                {item.motif === 'random' ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
-                                    <Icon name="shuffle" className="w-3.5 h-3.5" />
-                                    <span>
-                                      {resolvedDividerMotif === 'line'
-                                        ? 'Daily'
-                                        : `Today: ${resolvedDividerMotif}`}
-                                    </span>
-                                  </span>
-                                ) : item.motif === null ? (
-                                  <span className="block w-20 h-px bg-edge my-1.5" aria-hidden="true" />
-                                ) : (
-                                  <BotanicalIllustration
-                                    variant="sidebar-divider"
-                                    dividerStyle={item.motif}
-                                    className="w-28 h-4"
-                                  />
-                                )}
-                                <span className="text-[11px] font-semibold leading-tight">
-                                  {item.label}
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                <div className="pt-4 border-t border-edge-subtle">
-                  <p className="text-sm font-semibold text-ink">
-                    {t('settings.coverAspectLabel')}
-                  </p>
-                  <p className="text-xs text-ink-secondary mt-0.5">
-                    {t('settings.coverAspectHint')}
-                  </p>
-                  <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
-                    {[
-                      { id: 'square' as const, label: t('settings.coverAspectSquare') },
-                      { id: 'portrait' as const, label: t('settings.coverAspectPortrait') },
-                    ].map((item) => {
-                      const active = (state.settings.coverAspectRatio || 'square') === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => handleCoverAspectChange(item.id)}
-                          aria-pressed={active}
-                          className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                            active
-                              ? 'bg-primary text-primary-fg shadow-xs'
-                              : 'text-ink-secondary hover:text-ink'
-                          }`}
-                        >
-                          {item.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Dynamic Cover Tint Switch & Options */}
-                <div className="pt-4 border-t border-edge-subtle space-y-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p
-                        id="label-dynamic-tint"
-                        className="text-sm font-semibold text-ink"
-                      >
-                        {t('settings.dynamicTintLabel')}
-                      </p>
-                      <p className="text-xs text-ink-secondary mt-0.5">
-                        {t('settings.dynamicTintHint')}
-                      </p>
-                    </div>
-                    <ToggleSwitch
-                      checked={state.settings.dynamicCoverTint !== false}
-                      onChange={handleToggleDynamicTint}
-                      ariaLabelledBy="label-dynamic-tint"
-                      onLabel={t('common.on')}
-                      offLabel={t('common.off')}
-                    />
-                  </div>
-
-                  {state.settings.dynamicCoverTint !== false && (
-                    <div className="space-y-4 pt-1">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs font-semibold text-ink">
-                            {t('settings.dynamicTintStyleLabel')}
-                          </p>
-                          <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
-                            {[
-                              {
-                                id: 'circular' as const,
-                                label: t('settings.dynamicTintStyleCircular'),
-                              },
-                              {
-                                id: 'linear' as const,
-                                label: t('settings.dynamicTintStyleLinear'),
-                              },
-                            ].map((item) => {
-                              const active =
-                                (state.settings.dynamicCoverTintStyle || 'circular') === item.id;
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => handleDynamicTintStyleChange(item.id)}
-                                  aria-pressed={active}
-                                  className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                                    active
-                                      ? 'bg-primary text-primary-fg shadow-xs'
-                                      : 'text-ink-secondary hover:text-ink'
-                                  }`}
-                                >
-                                  {item.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className="text-xs font-semibold text-ink">
-                            {t('settings.dynamicTintBehaviorLabel')}
-                          </p>
-                          <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
-                            {[
-                              {
-                                id: 'fixed' as const,
-                                label: t('settings.dynamicTintBehaviorFixed'),
-                              },
-                              {
-                                id: 'scroll' as const,
-                                label: t('settings.dynamicTintBehaviorScroll'),
-                              },
-                            ].map((item) => {
-                              const active =
-                                (state.settings.dynamicCoverTintBehavior || 'fixed') === item.id;
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  onClick={() => handleDynamicTintBehaviorChange(item.id)}
-                                  aria-pressed={active}
-                                  className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                                    active
-                                      ? 'bg-primary text-primary-fg shadow-xs'
-                                      : 'text-ink-secondary hover:text-ink'
-                                  }`}
-                                >
-                                  {item.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Cover Color Extraction Mode */}
+                      {/* Card Size */}
                       <div>
                         <p className="text-xs font-semibold text-ink">
-                          {t('settings.dynamicTintModeLabel')}
+                          {t('settings.bookCardSizeLabel')}
                         </p>
-                        <p className="text-[11px] text-ink-secondary mt-0.5">
-                          Prominent highlights vivid artwork hues; Dominant uses the largest cover field; Soft Tone keeps the wash muted. You can also pick from any cover’s palette in Book Details.
-                        </p>
-                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface border border-edge max-w-md">
                           {[
-                            {
-                              id: 'prominent' as const,
-                              label: t('settings.dynamicTintModeProminent'),
-                            },
-                            {
-                              id: 'dominant' as const,
-                              label: t('settings.dynamicTintModeDominant'),
-                            },
-                            {
-                              id: 'soft' as const,
-                              label: t('settings.dynamicTintModeSoft'),
-                            },
+                            { id: 'compact' as const, label: t('settings.bookCardCompact') },
+                            { id: 'regular' as const, label: t('settings.bookCardRegular') },
+                            { id: 'large' as const, label: t('settings.bookCardLarge') },
                           ].map((item) => {
-                            const active =
-                              (state.settings.dynamicCoverTintMode || 'prominent') === item.id;
+                            const active = scopedConfig.size === item.id;
                             return (
                               <button
                                 key={item.id}
                                 type="button"
-                                data-tint-mode-option={item.id}
-                                onClick={() => handleDynamicTintModeChange(item.id)}
+                                onClick={() => void updateScopedBookCardConfig({ size: item.id })}
                                 aria-pressed={active}
                                 className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                                   active
@@ -1589,234 +1323,807 @@ export const SettingsView: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Independent Fade Distance Controls for Circular vs Linear */}
-                      {(state.settings.dynamicCoverTintStyle || 'circular') === 'circular' ? (
-                        <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 space-y-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <label
-                              htmlFor="tint-circular-fade-slider"
-                              className="text-xs font-semibold text-ink"
-                            >
-                              {t('settings.dynamicTintCircularFadeLabel')}
-                            </label>
-                            <span className="text-xs font-mono-tabular font-semibold text-primary">
-                              {state.settings.dynamicCoverTintCircularFade ?? 310}px
-                            </span>
-                          </div>
-                          <input
-                            id="tint-circular-fade-slider"
-                            type="range"
-                            min={180}
-                            max={520}
-                            step={10}
-                            value={state.settings.dynamicCoverTintCircularFade ?? 310}
-                            onChange={(e) =>
-                              handleDynamicTintCircularFadeChange(Number(e.target.value))
-                            }
-                            className="w-full accent-primary cursor-pointer"
-                          />
-                          <div className="flex items-center justify-between gap-1.5">
-                            {[
-                              { val: 210, label: t('settings.dynamicTintFadeCompact') },
-                              { val: 310, label: t('settings.dynamicTintFadeBalanced') },
-                              { val: 440, label: t('settings.dynamicTintFadeExtended') },
-                            ].map((preset) => (
+                      {/* Info Placement: Below / Overlay / Cover Only */}
+                      <div>
+                        <p className="text-xs font-semibold text-ink">
+                          Info Placement
+                        </p>
+                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          {placementOptions.map((opt) => {
+                            const active = scopedConfig.infoPlacement === opt.id;
+                            return (
                               <button
-                                key={preset.val}
+                                key={opt.id}
                                 type="button"
-                                onClick={() => handleDynamicTintCircularFadeChange(preset.val)}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
-                                  (state.settings.dynamicCoverTintCircularFade ?? 310) === preset.val
-                                    ? 'bg-primary/15 border-primary text-primary'
-                                    : 'bg-surface border-edge text-ink-secondary hover:text-ink'
+                                onClick={() =>
+                                  void updateScopedBookCardConfig({ infoPlacement: opt.id })
+                                }
+                                aria-pressed={active}
+                                className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                                  active
+                                    ? 'bg-surface border-primary ring-1 ring-primary/35 shadow-2xs'
+                                    : 'bg-surface/65 border-edge hover:border-primary/45'
                                 }`}
                               >
-                                {preset.label}
+                                <p className="text-xs font-semibold text-ink">{opt.label}</p>
+                                <p className="text-[11px] text-ink-secondary mt-0.5 leading-snug">
+                                  {opt.hint}
+                                </p>
                               </button>
-                            ))}
-                          </div>
+                            );
+                          })}
                         </div>
-                      ) : (
-                        <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 space-y-2.5">
-                          <div className="flex items-center justify-between gap-2">
-                            <label
-                              htmlFor="tint-linear-fade-slider"
-                              className="text-xs font-semibold text-ink"
-                            >
-                              {t('settings.dynamicTintLinearFadeLabel')}
-                            </label>
-                            <span className="text-xs font-mono-tabular font-semibold text-primary">
-                              {state.settings.dynamicCoverTintLinearFade ?? 92}%
-                            </span>
-                          </div>
-                          <input
-                            id="tint-linear-fade-slider"
-                            type="range"
-                            min={35}
-                            max={100}
-                            step={1}
-                            value={state.settings.dynamicCoverTintLinearFade ?? 92}
-                            onChange={(e) =>
-                              handleDynamicTintLinearFadeChange(Number(e.target.value))
-                            }
-                            className="w-full accent-primary cursor-pointer"
-                          />
-                          <div className="flex items-center justify-between gap-1.5">
-                            {[
-                              { val: 52, label: t('settings.dynamicTintFadeCompact') },
-                              { val: 76, label: t('settings.dynamicTintFadeBalanced') },
-                              { val: 96, label: t('settings.dynamicTintFadeExtended') },
-                            ].map((preset) => (
-                              <button
-                                key={preset.val}
-                                type="button"
-                                onClick={() => handleDynamicTintLinearFadeChange(preset.val)}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
-                                  (state.settings.dynamicCoverTintLinearFade ?? 92) === preset.val
-                                    ? 'bg-primary/15 border-primary text-primary'
-                                    : 'bg-surface border-edge text-ink-secondary hover:text-ink'
-                                }`}
-                              >
-                                {preset.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      </div>
 
-                {/* Native Mobile App Chrome Switch */}
-                <div className="pt-4 border-t border-edge-subtle flex items-center justify-between gap-4">
-                  <div className="min-w-0">
-                    <p
-                      id="label-native-app-style"
-                      className="text-sm font-semibold text-ink"
-                    >
-                      {t('settings.nativeAppStyleLabel')}
+                      {/* Corner Badges & Icons Over Cover */}
+                      <div className="flex items-center justify-between gap-4 pt-1 border-t border-edge-subtle">
+                        <div className="min-w-0">
+                          <p
+                            id="label-book-cover-overlays"
+                            className="text-xs font-semibold text-ink"
+                          >
+                            Show Corner Badges & Icons Over Cover
+                          </p>
+                          <p className="text-[11px] text-ink-secondary mt-0.5">
+                            Loved hearts, wishlist/loan tags, owner initials & status badges.
+                          </p>
+                        </div>
+                        <ToggleSwitch
+                          checked={scopedConfig.showCoverOverlays}
+                          onChange={() =>
+                            void updateScopedBookCardConfig({
+                              showCoverOverlays: !scopedConfig.showCoverOverlays,
+                            })
+                          }
+                          ariaLabelledBy="label-book-cover-overlays"
+                          onLabel={t('common.on')}
+                          offLabel={t('common.off')}
+                        />
+                      </div>
+
+                      {/* Visible Info Parameters */}
+                      <div className="pt-2 border-t border-edge-subtle space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-ink">
+                            Visible Info Parameters
+                          </p>
+                          {scopedConfig.infoPlacement === 'cover-only' && (
+                            <span className="text-[11px] text-ink-muted">
+                              Hidden in Cover Only grid mode (still applies to List rows)
+                            </span>
+                          )}
+                        </div>
+                        <div
+                          className={`flex flex-wrap gap-1.5 ${
+                            scopedConfig.infoPlacement === 'cover-only' ? 'opacity-65' : ''
+                          }`}
+                        >
+                          {ALL_BOOK_CARD_FIELDS.map((fieldId) => {
+                            const selected = scopedConfig.fields.includes(fieldId);
+                            return (
+                              <button
+                                key={fieldId}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => toggleScopedField(fieldId)}
+                                className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors cursor-pointer ${
+                                  selected
+                                    ? 'bg-primary/15 border-primary text-primary'
+                                    : 'bg-surface border-edge text-ink-secondary hover:text-ink'
+                                }`}
+                              >
+                                {selected && <Icon name="check" className="w-3 h-3" />}
+                                <span>{allFieldLabels[fieldId]}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* SUBSECTION 3: BOOK DETAILS & DYNAMIC COVER TINT */}
+              {appearanceTab === 'details' && (
+                <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-5">
+                  {/* Book Detail Layout: Compact vs. Editorial */}
+                  <div>
+                    <p className="text-sm font-semibold text-ink">
+                      {t('settings.bookDetailStyleLabel')}
                     </p>
                     <p className="text-xs text-ink-secondary mt-0.5">
-                      {t('settings.nativeAppStyleHint')}
+                      Compare the information-dense Compact inspector with the ambient, bento-grid Editorial book view.
                     </p>
+                    <div className="mt-2.5 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-sm">
+                      {[
+                        { id: 'compact' as const, label: t('settings.bookDetailCompact') },
+                        { id: 'editorial' as const, label: t('settings.bookDetailEditorial') },
+                      ].map((item) => {
+                        const active = (state.settings.bookDetailStyle || 'editorial') === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleBookDetailStyleChange(item.id)}
+                            aria-pressed={active}
+                            className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                              active
+                                ? 'bg-primary text-primary-fg shadow-xs'
+                                : 'text-ink-secondary hover:text-ink'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <ToggleSwitch
-                    checked={state.settings.nativeAppStyle !== false}
-                    onChange={handleToggleNativeAppStyle}
-                    ariaLabelledBy="label-native-app-style"
-                    dataAction="toggle-native-app-style"
-                    onLabel={t('common.on')}
-                    offLabel={t('common.off')}
-                  />
-                </div>
 
-                {/* Corner Decorations Switch */}
-                <div className="pt-4 border-t border-edge-subtle space-y-4">
+                  {/* Dynamic Cover Tint Switch & Options */}
+                  <div className="pt-4 border-t border-edge-subtle space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p
+                          id="label-dynamic-tint"
+                          className="text-sm font-semibold text-ink"
+                        >
+                          {t('settings.dynamicTintLabel')}
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          {t('settings.dynamicTintHint')}
+                        </p>
+                      </div>
+                      <ToggleSwitch
+                        checked={state.settings.dynamicCoverTint !== false}
+                        onChange={handleToggleDynamicTint}
+                        ariaLabelledBy="label-dynamic-tint"
+                        onLabel={t('common.on')}
+                        offLabel={t('common.off')}
+                      />
+                    </div>
+
+                    {state.settings.dynamicCoverTint !== false && (
+                      <div className="space-y-4 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-xs font-semibold text-ink">
+                              {t('settings.dynamicTintStyleLabel')}
+                            </p>
+                            <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                              {[
+                                {
+                                  id: 'circular' as const,
+                                  label: t('settings.dynamicTintStyleCircular'),
+                                },
+                                {
+                                  id: 'linear' as const,
+                                  label: t('settings.dynamicTintStyleLinear'),
+                                },
+                              ].map((item) => {
+                                const active =
+                                  (state.settings.dynamicCoverTintStyle || 'circular') === item.id;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleDynamicTintStyleChange(item.id)}
+                                    aria-pressed={active}
+                                    className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                      active
+                                        ? 'bg-primary text-primary-fg shadow-xs'
+                                        : 'text-ink-secondary hover:text-ink'
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-xs font-semibold text-ink">
+                              {t('settings.dynamicTintBehaviorLabel')}
+                            </p>
+                            <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge">
+                              {[
+                                {
+                                  id: 'fixed' as const,
+                                  label: t('settings.dynamicTintBehaviorFixed'),
+                                },
+                                {
+                                  id: 'scroll' as const,
+                                  label: t('settings.dynamicTintBehaviorScroll'),
+                                },
+                              ].map((item) => {
+                                const active =
+                                  (state.settings.dynamicCoverTintBehavior || 'fixed') === item.id;
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleDynamicTintBehaviorChange(item.id)}
+                                    aria-pressed={active}
+                                    className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                      active
+                                        ? 'bg-primary text-primary-fg shadow-xs'
+                                        : 'text-ink-secondary hover:text-ink'
+                                    }`}
+                                  >
+                                    {item.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Cover Color Extraction Mode */}
+                        <div>
+                          <p className="text-xs font-semibold text-ink">
+                            {t('settings.dynamicTintModeLabel')}
+                          </p>
+                          <p className="text-[11px] text-ink-secondary mt-0.5">
+                            Prominent highlights vivid artwork hues; Dominant uses the largest cover field; Soft Tone keeps the wash muted. You can also pick from any cover’s palette in Book Details.
+                          </p>
+                          <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                            {[
+                              {
+                                id: 'prominent' as const,
+                                label: t('settings.dynamicTintModeProminent'),
+                              },
+                              {
+                                id: 'dominant' as const,
+                                label: t('settings.dynamicTintModeDominant'),
+                              },
+                              {
+                                id: 'soft' as const,
+                                label: t('settings.dynamicTintModeSoft'),
+                              },
+                            ].map((item) => {
+                              const active =
+                                (state.settings.dynamicCoverTintMode || 'prominent') === item.id;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  data-tint-mode-option={item.id}
+                                  onClick={() => handleDynamicTintModeChange(item.id)}
+                                  aria-pressed={active}
+                                  className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                    active
+                                      ? 'bg-primary text-primary-fg shadow-xs'
+                                      : 'text-ink-secondary hover:text-ink'
+                                  }`}
+                                >
+                                  {item.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Independent Fade Distance Controls for Circular vs Linear */}
+                        {(state.settings.dynamicCoverTintStyle || 'circular') === 'circular' ? (
+                          <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <label
+                                htmlFor="tint-circular-fade-slider"
+                                className="text-xs font-semibold text-ink"
+                              >
+                                {t('settings.dynamicTintCircularFadeLabel')}
+                              </label>
+                              <span className="text-xs font-mono-tabular font-semibold text-primary">
+                                {state.settings.dynamicCoverTintCircularFade ?? 310}px
+                              </span>
+                            </div>
+                            <input
+                              id="tint-circular-fade-slider"
+                              type="range"
+                              min={180}
+                              max={520}
+                              step={10}
+                              value={state.settings.dynamicCoverTintCircularFade ?? 310}
+                              onChange={(e) =>
+                                handleDynamicTintCircularFadeChange(Number(e.target.value))
+                              }
+                              className="w-full accent-primary cursor-pointer"
+                            />
+                            <div className="flex items-center justify-between gap-1.5">
+                              {[
+                                { val: 210, label: t('settings.dynamicTintFadeCompact') },
+                                { val: 310, label: t('settings.dynamicTintFadeBalanced') },
+                                { val: 440, label: t('settings.dynamicTintFadeExtended') },
+                              ].map((preset) => (
+                                <button
+                                  key={preset.val}
+                                  type="button"
+                                  onClick={() => handleDynamicTintCircularFadeChange(preset.val)}
+                                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                    (state.settings.dynamicCoverTintCircularFade ?? 310) === preset.val
+                                      ? 'bg-primary/15 border-primary text-primary'
+                                      : 'bg-surface border-edge text-ink-secondary hover:text-ink'
+                                  }`}
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <label
+                                htmlFor="tint-linear-fade-slider"
+                                className="text-xs font-semibold text-ink"
+                              >
+                                {t('settings.dynamicTintLinearFadeLabel')}
+                              </label>
+                              <span className="text-xs font-mono-tabular font-semibold text-primary">
+                                {state.settings.dynamicCoverTintLinearFade ?? 92}%
+                              </span>
+                            </div>
+                            <input
+                              id="tint-linear-fade-slider"
+                              type="range"
+                              min={35}
+                              max={100}
+                              step={1}
+                              value={state.settings.dynamicCoverTintLinearFade ?? 92}
+                              onChange={(e) =>
+                                handleDynamicTintLinearFadeChange(Number(e.target.value))
+                              }
+                              className="w-full accent-primary cursor-pointer"
+                            />
+                            <div className="flex items-center justify-between gap-1.5">
+                              {[
+                                { val: 52, label: t('settings.dynamicTintFadeCompact') },
+                                { val: 76, label: t('settings.dynamicTintFadeBalanced') },
+                                { val: 96, label: t('settings.dynamicTintFadeExtended') },
+                              ].map((preset) => (
+                                <button
+                                  key={preset.val}
+                                  type="button"
+                                  onClick={() => handleDynamicTintLinearFadeChange(preset.val)}
+                                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                    (state.settings.dynamicCoverTintLinearFade ?? 92) === preset.val
+                                      ? 'bg-primary/15 border-primary text-primary'
+                                      : 'bg-surface border-edge text-ink-secondary hover:text-ink'
+                                  }`}
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* SUBSECTION 4: CHROME, SIDEBAR ART & PRESET ILLUSTRATIONS */}
+              {appearanceTab === 'chrome' && (
+                <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-5">
+                  {/* Native Mobile App Chrome Switch */}
                   <div className="flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <p
-                        id="label-corner-decorations"
+                        id="label-native-app-style"
                         className="text-sm font-semibold text-ink"
                       >
-                        Preset Corner Illustrations
+                        {t('settings.nativeAppStyleLabel')}
                       </p>
                       <p className="text-xs text-ink-secondary mt-0.5">
-                        Show soft watercolor corner artwork on rotation preset cards, or fall back to
-                        clean vector icons when off.
+                        {t('settings.nativeAppStyleHint')}
                       </p>
                     </div>
                     <ToggleSwitch
-                      checked={state.settings.showPresetDecorations !== false}
-                      onChange={handleTogglePresetDecorations}
-                      ariaLabelledBy="label-corner-decorations"
+                      checked={state.settings.nativeAppStyle !== false}
+                      onChange={handleToggleNativeAppStyle}
+                      ariaLabelledBy="label-native-app-style"
+                      dataAction="toggle-native-app-style"
                       onLabel={t('common.on')}
                       offLabel={t('common.off')}
                     />
                   </div>
 
-                  {state.settings.showPresetDecorations !== false && (
-                    <div>
-                      <p className="text-xs font-semibold text-ink">
-                        {t('settings.presetArtSizeLabel')}
-                      </p>
-                      <p className="text-[11px] text-ink-secondary mt-0.5">
-                        Adjust the size of top-right corner illustrations on Collections cards.
-                      </p>
-                      <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-xs">
-                        {[
-                          { id: 'sm' as const, label: t('settings.presetArtSmall') },
-                          { id: 'md' as const, label: t('settings.presetArtMedium') },
-                          { id: 'lg' as const, label: t('settings.presetArtLarge') },
-                        ].map((item) => {
-                          const active = (state.settings.presetCornerArtSize || 'sm') === item.id;
-                          return (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handlePresetCornerArtSizeChange(item.id)}
-                              aria-pressed={active}
-                              className={`flex-1 min-h-[38px] px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                                active
-                                  ? 'bg-primary text-primary-fg shadow-xs'
-                                  : 'text-ink-secondary hover:text-ink'
-                              }`}
-                            >
-                              {item.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  {/* Sidebar Artwork Mode, Visual Integration & Divider Style */}
+                  {(() => {
+                    const selectedSidebarArtwork = resolveSidebarArtworkInfo(
+                      state.settings,
+                      sidebarArtworkImg
+                    );
+                    const isDailyRandomArtwork =
+                      String(state.settings.sidebarArtworkId || '').trim().toLowerCase() ===
+                      DAILY_RANDOM_ARTWORK_ID;
+                    const activeMode = state.settings.sidebarArtworkMode || 'theme';
+                    const activeArtworkStyle: SidebarArtworkStyle =
+                      state.settings.sidebarArtworkStyle === 'natural' ||
+                      state.settings.sidebarArtworkStyle === 'muted'
+                        ? state.settings.sidebarArtworkStyle
+                        : 'integrated';
+                    const activeDividerStyle: SidebarDividerStyle = (() => {
+                      const raw = String(state.settings.sidebarDividerStyle || '').trim().toLowerCase();
+                      if (
+                        raw === 'line' ||
+                        raw === 'laurel' ||
+                        raw === 'folio' ||
+                        raw === 'japanese' ||
+                        raw === 'minimal' ||
+                        raw === 'random'
+                      ) {
+                        return raw;
+                      }
+                      return 'laurel';
+                    })();
+                    const resolvedDividerMotif = resolveActiveDividerVariant(activeDividerStyle);
+                    const themeUsesIllustration =
+                      effectiveThemeConfig.sidebarArtworkDefault === 'illustration';
+                    const illustrationActiveInSidebar =
+                      activeMode === 'illustration' ||
+                      (activeMode === 'theme' && themeUsesIllustration);
 
-                  {/* Reusable AI Preset Illustration Prompt Template */}
-                  <form
-                    onSubmit={handleSavePresetPrompt}
-                    className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-2.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <label
-                        htmlFor="setting-preset-prompt-template"
-                        className="text-xs font-semibold uppercase tracking-wider text-ink"
-                      >
-                        Preset Illustration AI Prompt Template
-                      </label>
-                      <span className="text-[10px] font-mono-tabular text-ink-muted">
-                        Reusable style guide
-                      </span>
+                    return (
+                      <div className="pt-4 border-t border-edge-subtle space-y-4">
+                        <div>
+                          <p className="text-sm font-semibold text-ink">
+                            {t('settings.sidebarArtworkLabel')}
+                          </p>
+                          <p className="text-xs text-ink-secondary mt-0.5">
+                            Choose the theme default, botanical line engraving, any frameless illustration, or hide sidebar artwork.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-lg">
+                          {[
+                            { id: 'theme' as const, label: t('settings.sidebarArtworkTheme') },
+                            { id: 'engraving' as const, label: t('settings.sidebarArtworkEngraving') },
+                            { id: 'illustration' as const, label: t('settings.sidebarArtworkIllustration') },
+                            { id: 'none' as const, label: t('settings.sidebarArtworkNone') },
+                          ].map((item) => {
+                            const active = activeMode === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                data-sidebar-artwork-option={item.id}
+                                onClick={() => handleSidebarArtworkChange(item.id)}
+                                aria-pressed={active}
+                                className={`flex-1 min-h-[40px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                  active
+                                    ? 'bg-primary text-primary-fg shadow-xs'
+                                    : 'text-ink-secondary hover:text-ink'
+                                }`}
+                              >
+                                {item.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {activeMode !== 'none' && (
+                          <>
+                            <div>
+                              <p className="text-xs font-semibold text-ink">
+                                {t('settings.sidebarArtworkStyleLabel')}
+                              </p>
+                              <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-md">
+                                {[
+                                  {
+                                    id: 'integrated' as const,
+                                    label: t('settings.sidebarArtworkStyleIntegrated'),
+                                  },
+                                  {
+                                    id: 'natural' as const,
+                                    label: t('settings.sidebarArtworkStyleNatural'),
+                                  },
+                                  {
+                                    id: 'muted' as const,
+                                    label: t('settings.sidebarArtworkStyleMuted'),
+                                  },
+                                ].map((item) => {
+                                  const active = activeArtworkStyle === item.id;
+                                  return (
+                                    <button
+                                      key={item.id}
+                                      type="button"
+                                      onClick={() => handleSidebarArtworkStyleChange(item.id)}
+                                      aria-pressed={active}
+                                      className={`flex-1 min-h-[38px] px-2.5 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                        active
+                                          ? 'bg-primary text-primary-fg shadow-xs'
+                                          : 'text-ink-secondary hover:text-ink'
+                                      }`}
+                                    >
+                                      {item.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            <div className="rounded-xl bg-surface-subtle/75 border border-edge p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative w-20 aspect-[4/3] rounded-lg overflow-hidden flex items-center justify-center p-1.5 shrink-0 bg-sidebar">
+                                  {activeArtworkStyle !== 'natural' && (
+                                    <div
+                                      className="lr-sidebar-artwork-halo pointer-events-none absolute inset-1 rounded-full"
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                  <img
+                                    src={selectedSidebarArtwork.src}
+                                    alt={selectedSidebarArtwork.label}
+                                    className={`relative z-10 w-full h-full ${
+                                      selectedSidebarArtwork.isTransparent
+                                        ? 'object-contain'
+                                        : 'object-cover lr-sidebar-artwork-mask'
+                                    } ${
+                                      activeArtworkStyle === 'integrated'
+                                        ? 'lr-sidebar-artwork-integrated'
+                                        : activeArtworkStyle === 'muted'
+                                          ? 'lr-sidebar-artwork-muted'
+                                          : ''
+                                    }`}
+                                  />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <p className="text-xs font-semibold text-ink truncate">
+                                      {selectedSidebarArtwork.label}
+                                    </p>
+                                    <span
+                                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                                        illustrationActiveInSidebar
+                                          ? 'bg-primary/15 text-primary'
+                                          : 'bg-surface border border-edge text-ink-muted'
+                                      }`}
+                                    >
+                                      {isDailyRandomArtwork && illustrationActiveInSidebar
+                                        ? t('settings.sidebarArtworkRandom')
+                                        : illustrationActiveInSidebar
+                                          ? 'Shown in Sidebar'
+                                          : 'Engraving Active'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-ink-secondary line-clamp-1 mt-0.5">
+                                    {selectedSidebarArtwork.subject}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  data-action="toggle-sidebar-artwork-daily-random"
+                                  onClick={() =>
+                                    store.updateSettings({
+                                      sidebarArtworkMode: 'illustration',
+                                      sidebarArtworkId: isDailyRandomArtwork
+                                        ? DEFAULT_SIDEBAR_ARTWORK_ID
+                                        : DAILY_RANDOM_ARTWORK_ID,
+                                    })
+                                  }
+                                  aria-pressed={isDailyRandomArtwork}
+                                  className={`min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                                    isDailyRandomArtwork
+                                      ? 'bg-primary text-primary-fg border-primary shadow-xs'
+                                      : 'bg-surface hover:bg-surface-elevated border-edge text-ink'
+                                  }`}
+                                >
+                                  <Icon name="shuffle" className="w-3.5 h-3.5" />
+                                  <span>{t('settings.sidebarArtworkRandom')}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  data-action="open-sidebar-artwork-picker"
+                                  onClick={() => setIsSidebarArtworkPickerOpen(true)}
+                                  className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center justify-center gap-1.5 shrink-0 cursor-pointer transition-colors"
+                                >
+                                  <Icon name="image" className="w-3.5 h-3.5 text-primary" />
+                                  <span>Browse Illustrations</span>
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {/* Reader Card Separator Style */}
+                        <div className="pt-2 border-t border-edge-subtle/70">
+                          <p className="text-xs font-semibold text-ink">
+                            {t('settings.sidebarDividerLabel')}
+                          </p>
+                          <p className="text-[11px] text-ink-secondary mt-0.5">
+                            Choose a botanical branch, Japanese sakura crest, open folio, hairline rule, or daily random ornament (also clickable directly in the sidebar).
+                          </p>
+                          <div className="mt-2.5 grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {[
+                              {
+                                id: 'laurel' as const,
+                                label: t('settings.sidebarDividerLaurel'),
+                                motif: 'laurel' as const,
+                              },
+                              {
+                                id: 'japanese' as const,
+                                label: t('settings.sidebarDividerJapanese'),
+                                motif: 'japanese' as const,
+                              },
+                              {
+                                id: 'folio' as const,
+                                label: t('settings.sidebarDividerFolio'),
+                                motif: 'folio' as const,
+                              },
+                              {
+                                id: 'minimal' as const,
+                                label: t('settings.sidebarDividerMinimal'),
+                                motif: 'minimal' as const,
+                              },
+                              {
+                                id: 'line' as const,
+                                label: t('settings.sidebarDividerLine'),
+                                motif: null,
+                              },
+                              {
+                                id: 'random' as const,
+                                label: t('settings.sidebarDividerRandom'),
+                                motif: 'random' as const,
+                              },
+                            ].map((item) => {
+                              const active = activeDividerStyle === item.id;
+                              return (
+                                <button
+                                  key={item.id}
+                                  type="button"
+                                  data-sidebar-divider-option={item.id}
+                                  onClick={() => handleSidebarDividerStyleChange(item.id)}
+                                  aria-pressed={active}
+                                  className={`min-h-[58px] px-2.5 py-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                                    active
+                                      ? 'bg-primary/10 border-primary text-ink ring-1 ring-primary/35'
+                                      : 'bg-surface-subtle/75 hover:bg-surface-elevated border-edge text-ink-secondary hover:text-ink'
+                                  }`}
+                                >
+                                  {item.motif === 'random' ? (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+                                      <Icon name="shuffle" className="w-3.5 h-3.5" />
+                                      <span>
+                                        {resolvedDividerMotif === 'line'
+                                          ? 'Daily'
+                                          : `Today: ${resolvedDividerMotif}`}
+                                      </span>
+                                    </span>
+                                  ) : item.motif === null ? (
+                                    <span className="block w-20 h-px bg-edge my-1.5" aria-hidden="true" />
+                                  ) : (
+                                    <BotanicalIllustration
+                                      variant="sidebar-divider"
+                                      dividerStyle={item.motif}
+                                      className="w-28 h-4"
+                                    />
+                                  )}
+                                  <span className="text-[11px] font-semibold leading-tight">
+                                    {item.label}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Corner Decorations Switch & Prompt Template */}
+                  <div className="pt-4 border-t border-edge-subtle space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <p
+                          id="label-corner-decorations"
+                          className="text-sm font-semibold text-ink"
+                        >
+                          Preset Corner Illustrations
+                        </p>
+                        <p className="text-xs text-ink-secondary mt-0.5">
+                          Show soft watercolor corner artwork on rotation preset cards, or fall back to
+                          clean vector icons when off.
+                        </p>
+                      </div>
+                      <ToggleSwitch
+                        checked={state.settings.showPresetDecorations !== false}
+                        onChange={handleTogglePresetDecorations}
+                        ariaLabelledBy="label-corner-decorations"
+                        onLabel={t('common.on')}
+                        offLabel={t('common.off')}
+                      />
                     </div>
-                    <textarea
-                      id="setting-preset-prompt-template"
-                      rows={3}
-                      value={presetPromptDraft}
-                      onChange={(e) => setPresetPromptDraft(e.target.value)}
-                      placeholder={DEFAULT_PRESET_ILLUSTRATION_PROMPT}
-                      className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-xs text-ink placeholder:text-ink-muted leading-relaxed focus:outline-2 focus:outline-primary"
-                    />
-                    <p className="text-[11px] text-ink-secondary leading-relaxed">
-                      Prefilled automatically when creating or customizing preset corner art, or passed to
-                      Gemini when generating illustrations.
-                    </p>
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-                      <button
-                        type="button"
-                        onClick={handleResetPresetPrompt}
-                        className="min-h-[38px] px-3 py-1.5 rounded-lg border border-edge hover:bg-surface-elevated text-xs font-semibold text-ink-secondary hover:text-ink cursor-pointer"
-                      >
-                        Reset Default Prompt
-                      </button>
-                      <button
-                        type="submit"
-                        className="min-h-[38px] px-4 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        Save Prompt Template
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </section>
+
+                    {state.settings.showPresetDecorations !== false && (
+                      <div>
+                        <p className="text-xs font-semibold text-ink">
+                          {t('settings.presetArtSizeLabel')}
+                        </p>
+                        <p className="text-[11px] text-ink-secondary mt-0.5">
+                          Adjust the size of top-right corner illustrations on Collections cards.
+                        </p>
+                        <div className="mt-2 flex items-center gap-1 p-1 rounded-lg bg-surface-subtle border border-edge max-w-xs">
+                          {[
+                            { id: 'sm' as const, label: t('settings.presetArtSmall') },
+                            { id: 'md' as const, label: t('settings.presetArtMedium') },
+                            { id: 'lg' as const, label: t('settings.presetArtLarge') },
+                          ].map((item) => {
+                            const active = (state.settings.presetCornerArtSize || 'sm') === item.id;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handlePresetCornerArtSizeChange(item.id)}
+                                aria-pressed={active}
+                                className={`flex-1 min-h-[38px] px-2.5 py-1 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                  active
+                                    ? 'bg-primary text-primary-fg shadow-xs'
+                                    : 'text-ink-secondary hover:text-ink'
+                                }`}
+                              >
+                                {item.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <form
+                      onSubmit={handleSavePresetPrompt}
+                      className="rounded-lg bg-surface-subtle border border-edge p-3.5 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <label
+                          htmlFor="setting-preset-prompt-template"
+                          className="text-xs font-semibold uppercase tracking-wider text-ink"
+                        >
+                          Preset Illustration AI Prompt Template
+                        </label>
+                        <span className="text-[10px] font-mono-tabular text-ink-muted">
+                          Reusable style guide
+                        </span>
+                      </div>
+                      <textarea
+                        id="setting-preset-prompt-template"
+                        rows={3}
+                        value={presetPromptDraft}
+                        onChange={(e) => setPresetPromptDraft(e.target.value)}
+                        placeholder={DEFAULT_PRESET_ILLUSTRATION_PROMPT}
+                        className="w-full px-3 py-2 rounded-lg bg-canvas border border-edge text-xs text-ink placeholder:text-ink-muted leading-relaxed focus:outline-2 focus:outline-primary"
+                      />
+                      <p className="text-[11px] text-ink-secondary leading-relaxed">
+                        Prefilled automatically when creating or customizing preset corner art, or passed to
+                        Gemini when generating illustrations.
+                      </p>
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={handleResetPresetPrompt}
+                          className="min-h-[38px] px-3 py-1.5 rounded-lg border border-edge hover:bg-surface-elevated text-xs font-semibold text-ink-secondary hover:text-ink cursor-pointer"
+                        >
+                          Reset Default Prompt
+                        </button>
+                        <button
+                          type="submit"
+                          className="min-h-[38px] px-4 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          Save Prompt Template
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </section>
+              )}
             </>
           );
+        }
 
         case 'language':
           return (

@@ -17,8 +17,15 @@
 export {
   NUMERIC_BOUNDS,
   DEFAULT_PRESET_ILLUSTRATION_PROMPT,
+  DEFAULT_BOOK_CARD_FIELDS,
+  ALL_BOOK_CARD_FIELDS,
+  VALID_BOOK_CARD_SECTIONS,
   normalizePositiveBookCount,
   normalizeSidebarDividerStyle,
+  normalizeBookCardInfoPlacement,
+  normalizeBookCardFields,
+  normalizeBookCardSectionOverrides,
+  resolveBookCardDisplayConfig,
   createDefaultAppSettings,
 } from './defaults.js';
 

@@ -79,6 +79,155 @@ export function createDefaultOnboardingState(overrides = {}) {
 export const DEFAULT_PRESET_ILLUSTRATION_PROMPT =
   'Subtle editorial storybook watercolor spot illustration in the top-right corner on a clean solid #FAF6EE warm cream background for "{title}" ({description}). Delicate hand-painted matte botanical and literary charm, generous empty margin across bottom-left for seamless blending, zero text, zero borders.';
 
+/** @type {readonly import('../types/models.js').BookCardMetaField[]} */
+export const DEFAULT_BOOK_CARD_FIELDS = Object.freeze([
+  'title',
+  'author',
+  'ageFormat',
+  'usage',
+]);
+
+/** @type {readonly import('../types/models.js').BookCardMetaField[]} */
+export const ALL_BOOK_CARD_FIELDS = Object.freeze([
+  'title',
+  'author',
+  'year',
+  'pages',
+  'ageFormat',
+  'usage',
+]);
+
+/** @type {readonly import('../types/models.js').BookCardSectionKey[]} */
+export const VALID_BOOK_CARD_SECTIONS = Object.freeze([
+  'library',
+  'homeShelf',
+  'homeSuggested',
+  'rotations',
+]);
+
+const VALID_BOOK_CARD_SIZES = new Set(['compact', 'regular', 'large']);
+const VALID_BOOK_CARD_PLACEMENTS = new Set(['below', 'overlay', 'cover-only']);
+/** @type {Set<string>} */
+const VALID_BOOK_CARD_FIELDS_SET = new Set(ALL_BOOK_CARD_FIELDS);
+/** @type {Set<string>} */
+const VALID_BOOK_CARD_SECTIONS_SET = new Set(VALID_BOOK_CARD_SECTIONS);
+
+/**
+ * @param {unknown} rawPlacement
+ * @returns {import('../types/models.js').BookCardInfoPlacement}
+ */
+export function normalizeBookCardInfoPlacement(rawPlacement) {
+  const val = String(rawPlacement || '').trim().toLowerCase();
+  if (VALID_BOOK_CARD_PLACEMENTS.has(val)) {
+    return /** @type {import('../types/models.js').BookCardInfoPlacement} */ (val);
+  }
+  return 'below';
+}
+
+/**
+ * @param {unknown} rawFields
+ * @param {readonly import('../types/models.js').BookCardMetaField[]} [fallback]
+ * @returns {import('../types/models.js').BookCardMetaField[]}
+ */
+export function normalizeBookCardFields(rawFields, fallback = DEFAULT_BOOK_CARD_FIELDS) {
+  if (!Array.isArray(rawFields)) {
+    return [...fallback];
+  }
+  const seen = new Set();
+  /** @type {import('../types/models.js').BookCardMetaField[]} */
+  const clean = [];
+  for (const item of rawFields) {
+    const val = String(item || '').trim();
+    if (VALID_BOOK_CARD_FIELDS_SET.has(val) && !seen.has(val)) {
+      seen.add(val);
+      clean.push(/** @type {import('../types/models.js').BookCardMetaField} */ (val));
+    }
+  }
+  return clean;
+}
+
+/**
+ * @param {unknown} rawOverrides
+ * @returns {Partial<Record<import('../types/models.js').BookCardSectionKey, import('../types/models.js').BookCardDisplayConfig>>}
+ */
+export function normalizeBookCardSectionOverrides(rawOverrides) {
+  if (!rawOverrides || typeof rawOverrides !== 'object') return {};
+  /** @type {Partial<Record<import('../types/models.js').BookCardSectionKey, import('../types/models.js').BookCardDisplayConfig>>} */
+  const result = {};
+  for (const [sectionKey, rawCfg] of Object.entries(rawOverrides)) {
+    if (!VALID_BOOK_CARD_SECTIONS_SET.has(sectionKey) || !rawCfg || typeof rawCfg !== 'object') {
+      continue;
+    }
+    const cfg = /** @type {Record<string, unknown>} */ (rawCfg);
+    /** @type {import('../types/models.js').BookCardDisplayConfig} */
+    const nextCfg = {};
+    if (typeof cfg.size === 'string' && VALID_BOOK_CARD_SIZES.has(cfg.size)) {
+      nextCfg.size = /** @type {import('../types/models.js').BookCardSize} */ (cfg.size);
+    }
+    if (typeof cfg.infoPlacement === 'string' && VALID_BOOK_CARD_PLACEMENTS.has(cfg.infoPlacement)) {
+      nextCfg.infoPlacement = /** @type {import('../types/models.js').BookCardInfoPlacement} */ (
+        cfg.infoPlacement
+      );
+    }
+    if (typeof cfg.showCoverOverlays === 'boolean') {
+      nextCfg.showCoverOverlays = cfg.showCoverOverlays;
+    }
+    if (Array.isArray(cfg.fields)) {
+      nextCfg.fields = normalizeBookCardFields(cfg.fields);
+    }
+    if (Object.keys(nextCfg).length > 0) {
+      result[/** @type {import('../types/models.js').BookCardSectionKey} */ (sectionKey)] = nextCfg;
+    }
+  }
+  return result;
+}
+
+/**
+ * Resolves effective BookCoverCard display settings for a given section (or global defaults).
+ *
+ * @param {Partial<import('../types/models.js').AppSettings> | null | undefined} settings
+ * @param {import('../types/models.js').BookCardSectionKey} [section]
+ * @returns {{
+ *   size: import('../types/models.js').BookCardSize,
+ *   infoPlacement: import('../types/models.js').BookCardInfoPlacement,
+ *   showCoverOverlays: boolean,
+ *   fields: import('../types/models.js').BookCardMetaField[],
+ *   aspectRatio: import('../types/models.js').CoverAspectRatio,
+ *   hasCustomOverride: boolean,
+ * }}
+ */
+export function resolveBookCardDisplayConfig(settings, section) {
+  const globalSize =
+    settings?.bookCardSize && VALID_BOOK_CARD_SIZES.has(settings.bookCardSize)
+      ? settings.bookCardSize
+      : 'compact';
+  const globalPlacement = normalizeBookCardInfoPlacement(settings?.bookCardInfoPlacement);
+  const globalOverlays = settings?.showBookCoverOverlays !== false;
+  const globalFields = Array.isArray(settings?.bookCardFields)
+    ? normalizeBookCardFields(settings.bookCardFields)
+    : [...DEFAULT_BOOK_CARD_FIELDS];
+  const aspectRatio = settings?.coverAspectRatio === 'portrait' ? 'portrait' : 'square';
+
+  const sectionOverride =
+    section && settings?.bookCardSectionOverrides?.[section]
+      ? settings.bookCardSectionOverrides[section]
+      : undefined;
+
+  return {
+    size: sectionOverride?.size || globalSize,
+    infoPlacement: sectionOverride?.infoPlacement || globalPlacement,
+    showCoverOverlays:
+      typeof sectionOverride?.showCoverOverlays === 'boolean'
+        ? sectionOverride.showCoverOverlays
+        : globalOverlays,
+    fields: Array.isArray(sectionOverride?.fields)
+      ? normalizeBookCardFields(sectionOverride.fields)
+      : globalFields,
+    aspectRatio,
+    hasCustomOverride: Boolean(sectionOverride && Object.keys(sectionOverride).length > 0),
+  };
+}
+
 /**
  * Default safe settings object used for new installations and settings migrations.
  * @returns {import('../types/models.js').AppSettings}
@@ -92,10 +241,14 @@ export function createDefaultAppSettings() {
     devModeUnlocked: false,
     showMiniWizards: true,
     theme: 'light',
-    themePreset: 'darker-teal',
+    themePreset: 'bunko',
     bookDetailStyle: 'editorial',
     bookViewMode: 'grid',
     bookCardSize: 'compact',
+    bookCardInfoPlacement: 'below',
+    showBookCoverOverlays: true,
+    bookCardFields: [...DEFAULT_BOOK_CARD_FIELDS],
+    bookCardSectionOverrides: {},
     sidebarArtworkMode: 'theme',
     sidebarArtworkId: 'books-reading-lamp',
     sidebarArtworkStyle: 'integrated',

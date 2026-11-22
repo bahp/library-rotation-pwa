@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
-import { BookCover } from '../common/BookCover.js';
+import {
+  BookCoverCard,
+  BookCoverGrid,
+  BookCoverList,
+} from '../common/BookCoverCard.js';
 import { Icon } from '../common/Icon.js';
 import { RotationShelfEditorModal } from '../modals/RotationShelfEditorModal.js';
 import { ShelfPlacementModal } from '../modals/ShelfPlacementModal.js';
 import { computeRotationSchedule } from '../../features/rotations/rotation-schedule.js';
+import { resolveBookCardDisplayConfig } from '../../config/index.js';
 import type { RotationShelf, Book } from '../../types/models.js';
 
 interface RotationShelfCardProps {
@@ -59,15 +64,8 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
     }
   };
 
-  const coverAspect = state.settings?.coverAspectRatio || 'square';
+  const rotCardConfig = resolveBookCardDisplayConfig(state.settings, 'rotations');
   const viewMode = state.settings?.bookViewMode || 'grid';
-  const cardSize = state.settings?.bookCardSize || 'compact';
-  const shelfGridClass =
-    cardSize === 'compact'
-      ? 'grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 pt-1'
-      : cardSize === 'large'
-        ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 pt-1'
-        : 'grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2.5 sm:gap-3 pt-1';
 
   const bookMap = new Map(books.map((b: Book) => [b.id, b]));
   const shelfBooks = rotation.bookIds
@@ -217,9 +215,9 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
 
         {/* Progress Bar */}
         {totalCount > 0 && (
-          <div className="mt-2.5 h-1.5 w-full rounded-full bg-surface-elevated overflow-hidden">
+          <div className="mt-2.5 h-1.5 w-full rounded-full lr-progress-track overflow-hidden">
             <div
-              className="h-full rounded-full bg-primary dark:bg-accent transition-all duration-300"
+              className="h-full rounded-full lr-progress-fill transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -227,98 +225,80 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
 
         {/* Cover Strip or List Rows */}
         {viewMode === 'list' ? (
-          <div className="space-y-2 pt-1">
+          <BookCoverList className="pt-1">
             {shelfBooks.map((book: Book) => {
               const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
               const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
-              const primaryAuthor = (book.authors && book.authors[0]) || 'Unknown Author';
 
               return (
-                <div
+                <BookCoverCard
                   key={book.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-edge-subtle bg-surface-subtle/60 hover:bg-surface-subtle px-2.5 py-2 transition-colors"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setInspectedBookId(book.id)}
-                    className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer"
-                  >
-                    <div className="shrink-0">
-                      <BookCover
-                        book={book}
-                        size="xs"
-                        aspectRatio={coverAspect}
-                        showBadges={false}
-                        activeProfile={activeProfile}
-                        profiles={state.profiles}
-                        isReadOnActiveShelf={isBookRead}
-                        isPickedInRotation={isBookPicked}
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-sans text-sm font-semibold text-ink leading-tight truncate">
-                        {book.title}
-                      </p>
-                      <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
-                        {primaryAuthor}
-                        {isBookRead ? ' · Read' : isBookPicked ? ' · Picked' : ''}
-                      </p>
-                    </div>
-                  </button>
-
-                  {onToggleRead && (
-                    <button
-                      type="button"
-                      onClick={() => onToggleRead(book.id)}
-                      className={`min-h-[36px] px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 transition-colors cursor-pointer ${
-                        isBookRead
-                          ? 'bg-primary text-primary-fg'
-                          : 'bg-surface border border-edge text-ink hover:bg-surface-elevated'
-                      }`}
-                    >
-                      <Icon name="check" className="w-3 h-3" />
-                      <span>{isBookRead ? 'Read' : 'Mark Read'}</span>
-                    </button>
-                  )}
-                </div>
+                  book={book}
+                  activeProfile={activeProfile}
+                  profiles={state.profiles}
+                  layout="list"
+                  size={rotCardConfig.size}
+                  aspectRatio={rotCardConfig.aspectRatio}
+                  infoPlacement={rotCardConfig.infoPlacement}
+                  showCoverOverlays={rotCardConfig.showCoverOverlays}
+                  showUsageAdorno={false}
+                  fields={rotCardConfig.fields}
+                  isRead={isBookRead}
+                  isPicked={isBookPicked}
+                  highlightState={isBookRead ? 'read' : isBookPicked ? 'picked' : 'none'}
+                  customStatusText={isBookRead ? 'Read' : isBookPicked ? 'Picked' : undefined}
+                  onInspect={(b) => setInspectedBookId(b.id)}
+                  listTrailingAction={
+                    onToggleRead ? (
+                      <button
+                        type="button"
+                        onClick={() => onToggleRead(book.id)}
+                        className={`min-h-[36px] px-2.5 py-1 rounded-md text-[11px] font-semibold inline-flex items-center gap-1 shrink-0 transition-colors cursor-pointer ${
+                          isBookRead
+                            ? 'bg-primary text-primary-fg'
+                            : 'bg-surface border border-edge text-ink hover:bg-surface-elevated'
+                        }`}
+                      >
+                        <Icon name="check" className="w-3 h-3" />
+                        <span>{isBookRead ? 'Read' : 'Mark Read'}</span>
+                      </button>
+                    ) : undefined
+                  }
+                />
               );
             })}
-          </div>
+          </BookCoverList>
         ) : (
-        <div className={shelfGridClass}>
-          {shelfBooks.map((book: Book) => {
-            const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
-            const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
-            const coverRingClass = isBookPicked
-              ? 'ring-2 ring-primary ring-offset-2 ring-offset-surface'
-              : isBookRead
-                ? 'ring-[1.5px] ring-primary/70 ring-offset-2 ring-offset-surface'
-                : '';
+          <BookCoverGrid
+            density="dense"
+            size={rotCardConfig.size}
+            infoPlacement={rotCardConfig.infoPlacement}
+            className="pt-1"
+          >
+            {shelfBooks.map((book: Book) => {
+              const isBookRead = rotation.completedBookIds?.includes(book.id) || false;
+              const isBookPicked = rotation.pickedBookIds?.includes(book.id) || false;
 
-            return (
-              <div key={book.id} className="relative min-w-0">
-                <button
-                  type="button"
-                  onClick={() => setInspectedBookId(book.id)}
-                  aria-label={`Inspect ${book.title}`}
-                  className="block w-full rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-transform active:scale-[0.98] cursor-pointer"
-                >
-                  <BookCover
-                    book={book}
-                    size="grid"
-                    aspectRatio={coverAspect}
-                    showBadges
-                    activeProfile={activeProfile}
-                    profiles={state.profiles}
-                    isReadOnActiveShelf={isBookRead}
-                    isPickedInRotation={isBookPicked}
-                    className={coverRingClass}
-                  />
-                </button>
-              </div>
-            );
-          })}
-        </div>
+              return (
+                <BookCoverCard
+                  key={book.id}
+                  book={book}
+                  activeProfile={activeProfile}
+                  profiles={state.profiles}
+                  layout="grid"
+                  size={rotCardConfig.size}
+                  aspectRatio={rotCardConfig.aspectRatio}
+                  infoPlacement={rotCardConfig.infoPlacement}
+                  showCoverOverlays={rotCardConfig.showCoverOverlays}
+                  fields={rotCardConfig.fields}
+                  isRead={isBookRead}
+                  isPicked={isBookPicked}
+                  highlightState={isBookPicked ? 'picked' : isBookRead ? 'read' : 'none'}
+                  onInspect={(b) => setInspectedBookId(b.id)}
+                />
+              );
+            })}
+          </BookCoverGrid>
         )}
       </section>
 

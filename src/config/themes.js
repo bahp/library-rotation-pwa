@@ -5,13 +5,15 @@
  * under `[data-theme="<id>"]`.
  */
 
-/** @type {'darker-teal'} */
-export const DEFAULT_LIGHT_THEME_PRESET = 'darker-teal';
+/** @type {'bunko'} */
+export const DEFAULT_LIGHT_THEME_PRESET = 'bunko';
 /** @type {'forest-brass'} */
 export const DEFAULT_DARK_THEME_PRESET = 'forest-brass';
 
 /**
  * @typedef {(
+ *   | 'bunko'
+ *   | 'shiori'
  *   | 'darker-teal'
  *   | 'sunlit-cream'
  *   | 'classic-teal'
@@ -20,6 +22,7 @@ export const DEFAULT_DARK_THEME_PRESET = 'forest-brass';
  *   | 'sage-green'
  *   | 'blush-pink'
  *   | 'classic-light'
+ *   | 'mimir'
  *   | 'forest-brass'
  *   | 'hylle-editorial'
  *   | 'midnight-ink'
@@ -47,6 +50,30 @@ export const DEFAULT_DARK_THEME_PRESET = 'forest-brass';
 
 /** @type {Record<ThemePresetId, ThemePresetConfig>} */
 export const THEME_PRESETS = Object.freeze({
+  bunko: Object.freeze({
+    id: 'bunko',
+    mode: 'light',
+    label: 'Bunko',
+    shortDescription: 'Warm Japanese washi paper, vermilion & deep pine-teal',
+    fontDescription: 'Cormorant Garamond + DM Sans',
+    sidebarArtworkDefault: 'illustration',
+    landingArtworkDefault: 'illustration',
+    themeColorHex: '#F6EFE3',
+    emblemHex: '#26433B',
+    swatches: ['#F6EFE3', '#B63D2B', '#2F554B', '#DFC7AB'],
+  }),
+  shiori: Object.freeze({
+    id: 'shiori',
+    mode: 'light',
+    label: 'Shiori',
+    shortDescription: 'Graceful sakura-pearl paper, rose coral & twilight celadon',
+    fontDescription: 'Fraunces + Plus Jakarta Sans',
+    sidebarArtworkDefault: 'illustration',
+    landingArtworkDefault: 'illustration',
+    themeColorHex: '#F6F0EC',
+    emblemHex: '#444756',
+    swatches: ['#F6F0EC', '#D47D75', '#5B6D6D', '#68677E'],
+  }),
   'darker-teal': Object.freeze({
     id: 'darker-teal',
     mode: 'light',
@@ -142,6 +169,18 @@ export const THEME_PRESETS = Object.freeze({
     themeColorHex: '#F5F5F3',
     emblemHex: '#353B40',
     swatches: ['#F5F5F3', '#E9EAE8', '#353B40', '#A5ADB2'],
+  }),
+  mimir: Object.freeze({
+    id: 'mimir',
+    mode: 'dark',
+    label: 'Mimir',
+    shortDescription: 'Mythic Norse wisdom, deep forest-obsidian & antique gold',
+    fontDescription: 'Cormorant Garamond + DM Sans',
+    sidebarArtworkDefault: 'engraving',
+    landingArtworkDefault: 'engraving',
+    themeColorHex: '#0D1714',
+    emblemHex: '#15231E',
+    swatches: ['#0D1714', '#C8A24A', '#F2ECE0', '#758572'],
   }),
   'forest-brass': Object.freeze({
     id: 'forest-brass',
@@ -243,6 +282,8 @@ export const THEME_PRESETS = Object.freeze({
 
 /** @type {readonly ThemePresetId[]} */
 export const THEME_PRESET_IDS = Object.freeze([
+  'bunko',
+  'shiori',
   'darker-teal',
   'sunlit-cream',
   'classic-teal',
@@ -251,6 +292,7 @@ export const THEME_PRESET_IDS = Object.freeze([
   'sage-green',
   'blush-pink',
   'classic-light',
+  'mimir',
   'forest-brass',
   'hylle-editorial',
   'midnight-ink',

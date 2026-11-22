@@ -1,7 +1,9 @@
 import React from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
+import { extractBookPublicationYear } from '../common/BookCoverCard.js';
 import { Icon } from '../common/Icon.js';
+import { resolveBookCardDisplayConfig } from '../../config/index.js';
 import { formatReadingStage } from '../../types/models.js';
 import type { Book, BookCardSize, BookViewMode, ChildProfile } from '../../types/models.js';
 
@@ -45,10 +47,12 @@ export const BookCard: React.FC<BookCardProps> = ({
   className = '',
 }) => {
   const { state, setInspectedBookId } = useApp();
-  const coverAspect = aspectRatio || state.settings?.coverAspectRatio || 'square';
+  const displayConfig = resolveBookCardDisplayConfig(state.settings);
+  const coverAspect = aspectRatio || displayConfig.aspectRatio;
   const showCoverAdornos = state.settings?.showCoverUsageAdornos !== false;
   const showFreshnessInsights = state.settings?.enableRotationHistoryInsights !== false;
-  const resolvedCardSize: BookCardSize = cardSize || state.settings?.bookCardSize || 'compact';
+  const resolvedCardSize: BookCardSize = cardSize || displayConfig.size;
+  const fieldSet = new Set(displayConfig.fields);
 
   const handleCardClick = () => {
     if (onInspect) {
@@ -303,11 +307,17 @@ export const BookCard: React.FC<BookCardProps> = ({
     );
   }
 
+  const isCoverOnly = displayConfig.infoPlacement === 'cover-only';
+  const yearLabel = extractBookPublicationYear(book);
+  const pagesLabel = typeof book.pageCount === 'number' && book.pageCount > 0 ? `${book.pageCount}p` : null;
+
   // Grid variant (Library & Discovery) — archival editorial card
   return (
     <div
       onClick={handleCardClick}
-      className={`group cursor-pointer flex flex-col text-left rounded-xl bg-surface border border-edge ${cardPaddingClass} shadow-2xs hover:shadow-md hover:border-primary/40 transition-all active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-primary ${className}`}
+      className={`group cursor-pointer flex flex-col text-left rounded-[var(--radius-card)] bg-surface border border-edge ${
+        isCoverOnly ? 'p-1.5' : cardPaddingClass
+      } shadow-2xs hover:shadow-md hover:border-primary/40 transition-all active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-primary ${className}`}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -318,13 +328,13 @@ export const BookCard: React.FC<BookCardProps> = ({
       }}
       aria-label={`View details for ${book.title}`}
     >
-      <div className="relative mb-2.5 rounded-lg overflow-hidden bg-surface-subtle">
+      <div className={`relative ${isCoverOnly ? '' : 'mb-2.5'} rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle`}>
         <BookCover
           book={book}
           size="grid"
           aspectRatio={coverAspect}
-          showBadges
-          hideRotationAdorno={!showCoverAdornos}
+          showBadges={displayConfig.showCoverOverlays}
+          hideRotationAdorno={!showCoverAdornos || !displayConfig.showCoverOverlays}
           activeProfile={activeProfile}
           profiles={profiles}
           isOnActiveShelf={isOnShelf}
@@ -335,36 +345,54 @@ export const BookCard: React.FC<BookCardProps> = ({
         />
       </div>
 
-      <div className="min-w-0 px-0.5 space-y-0.5">
-        <h4 className={`font-display ${titleSizeClass} font-semibold text-ink line-clamp-1 leading-snug`}>
-          {book.title}
-        </h4>
-        <p className="text-[11px] sm:text-xs text-ink-secondary truncate leading-tight">
-          {primaryAuthor}
-        </p>
-
-        <p className="text-[11px] text-ink-muted truncate font-medium pt-0.5">
-          <span>{formatReadingStage(book.readingStage)}</span>
-          {statusMeta && (
-            <>
-              <span aria-hidden="true" className="mx-1">·</span>
-              <span
-                className={
-                  isRead
-                    ? 'text-primary font-semibold'
-                    : isStaleUnread
-                      ? 'text-accent font-semibold'
-                      : isOnShelf
-                        ? 'text-primary font-semibold'
-                        : ''
-                }
-              >
-                {statusMeta}
-              </span>
-            </>
+      {!isCoverOnly && (
+        <div className="min-w-0 px-0.5 space-y-0.5">
+          {fieldSet.has('title') && (
+            <h4 className={`font-display ${titleSizeClass} font-semibold text-ink line-clamp-1 leading-snug`}>
+              {book.title}
+            </h4>
           )}
-        </p>
-      </div>
+          {fieldSet.has('author') && (
+            <p className="text-[11px] sm:text-xs text-ink-secondary truncate leading-tight">
+              {primaryAuthor}
+            </p>
+          )}
+
+          <p className="text-[11px] text-ink-muted truncate font-medium pt-0.5">
+            {fieldSet.has('year') && yearLabel && (
+              <>
+                <span>{yearLabel}</span>
+                <span aria-hidden="true" className="mx-1">·</span>
+              </>
+            )}
+            {fieldSet.has('pages') && pagesLabel && (
+              <>
+                <span>{pagesLabel}</span>
+                <span aria-hidden="true" className="mx-1">·</span>
+              </>
+            )}
+            <span>{formatReadingStage(book.readingStage)}</span>
+            {statusMeta && fieldSet.has('usage') && (
+              <>
+                <span aria-hidden="true" className="mx-1">·</span>
+                <span
+                  className={
+                    isRead
+                      ? 'text-primary font-semibold'
+                      : isStaleUnread
+                        ? 'text-accent font-semibold'
+                        : isOnShelf
+                          ? 'text-primary font-semibold'
+                          : ''
+                  }
+                >
+                  {statusMeta}
+                </span>
+              </>
+            )}
+          </p>
+        </div>
+      )}
     </div>
   );
 };

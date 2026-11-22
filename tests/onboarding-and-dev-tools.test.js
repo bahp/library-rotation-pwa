@@ -22,7 +22,11 @@ import {
   THEME_PRESETS,
   THEME_PRESET_IDS,
   detectDeviceLanguage,
+  normalizeBookCardFields,
+  normalizeBookCardInfoPlacement,
+  normalizeBookCardSectionOverrides,
   normalizeThemePresetId,
+  resolveBookCardDisplayConfig,
   resolveEffectiveThemeConfig,
 } from '../src/config/index.js';
 import { createDefaultAppSettings } from '../src/config/defaults.js';
@@ -393,15 +397,21 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
   });
 
   it('resolves theme presets, normalizes view/detail settings, clamps 0..6 onboarding steps, and persists book notes/verification', async () => {
-    // 1. Theme resolution & normalization across all 16 presets (8 light + 8 dark)
-    assert.equal(DEFAULT_LIGHT_THEME_PRESET, 'darker-teal');
+    // 1. Theme resolution & normalization across all 19 presets (10 light + 9 dark)
+    assert.equal(DEFAULT_LIGHT_THEME_PRESET, 'bunko');
     assert.equal(DEFAULT_DARK_THEME_PRESET, 'forest-brass');
-    assert.equal(THEME_PRESET_IDS.length, 16);
-    assert.equal(LIGHT_THEME_PRESET_IDS.length, 8);
-    assert.equal(DARK_THEME_PRESET_IDS.length, 8);
+    assert.equal(THEME_PRESET_IDS.length, 19);
+    assert.equal(LIGHT_THEME_PRESET_IDS.length, 10);
+    assert.equal(DARK_THEME_PRESET_IDS.length, 9);
+    assert.equal(THEME_PRESETS['bunko']?.mode, 'light');
+    assert.equal(THEME_PRESETS['shiori']?.mode, 'light');
+    assert.equal(THEME_PRESETS['mimir']?.mode, 'dark');
     assert.equal(THEME_PRESETS['darker-teal']?.emblemHex, '#1E322C');
     assert.equal(THEME_PRESETS['hylle-editorial']?.mode, 'dark');
 
+    assert.equal(normalizeThemePresetId('bunko'), 'bunko');
+    assert.equal(normalizeThemePresetId('shiori'), 'shiori');
+    assert.equal(normalizeThemePresetId('mimir'), 'mimir');
     assert.equal(normalizeThemePresetId('classic-teal'), 'classic-teal');
     assert.equal(normalizeThemePresetId('darker-teal'), 'darker-teal');
     assert.equal(normalizeThemePresetId('hylle-editorial'), 'hylle-editorial');
@@ -438,6 +448,12 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
       bookDetailStyle: 'editorial',
       bookViewMode: 'list',
       bookCardSize: 'large',
+      bookCardInfoPlacement: 'overlay',
+      showBookCoverOverlays: false,
+      bookCardFields: ['title', 'year', 'pages'],
+      bookCardSectionOverrides: {
+        library: { infoPlacement: 'cover-only', size: 'compact' },
+      },
       sidebarArtworkMode: 'illustration',
       sidebarArtworkId: 'library-cat',
       onboardingLandingMode: 'compact',
@@ -450,6 +466,12 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(safeDefaults.bookDetailStyle, 'editorial');
     assert.equal(safeDefaults.bookViewMode, 'list');
     assert.equal(safeDefaults.bookCardSize, 'large');
+    assert.equal(safeDefaults.bookCardInfoPlacement, 'overlay');
+    assert.equal(safeDefaults.showBookCoverOverlays, false);
+    assert.deepEqual(safeDefaults.bookCardFields, ['title', 'year', 'pages']);
+    assert.deepEqual(safeDefaults.bookCardSectionOverrides, {
+      library: { infoPlacement: 'cover-only', size: 'compact' },
+    });
     assert.equal(safeDefaults.sidebarArtworkMode, 'illustration');
     assert.equal(safeDefaults.sidebarArtworkId, 'library-cat');
     assert.equal(safeDefaults.onboardingLandingMode, 'compact');
@@ -463,14 +485,37 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
       'sm'
     );
     const globalFallback = createSafeDefaultSettings();
-    assert.equal(globalFallback.themePreset, 'darker-teal');
+    assert.equal(globalFallback.themePreset, 'bunko');
     assert.equal(globalFallback.bookDetailStyle, 'editorial');
     assert.equal(globalFallback.bookViewMode, 'grid');
     assert.equal(globalFallback.bookCardSize, 'compact');
+    assert.equal(globalFallback.bookCardInfoPlacement, 'below');
+    assert.equal(globalFallback.showBookCoverOverlays, true);
+    assert.deepEqual(globalFallback.bookCardFields, ['title', 'author', 'ageFormat', 'usage']);
     assert.equal(globalFallback.coverAspectRatio, 'square');
     assert.equal(globalFallback.presetCornerArtSize, 'sm');
     assert.equal(globalFallback.sidebarArtworkId, 'books-reading-lamp');
     assert.equal(globalFallback.nativeAppStyle, true);
+
+    // BookCoverCard display config & section override resolution
+    assert.equal(normalizeBookCardInfoPlacement('cover-only'), 'cover-only');
+    assert.equal(normalizeBookCardInfoPlacement('invalid'), 'below');
+    assert.deepEqual(normalizeBookCardFields(['title', 'bogus', 'year', 'title']), ['title', 'year']);
+    assert.deepEqual(
+      normalizeBookCardSectionOverrides({
+        library: { infoPlacement: 'cover-only', showCoverOverlays: false },
+        unknownSection: { size: 'large' },
+      }),
+      { library: { infoPlacement: 'cover-only', showCoverOverlays: false } }
+    );
+    const libResolved = resolveBookCardDisplayConfig(safeDefaults, 'library');
+    assert.equal(libResolved.infoPlacement, 'cover-only');
+    assert.equal(libResolved.size, 'compact');
+    assert.equal(libResolved.hasCustomOverride, true);
+    const homeResolved = resolveBookCardDisplayConfig(safeDefaults, 'homeShelf');
+    assert.equal(homeResolved.infoPlacement, 'overlay');
+    assert.equal(homeResolved.size, 'large');
+    assert.equal(homeResolved.hasCustomOverride, false);
 
     // 3. 0..6 onboarding step bounds & Book notes/verification persistence
     const storage = createStorageAdapter({ forceMemory: true });

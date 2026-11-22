@@ -8,7 +8,11 @@ import { ReaderFilterSheet } from '../modals/ReaderFilterSheet.js';
 import { AiCollectionSearchSheet } from '../modals/AiCollectionSearchSheet.js';
 import { FoundBookSheet } from '../modals/FoundBookSheet.js';
 import { NativeBarcodeScannerModal } from '../scan/NativeBarcodeScannerModal.js';
-import { BookCover } from '../common/BookCover.js';
+import {
+  BookCoverCard,
+  BookCoverGrid,
+  BookCoverList,
+} from '../common/BookCoverCard.js';
 import { acquireCameraStream } from '../../features/scan/camera-access.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
 import type { BookCondition } from '../../types/models.js';
@@ -23,9 +27,8 @@ import {
   normalizeOwnersList,
 } from '../../types/models.js';
 import {
-  COVER_BADGE_SLOTS,
-  COVER_CATALOG_BADGE_STYLES,
   AVATAR_TONES,
+  resolveBookCardDisplayConfig,
 } from '../../config/index.js';
 import { computeBookUsageSummary } from '../../features/rotations/usage-insights.js';
 
@@ -71,15 +74,8 @@ export const LibraryView: React.FC = () => {
     setGlobalSearchQuery(next);
   };
 
-  const coverAspectRatio = state.settings?.coverAspectRatio || 'square';
+  const libraryCardConfig = resolveBookCardDisplayConfig(state.settings, 'library');
   const viewMode = state.settings?.bookViewMode || 'grid';
-  const cardSize = state.settings?.bookCardSize || 'compact';
-  const libraryGridClass =
-    cardSize === 'compact'
-      ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3 pt-1'
-      : cardSize === 'large'
-        ? 'grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 pt-1'
-        : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3.5 sm:gap-4 pt-1';
   const showRotationHistory = state.settings?.enableRotationHistoryInsights !== false;
   const showCoverUsageAdornos = state.settings?.showCoverUsageAdornos !== false;
   const staleBookDays = state.settings?.staleBookDays ?? 10;
@@ -527,13 +523,13 @@ export const LibraryView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 text-left min-w-0 overflow-x-clip">
+    <div className="space-y-4 text-left min-w-0">
       {/* Desktop 2-Column Layout: Persistent Collapsible Filter Sidebar + Responsive Catalog Grid */}
       <div className="lg:flex lg:items-start lg:gap-6">
         {isDesktopSidebarOpen && (
           <aside
             aria-label="Library filters sidebar"
-            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-xl bg-surface border border-edge shadow-2xs p-4 sticky top-20 max-h-[calc(100vh-6.5rem)]"
+            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-[var(--radius-card)] bg-surface border border-edge shadow-2xs p-4 lg:sticky lg:top-[calc(4rem+env(safe-area-inset-top,0px)+1.25rem)] lg:max-h-[calc(100vh-6.5rem)]"
           >
             <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-edge-subtle shrink-0">
               <div className="flex items-center gap-2">
@@ -569,12 +565,11 @@ export const LibraryView: React.FC = () => {
         )}
 
         {/* Right Main Catalog Workspace */}
-        <div className="flex-1 min-w-0 space-y-3.5">
+        <div className="flex-1 min-w-0 -mt-5 sm:-mt-6 lg:mt-0 space-y-3.5">
           {/* Integrated Sticky Search + Pills + Active Tags Bar */}
           <div
             data-library-floating-controls="true"
-            style={{ backgroundColor: 'color-mix(in srgb, var(--background) 94%, transparent)' }}
-            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:top-[calc(4rem+env(safe-area-inset-top,0px))] z-[25] -mt-5 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-4 pb-2.5 backdrop-blur-xl border-b border-edge-subtle space-y-2.5"
+            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:top-[calc(4rem+env(safe-area-inset-top,0px))] z-[30] lg:-mt-5 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-5 pb-2.5 bg-canvas border-b border-edge-subtle space-y-2.5 [transform:translate3d(0,0,0)]"
           >
             <ClearableInput
               id="catalog-search-input"
@@ -908,305 +903,53 @@ export const LibraryView: React.FC = () => {
           {/* Book Grid / List */}
           {filteredBooks.length > 0 ? (
             viewMode === 'list' ? (
-              <div className="space-y-2 pt-1">
-                {filteredBooks.map((book) => {
-                  const primaryAuthor = book.authors[0] || 'Unknown Author';
-                  const status = normalizeCollectionStatus(book.collectionStatus);
-                  const condition = normalizeBookCondition(book.condition);
-                  const usage = usageByBookId.get(book.id);
-
-                  const statusLabel =
-                    status === 'wishlist'
-                      ? 'Wishlist'
-                      : status === 'library'
-                        ? 'Loan'
-                        : status === 'interested'
-                          ? 'Saved'
-                          : condition !== 'good'
-                            ? condition === 'torn'
-                              ? 'Torn'
-                              : 'Damaged'
-                            : null;
-
-                  return (
-                    <article
-                      key={book.id}
-                      data-book-card={book.id}
-                      className="group isolate min-w-0 rounded-xl bg-surface border border-edge hover:border-primary/45 p-2 sm:p-2.5 lr-card transition-all"
-                    >
-                      <button
-                        type="button"
-                        data-action="inspect-book"
-                        data-book-id={book.id}
-                        onClick={() => setInspectedBookId(book.id)}
-                        aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
-                        className="w-full min-w-0 flex items-center gap-3 text-left cursor-pointer"
-                      >
-                        <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle">
-                          <BookCover
-                            book={book}
-                            size="sm"
-                            aspectRatio={coverAspectRatio}
-                            showBadges={false}
-                          />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <h2 className="font-sans text-sm sm:text-[15px] font-semibold text-ink leading-tight truncate group-hover:text-primary transition-colors">
-                              {book.title}
-                            </h2>
-                            {statusLabel && (
-                              <span className="shrink-0 px-1.5 py-0.5 rounded bg-surface-elevated border border-edge text-[10px] font-semibold text-ink-secondary">
-                                {statusLabel}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-ink-secondary truncate leading-tight mt-0.5">
-                            {primaryAuthor}
-                          </p>
-                          <p className="text-[11px] text-ink-muted truncate leading-tight mt-0.5">
-                            <span>Ages {book.ageMin}–{book.ageMax}</span>
-                            <span aria-hidden="true" className="mx-1">·</span>
-                            <span>{formatBookBinding(book.format)}</span>
-                            {showRotationHistory && isBookRotatable(book) && usage && (
-                              <>
-                                <span aria-hidden="true" className="mx-1">·</span>
-                                <span
-                                  data-library-usage-line="true"
-                                  className={
-                                    usage.inCooldown
-                                      ? 'text-accent font-medium'
-                                      : usage.isCurrentlyOnActiveShelf
-                                        ? 'text-primary font-semibold'
-                                        : ''
-                                  }
-                                >
-                                  {usage.compactRecencyLabel}
-                                </span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {book.owners && book.owners.length > 0 && (
-                            <div className="hidden sm:flex -space-x-1">
-                              {book.owners
-                                .filter((o) => o !== 'shared')
-                                .slice(0, 2)
-                                .map((ownerId) => {
-                                  const prof = state.profiles.find((p) => p.id === ownerId);
-                                  const tone = AVATAR_TONES[prof?.avatarTone || 'teal'] || AVATAR_TONES.teal;
-                                  return (
-                                    <span
-                                      key={ownerId}
-                                      title={prof?.name || ownerId}
-                                      className={`w-5 h-5 rounded-full text-[10px] font-bold inline-flex items-center justify-center ring-1 ring-surface ${tone}`}
-                                    >
-                                      {(prof?.name || ownerId).charAt(0).toUpperCase()}
-                                    </span>
-                                  );
-                                })}
-                            </div>
-                          )}
-                          {book.loved && (
-                            <span
-                              className="w-6 h-6 rounded-full bg-surface-elevated text-danger inline-flex items-center justify-center border border-edge"
-                              title="Loved favorite"
-                            >
-                              <Icon name="heartFilled" className="w-3.5 h-3.5" />
-                            </span>
-                          )}
-                          <Icon name="chevronRight" className="w-4 h-4 text-ink-muted group-hover:text-ink" />
-                        </div>
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-            <div className={libraryGridClass}>
-              {filteredBooks.map((book) => {
-                const primaryAuthor = book.authors[0] || 'Unknown Author';
-                const status = normalizeCollectionStatus(book.collectionStatus);
-                const condition = normalizeBookCondition(book.condition);
-                const usage = usageByBookId.get(book.id);
-
-                let statusBadge = null;
-                if (status === 'wishlist') {
-                  statusBadge = (
-                    <span
-                      data-cover-slot={COVER_BADGE_SLOTS.catalogState.slot}
-                      data-cover-catalog-badge="wishlist"
-                      className={`${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${COVER_CATALOG_BADGE_STYLES.wishlist} text-[9px] font-bold tracking-wide shadow-2xs`}
-                    >
-                      Wishlist
-                    </span>
-                  );
-                } else if (status === 'library') {
-                  statusBadge = (
-                    <span
-                      data-cover-slot={COVER_BADGE_SLOTS.catalogState.slot}
-                      data-cover-catalog-badge="loan"
-                      className={`${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${COVER_CATALOG_BADGE_STYLES.libraryLoan} text-[9px] font-bold tracking-wide shadow-2xs`}
-                    >
-                      Loan
-                    </span>
-                  );
-                } else if (status === 'interested') {
-                  statusBadge = (
-                    <span
-                      data-cover-slot={COVER_BADGE_SLOTS.catalogState.slot}
-                      data-cover-catalog-badge="saved"
-                      className={`${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${COVER_CATALOG_BADGE_STYLES.saved} text-[9px] font-bold tracking-wide shadow-2xs`}
-                    >
-                      Saved
-                    </span>
-                  );
-                } else if (condition !== 'good') {
-                  const label = condition === 'torn' ? 'Torn' : 'Damaged';
-                  const style =
-                    condition === 'torn'
-                      ? COVER_CATALOG_BADGE_STYLES.torn
-                      : COVER_CATALOG_BADGE_STYLES.damaged;
-                  statusBadge = (
-                    <span
-                      data-cover-slot={COVER_BADGE_SLOTS.catalogState.slot}
-                      data-cover-catalog-badge={condition}
-                      className={`${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-md ${style} text-[9px] font-bold tracking-wide shadow-2xs`}
-                    >
-                      {label}
-                    </span>
-                  );
-                }
-
-                return (
-                  <article
+              <BookCoverList className="relative z-0 pt-1">
+                {filteredBooks.map((book) => (
+                  <BookCoverCard
                     key={book.id}
-                    data-book-card={book.id}
-                    className={`group isolate flex flex-col min-w-0 rounded-xl bg-surface border border-edge ${
-                      cardSize === 'compact' ? 'p-1.5 sm:p-2' : cardSize === 'large' ? 'p-3' : 'p-2.5'
-                    } lr-card hover:border-secondary transition-all`}
-                  >
-                    <div className="relative">
-                      <button
-                        type="button"
-                        data-action="inspect-book"
-                        data-book-id={book.id}
-                        onClick={() => setInspectedBookId(book.id)}
-                        aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
-                        className="block w-full rounded-lg transition-transform active:scale-[0.98] cursor-pointer"
-                      >
-                        <BookCover
-                          book={book}
-                          size="grid"
-                          aspectRatio={coverAspectRatio}
-                          showBadges={false}
-                        />
-                      </button>
-
-                      {statusBadge}
-
-                      {book.loved && (
-                        <span
-                          data-cover-slot={COVER_BADGE_SLOTS.affection.slot}
-                          className={`${COVER_BADGE_SLOTS.affection.positionClass} w-6 h-6 rounded-full bg-surface/95 text-danger flex items-center justify-center shadow-xs border border-edge`}
-                          title="Loved favorite"
-                        >
-                          <Icon name="heartFilled" className="w-3.5 h-3.5" />
-                        </span>
-                      )}
-
-                      {showCoverUsageAdornos && usage && usage.compactRecencyLabel && (
-                        <div className="pointer-events-none absolute bottom-2 left-2 z-20">
-                          <span
-                            className={`inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-md shadow-xs border ${
-                              usage.inCooldown
-                                ? 'bg-surface-elevated/95 text-accent border-accent/45'
-                                : usage.isCurrentlyOnActiveShelf
-                                  ? 'bg-primary text-primary-fg border-surface'
-                                  : 'bg-surface/95 text-ink border-edge'
-                            }`}
-                          >
-                            {usage.compactRecencyLabel}
-                          </span>
-                        </div>
-                      )}
-
-                      {book.owners && book.owners.length > 0 && (
-                        <div
-                          data-cover-slot={COVER_BADGE_SLOTS.owners.slot}
-                          className={`${COVER_BADGE_SLOTS.owners.positionClass} flex -space-x-1`}
-                        >
-                          {book.owners
-                            .filter((o) => o !== 'shared')
-                            .slice(0, 2)
-                            .map((ownerId) => {
-                              const prof = state.profiles.find((p) => p.id === ownerId);
-                              const tone = AVATAR_TONES[prof?.avatarTone || 'teal'] || AVATAR_TONES.teal;
-                              return (
-                                <span
-                                  key={ownerId}
-                                  title={prof?.name || ownerId}
-                                  className={`w-4 h-4 rounded-full text-[9px] font-bold inline-flex items-center justify-center ring-1 ring-surface shadow-2xs ${tone}`}
-                                >
-                                  {(prof?.name || ownerId).charAt(0).toUpperCase()}
-                                </span>
-                              );
-                            })}
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      data-action="inspect-book"
-                      data-book-id={book.id}
-                      onClick={() => setInspectedBookId(book.id)}
-                      className="mt-1.5 px-0.5 pb-0.5 text-left min-w-0 rounded flex-1 flex flex-col justify-between cursor-pointer"
-                    >
-                      <div>
-                        <h2
-                          className={`font-sans ${
-                            cardSize === 'compact'
-                              ? 'text-xs sm:text-[13px]'
-                              : cardSize === 'large'
-                                ? 'text-sm sm:text-base'
-                                : 'text-[13px] sm:text-sm'
-                          } font-semibold text-ink leading-tight line-clamp-2 group-hover:text-primary transition-colors`}
-                        >
-                          {book.title}
-                        </h2>
-                        <p className="text-[11px] text-ink-secondary truncate leading-tight mt-0.5">
-                          {primaryAuthor}
-                        </p>
-                      </div>
-                      <div className="mt-1 pt-1 border-t border-edge-subtle space-y-0.5">
-                        <p className="text-[10px] text-ink-secondary truncate leading-tight">
-                          Ages {book.ageMin}–{book.ageMax} · {formatBookBinding(book.format)}
-                        </p>
-                        {showRotationHistory && isBookRotatable(book) && usage && (
-                          <p
-                            data-library-usage-line="true"
-                            title={usage.shortRecencyLabel}
-                            className={`text-[10px] truncate leading-tight ${
-                              usage.inCooldown
-                                ? 'text-accent font-medium'
-                                : usage.isCurrentlyOnActiveShelf
-                                  ? 'text-primary font-semibold'
-                                  : 'text-ink-muted'
-                            }`}
-                          >
-                            {usage.compactRecencyLabel}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
+                    book={book}
+                    activeProfile={activeProfile}
+                    profiles={state.profiles}
+                    layout="list"
+                    size={libraryCardConfig.size}
+                    aspectRatio={libraryCardConfig.aspectRatio}
+                    infoPlacement={libraryCardConfig.infoPlacement}
+                    showCoverOverlays={libraryCardConfig.showCoverOverlays}
+                    showUsageAdorno={showCoverUsageAdornos}
+                    showRotationHistory={showRotationHistory}
+                    fields={libraryCardConfig.fields}
+                    usage={usageByBookId.get(book.id)}
+                    hideBookCoverInternalBadges
+                    onInspect={(b) => setInspectedBookId(b.id)}
+                  />
+                ))}
+              </BookCoverList>
+            ) : (
+              <BookCoverGrid
+                size={libraryCardConfig.size}
+                infoPlacement={libraryCardConfig.infoPlacement}
+                className="relative z-0 pt-1"
+              >
+                {filteredBooks.map((book) => (
+                  <BookCoverCard
+                    key={book.id}
+                    book={book}
+                    activeProfile={activeProfile}
+                    profiles={state.profiles}
+                    layout="grid"
+                    size={libraryCardConfig.size}
+                    aspectRatio={libraryCardConfig.aspectRatio}
+                    infoPlacement={libraryCardConfig.infoPlacement}
+                    showCoverOverlays={libraryCardConfig.showCoverOverlays}
+                    showUsageAdorno={showCoverUsageAdornos}
+                    showRotationHistory={showRotationHistory}
+                    fields={libraryCardConfig.fields}
+                    usage={usageByBookId.get(book.id)}
+                    hideBookCoverInternalBadges
+                    onInspect={(b) => setInspectedBookId(b.id)}
+                  />
+                ))}
+              </BookCoverGrid>
             )
           ) : (
             <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 lr-card">

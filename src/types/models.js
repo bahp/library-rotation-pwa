@@ -13,6 +13,8 @@
 
 /**
  * @typedef {(
+ *   | 'bunko'
+ *   | 'shiori'
  *   | 'darker-teal'
  *   | 'sunlit-cream'
  *   | 'classic-teal'
@@ -21,6 +23,7 @@
  *   | 'sage-green'
  *   | 'blush-pink'
  *   | 'classic-light'
+ *   | 'mimir'
  *   | 'forest-brass'
  *   | 'hylle-editorial'
  *   | 'midnight-ink'
@@ -46,6 +49,26 @@
 
 /**
  * @typedef {'compact' | 'regular' | 'large'} BookCardSize
+ */
+
+/**
+ * @typedef {'below' | 'overlay' | 'cover-only'} BookCardInfoPlacement
+ */
+
+/**
+ * @typedef {'title' | 'author' | 'year' | 'pages' | 'ageFormat' | 'usage'} BookCardMetaField
+ */
+
+/**
+ * @typedef {'library' | 'homeShelf' | 'homeSuggested' | 'rotations'} BookCardSectionKey
+ */
+
+/**
+ * @typedef {Object} BookCardDisplayConfig
+ * @property {BookCardSize} [size]
+ * @property {BookCardInfoPlacement} [infoPlacement]
+ * @property {boolean} [showCoverOverlays]
+ * @property {BookCardMetaField[]} [fields]
  */
 
 /**
@@ -288,6 +311,10 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {BookDetailStyle} [bookDetailStyle] - Preferred Book Detail view ('compact' | 'editorial')
  * @property {BookViewMode} [bookViewMode] - Default shelf & catalog view ('grid' | 'list')
  * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large')
+ * @property {BookCardInfoPlacement} [bookCardInfoPlacement] - Where metadata sits on cover cards ('below' | 'overlay' | 'cover-only')
+ * @property {boolean} [showBookCoverOverlays] - Show corner badges, loved hearts, and owner monograms on covers (default: true)
+ * @property {BookCardMetaField[]} [bookCardFields] - Ordered list of metadata fields displayed on book cards
+ * @property {Partial<Record<BookCardSectionKey, BookCardDisplayConfig>>} [bookCardSectionOverrides] - Optional per-view card display overrides
  * @property {SidebarArtworkMode} [sidebarArtworkMode] - Sidebar decorative illustration style ('theme' | 'engraving' | 'illustration' | 'none')
  * @property {string} [sidebarArtworkId] - Selected sidebar illustration ID from the unified artwork library, or 'random' for daily rotation
  * @property {SidebarArtworkStyle} [sidebarArtworkStyle] - Visual integration treatment for sidebar artwork ('integrated' | 'natural' | 'muted')

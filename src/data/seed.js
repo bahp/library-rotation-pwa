@@ -603,7 +603,7 @@ export function createSeedState() {
     rotations,
     settings: {
       theme: 'light',
-      themePreset: 'darker-teal',
+      themePreset: 'bunko',
       bookDetailStyle: 'editorial',
       bookViewMode: 'grid',
       bookCardSize: 'compact',

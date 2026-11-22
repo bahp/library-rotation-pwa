@@ -4,8 +4,10 @@
 /* ============================================================================
  * LIBRARY ROTATION — CENTRALIZED MULTI-THEME DESIGN SYSTEM
  * ----------------------------------------------------------------------------
- * Light Presets (8):
- *   - darker-teal       (Default Light — Ivory Linen #F7F5EE, Darker Teal Bar rgb(30,50,44) #1E322C)
+ * Light Presets (10):
+ *   - bunko             (Default Light — Japanese Washi #F6EFE3, Vermilion #B63D2B, Pine-Teal #2F554B)
+ *   - shiori            (Sakura Pearl #F6F0EC, Rose Coral #B85D57, Celadon-Slate #5B6D6D)
+ *   - darker-teal       (Ivory Linen #F7F5EE, Darker Teal Bar rgb(30,50,44) #1E322C)
  *   - sunlit-cream      (Honeyed Cream #F7F1E7, Terracotta #9E572C)
  *   - classic-teal      (Warm Ivory #F8F5EE, White #FFFFFF, Teal #115953, Slate-Blue #2D6F8A)
  *   - antique-paper     (Archival Parchment #F5F0E5, Deep Forest #244B40)
@@ -13,7 +15,8 @@
  *   - sage-green        (Meadow Sage #F1F3EA, Soft Olive #4B683B)
  *   - blush-pink        (Rose Petal #FBF0EF, Berry Plum #9E4357)
  *   - classic-light     (Gallery Stone #F5F5F3, Charcoal #353B40)
- * Dark Presets (8):
+ * Dark Presets (9):
+ *   - mimir             (Mythic Norse Forest-Obsidian #0D1714, Matte Evergreen, Antique Gold #C8A24A)
  *   - forest-brass      (Default Dark — Deep Evergreen #101713, Matte Forest Buttons, Brass #C49A55)
  *   - hylle-editorial   (Obsidian Ink #0B0D0C, Dark Olive Surfaces #141513, Brushed Brass #D2B35B)
  *   - midnight-ink      (Nocturnal Navy #0B1420, Slate Blue #4B91C7, Mist #9CC8E8)
@@ -23,10 +26,31 @@
  *   - forest-library    (Spruce Study #142321, Matte Spruce Buttons, Antique Brass #D0AD55)
  *   - midnight-library  (Warm Charcoal #0F100F, Matte Charcoal Buttons, Gold #E0B654)
  *
- * Edit palette colors, font pairings, badge tints, and card radii here in one place.
+ * Edit palette colors, font pairings, badge tints, progress, overlays, and radii here in one place.
  * ============================================================================ */
 
 :where(:root) {
+  /* Centralized Geometry, Progress & Focus Tokens */
+  --card-radius: 16px;
+  --cover-radius: 10px;
+  --control-radius: 10px;
+  --badge-radius: 6px;
+  --pill-radius: 9999px;
+  --font-mono-theme: 'JetBrains Mono', ui-monospace, monospace;
+  --focus-ring: var(--primary);
+  --progress-track: var(--surface-elevated);
+  --progress-fill: var(--primary);
+
+  /* Book Cover Bottom-Overlay Scrim & Text Tokens */
+  --cover-overlay-scrim: linear-gradient(
+    180deg,
+    rgba(16, 15, 14, 0) 0%,
+    rgba(16, 15, 14, 0.34) 38%,
+    rgba(14, 13, 12, 0.88) 100%
+  );
+  --cover-overlay-fg: #FFFCF6;
+  --cover-overlay-muted: rgba(255, 252, 246, 0.82);
+
   /* Elevation & Surface Shadows (Light Mode Defaults) */
   --elevation-card:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
@@ -150,6 +174,9 @@
 }
 
 :where(.dark) {
+  --focus-ring: var(--highlight);
+  --progress-fill: var(--accent);
+
   /* Elevation & Surface Shadows (Dark Mode Defaults) */
   --elevation-card:
     inset 0 1px 0 rgba(255, 255, 255, 0.07),
@@ -197,8 +224,150 @@
   --passport-milestone-ink: #FBBF24;
 }
 
+:where(:root),
+[data-theme="bunko"] {
+  /* Light Theme — Bunko (Default Light — Japanese Washi #F6EFE3, Vermilion #B63D2B, Pine-Teal #2F554B) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 16px;
+  --cover-radius: 11px;
+  --control-radius: 10px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(182, 61, 43, 0.11);
+  --lr-badge-fg: #9C3222;
+  --scrim: rgba(34, 27, 22, 0.46);
+
+  --background: #F6EFE3;
+  --surface: #FFFDF8;
+  --surface-elevated: #ECE0CE;
+  --surface-subtle: #F2E7D6;
+
+  --primary: #B63D2B;
+  --primary-hover: #9C3222;
+  --primary-fg: #FFFBF4;
+  --secondary: #2F554B;
+  --accent: #C79A5B;
+  --highlight: #B63D2B;
+
+  --text-primary: #221B16;
+  --text-secondary: #5E5045;
+  --text-muted: #847467;
+
+  --border: #DFD2BF;
+  --border-subtle: #EDE3D3;
+
+  --sidebar-bg: #26433B;
+  --sidebar-surface: #305349;
+  --sidebar-border: #3E665B;
+  --sidebar-text: #F6EFE3;
+  --sidebar-muted: #C6D5CE;
+  --sidebar-active-bg: #365D52;
+  --sidebar-accent: #E5C79E;
+
+  --reader-teal: #2F554B;
+  --reader-amber: #C08843;
+  --reader-indigo: #43566B;
+  --reader-rose: #B63D2B;
+  --reader-emerald: #3E6E58;
+
+  --accent-fg: #FFFBF4;
+  --danger: #9E2F23;
+  --danger-solid: #B63D2B;
+  --danger-solid-hover: #9C3222;
+  --warning: #B87D32;
+  --info: #3D5B6E;
+  --success: #2F554B;
+  --goodreads-ink: #7A5C38;
+  --scanner-bg: #1B2E29;
+  --scanner-surface: #26433B;
+  --scanner-surface-hover: #305349;
+  --scanner-surface-active: #3B6458;
+  --scanner-border: #487568;
+  --scanner-text: #F6EFE3;
+  --scanner-muted: #C6D5CE;
+  --scanner-accent: #E5C79E;
+  --scanner-accent-hover: #EED7B8;
+  --scanner-accent-fg: #1B2E29;
+  --scanner-scrim: rgba(27, 46, 41, 0.72);
+  --code-bg: #1B2E29;
+  --code-surface: #26433B;
+  --code-surface-hover: #365D52;
+  --code-border: #487568;
+  --code-text: #F6EFE3;
+}
+
+[data-theme="shiori"] {
+  /* Light Theme — Shiori (Graceful Sakura-Pearl #F6F0EC, Rose Coral #B85D57, Celadon-Slate #5B6D6D) */
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 18px;
+  --cover-radius: 12px;
+  --control-radius: 11px;
+  --lr-sidebar-art-mode: illustration;
+  --lr-badge-bg: rgba(184, 93, 87, 0.12);
+  --lr-badge-fg: #9F4D48;
+  --scrim: rgba(38, 34, 38, 0.44);
+
+  --background: #F6F0EC;
+  --surface: #FFFCFA;
+  --surface-elevated: #ECE3DF;
+  --surface-subtle: #F2EAE6;
+
+  --primary: #B85D57;
+  --primary-hover: #9F4D48;
+  --primary-fg: #FFFCFA;
+  --secondary: #5B6D6D;
+  --accent: #68677E;
+  --highlight: #B85D57;
+
+  --text-primary: #262226;
+  --text-secondary: #5E5960;
+  --text-muted: #847E86;
+
+  --border: #E0D5D0;
+  --border-subtle: #EDE4DF;
+
+  --sidebar-bg: #444756;
+  --sidebar-surface: #515566;
+  --sidebar-border: #626679;
+  --sidebar-text: #F6F0EC;
+  --sidebar-muted: #C9C7D1;
+  --sidebar-active-bg: #5B5F72;
+  --sidebar-accent: #E2A39C;
+
+  --reader-teal: #5B6D6D;
+  --reader-amber: #BA8463;
+  --reader-indigo: #68677E;
+  --reader-rose: #B85D57;
+  --reader-emerald: #5A7B6D;
+
+  --accent-fg: #FFFCFA;
+  --danger: #9F4D48;
+  --warning: #B57A52;
+  --info: #5B6D6D;
+  --success: #5A7B6D;
+  --scanner-bg: #2E303B;
+  --scanner-surface: #3A3D4A;
+  --scanner-surface-hover: #464A59;
+  --scanner-surface-active: #535869;
+  --scanner-border: #64697D;
+  --scanner-text: #F6F0EC;
+  --scanner-muted: #C9C7D1;
+  --scanner-accent: #E2A39C;
+  --scanner-accent-hover: #EEBDB7;
+  --scanner-accent-fg: #2E303B;
+  --scanner-scrim: rgba(46, 48, 59, 0.72);
+  --code-bg: #2E303B;
+  --code-surface: #3A3D4A;
+  --code-surface-hover: #4C5061;
+  --code-border: #64697D;
+  --code-text: #F6F0EC;
+}
+
 [data-theme="darker-teal"] {
-  /* Light Theme — Darker Teal (Default Light — Sidebar rgb(30, 50, 44) #1E322C) */
+  /* Light Theme — Darker Teal (Ivory Linen #F7F5EE, Sidebar rgb(30, 50, 44) #1E322C) */
   --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
@@ -780,6 +949,79 @@
   --code-surface-hover: #233A2E;
   --code-border: #33483C;
   --code-text: #F1EBDD;
+}
+
+.dark[data-theme="mimir"],
+[data-theme="mimir"] {
+  /* Dark Theme — Mimir (Mythic Norse Forest-Obsidian #0D1714, Antique Gold #C8A24A, Parchment #F2ECE0) */
+  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --card-radius: 14px;
+  --cover-radius: 10px;
+  --control-radius: 10px;
+  --lr-sidebar-art-mode: engraving;
+  --lr-badge-bg: rgba(200, 162, 74, 0.16);
+  --lr-badge-fg: #D9B764;
+  --scrim: rgba(7, 13, 11, 0.76);
+  --progress-fill: #C8A24A;
+
+  --background: #0D1714;
+  --surface: #15231E;
+  --surface-elevated: #1E312B;
+  --surface-subtle: #111D19;
+
+  --primary: #20372F;
+  --primary-hover: #2A463C;
+  --primary-fg: #F2ECE0;
+  --secondary: #758572;
+  --accent: #C8A24A;
+  --highlight: #D9B764;
+
+  --text-primary: #F2ECE0;
+  --text-secondary: #B7B9AA;
+  --text-muted: #7F897E;
+
+  --border: #283C34;
+  --border-subtle: #1D2E27;
+
+  --sidebar-bg: #0A120F;
+  --sidebar-surface: #13201B;
+  --sidebar-border: #22352E;
+  --sidebar-text: #F2ECE0;
+  --sidebar-muted: #9EA899;
+  --sidebar-active-bg: #1B2C25;
+  --sidebar-accent: #C8A24A;
+
+  --reader-teal: #7FA596;
+  --reader-amber: #C8A24A;
+  --reader-indigo: #94A8B8;
+  --reader-rose: #C48A8E;
+  --reader-emerald: #8FA38B;
+
+  --accent-fg: #0D1714;
+  --danger: #C48A8E;
+  --warning: #C8A24A;
+  --info: #94A8B8;
+  --success: #8FA38B;
+  --scanner-bg: #0A120F;
+  --scanner-surface: #15231E;
+  --scanner-surface-hover: #1E312B;
+  --scanner-surface-active: #274038;
+  --scanner-border: #324C42;
+  --scanner-text: #F2ECE0;
+  --scanner-muted: #B7B9AA;
+  --scanner-accent: #C8A24A;
+  --scanner-accent-hover: #D9B764;
+  --scanner-accent-fg: #0D1714;
+  --scanner-locked: #8FA38B;
+  --scanner-locked-fg: #0D1714;
+  --scanner-scrim: rgba(10, 18, 15, 0.76);
+  --code-bg: #0A120F;
+  --code-surface: #15231E;
+  --code-surface-hover: #20372F;
+  --code-border: #324C42;
+  --code-text: #F2ECE0;
 }
 
 .dark[data-theme="midnight-ink"],
@@ -1375,9 +1617,14 @@
   --color-code-surface-hover: var(--code-surface-hover);
   --color-code-edge: var(--code-border);
   --color-code-ink: var(--code-text);
+  --color-progress-track: var(--progress-track);
+  --color-progress-fill: var(--progress-fill);
 
   /* Card Radii & Elevation Shadows */
   --radius-card: var(--card-radius);
+  --radius-cover: var(--cover-radius);
+  --radius-control: var(--control-radius);
+  --radius-badge: var(--badge-radius);
   --shadow-card: var(--elevation-card);
   --shadow-nav-top: var(--elevation-nav-top);
   --shadow-nav-bottom: var(--elevation-nav-bottom);
@@ -1528,17 +1775,17 @@
   }
 
   :is(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--focus-ring, var(--primary));
     outline-offset: 2px;
   }
 
   .dark :is(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--highlight);
+    outline: 2px solid var(--focus-ring, var(--highlight));
     outline-offset: 2px;
   }
 
   .font-mono-tabular {
-    font-family: var(--font-mono);
+    font-family: var(--font-mono-theme);
     font-variant-numeric: tabular-nums;
   }
 }
@@ -1805,6 +2052,21 @@
 /* Native App Card Volume & Elevation (subtle top bevel + soft grounded drop shadow) */
 .lr-card {
   box-shadow: var(--elevation-card);
+}
+
+/* Centralized Progress Bar & Cover Overlay Scrim Utilities */
+.lr-progress-track {
+  background-color: var(--progress-track);
+}
+.lr-progress-fill {
+  background-color: var(--progress-fill);
+}
+.lr-cover-overlay-scrim {
+  background: var(--cover-overlay-scrim);
+  color: var(--cover-overlay-fg);
+}
+.lr-cover-overlay-muted {
+  color: var(--cover-overlay-muted);
 }
 
 /* Theme-driven Reader Profile Pills (solid in light themes, tinted slate in dark themes) */

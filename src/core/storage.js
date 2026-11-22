@@ -16,6 +16,9 @@ import {
   DEFAULT_PRESET_ILLUSTRATION_PROMPT,
   NUMERIC_BOUNDS,
   detectDeviceLanguage,
+  normalizeBookCardFields,
+  normalizeBookCardInfoPlacement,
+  normalizeBookCardSectionOverrides,
   normalizeLanguage,
   normalizeSidebarDividerStyle,
   normalizeThemePresetId,
@@ -438,6 +441,12 @@ export function createSafeDefaultSettings(overrides = {}) {
         overrides.bookCardSize === 'regular' || overrides.bookCardSize === 'large'
           ? overrides.bookCardSize
           : 'compact',
+      bookCardInfoPlacement: normalizeBookCardInfoPlacement(overrides.bookCardInfoPlacement),
+      showBookCoverOverlays: overrides.showBookCoverOverlays !== false,
+      bookCardFields: normalizeBookCardFields(overrides.bookCardFields),
+      bookCardSectionOverrides: normalizeBookCardSectionOverrides(
+        overrides.bookCardSectionOverrides
+      ),
       sidebarArtworkMode:
         overrides.sidebarArtworkMode === 'engraving' ||
         overrides.sidebarArtworkMode === 'illustration' ||
