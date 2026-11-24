@@ -13,6 +13,7 @@ import {
 } from '../../types/models.js';
 import type { RotationShelf, Book, BookFormat } from '../../types/models.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+import { RefreshRotationFromLibraryModal } from './RefreshRotationFromLibraryModal.js';
 
 interface RotationShelfEditorModalProps {
   rotation: RotationShelf | null;
@@ -53,9 +54,12 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
   const [editVarietyMix, setEditVarietyMix] = useState(true);
   const [editStatus, setEditStatus] = useState<'active' | 'saved'>('active');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isRefreshingRules, setIsRefreshingRules] = useState(false);
+  const [isRefreshModalOpen, setIsRefreshModalOpen] = useState(false);
 
   useEffect(() => {
     setConfirmDelete(false);
+    setIsRefreshModalOpen(false);
     if (rotation) {
       setEditTitle(rotation.title);
       setEditObjective(rotation.rules?.objective || '');
@@ -74,22 +78,6 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
 
   useBodyScrollLock(isOpen && Boolean(rotation));
 
-  if (!isOpen || !rotation) return null;
-
-  const coverAspect = state.settings?.coverAspectRatio || 'square';
-  const showRotationHistory = state.settings?.enableRotationHistoryInsights !== false;
-  const showStaleSpotlight = state.settings?.enableStaleBookSpotlight !== false;
-  const staleBookDays = state.settings?.staleBookDays ?? 10;
-  const isActive = rotation.status === 'active';
-
-  const bookMap = new Map(state.books.map((b: Book) => [b.id, b]));
-  const shelfBooks = rotation.bookIds
-    .map((id: string) => bookMap.get(id))
-    .filter((b): b is Book => Boolean(b));
-  const hasOffShelfBooks = state.books.length > shelfBooks.length;
-  const canRemove = shelfBooks.length > 1;
-  const [isRefreshingRules, setIsRefreshingRules] = useState(false);
-
   const draftRulesPatch = useMemo(() => {
     const cleanTags = editTags
       .split(',')
@@ -97,7 +85,7 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       .filter(Boolean);
     return {
       objective: editObjective.trim(),
-      count: Math.max(1, Number(editCount) || rotation.bookIds.length || 4),
+      count: Math.max(1, Number(editCount) || rotation?.bookIds.length || 4),
       cooldownDays: Math.max(0, Number(editCooldownDays) || 0),
       swapDays: Math.max(1, Number(editSwapDays) || 14),
       requiredFormat: editFormat,
@@ -114,10 +102,13 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
     editFormat,
     editVarietyMix,
     editSeed,
-    rotation.bookIds.length,
+    rotation?.bookIds.length,
   ]);
 
   const ruleMatchesResult = useMemo(() => {
+    if (!isOpen || !rotation) {
+      return { matchingBooks: [], allEligibleBooks: [], hasExplicitRuleFilters: false };
+    }
     const profile =
       state.profiles.find((p) => p.id === rotation.profileId) || activeProfile || state.profiles[0];
     if (!profile) {
@@ -130,18 +121,29 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       rotations: state.rotations,
       rulesOverride: draftRulesPatch,
     });
-  }, [state.books, state.profiles, state.rotations, rotation, activeProfile, draftRulesPatch]);
+  }, [isOpen, state.books, state.profiles, state.rotations, rotation, activeProfile, draftRulesPatch]);
 
-  const handleRefreshFromRules = async (mode: 'add-matches' | 'redraw-unread') => {
+  if (!isOpen || !rotation) return null;
+
+  const coverAspect = state.settings?.coverAspectRatio || 'square';
+  const showRotationHistory = state.settings?.enableRotationHistoryInsights !== false;
+  const showStaleSpotlight = state.settings?.enableStaleBookSpotlight !== false;
+  const staleBookDays = state.settings?.staleBookDays ?? 10;
+  const isActive = rotation.status === 'active';
+
+  const bookMap = new Map(state.books.map((b: Book) => [b.id, b]));
+  const shelfBooks = rotation.bookIds
+    .map((id: string) => bookMap.get(id))
+    .filter((b): b is Book => Boolean(b));
+  const hasOffShelfBooks = state.books.length > shelfBooks.length;
+  const canRemove = shelfBooks.length > 1;
+
+  const handleRefreshFromRules = async (mode: 'redraw-unread') => {
     setIsRefreshingRules(true);
     try {
       await store.refreshRotationFromRules(rotation.id, {
         mode,
         rulesPatch: draftRulesPatch,
-        limit:
-          mode === 'add-matches'
-            ? Math.min(6, Math.max(1, ruleMatchesResult.matchingBooks.length))
-            : undefined,
       });
     } catch (err) {
       store.notify(err instanceof Error ? err.message : String(err), 'error');
@@ -452,20 +454,20 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                  {ruleMatchesResult.matchingBooks.length > 0 && (
-                    <button
-                      type="button"
-                      data-action="add-rule-matches"
-                      disabled={isRefreshingRules}
-                      onClick={() => handleRefreshFromRules('add-matches')}
-                      className="min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-                    >
-                      <Icon name="plus" className="w-3.5 h-3.5" />
-                      <span>
-                        Add Matches ({Math.min(6, ruleMatchesResult.matchingBooks.length)})
-                      </span>
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    data-action="open-refresh-library-matches"
+                    disabled={isRefreshingRules}
+                    onClick={() => setIsRefreshModalOpen(true)}
+                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    <Icon name="search" className="w-3.5 h-3.5" />
+                    <span>
+                      {ruleMatchesResult.matchingBooks.length > 0
+                        ? `Review Matches (${ruleMatchesResult.matchingBooks.length})`
+                        : 'Find in Library'}
+                    </span>
+                  </button>
                   <button
                     type="button"
                     data-action="redraw-unread-from-rules"
@@ -748,6 +750,13 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
           </section>
         </div>
       </div>
+
+      <RefreshRotationFromLibraryModal
+        rotation={rotation}
+        isOpen={isRefreshModalOpen}
+        rulesOverride={draftRulesPatch}
+        onClose={() => setIsRefreshModalOpen(false)}
+      />
     </div>
   );
 };

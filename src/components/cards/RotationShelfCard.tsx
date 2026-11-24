@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import {
   BookCoverCard,
@@ -8,7 +8,9 @@ import {
 import { Icon } from '../common/Icon.js';
 import { RotationShelfEditorModal } from '../modals/RotationShelfEditorModal.js';
 import { ShelfPlacementModal } from '../modals/ShelfPlacementModal.js';
+import { RefreshRotationFromLibraryModal } from '../modals/RefreshRotationFromLibraryModal.js';
 import { computeRotationSchedule } from '../../features/rotations/rotation-schedule.js';
+import { findMatchingNewBooksForRotation } from '../../features/rotations/rotation-engine.js';
 import { resolveBookCardDisplayConfig } from '../../config/index.js';
 import type { RotationShelf, Book } from '../../types/models.js';
 
@@ -51,9 +53,14 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   const { state, store, activeProfile, setInspectedBookId } = useApp();
   const [localEditorOpen, setLocalEditorOpen] = useState(false);
   const [isPlacementOpen, setIsPlacementOpen] = useState(false);
+  const [isRefreshLibraryOpen, setIsRefreshLibraryOpen] = useState(false);
+  const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
+  const [confirmDeleteInMenu, setConfirmDeleteInMenu] = useState(false);
+  const actionsMenuRef = useRef<HTMLDivElement>(null);
 
   const isEditorOpen = isEditorOpenProp !== undefined ? isEditorOpenProp : localEditorOpen;
   const openEditor = () => {
+    setIsActionsMenuOpen(false);
     if (onOpenEditor) {
       onOpenEditor();
     } else {
@@ -67,6 +74,43 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
       setLocalEditorOpen(false);
     }
   };
+
+  useEffect(() => {
+    if (!isActionsMenuOpen) {
+      setConfirmDeleteInMenu(false);
+      return;
+    }
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setIsActionsMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsActionsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('touchstart', onPointerDown);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('touchstart', onPointerDown);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isActionsMenuOpen]);
+
+  const matchingLibraryCount = useMemo(() => {
+    const profile =
+      state.profiles.find((p) => p.id === rotation.profileId) || activeProfile || state.profiles[0];
+    if (!profile) return 0;
+    return findMatchingNewBooksForRotation({
+      books,
+      profile,
+      rotation,
+      rotations: state.rotations,
+    }).matchingBooks.length;
+  }, [books, state.profiles, state.rotations, rotation, activeProfile]);
 
   const rotCardConfig = resolveBookCardDisplayConfig(state.settings, 'rotations');
   const viewMode = state.settings?.bookViewMode || 'grid';
@@ -155,8 +199,8 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
             </p>
           </div>
 
-          {/* Right Actions */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {/* Right Actions: View Toggle + Primary Action + Unified Actions Menu */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
             <div
               role="group"
               aria-label="Shelf books layout"
@@ -168,7 +212,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                 aria-label="Grid view"
                 title="Grid view"
                 onClick={() => store.updateSettings({ bookViewMode: 'grid' })}
-                className={`min-h-[34px] min-w-[34px] px-1.5 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                className={`min-h-[36px] min-w-[36px] px-1.5 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
                   viewMode === 'grid'
                     ? 'bg-primary text-primary-fg shadow-2xs'
                     : 'text-ink-secondary hover:text-ink'
@@ -182,7 +226,7 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                 aria-label="List view"
                 title="List view"
                 onClick={() => store.updateSettings({ bookViewMode: 'list' })}
-                className={`min-h-[34px] min-w-[34px] px-1.5 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
+                className={`min-h-[36px] min-w-[36px] px-1.5 rounded-md inline-flex items-center justify-center transition-colors cursor-pointer ${
                   viewMode === 'list'
                     ? 'bg-primary text-primary-fg shadow-2xs'
                     : 'text-ink-secondary hover:text-ink'
@@ -192,39 +236,184 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
               </button>
             </div>
 
-            {onActivate && (
-              <button
-                type="button"
-                onClick={onActivate}
-                className={`min-h-[40px] px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink-secondary hover:text-ink'
-                    : 'bg-primary hover:bg-primary-hover text-primary-fg shadow-2xs'
-                }`}
-              >
-                {isActive ? 'Move to Saved' : 'Activate'}
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {!isActive && onActivate ? (
+                <button
+                  type="button"
+                  onClick={onActivate}
+                  className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold shadow-2xs transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  Activate
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsPlacementOpen(true)}
+                  aria-label={`Stock shelf checklist for ${rotation.title}`}
+                  className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  <Icon name="checklist" className="w-3.5 h-3.5" />
+                  <span>Stock</span>
+                </button>
+              )}
 
-            <button
-              type="button"
-              onClick={() => setIsPlacementOpen(true)}
-              aria-label={`Stock shelf checklist for ${rotation.title}`}
-              className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-            >
-              <Icon name="checklist" className="w-3.5 h-3.5" />
-              <span>Stock</span>
-            </button>
+              {/* Unified Actions Dropdown */}
+              <div ref={actionsMenuRef} className="relative">
+                <button
+                  type="button"
+                  data-rotation-actions-trigger="true"
+                  aria-haspopup="menu"
+                  aria-expanded={isActionsMenuOpen}
+                  aria-label={`Shelf actions for ${rotation.title}`}
+                  onClick={() => setIsActionsMenuOpen((prev) => !prev)}
+                  className={`min-h-[40px] px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+                    isActionsMenuOpen
+                      ? 'bg-surface-elevated border-primary text-ink'
+                      : 'bg-surface-subtle hover:bg-surface-elevated border-edge text-ink'
+                  }`}
+                >
+                  <Icon name="moreVertical" className="w-3.5 h-3.5" />
+                  <span>Actions</span>
+                  {matchingLibraryCount > 0 && (
+                    <span
+                      aria-label={`${matchingLibraryCount} new library matches`}
+                      className="w-2 h-2 rounded-full bg-primary shrink-0"
+                    />
+                  )}
+                </button>
 
-            <button
-              type="button"
-              onClick={openEditor}
-              aria-label={`Edit ${rotation.title}`}
-              className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
-            >
-              <Icon name="edit" className="w-3.5 h-3.5" />
-              <span>Edit</span>
-            </button>
+                {isActionsMenuOpen && (
+                  <div
+                    role="menu"
+                    aria-label={`Actions for ${rotation.title}`}
+                    className="absolute right-0 mt-1.5 w-64 rounded-xl bg-surface border border-edge shadow-xl z-40 py-1.5 overflow-hidden"
+                  >
+                    {onActivate && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setIsActionsMenuOpen(false);
+                          onActivate();
+                        }}
+                        className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+                      >
+                        <Icon name="rotations" className="w-4 h-4 text-primary shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p>{isActive ? 'Move to Saved' : 'Activate Shelf'}</p>
+                          <p className="text-[11px] font-normal text-ink-secondary">
+                            {isActive
+                              ? 'Pause and store under Saved Rotations'
+                              : 'Place this shelf on your active display'}
+                          </p>
+                        </div>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsActionsMenuOpen(false);
+                        setIsPlacementOpen(true);
+                      }}
+                      className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+                    >
+                      <Icon name="checklist" className="w-4 h-4 text-ink-secondary shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p>Stock Shelf Checklist</p>
+                        <p className="text-[11px] font-normal text-ink-secondary">
+                          Tick off books as you place them on the shelf
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      data-action="menu-refresh-from-library"
+                      onClick={() => {
+                        setIsActionsMenuOpen(false);
+                        setIsRefreshLibraryOpen(true);
+                      }}
+                      className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+                    >
+                      <Icon name="refresh" className="w-4 h-4 text-primary shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p>Refresh from Library</p>
+                          {matchingLibraryCount > 0 && (
+                            <span className="text-[10px] font-mono-tabular font-semibold px-1.5 py-0.5 rounded bg-primary/12 text-primary shrink-0">
+                              {matchingLibraryCount} new
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] font-normal text-ink-secondary">
+                          Preview &amp; add new matching books from library
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={openEditor}
+                      className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+                    >
+                      <Icon name="edit" className="w-4 h-4 text-ink-secondary shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p>Edit Rules &amp; Books</p>
+                        <p className="text-[11px] font-normal text-ink-secondary">
+                          Rename, change rules, swap or remove books
+                        </p>
+                      </div>
+                    </button>
+
+                    {onDelete && (
+                      <>
+                        <div className="my-1 border-t border-edge-subtle" />
+                        {!confirmDeleteInMenu ? (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => setConfirmDeleteInMenu(true)}
+                            className="w-full min-h-[40px] px-3.5 py-2 text-left hover:bg-danger/10 flex items-center gap-2.5 text-xs font-semibold text-danger transition-colors cursor-pointer"
+                          >
+                            <Icon name="trash" className="w-4 h-4 shrink-0" />
+                            <span>Delete Shelf</span>
+                          </button>
+                        ) : (
+                          <div className="px-3.5 py-2 bg-danger/8 flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold text-danger">
+                              Delete shelf?
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIsActionsMenuOpen(false);
+                                  onDelete();
+                                }}
+                                className="px-2.5 py-1 rounded-md bg-danger-solid text-danger-solid-fg text-[11px] font-semibold cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteInMenu(false)}
+                                className="px-2 py-1 rounded-md bg-surface border border-edge text-[11px] font-semibold text-ink cursor-pointer"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -343,6 +532,13 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
         rotation={rotation}
         isOpen={isPlacementOpen}
         onClose={() => setIsPlacementOpen(false)}
+      />
+
+      {/* Preview & Add Newly Matching Library Books Modal */}
+      <RefreshRotationFromLibraryModal
+        rotation={rotation}
+        isOpen={isRefreshLibraryOpen}
+        onClose={() => setIsRefreshLibraryOpen(false)}
       />
     </>
   );

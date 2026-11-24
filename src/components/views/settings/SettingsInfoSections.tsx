@@ -250,11 +250,23 @@ const ICON_LEGEND_GROUPS: LegendGroup[] = [
         ),
       },
       {
-        id: 'refresh',
-        label: 'Sync / Re-draw from Rules',
+        id: 'moreVertical',
+        label: 'Shelf Actions Menu',
         description:
-          'Refreshes unread shelf slots using the rotation’s tags, binding, and newly added library books.',
-        where: 'Edit Shelf',
+          'Groups shelf tools (Activate / Move to Saved, Stock Checklist, Refresh from Library, Edit, and Delete) cleanly without crowding the bar.',
+        where: 'Rotations',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="moreVertical" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'refresh',
+        label: 'Refresh from Library',
+        description:
+          'Finds newly added library books matching a rotation’s rules so you can preview and add them or re-draw unread slots.',
+        where: 'Actions Menu · Edit Shelf',
         renderPreview: () => (
           <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
             <Icon name="refresh" className="w-4 h-4" />
