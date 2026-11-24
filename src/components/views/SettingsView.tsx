@@ -1030,13 +1030,38 @@ export const SettingsView: React.FC = () => {
             usage: 'Rotation Status',
           };
           const placementOptions: Array<{
-            id: BookCardInfoPlacement;
+            id: string;
+            placement: BookCardInfoPlacement;
+            frame?: BookCardFrame;
             label: string;
             hint: string;
           }> = [
-            { id: 'below', label: 'Below Cover', hint: 'Title & details under cover' },
-            { id: 'overlay', label: 'Overlay', hint: 'Subtle bottom scrim over cover' },
-            { id: 'cover-only', label: 'Cover Only', hint: 'Pure covers with zero text' },
+            {
+              id: 'below-framed',
+              placement: 'below',
+              frame: 'framed',
+              label: 'Below Cover',
+              hint: 'Card frame with details below',
+            },
+            {
+              id: 'below-borderless',
+              placement: 'below',
+              frame: 'borderless',
+              label: 'Below (No Card)',
+              hint: 'Details below cover, no card margin',
+            },
+            {
+              id: 'overlay',
+              placement: 'overlay',
+              label: 'Overlay',
+              hint: 'Subtle bottom scrim over cover',
+            },
+            {
+              id: 'cover-only',
+              placement: 'cover-only',
+              label: 'Cover Only',
+              hint: 'Pure covers with zero text',
+            },
           ];
           const scopeTabs: Array<{ id: 'global' | BookCardSectionKey; label: string }> = [
             { id: 'global', label: 'All Views (Default)' },
@@ -1615,20 +1640,29 @@ export const SettingsView: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Info Placement: Below / Overlay / Cover Only */}
+                      {/* Info Placement: Below / Below (No Card) / Overlay / Cover Only */}
                       <div>
                         <p className="text-xs font-semibold text-ink">
                           Info Placement
                         </p>
-                        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {placementOptions.map((opt) => {
-                            const active = scopedConfig.infoPlacement === opt.id;
+                            const active =
+                              opt.placement === 'below'
+                                ? scopedConfig.infoPlacement === 'below' &&
+                                  scopedConfig.cardFrame === opt.frame
+                                : scopedConfig.infoPlacement === opt.placement;
                             return (
                               <button
                                 key={opt.id}
                                 type="button"
+                                data-info-placement-option={opt.id}
                                 onClick={() =>
-                                  void updateScopedBookCardConfig({ infoPlacement: opt.id })
+                                  void updateScopedBookCardConfig(
+                                    opt.frame !== undefined
+                                      ? { infoPlacement: opt.placement, cardFrame: opt.frame }
+                                      : { infoPlacement: opt.placement }
+                                  )
                                 }
                                 aria-pressed={active}
                                 className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
@@ -1637,7 +1671,7 @@ export const SettingsView: React.FC = () => {
                                     : 'bg-surface/65 border-edge hover:border-primary/45'
                                 }`}
                               >
-                                <p className="text-xs font-semibold text-ink">{opt.label}</p>
+                                <p className="text-xs font-semibold text-ink leading-tight">{opt.label}</p>
                                 <p className="text-[11px] text-ink-secondary mt-0.5 leading-snug">
                                   {opt.hint}
                                 </p>

@@ -16,6 +16,8 @@ interface RotationShelfCardProps {
   rotation: RotationShelf;
   books: Book[];
   isActive?: boolean;
+  variant?: 'card' | 'sheet';
+  hideHeaderTitle?: boolean;
   isEditorOpen?: boolean;
   onOpenEditor?: () => void;
   onCloseEditor?: () => void;
@@ -33,6 +35,8 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   rotation,
   books,
   isActive = false,
+  variant = 'card',
+  hideHeaderTitle = false,
   isEditorOpen: isEditorOpenProp,
   onOpenEditor,
   onCloseEditor,
@@ -84,38 +88,49 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   return (
     <>
       <section
-        className={`rounded-xl bg-surface border p-4 sm:p-5 lr-card space-y-3.5 transition-shadow ${
-          isActive
-            ? 'border-primary/50 ring-1 ring-primary/15'
-            : 'border-edge hover:border-secondary'
-        }`}
+        className={
+          variant === 'sheet'
+            ? 'space-y-3.5'
+            : `rounded-xl bg-surface border p-4 sm:p-5 lr-card space-y-3.5 transition-shadow ${
+                isActive
+                  ? 'border-primary/50 ring-1 ring-primary/15'
+                  : 'border-edge hover:border-secondary'
+              }`
+        }
       >
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-secondary">
-              {isActive ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-elevated border border-primary/40 font-semibold text-primary">
-                  <Icon name="check" className="w-3 h-3 shrink-0" />
-                  <span>Active Shelf</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center px-2 py-0.5 rounded bg-surface-subtle border border-edge font-semibold text-ink-secondary">
-                  Saved
-                </span>
-              )}
-              <span className="font-mono-tabular font-medium">
-                {readCount}/{totalCount} read ({progressPct}%)
-              </span>
-              <span aria-hidden="true">·</span>
-              <span className="font-mono-tabular">
-                {totalCount} {totalCount === 1 ? 'book' : 'books'}
-              </span>
-            </div>
+            {!hideHeaderTitle && (
+              <>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-ink-secondary">
+                  {isActive ? (
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-surface-elevated border border-primary/40 font-semibold text-primary">
+                      <span
+                        aria-hidden="true"
+                        className="w-2 h-2 rounded-full bg-success lr-active-dot-pulse shrink-0"
+                      />
+                      <span>Active Shelf</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded bg-surface-subtle border border-edge font-semibold text-ink-secondary">
+                      Saved
+                    </span>
+                  )}
+                  <span className="font-mono-tabular font-medium">
+                    {readCount}/{totalCount} read ({progressPct}%)
+                  </span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-mono-tabular">
+                    {totalCount} {totalCount === 1 ? 'book' : 'books'}
+                  </span>
+                </div>
 
-            <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-tight truncate mt-1">
-              {rotation.title}
-            </h2>
+                <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-tight truncate mt-1">
+                  {rotation.title}
+                </h2>
+              </>
+            )}
 
             {rotation.rules?.objective && (
               <p className="font-sans text-xs text-ink-secondary mt-0.5 line-clamp-2 leading-snug">

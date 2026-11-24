@@ -11,6 +11,7 @@ import { PresetsView } from './PresetsView.js';
 import { BookCover } from '../common/BookCover.js';
 import { Icon } from '../common/Icon.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { computeRotationSchedule } from '../../features/rotations/rotation-schedule.js';
 import {
   computePresetStartSchedule,
@@ -109,8 +110,13 @@ export const RotationsView: React.FC = () => {
 
   const editParamId = routeParams.get('edit');
   const [editingShelfId, setEditingShelfId] = useState<string | null>(() => editParamId);
+  const [sheetRotationId, setSheetRotationId] = useState<string | null>(() =>
+    editParamId && typeof window !== 'undefined' && window.innerWidth < 768 ? editParamId : null
+  );
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() =>
-    editParamId ? new Set([editParamId]) : new Set()
+    editParamId && !(typeof window !== 'undefined' && window.innerWidth < 768)
+      ? new Set([editParamId])
+      : new Set()
   );
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [wizardInitialQuickRule, setWizardInitialQuickRule] = useState<QuickRuleId | null>(null);
@@ -119,13 +125,54 @@ export const RotationsView: React.FC = () => {
   useEffect(() => {
     setEditingShelfId(editParamId || null);
     if (editParamId) {
-      setExpandedIds((prev) => {
-        const next = new Set(prev);
-        next.add(editParamId);
-        return next;
-      });
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        setSheetRotationId(editParamId);
+      } else {
+        setExpandedIds((prev) => {
+          const next = new Set(prev);
+          next.add(editParamId);
+          return next;
+        });
+      }
     }
   }, [editParamId]);
+
+  const sheetRotation = useMemo(() => {
+    if (!sheetRotationId) return null;
+    return (
+      state.rotations.find(
+        (r) => r.id === sheetRotationId && r.profileId === activeProfile?.id
+      ) || null
+    );
+  }, [sheetRotationId, state.rotations, activeProfile?.id]);
+
+  useBodyScrollLock(Boolean(sheetRotation));
+
+  useEffect(() => {
+    if (!sheetRotationId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !editingShelfId && !rotationEditor.modalMode) {
+        setSheetRotationId(null);
+      }
+    };
+    const onResize = () => {
+      if (window.innerWidth >= 768) {
+        const id = sheetRotationId;
+        setSheetRotationId(null);
+        setExpandedIds((prev) => {
+          const next = new Set(prev);
+          next.add(id);
+          return next;
+        });
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [sheetRotationId, editingShelfId, rotationEditor.modalMode]);
 
   const activeRotations = state.rotations.filter(
     (r) => r.profileId === activeProfile?.id && r.status === 'active'
@@ -142,6 +189,10 @@ export const RotationsView: React.FC = () => {
   const coverAspect = state.settings?.coverAspectRatio || 'square';
 
   const toggleExpanded = (rotId: string) => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSheetRotationId((prev) => (prev === rotId ? null : rotId));
+      return;
+    }
     setExpandedIds((prev) => {
       const next = new Set(prev);
       if (next.has(rotId)) next.delete(rotId);
@@ -241,7 +292,10 @@ export const RotationsView: React.FC = () => {
     ).length;
     const progressPct = totalCount > 0 ? Math.round((readCount / totalCount) * 100) : 0;
     const schedule = computeRotationSchedule(rot, activeProfile || state.profiles[0]);
-    const isExpanded = expandedIds.has(rot.id) || editingShelfId === rot.id;
+    const isDesktopViewport = typeof window === 'undefined' || window.innerWidth >= 768;
+    const isExpanded =
+      sheetRotationId !== rot.id &&
+      (expandedIds.has(rot.id) || (isDesktopViewport && editingShelfId === rot.id));
 
     if (isExpanded) {
       return (
@@ -303,8 +357,12 @@ export const RotationsView: React.FC = () => {
           <RotationFannedCovers books={shelfBooks} aspectRatio={coverAspect} />
 
           <div className="min-w-0 flex-1 space-y-1.5">
-            <p className="font-display text-base sm:text-lg font-semibold text-ink truncate leading-tight">
-              {rot.title}
+            <p className="font-display text-base sm:text-lg font-semibold text-ink leading-tight flex items-center gap-2 min-w-0">
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full bg-success ring-[3px] ring-success/20 lr-active-dot-pulse shrink-0"
+              />
+              <span className="truncate">{rot.title}</span>
             </p>
 
             <p className="text-xs text-ink-secondary truncate leading-tight">
@@ -395,15 +453,9 @@ export const RotationsView: React.FC = () => {
         <div className="flex items-center justify-between gap-2">
           <h2
             id="active-rotations-heading"
-            className="font-display text-xl font-semibold text-ink inline-flex items-center gap-2.5"
+            className="font-display text-xl font-semibold text-ink"
           >
-            {activeRotations.length > 0 && (
-              <span
-                aria-hidden="true"
-                className="w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15 lr-active-dot-pulse shrink-0"
-              />
-            )}
-            <span>{activeRotations.length === 1 ? 'Active Rotation' : 'Active Rotations'}</span>
+            {activeRotations.length === 1 ? 'Active Rotation' : 'Active Rotations'}
           </h2>
           {activeRotations.length > 0 && (
             <span className="text-xs font-mono-tabular text-ink-secondary">
@@ -514,6 +566,97 @@ export const RotationsView: React.FC = () => {
       >
         <Icon name="plus" className="w-6 h-6" strokeWidth={2.2} />
       </button>
+
+      {/* Mobile Phone Slide-Up Sheet for Opening a Rotation */}
+      {sheetRotation && (() => {
+        const isSheetActive = sheetRotation.status === 'active';
+        const validIds = new Set(state.books.map((b) => b.id));
+        const totalCount = sheetRotation.bookIds.filter((id) => validIds.has(id)).length;
+        const readCount = sheetRotation.bookIds.filter(
+          (id) => validIds.has(id) && sheetRotation.completedBookIds?.includes(id)
+        ).length;
+        const progressPct = totalCount > 0 ? Math.round((readCount / totalCount) * 100) : 0;
+
+        return (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rotation-sheet-title"
+            data-rotation-sheet="true"
+            onClick={() => setSheetRotationId(null)}
+            className="sheet-backdrop fixed inset-0 z-[45] bg-scrim backdrop-blur-xs flex items-end justify-center p-0 md:hidden"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="animate-sheet-up w-full max-h-[90dvh] flex flex-col rounded-t-3xl bg-surface border-t border-x border-edge shadow-2xl overflow-hidden pb-safe"
+            >
+              <div
+                className="w-10 h-1.5 bg-edge rounded-full mx-auto mt-3 shrink-0"
+                aria-hidden="true"
+              />
+
+              <div className="px-4 pt-2.5 pb-3 border-b border-edge-subtle flex items-center justify-between gap-2.5 shrink-0">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isSheetActive && (
+                      <span
+                        aria-hidden="true"
+                        className="w-2 h-2 rounded-full bg-success ring-[3px] ring-success/20 lr-active-dot-pulse shrink-0"
+                      />
+                    )}
+                    <h2
+                      id="rotation-sheet-title"
+                      className="font-display text-lg font-semibold text-ink leading-tight truncate"
+                    >
+                      {sheetRotation.title}
+                    </h2>
+                  </div>
+                  <p className="text-[11px] font-mono-tabular text-ink-secondary mt-0.5">
+                    {isSheetActive ? 'Active Shelf' : 'Saved Shelf'} · {readCount}/{totalCount} read ({progressPct}%)
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setSheetRotationId(null)}
+                  aria-label="Close rotation details"
+                  className="min-h-[44px] min-w-[44px] -mr-1.5 rounded-full text-ink-secondary hover:text-ink hover:bg-surface-elevated active:scale-95 flex items-center justify-center transition-all cursor-pointer shrink-0"
+                >
+                  <Icon name="close" className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-4 py-3.5">
+                <RotationShelfCard
+                  rotation={sheetRotation}
+                  books={state.books}
+                  isActive={isSheetActive}
+                  variant="sheet"
+                  hideHeaderTitle
+                  isEditorOpen={editingShelfId === sheetRotation.id}
+                  onOpenEditor={() => setEditingShelfId(sheetRotation.id)}
+                  onCloseEditor={() => {
+                    setEditingShelfId(null);
+                    if (routeParams.get('edit')) {
+                      navigate('rotations');
+                    }
+                  }}
+                  onActivate={() => handleToggleRotationActive(sheetRotation.id)}
+                  onDelete={async () => {
+                    setSheetRotationId(null);
+                    await handleDeleteRotation(sheetRotation.id);
+                  }}
+                  onSwapBook={(bookId) => handleSwapBook(sheetRotation.id, bookId)}
+                  onReplaceBook={(bookId) => handleReplaceBook(sheetRotation.id, bookId)}
+                  onAddRandom={(count) => handleAddRandom(sheetRotation.id, count)}
+                  onOpenAddModal={() => handleOpenAddModal(sheetRotation.id)}
+                  onToggleRead={(bookId) => handleToggleRead(sheetRotation.id, bookId)}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Slide-Up Fixed-Size Create Rotation Wizard */}
       <CreateRotationWizardModal

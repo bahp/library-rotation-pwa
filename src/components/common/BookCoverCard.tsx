@@ -685,7 +685,9 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
             data-action="inspect-book"
             data-book-id={book.id}
             onClick={() => onInspect(book)}
-            className="mt-1.5 px-0.5 pb-0.5 text-left min-w-0 flex-1 flex flex-col justify-between rounded cursor-pointer"
+            className={`mt-1.5 ${
+              isBorderless ? 'px-0 pb-0' : 'px-0.5 pb-0.5'
+            } text-left min-w-0 flex-1 flex flex-col justify-between rounded cursor-pointer`}
           >
             <div className="min-w-0 w-full">
               {fieldSet.has('title') && (
@@ -705,7 +707,11 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
             </div>
 
             {(inlineSpecs.length > 0 || resolvedUsageText || customMetaLine) && (
-              <div className="mt-1 pt-1 border-t border-edge-subtle space-y-0.5 w-full min-w-0">
+              <div
+                className={`mt-1 pt-1 border-t ${
+                  isBorderless ? 'border-edge-subtle/60' : 'border-edge-subtle'
+                } space-y-0.5 w-full min-w-0`}
+              >
                 {inlineSpecs.length > 0 && (
                   <p className="text-[10px] text-ink-secondary truncate leading-tight font-mono-tabular">
                     <span className="font-sans">{inlineSpecs.join(' · ')}</span>
