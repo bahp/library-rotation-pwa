@@ -1127,7 +1127,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 />
               )}
 
-              {/* Sticky Floating Top Controls: Back (left) & Love (right) */}
+              {/* Sticky Floating Top Controls: Back (left), Drag Handle (mobile), & Love (right) */}
               <div className="sticky top-0 z-30 px-5 pt-4 pb-1 flex items-center justify-between pointer-events-none">
                 <button
                   type="button"
@@ -1138,6 +1138,11 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 >
                   <Icon name="arrowLeft" className="w-4 h-4" />
                 </button>
+
+                <div
+                  className="pointer-events-auto self-start mt-1 w-10 h-1 rounded-full bg-ink/25 mx-auto sm:hidden shrink-0"
+                  aria-hidden="true"
+                />
 
                 <button
                   type="button"
@@ -1679,27 +1684,22 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 />
               </div>
 
-              {/* Community & Catalog Compact Full-Row Card */}
+              {/* Community Rating & External Catalog Links */}
               <section
                 aria-label="Community rating and external catalog links"
                 className="lr-card rounded-2xl bg-surface-subtle/85 border border-edge/85 overflow-hidden text-xs"
               >
-                <div className="px-4 py-2.5 border-b border-edge-subtle flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
-                    Community &amp; Catalog
-                  </span>
-                  {book.averageRating ? (
-                    <span className="inline-flex items-center gap-1 font-mono-tabular font-semibold text-ink">
-                      <span className="text-accent">★</span>
-                      <span>{book.averageRating}</span>
-                      {book.ratingsCount ? (
-                        <span className="text-ink-muted font-normal">
-                          ({book.ratingsCount})
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : null}
-                </div>
+                {book.averageRating ? (
+                  <div className="px-4 py-2 border-b border-edge-subtle flex items-center justify-center gap-1.5 font-mono-tabular font-semibold text-ink">
+                    <span className="text-accent">★</span>
+                    <span>{book.averageRating}</span>
+                    {book.ratingsCount ? (
+                      <span className="text-ink-muted font-normal">
+                        ({book.ratingsCount})
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="grid grid-cols-3 divide-x divide-edge-subtle">
                   {catalogLinks.map((ext) => (

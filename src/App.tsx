@@ -17,8 +17,11 @@ import { AiCuratorModal } from './components/modals/AiCuratorModal.js';
 import { AiRecommendationsModal } from './components/modals/AiRecommendationsModal.js';
 import { OnboardingWizard } from './components/onboarding/OnboardingWizard.js';
 import { Toast } from './components/common/Toast.js';
+import { useGlobalSheetSwipeDismiss } from './hooks/useGlobalSheetSwipeDismiss.js';
 
 const AppContent: React.FC = () => {
+  useGlobalSheetSwipeDismiss();
+
   const {
     currentRoute,
     needsOnboarding,

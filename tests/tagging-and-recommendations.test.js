@@ -25,7 +25,10 @@ import {
 } from '../src/features/tagging/ai-tag-adapter.js';
 import { createTaggingService } from '../src/features/tagging/tagging-service.js';
 import {
+  getFavoriteGenreRecommendationShelf,
+  getLovedBookSimilarityShelves,
   getProfileRecommendations,
+  getRotationLibrarySuggestions,
   getTopicCoverageInsights,
 } from '../src/features/tagging/recommendations.js';
 import { createStorageAdapter } from '../src/core/storage.js';
@@ -165,6 +168,223 @@ describe('Tagging, Taxonomy & Recommendations Suite', () => {
       profile: maya,
     });
     assert.equal(gaps.topicCounts.length, maya.favoriteTopics.length);
+  });
+
+  it('home discovery builders strictly suggest owned rotatable books and build loved/genre shelves', () => {
+    /** @type {import('../src/types/models.js').ChildProfile} */
+    const profile = {
+      id: 'p_leo',
+      name: 'Leo',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['trucks', 'animals'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+      readHistoryBookIds: ['b_loved_trucks'],
+      createdAt: '2026-10-01T00:00:00.000Z',
+    };
+
+    /** @type {import('../src/types/models.js').Book[]} */
+    const books = [
+      {
+        id: 'b_on_shelf',
+        isbn13: '9780000000001',
+        title: 'Active Shelf Book',
+        authors: ['Author One'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 5,
+        readingStage: 'picture-book',
+        tags: ['trucks'],
+        spineColor: 'teal',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: false,
+        addedAt: '2026-10-01T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'b_loved_trucks',
+        isbn13: '9780000000002',
+        title: 'Goodnight Construction Site',
+        authors: ['Sherri Duskey Rinker'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['trucks', 'bedtime'],
+        spineColor: 'amber',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-10-02T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'b_owned_excavator',
+        isbn13: '9780000000003',
+        title: 'Little Excavator',
+        authors: ['Anna Dewdney'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 5,
+        readingStage: 'picture-book',
+        tags: ['trucks'],
+        spineColor: 'amber',
+        collectionStatus: 'owned',
+        condition: 'good',
+        addedAt: '2026-10-10T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'b_owned_digger',
+        isbn13: '9780000000004',
+        title: 'Mighty Digger',
+        authors: ['Sherri Duskey Rinker'],
+        format: 'board-book',
+        ageMin: 2,
+        ageMax: 5,
+        readingStage: 'picture-book',
+        tags: ['trucks', 'construction'],
+        spineColor: 'rose',
+        collectionStatus: 'owned',
+        condition: 'good',
+        addedAt: '2026-10-12T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'b_wishlist_truck',
+        isbn13: '9780000000005',
+        title: 'Wishlist Dump Truck',
+        authors: ['Sherri Duskey Rinker'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 5,
+        readingStage: 'picture-book',
+        tags: ['trucks', 'bedtime'],
+        spineColor: 'teal',
+        collectionStatus: 'wishlist',
+        condition: 'good',
+        addedAt: '2026-10-13T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'b_library_loan_truck',
+        isbn13: '9780000000006',
+        title: 'Public Library Truck Book',
+        authors: ['Someone'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 5,
+        readingStage: 'picture-book',
+        tags: ['trucks', 'bedtime'],
+        spineColor: 'indigo',
+        collectionStatus: 'library',
+        condition: 'good',
+        addedAt: '2026-10-14T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'b_loved_animals',
+        isbn13: '9780000000007',
+        title: 'Little Blue Owl',
+        authors: ['Jane Yolen'],
+        format: 'hardcover',
+        ageMin: 3,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['animals', 'forest'],
+        spineColor: 'sage',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-10-03T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'b_owned_fox',
+        isbn13: '9780000000008',
+        title: 'Fox in the Woods',
+        authors: ['Jane Yolen'],
+        format: 'hardcover',
+        ageMin: 3,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['animals', 'forest'],
+        spineColor: 'sage',
+        collectionStatus: 'owned',
+        condition: 'good',
+        addedAt: '2026-10-15T00:00:00.000Z',
+        sources: [],
+      },
+    ];
+
+    /** @type {import('../src/types/models.js').RotationList[]} */
+    const rotations = [
+      {
+        id: 'rot_active',
+        profileId: 'p_leo',
+        title: 'Bedtime & Trucks Shelf',
+        status: 'active',
+        bookIds: ['b_on_shelf'],
+        completedBookIds: [],
+        pickedBookIds: [],
+        rules: {
+          objective: 'truck stories',
+          count: 4,
+          preferredTags: ['trucks'],
+          cooldownDays: 14,
+          varietyMix: true,
+        },
+        createdAt: '2026-10-20T00:00:00.000Z',
+        updatedAt: '2026-10-20T00:00:00.000Z',
+      },
+    ];
+
+    const rotRecs = getRotationLibrarySuggestions({
+      books,
+      profile,
+      rotation: rotations[0],
+      rotations,
+      limit: 6,
+    });
+    const rotIds = rotRecs.map((r) => r.book.id);
+    assert.ok(rotIds.includes('b_owned_digger'));
+    assert.ok(rotIds.includes('b_owned_excavator'));
+    assert.equal(rotIds.includes('b_on_shelf'), false);
+    assert.equal(rotIds.includes('b_wishlist_truck'), false);
+    assert.equal(rotIds.includes('b_library_loan_truck'), false);
+
+    const overallRecs = getProfileRecommendations({ books, profile, rotations, limit: 10 });
+    const overallIds = overallRecs.map((r) => r.book.id);
+    assert.equal(overallIds.includes('b_wishlist_truck'), false);
+    assert.equal(overallIds.includes('b_library_loan_truck'), false);
+
+    const lovedShelves = getLovedBookSimilarityShelves({
+      books,
+      profile,
+      rotations,
+      maxAnchors: 2,
+      minItems: 1,
+    });
+    assert.equal(lovedShelves.length, 2);
+    const truckAnchor = lovedShelves.find((s) => s.anchorBook.id === 'b_loved_trucks');
+    assert.ok(truckAnchor);
+    assert.ok(truckAnchor.items.some((i) => i.book.id === 'b_owned_digger'));
+    assert.equal(truckAnchor.items.some((i) => i.book.id === 'b_wishlist_truck'), false);
+
+    const genreShelf = getFavoriteGenreRecommendationShelf({
+      books,
+      profile,
+      rotations,
+      minItems: 2,
+    });
+    assert.ok(genreShelf);
+    assert.equal(genreShelf.topic, 'trucks');
+    assert.equal(genreShelf.label, 'Trucks');
+    assert.ok(genreShelf.items.length >= 2);
+    assert.equal(genreShelf.items.some((i) => i.book.id === 'b_library_loan_truck'), false);
   });
 
   it('applyLlmTagsToBook preserves existing manual and rules tags', async () => {

@@ -1989,6 +1989,30 @@
   animation: lr-sheet-up 280ms cubic-bezier(0.05, 0.7, 0.1, 1.0) both;
 }
 
+.animate-sheet-up[data-sheet-settled='true'] {
+  animation: none;
+}
+
+/* Enlarge touch & pointer hit target on bottom-sheet drag handle pills */
+.animate-sheet-up div.w-10.h-1.rounded-full.mx-auto,
+.animate-sheet-up div.w-10.h-1\.5.rounded-full.mx-auto {
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+}
+
+.animate-sheet-up div.w-10.h-1.rounded-full.mx-auto:active,
+.animate-sheet-up div.w-10.h-1\.5.rounded-full.mx-auto:active {
+  cursor: grabbing;
+}
+
+.animate-sheet-up div.w-10.h-1.rounded-full.mx-auto::before,
+.animate-sheet-up div.w-10.h-1\.5.rounded-full.mx-auto::before {
+  content: '';
+  position: absolute;
+  inset: -14px -52px;
+}
+
 @keyframes lr-search-sheet-up {
   from {
     opacity: 0;
