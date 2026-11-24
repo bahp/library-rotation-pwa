@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { Icon } from '../common/Icon.js';
 import { computeBookUsageSummary } from '../../features/rotations/usage-insights.js';
+import { findMatchingNewBooksForRotation } from '../../features/rotations/rotation-engine.js';
 import { AVATAR_TONES } from '../../config/index.js';
 import {
   computeOwnerInitials,
@@ -87,6 +88,67 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
     .filter((b): b is Book => Boolean(b));
   const hasOffShelfBooks = state.books.length > shelfBooks.length;
   const canRemove = shelfBooks.length > 1;
+  const [isRefreshingRules, setIsRefreshingRules] = useState(false);
+
+  const draftRulesPatch = useMemo(() => {
+    const cleanTags = editTags
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+    return {
+      objective: editObjective.trim(),
+      count: Math.max(1, Number(editCount) || rotation.bookIds.length || 4),
+      cooldownDays: Math.max(0, Number(editCooldownDays) || 0),
+      swapDays: Math.max(1, Number(editSwapDays) || 14),
+      requiredFormat: editFormat,
+      preferredTags: cleanTags,
+      varietyMix: editVarietyMix,
+      seed: editSeed.trim() || undefined,
+    };
+  }, [
+    editTags,
+    editObjective,
+    editCount,
+    editCooldownDays,
+    editSwapDays,
+    editFormat,
+    editVarietyMix,
+    editSeed,
+    rotation.bookIds.length,
+  ]);
+
+  const ruleMatchesResult = useMemo(() => {
+    const profile =
+      state.profiles.find((p) => p.id === rotation.profileId) || activeProfile || state.profiles[0];
+    if (!profile) {
+      return { matchingBooks: [], allEligibleBooks: [], hasExplicitRuleFilters: false };
+    }
+    return findMatchingNewBooksForRotation({
+      books: state.books,
+      profile,
+      rotation,
+      rotations: state.rotations,
+      rulesOverride: draftRulesPatch,
+    });
+  }, [state.books, state.profiles, state.rotations, rotation, activeProfile, draftRulesPatch]);
+
+  const handleRefreshFromRules = async (mode: 'add-matches' | 'redraw-unread') => {
+    setIsRefreshingRules(true);
+    try {
+      await store.refreshRotationFromRules(rotation.id, {
+        mode,
+        rulesPatch: draftRulesPatch,
+        limit:
+          mode === 'add-matches'
+            ? Math.min(6, Math.max(1, ruleMatchesResult.matchingBooks.length))
+            : undefined,
+      });
+    } catch (err) {
+      store.notify(err instanceof Error ? err.message : String(err), 'error');
+    } finally {
+      setIsRefreshingRules(false);
+    }
+  };
 
   const handleSaveAndClose = async () => {
     try {
@@ -349,21 +411,75 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
 
           {/* Section 2: Books on Shelf */}
           <section className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-display text-base font-semibold text-ink">
                 Books on Shelf (<span className="font-mono-tabular">{shelfBooks.length}</span>)
               </h3>
-              {onOpenPlacement && (
-                <button
-                  type="button"
-                  onClick={onOpenPlacement}
-                  className="min-h-[34px] px-3 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
-                >
-                  <Icon name="checklist" className="w-3.5 h-3.5" />
-                  <span>Stock Shelf</span>
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {onOpenPlacement && (
+                  <button
+                    type="button"
+                    onClick={onOpenPlacement}
+                    className="min-h-[34px] px-3 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    <Icon name="checklist" className="w-3.5 h-3.5" />
+                    <span>Stock Shelf</span>
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Clean inline library-sync bar when new matching books exist or rule refresh is useful */}
+            {hasOffShelfBooks && (
+              <div
+                data-rotation-rule-sync="true"
+                className="rounded-xl bg-surface-subtle border border-edge-subtle px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-ink">
+                    {ruleMatchesResult.matchingBooks.length > 0
+                      ? `${ruleMatchesResult.matchingBooks.length} new matching ${ruleMatchesResult.matchingBooks.length === 1 ? 'book' : 'books'} in library`
+                      : 'Update shelf from library'}
+                  </p>
+                  <p className="text-[11px] text-ink-secondary truncate mt-0.5">
+                    {ruleMatchesResult.matchingBooks.length > 0
+                      ? `Matches rules: ${ruleMatchesResult.matchingBooks
+                          .slice(0, 3)
+                          .map((m) => m.book.title)
+                          .join(', ')}${ruleMatchesResult.matchingBooks.length > 3 ? '…' : ''}`
+                      : 'Re-draw unread slots using these tags, binding, and newly added books.'}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  {ruleMatchesResult.matchingBooks.length > 0 && (
+                    <button
+                      type="button"
+                      data-action="add-rule-matches"
+                      disabled={isRefreshingRules}
+                      onClick={() => handleRefreshFromRules('add-matches')}
+                      className="min-h-[36px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-50 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                    >
+                      <Icon name="plus" className="w-3.5 h-3.5" />
+                      <span>
+                        Add Matches ({Math.min(6, ruleMatchesResult.matchingBooks.length)})
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    data-action="redraw-unread-from-rules"
+                    disabled={isRefreshingRules}
+                    onClick={() => handleRefreshFromRules('redraw-unread')}
+                    title="Keep read and picked books, and refresh unread slots from your updated library"
+                    className="min-h-[36px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge disabled:opacity-50 text-xs font-semibold text-ink inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    <Icon name="refresh" className="w-3.5 h-3.5" />
+                    <span>Re-draw Unread</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
               {shelfBooks.map((book: Book) => {

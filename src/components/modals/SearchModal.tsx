@@ -96,6 +96,7 @@ export const SearchModal: React.FC = () => {
   const [onlineError, setOnlineError] = useState('');
   const [onlineCandidates, setOnlineCandidates] = useState<BookCandidate[]>([]);
   const [hasSearchedOnline, setHasSearchedOnline] = useState(false);
+  const [lastOnlineProviderIds, setLastOnlineProviderIds] = useState<string[]>([]);
 
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoStatusText, setPhotoStatusText] = useState('');
@@ -201,8 +202,19 @@ export const SearchModal: React.FC = () => {
     [state.books]
   );
 
+  const configuredProviders = useMemo(() => {
+    const raw = state.settings?.enabledMetadataProviders;
+    return Array.isArray(raw) && raw.length > 0 ? raw : ['google-books', 'open-library'];
+  }, [state.settings?.enabledMetadataProviders]);
+
+  const isOpenLibraryEnabled = configuredProviders.includes('open-library');
+  const isGoogleBooksEnabled = configuredProviders.includes('google-books');
+
   const runOnlineSearch = useCallback(
-    async (rawQuery: string, options?: { openFirstIsbnMatch?: boolean }) => {
+    async (
+      rawQuery: string,
+      options?: { openFirstIsbnMatch?: boolean; providerIds?: string[] }
+    ) => {
       const parsed = parseUnifiedCatalogQuery(rawQuery, '');
       const nonce = ++searchNonceRef.current;
 
@@ -211,6 +223,7 @@ export const SearchModal: React.FC = () => {
         setOnlineError('');
         setHasSearchedOnline(false);
         setIsSearchingOnline(false);
+        setLastOnlineProviderIds([]);
         return;
       }
 
@@ -219,19 +232,26 @@ export const SearchModal: React.FC = () => {
         setHasSearchedOnline(true);
         setOnlineError(parsed.error);
         setIsSearchingOnline(false);
+        setLastOnlineProviderIds([]);
         return;
       }
+
+      const targetProviderIds =
+        Array.isArray(options?.providerIds) && options.providerIds.length > 0
+          ? options.providerIds
+          : configuredProviders;
 
       setIsSearchingOnline(true);
       setOnlineError('');
       setHasSearchedOnline(true);
+      setLastOnlineProviderIds(targetProviderIds);
 
       try {
         if (parsed.mode === 'isbn') {
           const localMatch = findLocalBookByIsbn(parsed.isbn13);
           const res = await catalogService.lookupByIsbn(parsed.isbn13, {
             retainRaw: state.settings?.retainRawProviderPayloads,
-            enabledProviderIds: state.settings?.enabledMetadataProviders,
+            enabledProviderIds: targetProviderIds,
           });
           if (searchNonceRef.current !== nonce) return;
 
@@ -254,7 +274,7 @@ export const SearchModal: React.FC = () => {
           { query: parsed.query },
           {
             retainRaw: state.settings?.retainRawProviderPayloads,
-            enabledProviderIds: state.settings?.enabledMetadataProviders,
+            enabledProviderIds: targetProviderIds,
             limit: 8,
           }
         );
@@ -276,13 +296,15 @@ export const SearchModal: React.FC = () => {
     },
     [
       catalogService,
+      configuredProviders,
       findLocalBookByIsbn,
-      state.settings?.enabledMetadataProviders,
       state.settings?.retainRawProviderPayloads,
     ]
   );
 
-  // Debounced live online search while typing (>= 3 chars or exact ISBN)
+  // Debounced live online search while typing:
+  // Text queries (>= 3 chars) query ONLY Open Library automatically so Google Books quota is never burned on partial keystrokes.
+  // Exact ISBNs or explicit Enter/Search submissions query all configured providers.
   useEffect(() => {
     if (!isSearchOpen) return;
     const trimmed = query.trim();
@@ -292,23 +314,28 @@ export const SearchModal: React.FC = () => {
       setOnlineError('');
       setHasSearchedOnline(false);
       setIsSearchingOnline(false);
+      setLastOnlineProviderIds([]);
       return;
     }
 
     const parsed = parseUnifiedCatalogQuery(trimmed, '');
-    if (parsed.mode === 'search' && trimmed.length < 3) {
+    if (parsed.mode === 'search' && (trimmed.length < 3 || !isOpenLibraryEnabled)) {
       setHasSearchedOnline(false);
       setOnlineCandidates([]);
       setOnlineError('');
+      setLastOnlineProviderIds([]);
       return;
     }
 
+    const liveProviderIds =
+      parsed.mode === 'isbn' ? configuredProviders : ['open-library'];
+
     const timer = window.setTimeout(() => {
-      void runOnlineSearch(trimmed);
-    }, 450);
+      void runOnlineSearch(trimmed, { providerIds: liveProviderIds });
+    }, 550);
 
     return () => window.clearTimeout(timer);
-  }, [query, isSearchOpen, runOnlineSearch]);
+  }, [query, isSearchOpen, isOpenLibraryEnabled, configuredProviders, runOnlineSearch]);
 
   // Live filter matching books in the user's library
   const libraryMatches = useMemo(() => {
@@ -868,19 +895,35 @@ export const SearchModal: React.FC = () => {
                 {/* Online Catalog Results */}
                 <section aria-label="Online book catalog results" className="space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
-                      Online Catalog
-                    </h2>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
+                        Online Catalog
+                      </h2>
+                      {hasSearchedOnline &&
+                        !isSearchingOnline &&
+                        isGoogleBooksEnabled &&
+                        !lastOnlineProviderIds.includes('google-books') && (
+                          <span className="text-[10px] font-medium text-ink-muted truncate">
+                            · Open Library live
+                          </span>
+                        )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         recordRecentSearch(trimmedQuery);
-                        void runOnlineSearch(trimmedQuery);
+                        void runOnlineSearch(trimmedQuery, { providerIds: configuredProviders });
                       }}
                       disabled={isSearchingOnline}
                       className="text-xs font-semibold text-primary hover:underline disabled:opacity-50 whitespace-nowrap cursor-pointer"
                     >
-                      {isSearchingOnline ? 'Searching…' : 'Search online'}
+                      {isSearchingOnline
+                        ? 'Searching…'
+                        : isGoogleBooksEnabled &&
+                            hasSearchedOnline &&
+                            !lastOnlineProviderIds.includes('google-books')
+                          ? 'Include Google Books'
+                          : 'Search online'}
                     </button>
                   </div>
 
@@ -993,13 +1036,15 @@ export const SearchModal: React.FC = () => {
                       className="rounded-2xl border backdrop-blur-md p-4 flex items-center justify-between gap-3"
                     >
                       <p className="text-xs text-ink-secondary">
-                        Type at least 3 characters or press Search to query Google Books &amp; Open Library.
+                        {isOpenLibraryEnabled
+                          ? 'Live typing queries Open Library to save Google Books quota. Press Search for both.'
+                          : 'Press Search to query your enabled online book providers.'}
                       </p>
                       <button
                         type="button"
                         onClick={() => {
                           recordRecentSearch(trimmedQuery);
-                          void runOnlineSearch(trimmedQuery);
+                          void runOnlineSearch(trimmedQuery, { providerIds: configuredProviders });
                         }}
                         className="min-h-[38px] px-3 py-1.5 rounded-lg bg-primary text-primary-fg text-xs font-semibold shrink-0 cursor-pointer whitespace-nowrap"
                       >

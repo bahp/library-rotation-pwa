@@ -14,6 +14,7 @@ export type SettingsSectionId =
   | 'dev-tools'
   | 'whats-new'
   | 'guides'
+  | 'icon-legend'
   | 'privacy'
   | 'terms'
   | 'impressum'

@@ -19,11 +19,13 @@ import {
   applyBookAdditions,
   applyBookReplacement,
   createSeededRng,
+  findMatchingNewBooksForRotation,
   generateRotationSelection,
   isBookInCooldown,
   parseRotationObjective,
   pickRandomEligibleBooks,
 } from '../src/features/rotations/rotation-engine.js';
+import { computeRotationSchedule } from '../src/features/rotations/rotation-schedule.js';
 import { createStorageAdapter, migrateState } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import { createSeedState } from '../src/data/seed.js';
@@ -604,4 +606,89 @@ describe('Rotation Engine & Shelf Management Suite', () => {
       assert.equal(raw[4], 0, `${meta.filename} top-left pixel must be transparent`);
     }
   });
+
+  it('tracks lastActiveAt on deactivated rotations and refreshes shelves when new matching books are added', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    // 1. Saved rotation created directly without activation shows "Created ..."
+    const draftSaved = await store.generateRotation({
+      title: 'Winter Animals Shelf',
+      preferredTags: ['winter', 'snow'],
+      count: 2,
+      status: 'saved',
+      cooldownDays: 0,
+    });
+    assert.equal(draftSaved.lastActiveAt, undefined);
+    const draftSched = computeRotationSchedule(
+      draftSaved,
+      store.getState().profiles[0],
+      '2026-11-24T12:00:00.000Z'
+    );
+    assert.equal(draftSched.lastActiveDateLabel, null);
+    assert.ok(draftSched.savedScheduleLine.startsWith('Created '));
+
+    // 2. Activating then deactivating preserves lastActiveAt and surfaces "Last active ..."
+    await store.toggleRotationActive(draftSaved.id);
+    const activeRot = store.getState().rotations.find((r) => r.id === draftSaved.id);
+    assert.equal(activeRot?.status, 'active');
+    assert.ok(activeRot?.lastActiveAt);
+
+    await store.toggleRotationActive(draftSaved.id);
+    const deactivated = store.getState().rotations.find((r) => r.id === draftSaved.id);
+    if (!deactivated) throw new Error('Expected deactivated rotation');
+    assert.equal(deactivated.status, 'saved');
+    assert.ok(deactivated.lastActiveAt);
+    const deactivatedSched = computeRotationSchedule(
+      deactivated,
+      store.getState().profiles[0],
+      deactivated.lastActiveAt
+    );
+    assert.ok(deactivatedSched.lastActiveDateLabel);
+    assert.ok(deactivatedSched.savedScheduleLine.startsWith('Last active '));
+
+    // 3. Adding a new matching library book surfaces it in findMatchingNewBooksForRotation
+    const newWinterBook = await store.addManualBook({
+      title: 'Snowy Owl Express',
+      authors: ['Clara Frost'],
+      format: 'hardcover',
+      ageMin: 3,
+      ageMax: 7,
+      readingStage: 'picture-book',
+      tags: ['winter', 'snow', 'owl'],
+    });
+    assert.ok(newWinterBook.id);
+
+    const refreshedRotation = store.getState().rotations.find((r) => r.id === draftSaved.id);
+    if (!refreshedRotation) throw new Error('Expected refreshed rotation');
+    const matchInfo = findMatchingNewBooksForRotation({
+      books: store.getState().books,
+      profile: store.getState().profiles[0],
+      rotation: refreshedRotation,
+      rotations: store.getState().rotations,
+    });
+    assert.ok(matchInfo.matchingBooks.some((entry) => entry.book.id === newWinterBook.id));
+
+    // 4. Adding matches appends new matching book without disturbing existing shelf books
+    const prevFirstId = refreshedRotation.bookIds[0];
+    await store.toggleRotationBookRead(draftSaved.id, prevFirstId);
+    const addRes = await store.refreshRotationFromRules(draftSaved.id, {
+      mode: 'add-matches',
+      bookIds: [newWinterBook.id],
+    });
+    assert.deepEqual(addRes.addedIds, [newWinterBook.id]);
+    const afterAdd = store.getState().rotations.find((r) => r.id === draftSaved.id);
+    assert.ok(afterAdd?.bookIds.includes(newWinterBook.id));
+    assert.ok(afterAdd?.completedBookIds.includes(prevFirstId));
+
+    // 5. Redraw-unread keeps already-read books while refreshing unread slots to rules.count
+    const redrawRes = await store.refreshRotationFromRules(draftSaved.id, {
+      mode: 'redraw-unread',
+      rulesPatch: { count: 3, preferredTags: ['winter', 'snow'] },
+    });
+    assert.ok(redrawRes.rotation.bookIds.includes(prevFirstId));
+    assert.equal(redrawRes.rotation.bookIds.length, 3);
+  });
 });
+

@@ -613,3 +613,217 @@ export function applyBookAdditions(rotation, bookIdsToAdd, nowIso = new Date().t
     addedIds,
   };
 }
+
+/**
+ * Finds off-shelf rotatable books in the family library that match an existing rotation's
+ * rules (preferred tags, binding format, objective keywords/stages, and reader age), prioritizing
+ * newly added books first so users can refresh a shelf when buying new books.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotation: import('../../types/models.js').RotationList,
+ *   rotations?: import('../../types/models.js').RotationList[],
+ *   rulesOverride?: Partial<import('../../types/models.js').RotationRuleConfig>,
+ *   nowIso?: string
+ * }} params
+ * @returns {{
+ *   matchingBooks: Array<{ book: import('../../types/models.js').Book, baseScore: number, inCooldown: boolean, ageMatched: boolean, matchedReasons: string[], addedAtMs: number }>,
+ *   allEligibleBooks: Array<{ book: import('../../types/models.js').Book, baseScore: number, inCooldown: boolean, ageMatched: boolean, matchedReasons: string[], addedAtMs: number }>,
+ *   hasExplicitRuleFilters: boolean
+ * }}
+ */
+export function findMatchingNewBooksForRotation({
+  books,
+  profile,
+  rotation,
+  rotations = [],
+  rulesOverride,
+  nowIso = new Date().toISOString(),
+}) {
+  const effectiveRules = {
+    ...rotation.rules,
+    ...(rulesOverride || {}),
+  };
+
+  const parsedObjective = parseRotationObjective(effectiveRules.objective || '');
+  const ruleTagSet = new Set(
+    (effectiveRules.preferredTags || [])
+      .map((t) => String(t || '').toLowerCase().trim())
+      .filter(Boolean)
+  );
+  const explicitFormat =
+    effectiveRules.requiredFormat && effectiveRules.requiredFormat !== 'any'
+      ? effectiveRules.requiredFormat
+      : parsedObjective.formats.length === 1
+        ? parsedObjective.formats[0]
+        : null;
+
+  const hasTopicOrStageRule =
+    ruleTagSet.size > 0 ||
+    parsedObjective.keywords.length > 0 ||
+    parsedObjective.stages.length > 0;
+  const hasExplicitRuleFilters = Boolean(explicitFormat || hasTopicOrStageRule);
+
+  const scoredPool = scoreEligibleBooks({
+    books,
+    profile,
+    rules: effectiveRules,
+    rotations,
+    excludeBookIds: rotation.bookIds,
+    nowIso,
+  });
+
+  const enriched = scoredPool
+    .map((entry) => {
+      const parsedAdded = entry.book.addedAt ? Date.parse(entry.book.addedAt) : 0;
+      return {
+        ...entry,
+        addedAtMs: Number.isFinite(parsedAdded) ? parsedAdded : 0,
+      };
+    })
+    .sort((a, b) => {
+      if (a.inCooldown !== b.inCooldown) return a.inCooldown ? 1 : -1;
+      if (b.baseScore !== a.baseScore) return b.baseScore - a.baseScore;
+      return b.addedAtMs - a.addedAtMs;
+    });
+
+  const matchingBooks = enriched.filter((entry) => {
+    if (explicitFormat && entry.book.format !== explicitFormat) {
+      return false;
+    }
+    if (!hasTopicOrStageRule) {
+      return entry.ageMatched && !entry.inCooldown;
+    }
+    const bookTagsLower = entry.book.tags.map((t) => String(t || '').toLowerCase());
+    const matchesTag =
+      ruleTagSet.size > 0 && bookTagsLower.some((t) => ruleTagSet.has(t));
+    const matchesStage =
+      parsedObjective.stages.length > 0 &&
+      parsedObjective.stages.includes(entry.book.readingStage);
+    const haystack = `${entry.book.title} ${bookTagsLower.join(' ')} ${entry.book.authors.join(' ')}`.toLowerCase();
+    const matchesKeyword =
+      parsedObjective.keywords.length > 0 &&
+      parsedObjective.keywords.some((kw) => haystack.includes(kw));
+
+    return matchesTag || matchesStage || matchesKeyword;
+  });
+
+  matchingBooks.sort((a, b) => {
+    if (a.inCooldown !== b.inCooldown) return a.inCooldown ? 1 : -1;
+    // Newly acquired matching books appear first when relevance is comparable
+    if (b.addedAtMs !== a.addedAtMs) return b.addedAtMs - a.addedAtMs;
+    return b.baseScore - a.baseScore;
+  });
+
+  return {
+    matchingBooks,
+    allEligibleBooks: enriched,
+    hasExplicitRuleFilters,
+  };
+}
+
+/**
+ * Re-draws unread & unpicked slots on an existing rotation using its rules and the current library,
+ * preserving already-read and already-picked books cleanly.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotation: import('../../types/models.js').RotationList,
+ *   rotations?: import('../../types/models.js').RotationList[],
+ *   rulesOverride?: Partial<import('../../types/models.js').RotationRuleConfig>,
+ *   nowIso?: string
+ * }} params
+ * @returns {{
+ *   nextBookIds: string[],
+ *   keptBookIds: string[],
+ *   addedBookIds: string[],
+ *   removedBookIds: string[],
+ *   relaxedCooldownCount: number
+ * }}
+ */
+export function computeRedrawnRotationBooks({
+  books,
+  profile,
+  rotation,
+  rotations = [],
+  rulesOverride,
+  nowIso = new Date().toISOString(),
+}) {
+  const effectiveRules = {
+    ...rotation.rules,
+    ...(rulesOverride || {}),
+  };
+  const targetCount = Math.max(
+    1,
+    Math.trunc(Number(effectiveRules.count) || rotation.bookIds.length || 4)
+  );
+  const validBookSet = new Set(books.map((b) => b.id));
+  const preservedSet = new Set([
+    ...(rotation.completedBookIds || []),
+    ...(rotation.pickedBookIds || []),
+  ]);
+  const keptBookIds = rotation.bookIds.filter(
+    (id) => validBookSet.has(id) && preservedSet.has(id)
+  );
+
+  const slotsNeeded = Math.max(0, targetCount - keptBookIds.length);
+  if (slotsNeeded === 0) {
+    const nextBookIds = keptBookIds.slice(0, Math.max(targetCount, keptBookIds.length));
+    const nextSet = new Set(nextBookIds);
+    return {
+      nextBookIds,
+      keptBookIds,
+      addedBookIds: [],
+      removedBookIds: rotation.bookIds.filter((id) => !nextSet.has(id)),
+      relaxedCooldownCount: 0,
+    };
+  }
+
+  // Exclude kept books and prefer not repeating the exact unread books being rotated out unless needed
+  const currentUnreadIds = rotation.bookIds.filter(
+    (id) => validBookSet.has(id) && !preservedSet.has(id)
+  );
+  const redrawn = generateRotationSelection({
+    books,
+    profile,
+    rules: {
+      ...effectiveRules,
+      count: slotsNeeded,
+      seed: effectiveRules.seed
+        ? `${effectiveRules.seed}::redraw:${nowIso}`
+        : undefined,
+    },
+    rotations,
+    excludeBookIds: [...keptBookIds, ...currentUnreadIds],
+    nowIso,
+  });
+
+  let addedBookIds = [...redrawn.selectedBookIds];
+  let relaxedCooldownCount = redrawn.relaxedCooldownCount;
+
+  // If the library doesn't have enough fresh unread candidates outside what's already on the shelf,
+  // retain existing unread slots rather than shrinking the shelf below targetCount.
+  if (addedBookIds.length < slotsNeeded) {
+    const stillNeeded = slotsNeeded - addedBookIds.length;
+    const alreadyChosen = new Set([...keptBookIds, ...addedBookIds]);
+    const retained = currentUnreadIds
+      .filter((id) => !alreadyChosen.has(id))
+      .slice(0, stillNeeded);
+    addedBookIds = [...addedBookIds, ...retained];
+  }
+
+  const nextBookIds = [...keptBookIds, ...addedBookIds];
+  const prevSet = new Set(rotation.bookIds);
+  const nextSet = new Set(nextBookIds);
+
+  return {
+    nextBookIds,
+    keptBookIds,
+    addedBookIds: nextBookIds.filter((id) => !prevSet.has(id)),
+    removedBookIds: rotation.bookIds.filter((id) => !nextSet.has(id)),
+    relaxedCooldownCount,
+  };
+}
+

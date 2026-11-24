@@ -39,6 +39,8 @@ import { normalizeHexColor } from '../features/catalog/cover-color-extractor.js'
 import {
   applyBookAdditions,
   applyBookReplacement,
+  computeRedrawnRotationBooks,
+  findMatchingNewBooksForRotation,
   generateRotationSelection,
   pickRandomEligibleBooks,
 } from '../features/rotations/rotation-engine.js';
@@ -1768,7 +1770,7 @@ export function createAppStore(storage, deps = {}) {
       status: /** @type {'active' | 'saved'} */ (shouldActivate ? 'active' : 'saved'),
       createdAt: nowIso,
       updatedAt: nowIso,
-      ...(shouldActivate ? { activatedAt: nowIso } : {}),
+      ...(shouldActivate ? { activatedAt: nowIso, lastActiveAt: nowIso } : {}),
       slotAddedAt: syncRotationSlotAddedAt(undefined, bookIds, nowIso, {
         resetAll: true,
       }),
@@ -1778,7 +1780,12 @@ export function createAppStore(storage, deps = {}) {
     if (shouldActivate && !params.keepOtherActive) {
       nextRotations = nextRotations.map((r) =>
         r.profileId === profileId && r.status === 'active'
-          ? { ...r, status: /** @type {const} */ ('saved'), updatedAt: nowIso }
+          ? {
+              ...r,
+              status: /** @type {const} */ ('saved'),
+              lastActiveAt: nowIso,
+              updatedAt: nowIso,
+            }
           : r
       );
     }
@@ -2843,7 +2850,7 @@ export function createAppStore(storage, deps = {}) {
       status: targetStatus,
       createdAt: now,
       updatedAt: now,
-      ...(targetStatus === 'active' ? { activatedAt: now } : {}),
+      ...(targetStatus === 'active' ? { activatedAt: now, lastActiveAt: now } : {}),
       slotAddedAt: syncRotationSlotAddedAt(undefined, engineOut.selectedBookIds, now, {
         resetAll: true,
       }),
@@ -2853,7 +2860,12 @@ export function createAppStore(storage, deps = {}) {
       targetStatus === 'active' && !input.keepOtherActive
         ? state.rotations.map((r) =>
             r.profileId === profile.id && r.status === 'active'
-              ? { ...r, status: /** @type {const} */ ('saved') }
+              ? {
+                  ...r,
+                  status: /** @type {const} */ ('saved'),
+                  lastActiveAt: now,
+                  updatedAt: now,
+                }
               : r
           )
         : state.rotations;
@@ -3063,6 +3075,162 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
+   * Refreshes an existing rotation shelf from its rules against the current family library
+   * (e.g. after buying new books that match its tags, binding, or objective).
+   *
+   * - `'add-matches'`: Appends newly matching off-shelf library books (preserving all existing shelf books & progress).
+   * - `'redraw-unread'`: Keeps read and picked books on the shelf and re-draws the remaining slots up to `rules.count`.
+   *
+   * @param {string} rotationId
+   * @param {{
+   *   mode?: 'add-matches' | 'redraw-unread',
+   *   bookIds?: string[],
+   *   limit?: number,
+   *   rulesPatch?: Partial<import('../types/models.js').RotationRuleConfig>
+   * }} [options]
+   */
+  async function refreshRotationFromRules(rotationId, options = {}) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) throw new Error('Rotation shelf not found.');
+    const profile =
+      state.profiles.find((p) => p.id === rotation.profileId) || state.profiles[0];
+
+    const now = new Date().toISOString();
+    const mode = options.mode === 'redraw-unread' ? 'redraw-unread' : 'add-matches';
+    const nextRules = options.rulesPatch
+      ? {
+          ...rotation.rules,
+          ...options.rulesPatch,
+        }
+      : rotation.rules;
+    const workingRotation = options.rulesPatch
+      ? { ...rotation, rules: nextRules }
+      : rotation;
+
+    if (mode === 'add-matches') {
+      let idsToAdd = Array.isArray(options.bookIds)
+        ? options.bookIds.filter((id) => !rotation.bookIds.includes(id))
+        : [];
+
+      if (idsToAdd.length === 0) {
+        const { matchingBooks } = findMatchingNewBooksForRotation({
+          books: state.books,
+          profile,
+          rotation: workingRotation,
+          rotations: state.rotations,
+          nowIso: now,
+        });
+        const maxToAdd =
+          typeof options.limit === 'number' && options.limit > 0
+            ? Math.trunc(options.limit)
+            : Math.max(1, Number(nextRules.count) || 5);
+        idsToAdd = matchingBooks.slice(0, maxToAdd).map((entry) => entry.book.id);
+      }
+
+      if (idsToAdd.length === 0) {
+        throw new Error('No new off-shelf library books match these rotation rules yet.');
+      }
+
+      const { rotation: appendedRotation, addedIds } = applyBookAdditions(
+        workingRotation,
+        idsToAdd,
+        now
+      );
+      if (addedIds.length === 0) {
+        throw new Error('Matching books are already on this rotation shelf.');
+      }
+
+      const updatedBooks =
+        rotation.status === 'active'
+          ? recordBooksRotated(state.books, addedIds, {
+              rotatedAt: now,
+              rotationId: rotation.id,
+              profileId: rotation.profileId,
+            })
+          : state.books;
+
+      await commit({
+        ...state,
+        books: updatedBooks,
+        rotations: state.rotations.map((r) => (r.id === rotationId ? appendedRotation : r)),
+      });
+
+      notify(
+        `Added ${addedIds.length} new matching ${addedIds.length === 1 ? 'book' : 'books'} to "${rotation.title}".`,
+        'success'
+      );
+      return { rotation: appendedRotation, addedIds, removedIds: [] };
+    }
+
+    const redrawn = computeRedrawnRotationBooks({
+      books: state.books,
+      profile,
+      rotation: workingRotation,
+      rotations: state.rotations,
+      nowIso: now,
+    });
+
+    if (redrawn.nextBookIds.length === 0) {
+      throw new Error('No eligible library books matched those rotation rules.');
+    }
+
+    const nextSet = new Set(redrawn.nextBookIds);
+    const baseSlots = syncRotationSlotAddedAt(
+      rotation.slotAddedAt,
+      redrawn.nextBookIds,
+      now,
+      { fallbackStartIso: rotation.activatedAt || rotation.createdAt || now }
+    );
+    for (const addedId of redrawn.addedBookIds) {
+      baseSlots[addedId] = now;
+    }
+
+    /** @type {import('../types/models.js').RotationList} */
+    const updatedRotation = {
+      ...workingRotation,
+      bookIds: redrawn.nextBookIds,
+      completedBookIds: (rotation.completedBookIds || []).filter((id) => nextSet.has(id)),
+      pickedBookIds: (rotation.pickedBookIds || []).filter((id) => nextSet.has(id)),
+      pickedAutoReadBookIds: (rotation.pickedAutoReadBookIds || []).filter((id) =>
+        nextSet.has(id)
+      ),
+      pickedCycleOnlyReadBookIds: (rotation.pickedCycleOnlyReadBookIds || []).filter((id) =>
+        nextSet.has(id)
+      ),
+      placedBookIds: (rotation.placedBookIds || []).filter((id) => nextSet.has(id)),
+      slotAddedAt: baseSlots,
+      updatedAt: now,
+    };
+
+    const updatedBooks =
+      rotation.status === 'active' && redrawn.addedBookIds.length > 0
+        ? recordBooksRotated(state.books, redrawn.addedBookIds, {
+            rotatedAt: now,
+            rotationId: rotation.id,
+            profileId: rotation.profileId,
+          })
+        : state.books;
+
+    await commit({
+      ...state,
+      books: updatedBooks,
+      rotations: state.rotations.map((r) => (r.id === rotationId ? updatedRotation : r)),
+    });
+
+    notify(
+      redrawn.addedBookIds.length > 0
+        ? `Updated "${rotation.title}" with ${redrawn.addedBookIds.length} fresh ${redrawn.addedBookIds.length === 1 ? 'book' : 'books'}.`
+        : `"${rotation.title}" is already up to date with your library.`,
+      'success'
+    );
+    return {
+      rotation: updatedRotation,
+      addedIds: redrawn.addedBookIds,
+      removedIds: redrawn.removedBookIds,
+    };
+  }
+
+  /**
    * Removes a single book slot from a rotation shelf (while keeping the book in the family library).
    * @param {string} rotationId
    * @param {string} bookId
@@ -3129,6 +3297,7 @@ export function createAppStore(storage, deps = {}) {
           ...candidate,
           status: 'active',
           activatedAt: promotedNow,
+          lastActiveAt: promotedNow,
           slotAddedAt: syncRotationSlotAddedAt(
             candidate.slotAddedAt,
             candidate.bookIds,
@@ -3223,13 +3392,21 @@ export function createAppStore(storage, deps = {}) {
           ...r,
           status: /** @type {const} */ ('active'),
           activatedAt: now,
+          lastActiveAt: now,
           slotAddedAt: syncRotationSlotAddedAt(r.slotAddedAt, r.bookIds, now, {
             resetAll: true,
           }),
           updatedAt: now,
         };
       }
-      if (r.status === 'active') return { ...r, status: /** @type {const} */ ('saved') };
+      if (r.status === 'active') {
+        return {
+          ...r,
+          status: /** @type {const} */ ('saved'),
+          lastActiveAt: now,
+          updatedAt: now,
+        };
+      }
       return r;
     });
     const updatedBooks = recordBooksRotated(state.books, target.bookIds, {
@@ -3261,11 +3438,14 @@ export function createAppStore(storage, deps = {}) {
         ...(activating
           ? {
               activatedAt: now,
+              lastActiveAt: now,
               slotAddedAt: syncRotationSlotAddedAt(r.slotAddedAt, r.bookIds, now, {
                 resetAll: true,
               }),
             }
-          : {}),
+          : target.status === 'active'
+            ? { lastActiveAt: now }
+            : {}),
         updatedAt: now,
       };
     });
@@ -3406,6 +3586,7 @@ export function createAppStore(storage, deps = {}) {
 
     const now = new Date().toISOString();
     const activatingNow = nextStatus === 'active' && existing.status !== 'active';
+    const deactivatingNow = nextStatus === 'saved' && existing.status === 'active';
 
     /** @type {import('../types/models.js').RotationList} */
     const updatedRotation = {
@@ -3414,13 +3595,22 @@ export function createAppStore(storage, deps = {}) {
       status: nextStatus,
       rules: nextRules,
       updatedAt: now,
-      ...(activatingNow ? { activatedAt: now } : {}),
+      ...(activatingNow
+        ? { activatedAt: now, lastActiveAt: now }
+        : deactivatingNow
+          ? { lastActiveAt: now }
+          : {}),
     };
 
     const nextRotations = state.rotations.map((r) => {
       if (r.id === rotationId) return updatedRotation;
       if (!options.keepOtherActive && activatingNow && r.profileId === existing.profileId && r.status === 'active') {
-        return { ...r, status: /** @type {const} */ ('saved') };
+        return {
+          ...r,
+          status: /** @type {const} */ ('saved'),
+          lastActiveAt: now,
+          updatedAt: now,
+        };
       }
       return r;
     });
@@ -4404,6 +4594,7 @@ export function createAppStore(storage, deps = {}) {
     replaceRotationBookManual,
     addBooksToRotationManual,
     addBooksToRotationRandom,
+    refreshRotationFromRules,
     removeBookFromRotation,
     deleteRotation,
     setActiveRotation,

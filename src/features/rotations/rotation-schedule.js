@@ -70,6 +70,8 @@ export function getRotationCycleDays(rotation, profile) {
  * @typedef {Object} RotationSchedule
  * @property {string} startedAt - ISO-8601 timestamp when the rotation was set/created
  * @property {string} dueAt - ISO-8601 timestamp when the rotation is due to swap
+ * @property {string | null} lastActiveAt - ISO-8601 timestamp when the rotation was last active (null if never activated)
+ * @property {string | null} lastActiveDateLabel - Short date when the rotation was last active (null if never activated)
  * @property {number} cycleDays - Planned shelf duration in days
  * @property {number} daysElapsed - Whole days elapsed since `startedAt`
  * @property {number} daysRemaining - Positive days left until Swap Day (`0` when due today, negative when overdue)
@@ -106,6 +108,16 @@ export function computeRotationSchedule(rotation, profile, nowInput = new Date()
   const startedMs = Number.isFinite(parsedStarted) ? parsedStarted : nowMs;
   const startedAt = new Date(startedMs).toISOString();
 
+  const rawLastActiveIso =
+    rotation.lastActiveAt || (rotation.activatedAt ? rotation.activatedAt : '');
+  const parsedLastActive = rawLastActiveIso ? Date.parse(rawLastActiveIso) : NaN;
+  const lastActiveAt = Number.isFinite(parsedLastActive)
+    ? new Date(parsedLastActive).toISOString()
+    : null;
+  const lastActiveDateLabel = Number.isFinite(parsedLastActive)
+    ? formatShortRotationDate(parsedLastActive, nowMs)
+    : null;
+
   const cycleDays = getRotationCycleDays(rotation, profile);
   const dueMs = startedMs + cycleDays * MS_PER_DAY;
   const dueAt = new Date(dueMs).toISOString();
@@ -134,16 +146,22 @@ export function computeRotationSchedule(rotation, profile, nowInput = new Date()
 
   const startedDateLabel = formatShortRotationDate(startedMs, nowMs);
   const dueDateLabel = formatShortRotationDate(dueMs, nowMs);
-
-  const activeScheduleLine = `Set ${startedDateLabel} · Swap ${dueDateLabel} · ${countdownLabel}`;
-  const savedScheduleLine = `Created ${formatShortRotationDate(
+  const createdDateLabel = formatShortRotationDate(
     Number.isFinite(Date.parse(rotation.createdAt)) ? Date.parse(rotation.createdAt) : startedMs,
     nowMs
-  )} · ${cycleDays}d cycle`;
+  );
+
+  const activeScheduleLine = `Set ${startedDateLabel} · Swap ${dueDateLabel} · ${countdownLabel}`;
+  const savedScheduleLine =
+    rotation.status !== 'active' && lastActiveDateLabel
+      ? `Last active ${lastActiveDateLabel} · ${cycleDays}d cycle`
+      : `Created ${createdDateLabel} · ${cycleDays}d cycle`;
 
   return {
     startedAt,
     dueAt,
+    lastActiveAt,
+    lastActiveDateLabel,
     cycleDays,
     daysElapsed,
     daysRemaining,

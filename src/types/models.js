@@ -258,6 +258,7 @@
  * @property {string} createdAt - ISO-8601 timestamp
  * @property {string} updatedAt - ISO-8601 timestamp
  * @property {string} [activatedAt] - ISO-8601 timestamp when placed on active shelf
+ * @property {string} [lastActiveAt] - ISO-8601 timestamp when shelf was last active (updated on activation & deactivation)
  * @property {Record<string, string>} [slotAddedAt] - Per-book ISO-8601 timestamp when placed on this shelf cycle
  */
 

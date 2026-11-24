@@ -415,7 +415,10 @@ export const RotationsView: React.FC = () => {
             {rot.title}
           </p>
           <p className="text-[11px] font-mono-tabular text-ink-secondary truncate leading-tight">
-            {totalCount} {totalCount === 1 ? 'book' : 'books'} · {schedule.cycleDays}d · {readCount}/{totalCount} read
+            {totalCount} {totalCount === 1 ? 'book' : 'books'} · {readCount}/{totalCount} read
+            {schedule.lastActiveDateLabel
+              ? ` · Last active ${schedule.lastActiveDateLabel}`
+              : ` · ${schedule.cycleDays}d`}
           </p>
         </div>
 
@@ -577,6 +580,11 @@ export const RotationsView: React.FC = () => {
         ).length;
         const progressPct = totalCount > 0 ? Math.round((readCount / totalCount) * 100) : 0;
 
+        const sheetSchedule = computeRotationSchedule(
+          sheetRotation,
+          activeProfile || state.profiles[0]
+        );
+
         return (
           <div
             role="dialog"
@@ -611,8 +619,13 @@ export const RotationsView: React.FC = () => {
                       {sheetRotation.title}
                     </h2>
                   </div>
-                  <p className="text-[11px] font-mono-tabular text-ink-secondary mt-0.5">
-                    {isSheetActive ? 'Active Shelf' : 'Saved Shelf'} · {readCount}/{totalCount} read ({progressPct}%)
+                  <p className="text-[11px] font-mono-tabular text-ink-secondary mt-0.5 truncate">
+                    {isSheetActive
+                      ? 'Active Shelf'
+                      : sheetSchedule.lastActiveDateLabel
+                        ? `Saved · Last active ${sheetSchedule.lastActiveDateLabel}`
+                        : 'Saved Shelf'}{' '}
+                    · {readCount}/{totalCount} read ({progressPct}%)
                   </p>
                 </div>
 

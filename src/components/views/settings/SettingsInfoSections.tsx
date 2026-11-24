@@ -128,6 +128,347 @@ export const WhatsNewSubView: React.FC = () => {
   );
 };
 
+interface LegendEntry {
+  id: string;
+  label: string;
+  description: string;
+  where?: string;
+  renderPreview: () => React.ReactNode;
+}
+
+interface LegendGroup {
+  title: string;
+  subtitle: string;
+  items: LegendEntry[];
+}
+
+const ICON_LEGEND_GROUPS: LegendGroup[] = [
+  {
+    title: 'Toolbar, Layout & Action Icons',
+    subtitle: 'Controls found in Home, Library, and Rotation shelves',
+    items: [
+      {
+        id: 'grid',
+        label: 'Grid View',
+        description: 'Displays books as a cover-first grid.',
+        where: 'Home · Library · Rotations',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="grid" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'list',
+        label: 'List View',
+        description: 'Shows compact horizontal rows with author, age fit, and quick actions.',
+        where: 'Home · Library · Rotations',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="list" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'carousel',
+        label: 'Scroll Carousel',
+        description: 'Horizontal swipeable strip of book covers on the Home screen.',
+        where: 'Home',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="carousel" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'checklist',
+        label: 'Stock Shelf Checklist (Ticks List)',
+        description:
+          'Opens a physical shelf checklist so you can tick off books as you place them in the room.',
+        where: 'Home · Rotations',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="checklist" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'edit',
+        label: 'Edit (Pencil)',
+        description:
+          'Opens editing for a book, rotation title/rules, or syncing newly bought books.',
+        where: 'Book Details · Rotations',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="edit" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'sliders',
+        label: 'Rules & Filters',
+        description:
+          'Adjusts library filters, shelf rules, or opens the full rotation editor.',
+        where: 'Home · Library',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="sliders" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'scan',
+        label: 'Barcode / QR Scanner',
+        description: 'Opens the camera to scan book ISBN barcodes or QR codes.',
+        where: 'Search · Scan & Add',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-primary/12 border border-primary/25 text-primary flex items-center justify-center">
+            <Icon name="scan" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'shuffle',
+        label: 'Swap Randomly',
+        description: 'Replaces a single shelf slot with another eligible book from your library.',
+        where: 'Edit Shelf',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="shuffle" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'replace',
+        label: 'Replace Manually',
+        description: 'Lets you browse your catalog and hand-pick a specific replacement book.',
+        where: 'Edit Shelf',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="replace" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'refresh',
+        label: 'Sync / Re-draw from Rules',
+        description:
+          'Refreshes unread shelf slots using the rotation’s tags, binding, and newly added library books.',
+        where: 'Edit Shelf',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="refresh" className="w-4 h-4" />
+          </span>
+        ),
+      },
+    ],
+  },
+  {
+    title: 'Book Cover Badges & Reading Status',
+    subtitle: 'Visual indicators shown on book covers and shelf rows',
+    items: [
+      {
+        id: 'heartFilled',
+        label: 'Heart — Loved Favorite',
+        description:
+          'Marks a cherished favorite book. Loved books receive a gentle priority boost when generating rotations.',
+        where: 'Top-right of covers · Book Details',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge flex items-center justify-center">
+            <span className="w-6 h-6 rounded-full bg-loved/95 text-loved-fg flex items-center justify-center shadow-xs">
+              <Icon name="heartFilled" className="w-3.5 h-3.5" />
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'bookmarkFilled',
+        label: 'Bookmark — Picked / Reading Now',
+        description:
+          'Marks a book currently picked off the shelf to read this cycle (counts automatically as read for the rotation).',
+        where: 'Cover corner · Shelf card',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-primary text-primary-fg flex items-center justify-center">
+            <Icon name="bookmarkFilled" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'check',
+        label: 'Checkmark — Read',
+        description:
+          'Indicates a book has been read in the active shelf cycle or appears in the active reader’s history.',
+        where: 'Bottom-left badge · Shelf card',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-primary/15 border border-primary/35 text-primary flex items-center justify-center">
+            <Icon name="check" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'starFilled',
+        label: 'Star — Reader Rating',
+        description: 'Per-reader 1–5 star rating recorded on the book’s detail sheet.',
+        where: 'Book Details · Library sort',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-accent flex items-center justify-center">
+            <Icon name="starFilled" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'clock',
+        label: 'Clock — Resting / Cooldown (or Resting Unread)',
+        description:
+          'Shows either how many cooldown days remain after a recent rotation (“Rest Xd”) or days sitting unread on an active shelf (“Shelf Xd”).',
+        where: 'Bottom-left cover badge',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-accent flex items-center justify-center">
+            <Icon name="clock" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'sparkles',
+        label: 'Sparkles — New / Suggestions / AI Tags',
+        description:
+          'Highlights never-rotated “New” books, age-matched suggestions on Home, or smart topic tagging.',
+        where: 'Cover badge · Home · Library',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-primary flex items-center justify-center">
+            <Icon name="sparkles" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'owners',
+        label: 'Initial Monograms — Book Owner',
+        description:
+          'Shows the child’s initial when a copy belongs to a specific reader (hidden for shared family books).',
+        where: 'Bottom-right cover corner',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge flex items-center justify-center">
+            <span className="w-5 h-5 rounded-full bg-primary text-primary-fg text-[10px] font-bold flex items-center justify-center">
+              L
+            </span>
+          </span>
+        ),
+      },
+    ],
+  },
+  {
+    title: 'Shelf Status & Navigation',
+    subtitle: 'Rotation indicators and main app destinations',
+    items: [
+      {
+        id: 'active-pulse',
+        label: 'Pulsing Green Dot — Active Shelf',
+        description:
+          'Indicates a rotation that is currently active and on display for the selected reader.',
+        where: 'Home · Rotations',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge flex items-center justify-center">
+            <span className="w-2.5 h-2.5 rounded-full bg-success ring-[4px] ring-success/20 lr-active-dot-pulse" />
+          </span>
+        ),
+      },
+      {
+        id: 'rotations',
+        label: 'Rotations',
+        description: 'Active shelves, saved rotations, quick rules, and seasonal presets.',
+        where: 'Bottom bar / Sidebar',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="rotations" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'library',
+        label: 'Library',
+        description: 'Your full household catalog, wishlist, library loans, filters, and tags.',
+        where: 'Bottom bar / Sidebar',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="library" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'play',
+        label: 'Play',
+        description: 'Interactive storytime pickers and shelf treasure-hunt reading games.',
+        where: 'Bottom bar / Sidebar',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="play" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
+        id: 'search',
+        label: 'Search & Add',
+        description:
+          'Searches your local library instantly, queries Open Library live, and opens the barcode/QR scanner.',
+        where: 'Top bar / Bottom bar',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-ink flex items-center justify-center">
+            <Icon name="search" className="w-4 h-4" />
+          </span>
+        ),
+      },
+    ],
+  },
+];
+
+export const IconLegendSubView: React.FC = () => {
+  return (
+    <div className="space-y-5" data-icon-legend="true">
+      {ICON_LEGEND_GROUPS.map((group) => (
+        <section
+          key={group.title}
+          className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-3"
+        >
+          <div className="pb-2 border-b border-edge-subtle">
+            <h2 className="font-display text-base sm:text-lg font-semibold text-ink">
+              {group.title}
+            </h2>
+            <p className="text-xs text-ink-secondary mt-0.5">{group.subtitle}</p>
+          </div>
+
+          <div className="divide-y divide-edge-subtle">
+            {group.items.map((item) => (
+              <div
+                key={item.id}
+                className="py-3 first:pt-1 last:pb-1 flex items-start gap-3.5"
+              >
+                <div className="shrink-0 pt-0.5" aria-hidden="true">
+                  {item.renderPreview()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                    <p className="text-xs sm:text-sm font-semibold text-ink">
+                      {item.label}
+                    </p>
+                    {item.where && (
+                      <span className="text-[10px] font-medium text-ink-muted">
+                        {item.where}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-ink-secondary mt-0.5 leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+};
+
 interface LegalSubViewProps {
   docType: 'privacy' | 'terms' | 'impressum';
 }

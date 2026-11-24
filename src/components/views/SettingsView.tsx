@@ -68,6 +68,7 @@ import {
 } from './settings/SettingsPrimitives.js';
 import {
   WhatsNewSubView,
+  IconLegendSubView,
   LegalSubView,
   OtherSubView,
 } from './settings/SettingsInfoSections.js';
@@ -95,6 +96,7 @@ const VALID_SECTIONS = new Set<SettingsSectionId>([
   'dev-tools',
   'whats-new',
   'guides',
+  'icon-legend',
   'privacy',
   'terms',
   'impressum',
@@ -4699,6 +4701,27 @@ export const SettingsView: React.FC = () => {
               />
 
               <section className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-4">
+                <button
+                  type="button"
+                  onClick={() => openSection('icon-legend')}
+                  className="w-full rounded-xl p-3.5 bg-surface-subtle hover:bg-surface-elevated border border-primary/35 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-9 h-9 rounded-lg bg-primary/12 text-primary flex items-center justify-center shrink-0">
+                      <Icon name="info" className="w-4 h-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-semibold text-ink">
+                        Icon &amp; Symbol Legend
+                      </p>
+                      <p className="text-[11px] text-ink-secondary mt-0.5 truncate">
+                        Visual guide to hearts, checklists, pencils, grids &amp; cover badges
+                      </p>
+                    </div>
+                  </div>
+                  <Icon name="chevronRight" className="w-4 h-4 text-ink-muted shrink-0" />
+                </button>
+
                 <p className="text-xs text-ink-secondary leading-relaxed">
                   {t('settings.aboutStorageText', {
                     profiles: state.profiles.length,
@@ -4758,6 +4781,19 @@ export const SettingsView: React.FC = () => {
                   ))}
                 </div>
               </section>
+            </>
+          );
+
+        case 'icon-legend':
+          return (
+            <>
+              <SettingsSubViewHeader
+                title="Icon & Symbol Legend"
+                subtitle="What every button, badge, heart, checklist & pencil icon reflects"
+                backLabel={backLabel}
+                onBack={goBackToRoot}
+              />
+              <IconLegendSubView />
             </>
           );
 
@@ -5075,6 +5111,14 @@ export const SettingsView: React.FC = () => {
               title={t('settings.rowGuidesTitle')}
               subtitle={t('settings.rowGuidesSubtitle')}
               onClick={() => openSection('guides')}
+            />
+            <SettingsMenuRow
+              testId="icon-legend"
+              icon="info"
+              iconTone="indigo"
+              title="Icon & Symbol Legend"
+              subtitle="Hearts, checklists, pencils, grids & cover badges"
+              onClick={() => openSection('icon-legend')}
             />
           </SettingsGroup>
 
