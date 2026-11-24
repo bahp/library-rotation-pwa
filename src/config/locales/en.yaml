@@ -4,6 +4,7 @@
 nav:
   shelf: "Home"
   library: "Library"
+  librarian: "Librarian"
   addBookDesktop: "Scan & Add"
   addBook: "Scan"
   rotations: "Rotations"

@@ -85,7 +85,7 @@ export const SearchModal: React.FC = () => {
     setIsProfileSwitcherOpen,
     setInspectedBookId,
     submitGlobalSearch,
-    navigate,
+    openManualAddModal,
   } = useApp();
 
   useBodyScrollLock(isSearchOpen);
@@ -534,14 +534,14 @@ export const SearchModal: React.FC = () => {
     setFoundCandidate(null);
     closeSearch();
     if (prefill) {
-      navigate('scan', {
-        tab: 'manual',
+      openManualAddModal({
         title: prefill.title,
         authors: prefill.authors.join(', '),
         isbn: prefill.isbn13 || prefill.isbn10 || '',
       });
     } else {
-      navigate('scan', { tab: 'manual' });
+      const cleaned = query.trim();
+      openManualAddModal(cleaned ? { title: cleaned } : undefined);
     }
   };
 

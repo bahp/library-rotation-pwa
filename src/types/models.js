@@ -4,7 +4,7 @@
  */
 
 /**
- * @typedef {'home' | 'library' | 'scan' | 'rotations' | 'presets' | 'play' | 'profiles' | 'settings'} RouteId
+ * @typedef {'home' | 'library' | 'librarian' | 'scan' | 'rotations' | 'presets' | 'play' | 'profiles' | 'settings'} RouteId
  */
 
 /**

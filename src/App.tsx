@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext.js';
 import { AppShell } from './components/navigation/AppShell.js';
 import { HomeView } from './components/views/HomeView.js';
 import { LibraryView } from './components/views/LibraryView.js';
+import { LibrarianView } from './components/views/LibrarianView.js';
 import { ScanView } from './components/views/ScanView.js';
 import { RotationsView } from './components/views/RotationsView.js';
 import { PlayView } from './components/views/PlayView.js';
@@ -12,6 +13,7 @@ import { BookInspectorModal } from './components/modals/BookInspectorModal.js';
 import { CoverStudioModal } from './components/modals/CoverStudioModal.js';
 import { ProfileFormSheet } from './components/modals/ProfileFormSheet.js';
 import { WelcomeSetupModal } from './components/modals/WelcomeSetupModal.js';
+import { ManualBookEntryModal } from './components/modals/ManualBookEntryModal.js';
 import { AiTaggingModal } from './components/modals/AiTaggingModal.js';
 import { AiCuratorModal } from './components/modals/AiCuratorModal.js';
 import { AiRecommendationsModal } from './components/modals/AiRecommendationsModal.js';
@@ -46,6 +48,8 @@ const AppContent: React.FC = () => {
     switch (currentRoute) {
       case 'library':
         return <LibraryView />;
+      case 'librarian':
+        return <LibrarianView />;
       case 'scan':
         return <ScanView />;
       case 'rotations':
@@ -117,6 +121,9 @@ const AppContent: React.FC = () => {
         isOpen={isWelcomeModalOpen}
         onClose={() => setIsWelcomeModalOpen(false)}
       />
+
+      {/* Manual Book Entry Slide-Up Sheet */}
+      <ManualBookEntryModal />
 
       {/* AI Modals */}
       <AiTaggingModal

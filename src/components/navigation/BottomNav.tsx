@@ -23,10 +23,10 @@ export const BottomNav: React.FC = () => {
       emphasize: false,
     },
     {
-      id: 'scan',
-      label: t('nav.addBook'),
-      icon: 'scan',
-      emphasize: true,
+      id: 'librarian',
+      label: t('nav.librarian'),
+      icon: 'sparkles',
+      emphasize: false,
     },
     {
       id: 'rotations',

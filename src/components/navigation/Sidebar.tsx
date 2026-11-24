@@ -98,7 +98,7 @@ export const Sidebar: React.FC = () => {
       icon: 'library',
       badge: state.books.length > 0 ? state.books.length : undefined,
     },
-    { id: 'scan', label: t('nav.addBookDesktop'), icon: 'scan' },
+    { id: 'librarian', label: t('nav.librarian'), icon: 'sparkles' },
     { id: 'rotations', label: t('nav.rotations'), icon: 'rotations' },
     { id: 'presets', label: 'Collections', icon: 'presets' },
     { id: 'play', label: t('nav.play'), icon: 'dice' },

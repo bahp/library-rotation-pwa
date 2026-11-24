@@ -8,6 +8,12 @@ import { createScannerController } from '../features/scan/scanner-controller.js'
 import { t } from '../config/i18n.js';
 import type { AppState, ChildProfile, RotationShelf, RouteId } from '../types/models.js';
 
+export interface ManualAddPrefill {
+  title?: string;
+  authors?: string;
+  isbn?: string;
+}
+
 // Singleton instances — browser boots into clean onboarding on brand-new visits
 export const storageAdapter = createStorageAdapter({ seedOnEmpty: false });
 export const store = createAppStore(storageAdapter);
@@ -53,6 +59,9 @@ export interface AppContextType {
   unreadNotificationCount: number;
   isSearchOpen: boolean;
   setIsSearchOpen: (open: boolean) => void;
+  manualAddModal: { isOpen: boolean; prefill?: ManualAddPrefill };
+  openManualAddModal: (prefill?: ManualAddPrefill) => void;
+  closeManualAddModal: () => void;
 
   // AI Modals
   aiTagModal: { isOpen: boolean; bookId: string | null };
@@ -103,6 +112,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [manualAddModal, setManualAddModal] = useState<{
+    isOpen: boolean;
+    prefill?: ManualAddPrefill;
+  }>({ isOpen: false });
+  const openManualAddModal = useCallback((prefill?: ManualAddPrefill) => {
+    setManualAddModal({ isOpen: true, prefill });
+  }, []);
+  const closeManualAddModal = useCallback(() => {
+    setManualAddModal({ isOpen: false });
+  }, []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     try {
       return typeof localStorage !== 'undefined' && localStorage.getItem('lr_sidebar_collapsed') === '1';
@@ -185,6 +204,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsFilterDrawerOpen(false);
       setIsProfileSwitcherOpen(false);
       setIsSearchOpen(false);
+      setManualAddModal({ isOpen: false });
     });
 
     const handlePwaUpdate = () => {
@@ -306,6 +326,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     unreadNotificationCount,
     isSearchOpen,
     setIsSearchOpen,
+    manualAddModal,
+    openManualAddModal,
+    closeManualAddModal,
     aiTagModal,
     setAiTagModal,
     aiCuratorModal,

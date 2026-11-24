@@ -6,6 +6,7 @@
 const VALID_ROUTES = new Set([
   'home',
   'library',
+  'librarian',
   'scan',
   'rotations',
   'presets',
@@ -18,6 +19,7 @@ const VALID_ROUTES = new Set([
 const ROUTE_TITLES = {
   home: 'Home Shelf · Library Rotation',
   library: 'Family Library · Library Rotation',
+  librarian: 'Librarian · Library Rotation',
   scan: 'Add & Scan Books · Library Rotation',
   rotations: 'Rotations · Library Rotation',
   presets: 'Collection Presets · Library Rotation',

@@ -38,11 +38,12 @@ export const LibraryView: React.FC = () => {
     store,
     catalogService,
     activeProfile,
-    navigate,
     routeParams,
     globalSearchQuery,
     setGlobalSearchQuery,
     setInspectedBookId,
+    setIsSearchOpen,
+    openManualAddModal,
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState(
@@ -446,7 +447,7 @@ export const LibraryView: React.FC = () => {
         return;
       }
       store.notify(`ISBN ${isbn13} not found online — add manually.`, 'info');
-      navigate('scan', { tab: 'manual', isbn: isbn13 });
+      openManualAddModal({ isbn: isbn13 });
     } catch (err) {
       if (localMatch) {
         setInspectedBookId(localMatch.id);
@@ -978,10 +979,10 @@ export const LibraryView: React.FC = () => {
                   {state.books.length === 0 ? (
                     <button
                       type="button"
-                      onClick={() => navigate('scan')}
+                      onClick={() => setIsSearchOpen(true)}
                       className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      Scan or Add Books
+                      Add or Scan Books
                     </button>
                   ) : (
                     (!isAllBooksScope || activeFilterCount > 0) && (
@@ -1071,8 +1072,7 @@ export const LibraryView: React.FC = () => {
         }}
         onEditManual={(cand) => {
           setFoundCandidate(null);
-          navigate('scan', {
-            tab: 'manual',
+          openManualAddModal({
             title: cand.title,
             authors: cand.authors.join(', '),
             isbn: cand.isbn13 || cand.isbn10 || '',

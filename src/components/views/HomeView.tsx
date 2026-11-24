@@ -68,6 +68,7 @@ export const HomeView: React.FC = () => {
     navigate,
     setInspectedBookId,
     setAiRecsModal,
+    setIsSearchOpen,
     t,
   } = useApp();
 
@@ -534,10 +535,10 @@ export const HomeView: React.FC = () => {
             {state.books.length === 0 && (
               <button
                 type="button"
-                onClick={() => navigate('scan')}
+                onClick={() => setIsSearchOpen(true)}
                 className="inline-flex items-center gap-1.5 justify-center min-h-[44px] px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs sm:text-sm font-semibold transition-colors cursor-pointer"
               >
-                <Icon name="scan" className="w-4 h-4" />
+                <Icon name="search" className="w-4 h-4" />
                 <span>Add Books First</span>
               </button>
             )}
@@ -643,15 +644,6 @@ export const HomeView: React.FC = () => {
               >
                 <Icon name="sparkles" className="w-3.5 h-3.5 shrink-0" />
                 <span>AI Picks</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('library')}
-                aria-label="Browse all books in library"
-                className="min-h-[34px] text-xs font-semibold text-primary hover:underline inline-flex items-center gap-0.5 whitespace-nowrap cursor-pointer"
-              >
-                <span>Library</span>
-                <Icon name="chevronRight" className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
