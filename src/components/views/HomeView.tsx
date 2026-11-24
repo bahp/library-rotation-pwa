@@ -604,6 +604,7 @@ export const HomeView: React.FC = () => {
             <BookCoverSlide
               itemCount={rotationSuggestions.length}
               ariaLabel={`Owned books matching ${primaryActiveRotation.title}`}
+              showPagination={false}
             >
               {rotationSuggestions.map(({ book, matchReasons }) =>
                 renderRecCoverCard(
@@ -669,6 +670,7 @@ export const HomeView: React.FC = () => {
             <BookCoverSlide
               itemCount={recommendations.length}
               ariaLabel={`Suggested books for ${activeProfile?.name || 'Reader'}`}
+              showPagination={false}
             >
               {recommendations.map(({ book, matchReasons }) =>
                 renderRecCoverCard(book, matchReasons, true, 'rec')
@@ -717,6 +719,7 @@ export const HomeView: React.FC = () => {
             <BookCoverSlide
               itemCount={items.length}
               ariaLabel={`Owned books similar to ${anchorBook.title}`}
+              showPagination={false}
             >
               {items.map(({ book, matchReasons }) =>
                 renderRecCoverCard(book, matchReasons, true, `loved-${anchorBook.id}`)
@@ -753,6 +756,7 @@ export const HomeView: React.FC = () => {
             <BookCoverSlide
               itemCount={genreShelf.items.length}
               ariaLabel={`Owned ${genreShelf.label} books`}
+              showPagination={false}
             >
               {genreShelf.items.map(({ book, matchReasons }) =>
                 renderRecCoverCard(book, matchReasons, true, `genre-${genreShelf.topic}`)

@@ -143,16 +143,22 @@ export const BookCoverList: React.FC<BookCoverListProps> = ({
 export interface BookCoverSlideProps {
   itemCount: number;
   ariaLabel?: string;
+  showPagination?: boolean;
   children: React.ReactNode;
 }
 
 export const BookCoverSlide: React.FC<BookCoverSlideProps> = ({
   itemCount,
   ariaLabel,
+  showPagination = true,
   children,
 }) => {
   return (
-    <HorizontalBookCarousel itemCount={itemCount} ariaLabel={ariaLabel}>
+    <HorizontalBookCarousel
+      itemCount={itemCount}
+      ariaLabel={ariaLabel}
+      showPagination={showPagination}
+    >
       {children}
     </HorizontalBookCarousel>
   );

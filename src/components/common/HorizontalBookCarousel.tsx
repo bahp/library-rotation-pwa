@@ -4,18 +4,21 @@ interface HorizontalBookCarouselProps {
   children: React.ReactNode;
   itemCount: number;
   ariaLabel?: string;
+  showPagination?: boolean;
 }
 
 export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
   children,
   itemCount,
   ariaLabel = 'Book carousel',
+  showPagination = true,
 }) => {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [dotCount, setDotCount] = useState(1);
   const [activeDot, setActiveDot] = useState(0);
 
   const recalc = useCallback(() => {
+    if (!showPagination) return;
     const el = scrollerRef.current;
     if (!el) return;
     const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
@@ -33,16 +36,17 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
     const idx = Math.min(pages - 1, Math.round(ratio * (pages - 1)));
     setDotCount(pages);
     setActiveDot(idx);
-  }, [itemCount]);
+  }, [itemCount, showPagination]);
 
   useEffect(() => {
+    if (!showPagination) return;
     recalc();
     const el = scrollerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => recalc());
     observer.observe(el);
     return () => observer.disconnect();
-  }, [recalc]);
+  }, [recalc, showPagination]);
 
   const handleDotClick = (index: number) => {
     const el = scrollerRef.current;
@@ -58,13 +62,13 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
         ref={scrollerRef}
         role="region"
         aria-label={ariaLabel}
-        onScroll={recalc}
+        onScroll={showPagination ? recalc : undefined}
         className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar pb-1"
       >
         {children}
       </div>
 
-      {dotCount > 1 && (
+      {showPagination && dotCount > 1 && (
         <div
           aria-label="Carousel progress"
           className="mt-2 flex items-center justify-center gap-1"
