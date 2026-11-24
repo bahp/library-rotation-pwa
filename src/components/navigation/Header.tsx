@@ -205,7 +205,7 @@ export const Header: React.FC = () => {
         </nav>
 
         {/* Zone 3: Mobile (Search, Notifications, Clean Avatar) & Desktop Utilities */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
           {/* Desktop Add Book & Theme Switch */}
           <a
             href="#/scan"
@@ -274,7 +274,7 @@ export const Header: React.FC = () => {
               className="lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full active:scale-95 transition-transform cursor-pointer shrink-0"
             >
               <span
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${toneClass}`}
+                className={`w-[26px] h-[26px] rounded-full flex items-center justify-center text-[11px] font-semibold ring-1 ring-inset ring-ink/10 ${toneClass}`}
               >
                 {initial}
               </span>
@@ -287,8 +287,8 @@ export const Header: React.FC = () => {
               aria-label="Reader profiles and settings"
               className="lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full active:scale-95 transition-transform cursor-pointer shrink-0"
             >
-              <span className="w-8 h-8 rounded-full bg-surface-elevated text-ink-secondary flex items-center justify-center">
-                <Icon name="profiles" className="w-4 h-4" />
+              <span className="w-[26px] h-[26px] rounded-full bg-surface-elevated text-ink-secondary ring-1 ring-inset ring-ink/10 flex items-center justify-center">
+                <Icon name="profiles" className="w-3.5 h-3.5" />
               </span>
             </button>
           )}

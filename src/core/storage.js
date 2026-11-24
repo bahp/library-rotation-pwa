@@ -18,6 +18,7 @@ import {
   detectDeviceLanguage,
   normalizeBookCardCustomWidth,
   normalizeBookCardFields,
+  normalizeBookCardFrame,
   normalizeBookCardInfoPlacement,
   normalizeBookCardSectionOverrides,
   normalizeBookCardShadow,
@@ -445,6 +446,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       bookCardSize: normalizeBookCardSize(overrides.bookCardSize),
       bookCardCustomWidth: normalizeBookCardCustomWidth(overrides.bookCardCustomWidth),
       bookCardInfoPlacement: normalizeBookCardInfoPlacement(overrides.bookCardInfoPlacement),
+      bookCardFrame: normalizeBookCardFrame(overrides.bookCardFrame),
       showBookCoverOverlays: overrides.showBookCoverOverlays !== false,
       bookCardFields: normalizeBookCardFields(overrides.bookCardFields),
       bookCardSectionOverrides: normalizeBookCardSectionOverrides(

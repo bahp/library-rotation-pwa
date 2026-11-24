@@ -544,19 +544,39 @@ export const SearchModal: React.FC = () => {
           }}
           className="animate-search-sheet-up w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-xl bg-transparent sm:bg-surface/80 sm:backdrop-blur-2xl sm:rounded-3xl sm:border sm:shadow-2xl flex flex-col overflow-hidden pt-safe pb-safe sm:pt-0 sm:pb-0"
         >
-          {/* Sticky Top Frosted Search Bar */}
+          {/* Sticky Top Frosted Bar + Full-Width Search Input */}
           <form
             onSubmit={handleSubmit}
-            className="shrink-0 px-3.5 sm:px-5 pt-3 pb-2.5 flex items-center gap-2"
+            className="shrink-0 px-3.5 sm:px-5 pt-2.5 pb-3 flex flex-col gap-2"
           >
-            <button
-              type="button"
-              onClick={closeSearch}
-              aria-label="Close search"
-              className="min-h-[44px] px-2.5 rounded-full text-sm font-semibold text-secondary hover:text-ink hover:bg-surface/45 active:scale-95 inline-flex items-center justify-center transition-all cursor-pointer shrink-0"
-            >
-              Close
-            </button>
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={closeSearch}
+                aria-label="Close search"
+                className="min-h-[44px] px-2 -ml-1 rounded-full text-sm font-semibold text-secondary hover:text-ink hover:bg-surface/45 active:scale-95 inline-flex items-center justify-center transition-all cursor-pointer shrink-0"
+              >
+                Close
+              </button>
+
+              {activeProfile && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeSearch();
+                    setIsProfileSwitcherOpen(true);
+                  }}
+                  aria-label={`Switch reader profile, current reader is ${activeProfile.name}`}
+                  className="sm:hidden min-h-[44px] min-w-[44px] -mr-1.5 flex items-center justify-center rounded-full active:scale-95 transition-transform cursor-pointer shrink-0"
+                >
+                  <span
+                    className={`w-[26px] h-[26px] rounded-full flex items-center justify-center text-[11px] font-semibold ring-1 ring-inset ring-ink/10 ${avatarToneClass}`}
+                  >
+                    {avatarInitial}
+                  </span>
+                </button>
+              )}
+            </div>
 
             <ClearableInput
               ref={inputRef}
@@ -567,31 +587,13 @@ export const SearchModal: React.FC = () => {
               placeholder="Search books, authors, genres…"
               aria-label="Search books, authors, genres, or ISBN"
               enterKeyHint="search"
-              containerClassName="flex-1 min-w-0"
+              containerClassName="w-full"
               style={{
                 backgroundColor: 'var(--search-glass-input)',
                 borderColor: 'var(--search-glass-border)',
               }}
               className="h-11 rounded-full border backdrop-blur-md text-base sm:text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary shadow-xs transition-colors"
             />
-
-            {activeProfile && (
-              <button
-                type="button"
-                onClick={() => {
-                  closeSearch();
-                  setIsProfileSwitcherOpen(true);
-                }}
-                aria-label={`Switch reader profile, current reader is ${activeProfile.name}`}
-                className="sm:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full active:scale-95 transition-transform cursor-pointer shrink-0"
-              >
-                <span
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shadow-xs ring-1 ring-surface/70 ${avatarToneClass}`}
-                >
-                  {avatarInitial}
-                </span>
-              </button>
-            )}
           </form>
 
           {/* Scrollable Frosted Body */}
@@ -600,7 +602,7 @@ export const SearchModal: React.FC = () => {
               <div className="space-y-6 pb-2">
                 {/* Frosted Glass Scan & Entry Cards */}
                 <section aria-label="Scan and add book options" className="space-y-2.5">
-                  {/* Featured Primary Frosted Card: Scan Book Cover or Barcode */}
+                  {/* Featured Primary Frosted Card: Scan Barcode or QR Code */}
                   <button
                     type="button"
                     data-action="search-scan-barcode"
@@ -616,7 +618,7 @@ export const SearchModal: React.FC = () => {
                         <Icon name="scan" className="w-5 h-5" />
                       </span>
                       <span className="text-[15px] font-semibold leading-tight text-left truncate">
-                        Scan Book Cover or Barcode
+                        Scan Barcode or QR Code
                       </span>
                     </span>
                     <Icon name="chevronRight" className="w-4 h-4 text-ink-muted shrink-0" />

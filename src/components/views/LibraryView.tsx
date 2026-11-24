@@ -916,6 +916,7 @@ export const LibraryView: React.FC = () => {
                     customWidth={libraryCardConfig.customWidth}
                     aspectRatio={libraryCardConfig.aspectRatio}
                     infoPlacement={libraryCardConfig.infoPlacement}
+                    cardFrame={libraryCardConfig.cardFrame}
                     showCoverOverlays={libraryCardConfig.showCoverOverlays}
                     showUsageAdorno={showCoverUsageAdornos}
                     showRotationHistory={showRotationHistory}
@@ -944,6 +945,7 @@ export const LibraryView: React.FC = () => {
                     customWidth={libraryCardConfig.customWidth}
                     aspectRatio={libraryCardConfig.aspectRatio}
                     infoPlacement={libraryCardConfig.infoPlacement}
+                    cardFrame={libraryCardConfig.cardFrame}
                     showCoverOverlays={libraryCardConfig.showCoverOverlays}
                     showUsageAdorno={showCoverUsageAdornos}
                     showRotationHistory={showRotationHistory}

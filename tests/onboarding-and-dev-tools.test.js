@@ -24,6 +24,7 @@ import {
   detectDeviceLanguage,
   normalizeBookCardCustomWidth,
   normalizeBookCardFields,
+  normalizeBookCardFrame,
   normalizeBookCardInfoPlacement,
   normalizeBookCardSectionOverrides,
   normalizeBookCardShadow,
@@ -539,15 +540,18 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(normalizeBookCardCustomWidth(undefined), 136);
     assert.equal(normalizeBookCardInfoPlacement('cover-only'), 'cover-only');
     assert.equal(normalizeBookCardInfoPlacement('invalid'), 'below');
+    assert.equal(normalizeBookCardFrame('borderless'), 'borderless');
+    assert.equal(normalizeBookCardFrame('framed'), 'framed');
+    assert.equal(normalizeBookCardFrame('invalid-frame'), 'framed');
     assert.deepEqual(normalizeBookCardFields(['title', 'bogus', 'year', 'title']), ['title', 'year']);
     assert.deepEqual(
       normalizeBookCardSectionOverrides({
-        library: { infoPlacement: 'cover-only', showCoverOverlays: false },
+        library: { infoPlacement: 'cover-only', showCoverOverlays: false, cardFrame: 'borderless' },
         homeSuggested: { size: 'custom', customWidth: 192 },
         unknownSection: { size: 'large' },
       }),
       {
-        library: { infoPlacement: 'cover-only', showCoverOverlays: false },
+        library: { infoPlacement: 'cover-only', showCoverOverlays: false, cardFrame: 'borderless' },
         homeSuggested: { size: 'custom', customWidth: 192 },
       }
     );
@@ -555,22 +559,27 @@ describe('Onboarding, Household Settings & Dev/QA Store Flows', () => {
     assert.equal(libResolved.infoPlacement, 'cover-only');
     assert.equal(libResolved.size, 'compact');
     assert.equal(libResolved.customWidth, 136);
+    assert.equal(libResolved.cardFrame, 'framed');
     assert.equal(libResolved.hasCustomOverride, true);
     const homeResolved = resolveBookCardDisplayConfig(safeDefaults, 'homeShelf');
     assert.equal(homeResolved.infoPlacement, 'overlay');
     assert.equal(homeResolved.size, 'large');
     assert.equal(homeResolved.customWidth, 136);
+    assert.equal(homeResolved.cardFrame, 'framed');
     assert.equal(homeResolved.hasCustomOverride, false);
     const customSettings = createSafeDefaultSettings({
       bookCardSize: 'custom',
       bookCardCustomWidth: 175,
+      bookCardFrame: 'borderless',
       bookCardSectionOverrides: {
-        homeSuggested: { size: 'custom', customWidth: 112 },
+        homeSuggested: { size: 'custom', customWidth: 112, cardFrame: 'framed' },
       },
     });
     assert.equal(resolveBookCardDisplayConfig(customSettings, 'homeShelf').size, 'custom');
     assert.equal(resolveBookCardDisplayConfig(customSettings, 'homeShelf').customWidth, 175);
+    assert.equal(resolveBookCardDisplayConfig(customSettings, 'homeShelf').cardFrame, 'borderless');
     assert.equal(resolveBookCardDisplayConfig(customSettings, 'homeSuggested').customWidth, 112);
+    assert.equal(resolveBookCardDisplayConfig(customSettings, 'homeSuggested').cardFrame, 'framed');
 
     // 3. 0..6 onboarding step bounds & Book notes/verification persistence
     const storage = createStorageAdapter({ forceMemory: true });

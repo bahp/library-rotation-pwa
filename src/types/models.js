@@ -56,6 +56,10 @@
  */
 
 /**
+ * @typedef {'framed' | 'borderless'} BookCardFrame
+ */
+
+/**
  * @typedef {'title' | 'author' | 'year' | 'pages' | 'ageFormat' | 'usage'} BookCardMetaField
  */
 
@@ -68,6 +72,7 @@
  * @property {BookCardSize} [size]
  * @property {number} [customWidth]
  * @property {BookCardInfoPlacement} [infoPlacement]
+ * @property {BookCardFrame} [cardFrame]
  * @property {boolean} [showCoverOverlays]
  * @property {BookCardMetaField[]} [fields]
  */
@@ -322,6 +327,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large' | 'custom')
  * @property {number} [bookCardCustomWidth] - Custom book card target width in pixels (88..260, default 136)
  * @property {BookCardInfoPlacement} [bookCardInfoPlacement] - Where metadata sits on cover cards ('below' | 'overlay' | 'cover-only')
+ * @property {BookCardFrame} [bookCardFrame] - Card outer frame style ('framed' with border/bg or 'borderless' with shadow on cover only)
  * @property {boolean} [showBookCoverOverlays] - Show corner badges, loved hearts, and owner monograms on covers (default: true)
  * @property {BookCardMetaField[]} [bookCardFields] - Ordered list of metadata fields displayed on book cards
  * @property {Partial<Record<BookCardSectionKey, BookCardDisplayConfig>>} [bookCardSectionOverrides] - Optional per-view card display overrides

@@ -17,6 +17,7 @@ interface BookCoverProps {
   cooldownDaysRemaining?: number;
   isStaleUnread?: boolean;
   staleShelfDays?: number;
+  noShadow?: boolean;
   className?: string;
   onClick?: () => void;
 }
@@ -35,6 +36,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
   cooldownDaysRemaining = 0,
   isStaleUnread = false,
   staleShelfDays = 0,
+  noShadow = false,
   className = '',
   onClick,
 }) => {
@@ -46,10 +48,11 @@ export const BookCover: React.FC<BookCoverProps> = ({
 
   const isGrid = size === 'grid';
   const isSquare = aspectRatio !== 'portrait';
+  const gridShadow = noShadow ? '' : ' shadow-xs';
 
   const dims = isSquare
     ? isGrid
-      ? 'w-full aspect-square rounded-lg shadow-xs'
+      ? `w-full aspect-square rounded-lg${gridShadow}`
       : size === 'xs'
         ? 'w-11 h-11 aspect-square rounded-md'
         : size === 'sm'
@@ -58,7 +61,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
             ? 'w-32 h-32 aspect-square rounded-xl'
             : 'w-20 h-20 aspect-square rounded-lg'
     : isGrid
-      ? 'w-full aspect-[3/4] rounded-lg shadow-xs'
+      ? `w-full aspect-[3/4] rounded-lg${gridShadow}`
       : size === 'xs'
         ? 'w-11 h-[58px] rounded-md'
         : size === 'sm'

@@ -37,6 +37,7 @@ import {
   type BookViewMode,
   type BookCardSize,
   type BookCardInfoPlacement,
+  type BookCardFrame,
   type BookCardMetaField,
   type BookCardSectionKey,
   type BookCardDisplayConfig,
@@ -413,6 +414,7 @@ export const SettingsView: React.FC = () => {
         updates.bookCardCustomWidth = normalizeBookCardCustomWidth(patch.customWidth);
       }
       if (patch.infoPlacement !== undefined) updates.bookCardInfoPlacement = patch.infoPlacement;
+      if (patch.cardFrame !== undefined) updates.bookCardFrame = patch.cardFrame;
       if (patch.showCoverOverlays !== undefined) {
         updates.showBookCoverOverlays = patch.showCoverOverlays;
       }
@@ -443,6 +445,7 @@ export const SettingsView: React.FC = () => {
         bookCardSize: 'compact',
         bookCardCustomWidth: NUMERIC_BOUNDS.bookCardCustomWidthDefault,
         bookCardInfoPlacement: 'below',
+        bookCardFrame: 'framed',
         showBookCoverOverlays: true,
         bookCardFields: ['title', 'author', 'ageFormat', 'usage'],
       });
@@ -1467,6 +1470,7 @@ export const SettingsView: React.FC = () => {
                                     customWidth={scopedConfig.customWidth}
                                     aspectRatio={scopedConfig.aspectRatio}
                                     infoPlacement={scopedConfig.infoPlacement}
+                                    cardFrame={scopedConfig.cardFrame}
                                     showCoverOverlays={scopedConfig.showCoverOverlays}
                                     fields={scopedConfig.fields}
                                     usage={{
@@ -1494,6 +1498,7 @@ export const SettingsView: React.FC = () => {
                                     customWidth={scopedConfig.customWidth}
                                     aspectRatio={scopedConfig.aspectRatio}
                                     infoPlacement={scopedConfig.infoPlacement}
+                                    cardFrame={scopedConfig.cardFrame}
                                     showCoverOverlays={scopedConfig.showCoverOverlays}
                                     fields={scopedConfig.fields}
                                     usage={{
@@ -1523,6 +1528,7 @@ export const SettingsView: React.FC = () => {
                                     customWidth={scopedConfig.customWidth}
                                     aspectRatio={scopedConfig.aspectRatio}
                                     infoPlacement={scopedConfig.infoPlacement}
+                                    cardFrame={scopedConfig.cardFrame}
                                     showCoverOverlays={scopedConfig.showCoverOverlays}
                                     fields={scopedConfig.fields}
                                     usage={{
@@ -1635,6 +1641,48 @@ export const SettingsView: React.FC = () => {
                                 <p className="text-[11px] text-ink-secondary mt-0.5 leading-snug">
                                   {opt.hint}
                                 </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Card Border & Frame */}
+                      <div>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs font-semibold text-ink">
+                            {t('settings.bookCardFrameLabel')}
+                          </p>
+                          {scopedConfig.infoPlacement === 'cover-only' && (
+                            <span className="text-[11px] text-ink-muted">
+                              Cover Only grid always renders borderless
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-1 p-1 rounded-lg bg-surface border border-edge max-w-md">
+                          {(
+                            [
+                              { id: 'framed' as BookCardFrame, label: t('settings.bookCardFrameFramed') },
+                              { id: 'borderless' as BookCardFrame, label: t('settings.bookCardFrameBorderless') },
+                            ] as const
+                          ).map((opt) => {
+                            const active = scopedConfig.cardFrame === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                data-card-frame-option={opt.id}
+                                aria-pressed={active}
+                                onClick={() =>
+                                  void updateScopedBookCardConfig({ cardFrame: opt.id })
+                                }
+                                className={`min-h-[38px] px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                                  active
+                                    ? 'bg-primary text-primary-fg shadow-xs'
+                                    : 'text-ink-secondary hover:text-ink'
+                                }`}
+                              >
+                                {opt.label}
                               </button>
                             );
                           })}

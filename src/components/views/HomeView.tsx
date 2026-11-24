@@ -291,6 +291,7 @@ export const HomeView: React.FC = () => {
         customWidth={shelfCardConfig.customWidth}
         aspectRatio={shelfCardConfig.aspectRatio}
         infoPlacement={shelfCardConfig.infoPlacement}
+        cardFrame={shelfCardConfig.cardFrame}
         showCoverOverlays={shelfCardConfig.showCoverOverlays}
         showUsageAdorno={false}
         fields={shelfCardConfig.fields}
@@ -342,6 +343,7 @@ export const HomeView: React.FC = () => {
         customWidth={suggestedCardConfig.customWidth}
         aspectRatio={suggestedCardConfig.aspectRatio}
         infoPlacement={suggestedCardConfig.infoPlacement}
+        cardFrame={suggestedCardConfig.cardFrame}
         showCoverOverlays={suggestedCardConfig.showCoverOverlays}
         showUsageAdorno={false}
         fields={suggestedCardConfig.fields}
@@ -366,7 +368,7 @@ export const HomeView: React.FC = () => {
                 <span
                   aria-hidden="true"
                   title="Active shelf"
-                  className="w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15 shrink-0 mt-2 sm:mt-3"
+                  className="w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15 lr-active-dot-pulse shrink-0 mt-2 sm:mt-3"
                 />
                 <span className="min-w-0">{displayedRotation.title}</span>
               </h1>
@@ -438,7 +440,7 @@ export const HomeView: React.FC = () => {
                       }`}
                     >
                       {selected && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" aria-hidden="true" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-success lr-active-dot-pulse shrink-0" aria-hidden="true" />
                       )}
                       <span>{rot.title}</span>
                     </button>
@@ -524,6 +526,7 @@ export const HomeView: React.FC = () => {
                         customWidth={shelfCardConfig.customWidth}
                         aspectRatio={shelfCardConfig.aspectRatio}
                         infoPlacement={shelfCardConfig.infoPlacement}
+                        cardFrame={shelfCardConfig.cardFrame}
                         showCoverOverlays={shelfCardConfig.showCoverOverlays}
                         showUsageAdorno={false}
                         fields={shelfCardConfig.fields}
@@ -734,6 +737,7 @@ export const HomeView: React.FC = () => {
                   customWidth={suggestedCardConfig.customWidth}
                   aspectRatio={suggestedCardConfig.aspectRatio}
                   infoPlacement={suggestedCardConfig.infoPlacement}
+                  cardFrame={suggestedCardConfig.cardFrame}
                   showCoverOverlays={suggestedCardConfig.showCoverOverlays}
                   showUsageAdorno={false}
                   fields={suggestedCardConfig.fields}

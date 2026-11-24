@@ -18,7 +18,80 @@ import {
   getAllRotationPresets,
 } from '../../features/rotations/rotation-presets.js';
 import { isBookRotatable } from '../../types/models.js';
-import type { Book, RotationShelf } from '../../types/models.js';
+import type { Book, CoverAspectRatio, RotationShelf } from '../../types/models.js';
+
+interface RotationFannedCoversProps {
+  books: Book[];
+  aspectRatio: CoverAspectRatio;
+  compact?: boolean;
+}
+
+const RotationFannedCovers: React.FC<RotationFannedCoversProps> = ({
+  books,
+  aspectRatio,
+  compact = false,
+}) => {
+  const lead = books[0] || null;
+  const second = books[1] || null;
+  const third = books[2] || null;
+
+  const containerSize = compact ? 'w-[70px] h-[52px]' : 'w-[86px] h-[64px]';
+  const coverSize = compact ? 'xs' : 'xs';
+  const frontScale = compact ? 'scale-[0.86]' : 'scale-100';
+  const backScale = compact ? 'scale-[0.74]' : 'scale-[0.86]';
+
+  if (!lead) {
+    return (
+      <div
+        className={`${containerSize} rounded-xl bg-surface-subtle border border-edge flex items-center justify-center text-ink-muted shrink-0`}
+      >
+        <Icon name="book" className={compact ? 'w-4 h-4' : 'w-5 h-5'} />
+      </div>
+    );
+  }
+
+  if (!second) {
+    return (
+      <div className={`${containerSize} relative flex items-center justify-center shrink-0`}>
+        <div
+          className={`rounded-md overflow-hidden shadow-md ring-1 ring-black/15 dark:ring-white/10 ${frontScale}`}
+        >
+          <BookCover book={lead} size={coverSize} aspectRatio={aspectRatio} showBadges={false} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`${containerSize} relative flex items-center justify-center shrink-0 select-none`}
+    >
+      {/* Left fanned cover */}
+      <div
+        className={`absolute left-0.5 rounded-md overflow-hidden shadow-sm ring-1 ring-black/15 dark:ring-white/10 -rotate-[8deg] origin-bottom-right ${backScale} z-0 opacity-95`}
+      >
+        <BookCover book={second} size={coverSize} aspectRatio={aspectRatio} showBadges={false} />
+      </div>
+
+      {/* Right fanned cover (when 3+ books) */}
+      {third && (
+        <div
+          className={`absolute right-0.5 rounded-md overflow-hidden shadow-sm ring-1 ring-black/15 dark:ring-white/10 rotate-[8deg] origin-bottom-left ${backScale} z-0 opacity-95`}
+        >
+          <BookCover book={third} size={coverSize} aspectRatio={aspectRatio} showBadges={false} />
+        </div>
+      )}
+
+      {/* Upright lead cover in front */}
+      <div
+        className={`relative z-10 rounded-md overflow-hidden shadow-lg ring-1 ring-black/20 dark:ring-white/15 ${frontScale}`}
+      >
+        <BookCover book={lead} size={coverSize} aspectRatio={aspectRatio} showBadges={false} />
+      </div>
+    </div>
+  );
+};
 
 export const RotationsView: React.FC = () => {
   const {
@@ -162,7 +235,6 @@ export const RotationsView: React.FC = () => {
     const shelfBooks = rot.bookIds
       .map((id) => bookMap.get(id))
       .filter((b): b is Book => Boolean(b));
-    const leadBook = shelfBooks[0] || null;
     const totalCount = shelfBooks.length;
     const readCount = shelfBooks.filter((b) =>
       rot.completedBookIds?.includes(b.id)
@@ -173,7 +245,7 @@ export const RotationsView: React.FC = () => {
 
     if (isExpanded) {
       return (
-        <div key={rot.id} className="space-y-1.5">
+        <div key={rot.id} className="space-y-1.5 animate-rotation-expand">
           <div className="flex justify-end">
             <button
               type="button"
@@ -217,90 +289,93 @@ export const RotationsView: React.FC = () => {
       );
     }
 
-    return (
-      <div
-        key={rot.id}
-        data-rotation-summary={rot.id}
-        className={`rounded-2xl bg-surface border transition-all lr-card ${
-          isActive
-            ? 'border-primary/40 hover:border-primary/70'
-            : 'border-edge hover:border-secondary'
-        }`}
-      >
-        <div className="flex items-center gap-3 p-3 sm:p-3.5">
-          <button
-            type="button"
-            onClick={() => toggleExpanded(rot.id)}
-            aria-expanded="false"
-            aria-label={`Open ${rot.title} shelf`}
-            className="flex-1 min-w-0 flex items-center gap-3 text-left cursor-pointer"
-          >
-            {leadBook ? (
-              <div className="shrink-0 rounded-lg overflow-hidden bg-surface-subtle">
-                <BookCover
-                  book={leadBook}
-                  size="xs"
-                  aspectRatio={coverAspect}
-                  showBadges={false}
-                />
-              </div>
-            ) : (
-              <div className="w-11 h-14 rounded-lg bg-surface-subtle border border-edge flex items-center justify-center text-ink-muted shrink-0">
-                <Icon name="book" className="w-5 h-5" />
-              </div>
-            )}
+    if (isActive) {
+      return (
+        <button
+          key={rot.id}
+          type="button"
+          data-rotation-summary={rot.id}
+          onClick={() => toggleExpanded(rot.id)}
+          aria-expanded="false"
+          aria-label={`Open ${rot.title} shelf`}
+          className="w-full rounded-2xl bg-surface border border-primary/40 hover:border-primary/70 p-3.5 sm:p-4 lr-card flex items-center gap-3.5 text-left transition-all active:scale-[0.995] cursor-pointer"
+        >
+          <RotationFannedCovers books={shelfBooks} aspectRatio={coverAspect} />
 
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-sans text-sm sm:text-base font-semibold text-ink truncate leading-tight">
-                  {rot.title}{' '}
-                  <span className="font-normal text-ink-secondary font-mono-tabular text-xs">
-                    ({totalCount} {totalCount === 1 ? 'book' : 'books'})
-                  </span>
-                </p>
-                <Icon
-                  name="chevronRight"
-                  className="w-4 h-4 text-ink-muted shrink-0"
-                />
-              </div>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <p className="font-display text-base sm:text-lg font-semibold text-ink truncate leading-tight">
+              {rot.title}
+            </p>
 
-              <div className="h-1.5 w-full rounded-full bg-surface-elevated overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary dark:bg-accent transition-all duration-300"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
+            <p className="text-xs text-ink-secondary truncate leading-tight">
+              <span className="font-mono-tabular">{totalCount}</span>{' '}
+              {totalCount === 1 ? 'book' : 'books'}
+              <span aria-hidden="true"> · </span>
+              <span className="font-mono-tabular">{schedule.cycleDays}</span> days
+            </p>
 
-              <div className="flex items-center justify-between gap-2 text-[11px] font-mono-tabular text-ink-secondary leading-none">
-                <span>
-                  Progress ({readCount} / {totalCount})
-                </span>
-                <span
-                  className={
-                    isActive && schedule.isDue
-                      ? 'text-accent font-semibold'
-                      : isActive && schedule.isDueSoon
-                        ? 'text-primary font-semibold'
-                        : ''
-                  }
-                >
-                  {isActive ? schedule.countdownLabel : `${schedule.cycleDays}d cycle`}
-                </span>
-              </div>
+            <div className="h-1.5 w-full rounded-full lr-progress-track overflow-hidden">
+              <div
+                className="h-full rounded-full lr-progress-fill transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
             </div>
-          </button>
 
-          {!isActive && (
-            <button
-              type="button"
-              onClick={() => handleToggleRotationActive(rot.id)}
-              className="min-h-[36px] px-3 py-1 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold shrink-0 transition-colors cursor-pointer"
-            >
-              Activate
-            </button>
-          )}
+            <div className="flex items-center gap-2.5 text-xs font-mono-tabular leading-none pt-0.5">
+              <span className="font-bold text-primary dark:text-accent">
+                {readCount} / {totalCount}
+              </span>
+              <span className="text-ink-secondary">{progressPct}%</span>
+            </div>
+          </div>
+
+          <span
+            aria-hidden="true"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-primary/40 bg-surface-subtle text-primary shrink-0"
+          >
+            <Icon name="bookOpen" className="w-4 h-4" />
+            <Icon name="chevronRight" className="w-3.5 h-3.5" />
+          </span>
+        </button>
+      );
+    }
+
+    return (
+      <button
+        key={rot.id}
+        type="button"
+        data-rotation-summary={rot.id}
+        onClick={() => toggleExpanded(rot.id)}
+        aria-expanded="false"
+        aria-label={`Open ${rot.title} shelf`}
+        className="w-full relative overflow-hidden rounded-2xl bg-surface border border-edge hover:border-secondary px-3 py-2.5 sm:px-3.5 lr-card flex items-center gap-3 text-left transition-all active:scale-[0.995] cursor-pointer"
+      >
+        <RotationFannedCovers books={shelfBooks} aspectRatio={coverAspect} compact />
+
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <p className="font-sans text-sm sm:text-[15px] font-semibold text-ink truncate leading-tight">
+            {rot.title}
+          </p>
+          <p className="text-[11px] font-mono-tabular text-ink-secondary truncate leading-tight">
+            {totalCount} {totalCount === 1 ? 'book' : 'books'} · {schedule.cycleDays}d · {readCount}/{totalCount} read
+          </p>
         </div>
-      </div>
+
+        <Icon
+          name="chevronRight"
+          className="w-4 h-4 text-ink-muted shrink-0"
+        />
+
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 h-[2.5px] bg-edge-subtle/45"
+        >
+          <div
+            className="h-full lr-progress-fill transition-all duration-300"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </button>
     );
   };
 
@@ -320,9 +395,15 @@ export const RotationsView: React.FC = () => {
         <div className="flex items-center justify-between gap-2">
           <h2
             id="active-rotations-heading"
-            className="font-display text-xl font-semibold text-ink"
+            className="font-display text-xl font-semibold text-ink inline-flex items-center gap-2.5"
           >
-            Active Rotations
+            {activeRotations.length > 0 && (
+              <span
+                aria-hidden="true"
+                className="w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15 lr-active-dot-pulse shrink-0"
+              />
+            )}
+            <span>{activeRotations.length === 1 ? 'Active Rotation' : 'Active Rotations'}</span>
           </h2>
           {activeRotations.length > 0 && (
             <span className="text-xs font-mono-tabular text-ink-secondary">

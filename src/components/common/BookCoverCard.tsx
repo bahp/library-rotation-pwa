@@ -16,6 +16,7 @@ import {
 } from '../../config/index.js';
 import type {
   Book,
+  BookCardFrame,
   BookCardInfoPlacement,
   BookCardMetaField,
   BookCardSize,
@@ -166,6 +167,7 @@ export interface BookCoverCardProps {
   customWidth?: number;
   aspectRatio?: CoverAspectRatio;
   infoPlacement?: BookCardInfoPlacement;
+  cardFrame?: BookCardFrame;
   showCoverOverlays?: boolean;
   showUsageAdorno?: boolean;
   showRotationHistory?: boolean;
@@ -195,6 +197,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   customWidth,
   aspectRatio = 'square',
   infoPlacement = 'below',
+  cardFrame = 'framed',
   showCoverOverlays = true,
   showUsageAdorno = true,
   showRotationHistory = true,
@@ -259,14 +262,24 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   // ---------------------------------------------------------------------------
   if (layout === 'list') {
     const listTitleVisible = infoPlacement !== 'cover-only' || fieldSet.has('title');
+    const isListBorderless = cardFrame === 'borderless';
     return (
       <article
         data-book-card={dataBookCard ?? book.id}
-        className={`group isolate min-w-0 rounded-[var(--radius-card)] bg-surface border ${
-          highlightState === 'read' || highlightState === 'picked'
-            ? 'border-primary/45'
-            : 'border-edge hover:border-primary/45'
-        } p-2 sm:p-2.5 lr-card flex items-center justify-between gap-2.5 transition-all ${className}`}
+        data-card-frame={cardFrame}
+        className={
+          isListBorderless
+            ? `group isolate min-w-0 rounded-none bg-transparent border-0 border-b ${
+                highlightState === 'read' || highlightState === 'picked'
+                  ? 'border-primary/45'
+                  : 'border-edge-subtle hover:border-primary/45'
+              } px-0.5 py-2 flex items-center justify-between gap-2.5 transition-all ${className}`
+            : `group isolate min-w-0 rounded-[var(--radius-card)] bg-surface border ${
+                highlightState === 'read' || highlightState === 'picked'
+                  ? 'border-primary/45'
+                  : 'border-edge hover:border-primary/45'
+              } p-2 sm:p-2.5 lr-card flex items-center justify-between gap-2.5 transition-all ${className}`
+        }
       >
         <button
           type="button"
@@ -276,7 +289,11 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
           aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
           className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-primary"
         >
-          <div className="shrink-0 rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle">
+          <div
+            className={`shrink-0 rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle ${
+              isListBorderless ? 'lr-cover-shadow' : ''
+            }`}
+          >
             <BookCover
               book={book}
               size={sizeTier === 'large' ? 'md' : sizeTier === 'regular' ? 'sm' : 'xs'}
@@ -288,6 +305,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
               isOnActiveShelf={isOnShelf}
               isReadOnActiveShelf={isRead}
               isPickedInRotation={isPicked}
+              noShadow={isListBorderless}
             />
           </div>
 
@@ -399,31 +417,43 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   const isCarousel = layout === 'carousel';
   const isCoverOnly = infoPlacement === 'cover-only';
   const isOverlay = infoPlacement === 'overlay';
+  const isBorderless = cardFrame === 'borderless' || isCoverOnly;
 
   const carouselWidthClass = isCarousel ? 'lr-book-slide-card' : '';
 
   const outerCardClass = isCoverOnly
     ? `group isolate relative min-w-0 transition-transform ${carouselWidthClass}`
     : isOverlay
-      ? `group isolate relative flex flex-col min-w-0 rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle border ${
-          highlightState === 'picked' || highlightState === 'read' || highlightState === 'selected'
-            ? 'border-primary/60 ring-2 ring-primary/25'
-            : 'border-edge hover:border-secondary'
-        } lr-card transition-all ${carouselWidthClass}`
-      : `group isolate flex flex-col justify-between min-w-0 rounded-[var(--radius-card)] bg-surface border ${
-          highlightState === 'picked' || highlightState === 'read' || highlightState === 'selected'
-            ? 'border-primary/50'
-            : 'border-edge hover:border-secondary'
-        } ${
-          sizeTier === 'compact'
-            ? 'p-1.5 sm:p-2'
-            : sizeTier === 'large'
-              ? 'p-3 sm:p-3.5'
-              : 'p-2 sm:p-2.5'
-        } lr-card transition-all ${carouselWidthClass}`;
+      ? isBorderless
+        ? `group isolate relative flex flex-col min-w-0 rounded-[var(--radius-cover)] overflow-hidden lr-cover-shadow transition-all ${
+            highlightState === 'picked'
+              ? 'ring-2 ring-primary ring-offset-2 ring-offset-canvas'
+              : highlightState === 'read' || highlightState === 'selected'
+                ? 'ring-[1.5px] ring-primary/70 ring-offset-2 ring-offset-canvas'
+                : ''
+          } ${carouselWidthClass}`
+        : `group isolate relative flex flex-col min-w-0 rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle border ${
+            highlightState === 'picked' || highlightState === 'read' || highlightState === 'selected'
+              ? 'border-primary/60 ring-2 ring-primary/25'
+              : 'border-edge hover:border-secondary'
+          } lr-card transition-all ${carouselWidthClass}`
+      : isBorderless
+        ? `group isolate flex flex-col justify-between min-w-0 transition-transform ${carouselWidthClass}`
+        : `group isolate flex flex-col justify-between min-w-0 rounded-[var(--radius-card)] bg-surface border ${
+            highlightState === 'picked' || highlightState === 'read' || highlightState === 'selected'
+              ? 'border-primary/50'
+              : 'border-edge hover:border-secondary'
+          } ${
+            sizeTier === 'compact'
+              ? 'p-1.5 sm:p-2'
+              : sizeTier === 'large'
+                ? 'p-3 sm:p-3.5'
+                : 'p-2 sm:p-2.5'
+          } lr-card transition-all ${carouselWidthClass}`;
 
   const coverHighlightRing =
-    isCoverOnly &&
+    isBorderless &&
+    !isOverlay &&
     (highlightState === 'picked'
       ? 'ring-2 ring-primary ring-offset-2 ring-offset-canvas'
       : highlightState === 'read' || highlightState === 'selected'
@@ -498,6 +528,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   return (
     <article
       data-book-card={dataBookCard ?? book.id}
+      data-card-frame={isBorderless ? 'borderless' : 'framed'}
       style={
         isCarousel
           ? ({
@@ -516,7 +547,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
           onClick={() => onInspect(book)}
           aria-label={`Inspect ${book.title} by ${primaryAuthor}`}
           className={`block w-full rounded-[var(--radius-cover)] overflow-hidden bg-surface-subtle transition-transform active:scale-[0.98] cursor-pointer ${
-            isCoverOnly ? 'lr-cover-shadow' : ''
+            isBorderless && !isOverlay ? 'lr-cover-shadow' : ''
           } ${coverHighlightRing}`}
         >
           <BookCover
@@ -530,6 +561,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
             isOnActiveShelf={isOnShelf}
             isReadOnActiveShelf={isRead}
             isPickedInRotation={isPicked}
+            noShadow={isBorderless}
           />
         </button>
 

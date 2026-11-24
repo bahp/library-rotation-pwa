@@ -27,6 +27,7 @@ export {
   normalizeBookCardSize,
   normalizeBookCardCustomWidth,
   normalizeBookCardInfoPlacement,
+  normalizeBookCardFrame,
   normalizeBookCardFields,
   normalizeBookCardSectionOverrides,
   resolveBookCardDisplayConfig,
