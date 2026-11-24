@@ -26,6 +26,7 @@ import {
   pickRandomEligibleBooks,
 } from '../src/features/rotations/rotation-engine.js';
 import { computeRotationSchedule } from '../src/features/rotations/rotation-schedule.js';
+import { computeBookUsageSummary } from '../src/features/rotations/usage-insights.js';
 import { createStorageAdapter, migrateState } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import { createSeedState } from '../src/data/seed.js';
@@ -689,6 +690,63 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     });
     assert.ok(redrawRes.rotation.bookIds.includes(prevFirstId));
     assert.equal(redrawRes.rotation.bookIds.length, 3);
+  });
+
+  it('suppresses Never rotated status and labels for wishlist and excluded books', () => {
+    const seed = createSeedState();
+    const profile = seed.profiles[0];
+    /** @type {import('../src/types/models.js').Book} */
+    const baseOwnedBook = {
+      ...seed.books[0],
+      id: 'bk_unrotated_owned',
+      collectionStatus: 'owned',
+      lastRotatedAt: undefined,
+      rotationCount: 0,
+      rotationHistory: [],
+      excludeFromRotations: false,
+    };
+    /** @type {import('../src/types/models.js').Book} */
+    const wishlistBook = {
+      ...baseOwnedBook,
+      id: 'bk_wishlist_item',
+      collectionStatus: 'wishlist',
+    };
+    /** @type {import('../src/types/models.js').Book} */
+    const excludedBook = {
+      ...baseOwnedBook,
+      id: 'bk_excluded_item',
+      excludeFromRotations: true,
+    };
+
+    const ownedSummary = computeBookUsageSummary(baseOwnedBook, {
+      profiles: seed.profiles,
+      rotations: [],
+      activeProfile: profile,
+      activeRotation: null,
+    });
+    assert.equal(ownedSummary.neverRotated, true);
+    assert.equal(ownedSummary.freshnessTier, 'never-rotated');
+    assert.equal(ownedSummary.compactRecencyLabel, 'Never rotated');
+
+    const wishlistSummary = computeBookUsageSummary(wishlistBook, {
+      profiles: seed.profiles,
+      rotations: [],
+      activeProfile: profile,
+      activeRotation: null,
+    });
+    assert.equal(wishlistSummary.neverRotated, false);
+    assert.notEqual(wishlistSummary.freshnessTier, 'never-rotated');
+    assert.equal(wishlistSummary.compactRecencyLabel, '');
+    assert.equal(wishlistSummary.shortRecencyLabel, '');
+
+    const excludedSummary = computeBookUsageSummary(excludedBook, {
+      profiles: seed.profiles,
+      rotations: [],
+      activeProfile: profile,
+      activeRotation: null,
+    });
+    assert.equal(excludedSummary.neverRotated, false);
+    assert.equal(excludedSummary.compactRecencyLabel, '');
   });
 });
 

@@ -523,13 +523,13 @@ export const LibraryView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 text-left min-w-0">
-      {/* Desktop 2-Column Layout: Persistent Collapsible Filter Sidebar + Responsive Catalog Grid */}
-      <div className="lg:flex lg:items-start lg:gap-6">
+    <div className="flex-1 min-h-0 flex flex-col text-left min-w-0">
+      {/* Desktop 2-Column Layout: Persistent Collapsible Filter Sidebar + Fixed Search & Scrollable Books */}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row lg:gap-6 min-w-0">
         {isDesktopSidebarOpen && (
           <aside
             aria-label="Library filters sidebar"
-            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-[var(--radius-card)] bg-surface border border-edge lr-card p-4 lg:-mt-3 lg:sticky lg:top-[calc(4rem+env(safe-area-inset-top,0px)+1.25rem)] lg:max-h-[calc(100vh-6.5rem)]"
+            className="hidden lg:flex lg:flex-col lg:w-72 shrink-0 rounded-[var(--radius-card)] bg-surface border border-edge lr-card p-4 lg:mt-4 lg:mb-6 overflow-hidden"
           >
             <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-edge-subtle shrink-0">
               <div className="flex items-center gap-2">
@@ -558,19 +558,19 @@ export const LibraryView: React.FC = () => {
               )}
             </div>
 
-            <div className="overflow-y-auto pr-1 flex-1">
+            <div className="overflow-y-auto overscroll-y-contain pr-1 flex-1 min-h-0">
               <LibraryFilterControls {...sharedFilterProps} />
             </div>
           </aside>
         )}
 
         {/* Right Main Catalog Workspace */}
-        <div className="flex-1 min-w-0 -mt-5 sm:-mt-6 lg:-mt-8 space-y-3.5">
-          {/* Integrated Sticky Search + Pills + Active Tags Bar */}
+        <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+          {/* Fixed Search + Pills + Active Tags Bar */}
           <div
             data-library-floating-controls="true"
             style={{ backgroundColor: 'var(--background)' }}
-            className="sticky top-[calc(3.5rem+env(safe-area-inset-top,0px))] sm:top-[calc(4rem+env(safe-area-inset-top,0px))] z-20 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-5 pb-2.5 bg-canvas border-b border-edge-subtle space-y-2.5 [transform:translate3d(0,0,0)]"
+            className="shrink-0 z-20 -mx-4 sm:-mx-6 lg:mx-0 px-4 sm:px-6 lg:px-0 pt-3 sm:pt-3.5 lg:pt-4 pb-2.5 bg-canvas border-b border-edge-subtle space-y-2.5"
           >
             <ClearableInput
               id="catalog-search-input"
@@ -901,99 +901,104 @@ export const LibraryView: React.FC = () => {
             )}
           </div>
 
-          {/* Book Grid / List */}
-          {filteredBooks.length > 0 ? (
-            viewMode === 'list' ? (
-              <BookCoverList className="relative z-0 pt-1">
-                {filteredBooks.map((book) => (
-                  <BookCoverCard
-                    key={book.id}
-                    book={book}
-                    activeProfile={activeProfile}
-                    profiles={state.profiles}
-                    layout="list"
-                    size={libraryCardConfig.size}
-                    customWidth={libraryCardConfig.customWidth}
-                    aspectRatio={libraryCardConfig.aspectRatio}
-                    infoPlacement={libraryCardConfig.infoPlacement}
-                    cardFrame={libraryCardConfig.cardFrame}
-                    showCoverOverlays={libraryCardConfig.showCoverOverlays}
-                    showUsageAdorno={showCoverUsageAdornos}
-                    showRotationHistory={showRotationHistory}
-                    fields={libraryCardConfig.fields}
-                    usage={usageByBookId.get(book.id)}
-                    hideBookCoverInternalBadges
-                    onInspect={(b) => setInspectedBookId(b.id)}
-                  />
-                ))}
-              </BookCoverList>
+          {/* Independent Scrollable Books Section (overscroll/bounce stays inside here only) */}
+          <div
+            data-library-books-scroll="true"
+            className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain -mx-4 sm:-mx-6 lg:-mx-3 px-4 sm:px-6 lg:px-3 pt-3.5 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:pb-8"
+          >
+            {filteredBooks.length > 0 ? (
+              viewMode === 'list' ? (
+                <BookCoverList className="relative z-0">
+                  {filteredBooks.map((book) => (
+                    <BookCoverCard
+                      key={book.id}
+                      book={book}
+                      activeProfile={activeProfile}
+                      profiles={state.profiles}
+                      layout="list"
+                      size={libraryCardConfig.size}
+                      customWidth={libraryCardConfig.customWidth}
+                      aspectRatio={libraryCardConfig.aspectRatio}
+                      infoPlacement={libraryCardConfig.infoPlacement}
+                      cardFrame={libraryCardConfig.cardFrame}
+                      showCoverOverlays={libraryCardConfig.showCoverOverlays}
+                      showUsageAdorno={showCoverUsageAdornos}
+                      showRotationHistory={showRotationHistory}
+                      fields={libraryCardConfig.fields}
+                      usage={usageByBookId.get(book.id)}
+                      hideBookCoverInternalBadges
+                      onInspect={(b) => setInspectedBookId(b.id)}
+                    />
+                  ))}
+                </BookCoverList>
+              ) : (
+                <BookCoverGrid
+                  size={libraryCardConfig.size}
+                  customWidth={libraryCardConfig.customWidth}
+                  infoPlacement={libraryCardConfig.infoPlacement}
+                  className="relative z-0"
+                >
+                  {filteredBooks.map((book) => (
+                    <BookCoverCard
+                      key={book.id}
+                      book={book}
+                      activeProfile={activeProfile}
+                      profiles={state.profiles}
+                      layout="grid"
+                      size={libraryCardConfig.size}
+                      customWidth={libraryCardConfig.customWidth}
+                      aspectRatio={libraryCardConfig.aspectRatio}
+                      infoPlacement={libraryCardConfig.infoPlacement}
+                      cardFrame={libraryCardConfig.cardFrame}
+                      showCoverOverlays={libraryCardConfig.showCoverOverlays}
+                      showUsageAdorno={showCoverUsageAdornos}
+                      showRotationHistory={showRotationHistory}
+                      fields={libraryCardConfig.fields}
+                      usage={usageByBookId.get(book.id)}
+                      hideBookCoverInternalBadges
+                      onInspect={(b) => setInspectedBookId(b.id)}
+                    />
+                  ))}
+                </BookCoverGrid>
+              )
             ) : (
-              <BookCoverGrid
-                size={libraryCardConfig.size}
-                customWidth={libraryCardConfig.customWidth}
-                infoPlacement={libraryCardConfig.infoPlacement}
-                className="relative z-0 pt-1"
-              >
-                {filteredBooks.map((book) => (
-                  <BookCoverCard
-                    key={book.id}
-                    book={book}
-                    activeProfile={activeProfile}
-                    profiles={state.profiles}
-                    layout="grid"
-                    size={libraryCardConfig.size}
-                    customWidth={libraryCardConfig.customWidth}
-                    aspectRatio={libraryCardConfig.aspectRatio}
-                    infoPlacement={libraryCardConfig.infoPlacement}
-                    cardFrame={libraryCardConfig.cardFrame}
-                    showCoverOverlays={libraryCardConfig.showCoverOverlays}
-                    showUsageAdorno={showCoverUsageAdornos}
-                    showRotationHistory={showRotationHistory}
-                    fields={libraryCardConfig.fields}
-                    usage={usageByBookId.get(book.id)}
-                    hideBookCoverInternalBadges
-                    onInspect={(b) => setInspectedBookId(b.id)}
-                  />
-                ))}
-              </BookCoverGrid>
-            )
-          ) : (
-            <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 lr-card">
-              <BotanicalIllustration variant="empty-library" className="w-40 h-auto mx-auto" />
-              <h2 className="font-display text-xl font-semibold text-ink">
-                {state.books.length === 0 ? 'Your household library is ready for its first books' : 'No books match these filters'}
-              </h2>
-              <p className="text-xs text-ink-secondary max-w-sm mx-auto">
-                {state.books.length === 0
-                  ? 'Scan a barcode, search online catalogs, or add your first favorites manually.'
-                  : !isAllBooksScope || activeFilterCount > 0
-                    ? 'Reset filters or switch to All Books to include titles across all readers.'
-                    : 'Clear your search or add a book to your catalog or wishlist.'}
-              </p>
-              <div className="pt-1 flex flex-wrap items-center justify-center gap-2">
-                {state.books.length === 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate('scan')}
-                    className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    Scan or Add Books
-                  </button>
-                ) : (
-                  (!isAllBooksScope || activeFilterCount > 0) && (
+              <div className="rounded-xl bg-surface border border-edge p-8 text-center space-y-3 lr-card">
+                <BotanicalIllustration variant="empty-library" className="w-40 h-auto mx-auto" />
+                <h2 className="font-display text-xl font-semibold text-ink">
+                  {state.books.length === 0 ? 'Your household library is ready for its first books' : 'No books match these filters'}
+                </h2>
+                <p className="text-xs text-ink-secondary max-w-sm mx-auto">
+                  {state.books.length === 0
+                    ? 'Scan a barcode, search online catalogs, or add your first favorites manually.'
+                    : !isAllBooksScope || activeFilterCount > 0
+                      ? 'Reset filters or switch to All Books to include titles across all readers.'
+                      : 'Clear your search or add a book to your catalog or wishlist.'}
+                </p>
+                <div className="pt-1 flex flex-wrap items-center justify-center gap-2">
+                  {state.books.length === 0 ? (
                     <button
                       type="button"
-                      data-action="reset-library-filters"
-                      onClick={resetAllFilters}
-                      className="min-h-[40px] px-4 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
+                      onClick={() => navigate('scan')}
+                      className="min-h-[42px] px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      Show All Books
+                      Scan or Add Books
                     </button>
-                  )
-                )}
+                  ) : (
+                    (!isAllBooksScope || activeFilterCount > 0) && (
+                      <button
+                        type="button"
+                        data-action="reset-library-filters"
+                        onClick={resetAllFilters}
+                        className="min-h-[40px] px-4 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-ink transition-colors cursor-pointer"
+                      >
+                        Show All Books
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 

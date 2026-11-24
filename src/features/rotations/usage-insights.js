@@ -287,8 +287,9 @@ export function computeBookUsageSummary(book, context = {}) {
       isBookRotatable(book)
   );
 
+  const rotatable = isBookRotatable(book);
   const lastRotMs = toEpochMs(book.lastRotatedAt);
-  const neverRotated = lastRotMs === null && !isCurrentlyOnActiveShelf;
+  const neverRotated = rotatable && lastRotMs === null && !isCurrentlyOnActiveShelf;
   const daysSinceLastRotated =
     lastRotMs !== null ? Math.max(0, Math.floor((nowMs - lastRotMs) / DAY_MS)) : null;
 
@@ -329,7 +330,8 @@ export function computeBookUsageSummary(book, context = {}) {
   );
 
   const isLongUnseen = Boolean(
-    !isCurrentlyOnActiveShelf &&
+    rotatable &&
+      !isCurrentlyOnActiveShelf &&
       !inCooldown &&
       (neverRotated ||
         (daysSinceLastRotated !== null && daysSinceLastRotated >= Math.max(21, effectiveCooldownDays * 2)) ||
@@ -348,8 +350,8 @@ export function computeBookUsageSummary(book, context = {}) {
     freshnessTier = 'long-unseen';
   }
 
-  let shortRecencyLabel = 'Ready from box';
-  let compactRecencyLabel = 'Ready from box';
+  let shortRecencyLabel = rotatable ? 'Ready from box' : '';
+  let compactRecencyLabel = rotatable ? 'Ready from box' : '';
   if (isCurrentlyOnActiveShelf) {
     if (isPickedInActiveShelf && isReadInActiveShelf) {
       shortRecencyLabel =

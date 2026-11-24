@@ -1664,7 +1664,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     <p className="text-xs text-ink-secondary mt-0.5 leading-snug">
                       {isExcluded
                         ? 'Kept in catalog only · skipped in rotations'
-                        : showRotationHistory && usageSegments.length > 0
+                        : rotatable && showRotationHistory && usageSegments.length > 0
                           ? usageSegments.slice(0, 2).join(' · ')
                           : 'Included in automatic family shelf rotations'}
                     </p>

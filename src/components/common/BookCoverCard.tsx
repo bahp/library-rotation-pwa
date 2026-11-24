@@ -582,6 +582,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
           hideBookCoverInternalBadges &&
           !isOverlay &&
           showUsageAdorno &&
+          isBookRotatable(book) &&
           usage?.compactRecencyLabel && (
             <div className="pointer-events-none absolute bottom-2 left-2 z-20">
               <span

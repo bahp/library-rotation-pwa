@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext.js';
 import { BookCover } from '../common/BookCover.js';
 import { Icon } from '../common/Icon.js';
@@ -191,7 +192,10 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       aria-modal="true"
       aria-labelledby="edit-rotation-sheet-title"
       className="sheet-backdrop fixed inset-0 z-50 bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
-      onClick={handleSaveAndClose}
+      onClick={(e) => {
+        e.stopPropagation();
+        handleSaveAndClose();
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -751,12 +755,16 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
         </div>
       </div>
 
-      <RefreshRotationFromLibraryModal
-        rotation={rotation}
-        isOpen={isRefreshModalOpen}
-        rulesOverride={draftRulesPatch}
-        onClose={() => setIsRefreshModalOpen(false)}
-      />
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <RefreshRotationFromLibraryModal
+            rotation={rotation}
+            isOpen={isRefreshModalOpen}
+            rulesOverride={draftRulesPatch}
+            onClose={() => setIsRefreshModalOpen(false)}
+          />,
+          document.body
+        )}
     </div>
   );
 };

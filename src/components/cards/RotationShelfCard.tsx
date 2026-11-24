@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../../context/AppContext.js';
 import {
   BookCoverCard,
@@ -56,7 +57,14 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
   const [isRefreshLibraryOpen, setIsRefreshLibraryOpen] = useState(false);
   const [isActionsMenuOpen, setIsActionsMenuOpen] = useState(false);
   const [confirmDeleteInMenu, setConfirmDeleteInMenu] = useState(false);
-  const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const [actionsMenuPos, setActionsMenuPos] = useState<{
+    top?: number;
+    bottom?: number;
+    right: number;
+    maxHeight: number;
+  } | null>(null);
+  const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const actionsDropdownRef = useRef<HTMLDivElement>(null);
 
   const isEditorOpen = isEditorOpenProp !== undefined ? isEditorOpenProp : localEditorOpen;
   const openEditor = () => {
@@ -75,13 +83,45 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
     }
   };
 
+  const updateActionsMenuPosition = useCallback(() => {
+    const btn = actionsTriggerRef.current;
+    if (!btn || typeof window === 'undefined') return;
+    const rect = btn.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const spaceBelow = vh - rect.bottom - 12;
+    const spaceAbove = rect.top - 12;
+    const right = Math.max(12, vw - rect.right);
+
+    if (spaceBelow >= 260 || spaceBelow >= spaceAbove) {
+      setActionsMenuPos({
+        top: Math.max(8, rect.bottom + 6),
+        right,
+        maxHeight: Math.max(180, Math.min(400, spaceBelow)),
+      });
+    } else {
+      setActionsMenuPos({
+        bottom: Math.max(8, vh - rect.top + 6),
+        right,
+        maxHeight: Math.max(180, Math.min(400, spaceAbove)),
+      });
+    }
+  }, []);
+
   useEffect(() => {
     if (!isActionsMenuOpen) {
       setConfirmDeleteInMenu(false);
+      setActionsMenuPos(null);
       return;
     }
+
+    updateActionsMenuPosition();
+
     const onPointerDown = (e: MouseEvent | TouchEvent) => {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const inTrigger = actionsTriggerRef.current?.contains(target);
+      const inDropdown = actionsDropdownRef.current?.contains(target);
+      if (!inTrigger && !inDropdown) {
         setIsActionsMenuOpen(false);
       }
     };
@@ -90,15 +130,23 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
         setIsActionsMenuOpen(false);
       }
     };
+    const onViewportChange = () => {
+      updateActionsMenuPosition();
+    };
+
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('touchstart', onPointerDown);
     window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('resize', onViewportChange);
+    window.addEventListener('scroll', onViewportChange, true);
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('touchstart', onPointerDown);
       window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('resize', onViewportChange);
+      window.removeEventListener('scroll', onViewportChange, true);
     };
-  }, [isActionsMenuOpen]);
+  }, [isActionsMenuOpen, updateActionsMenuPosition]);
 
   const matchingLibraryCount = useMemo(() => {
     const profile =
@@ -257,9 +305,10 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                 </button>
               )}
 
-              {/* Unified Actions Dropdown */}
-              <div ref={actionsMenuRef} className="relative">
+              {/* Unified Actions Dropdown Trigger (menu rendered in document.body portal) */}
+              <div className="relative">
                 <button
+                  ref={actionsTriggerRef}
                   type="button"
                   data-rotation-actions-trigger="true"
                   aria-haspopup="menu"
@@ -281,137 +330,6 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
                     />
                   )}
                 </button>
-
-                {isActionsMenuOpen && (
-                  <div
-                    role="menu"
-                    aria-label={`Actions for ${rotation.title}`}
-                    className="absolute right-0 mt-1.5 w-64 rounded-xl bg-surface border border-edge shadow-xl z-40 py-1.5 overflow-hidden"
-                  >
-                    {onActivate && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setIsActionsMenuOpen(false);
-                          onActivate();
-                        }}
-                        className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
-                      >
-                        <Icon name="rotations" className="w-4 h-4 text-primary shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p>{isActive ? 'Move to Saved' : 'Activate Shelf'}</p>
-                          <p className="text-[11px] font-normal text-ink-secondary">
-                            {isActive
-                              ? 'Pause and store under Saved Rotations'
-                              : 'Place this shelf on your active display'}
-                          </p>
-                        </div>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setIsActionsMenuOpen(false);
-                        setIsPlacementOpen(true);
-                      }}
-                      className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
-                    >
-                      <Icon name="checklist" className="w-4 h-4 text-ink-secondary shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p>Stock Shelf Checklist</p>
-                        <p className="text-[11px] font-normal text-ink-secondary">
-                          Tick off books as you place them on the shelf
-                        </p>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      role="menuitem"
-                      data-action="menu-refresh-from-library"
-                      onClick={() => {
-                        setIsActionsMenuOpen(false);
-                        setIsRefreshLibraryOpen(true);
-                      }}
-                      className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
-                    >
-                      <Icon name="refresh" className="w-4 h-4 text-primary shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p>Refresh from Library</p>
-                          {matchingLibraryCount > 0 && (
-                            <span className="text-[10px] font-mono-tabular font-semibold px-1.5 py-0.5 rounded bg-primary/12 text-primary shrink-0">
-                              {matchingLibraryCount} new
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] font-normal text-ink-secondary">
-                          Preview &amp; add new matching books from library
-                        </p>
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={openEditor}
-                      className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
-                    >
-                      <Icon name="edit" className="w-4 h-4 text-ink-secondary shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p>Edit Rules &amp; Books</p>
-                        <p className="text-[11px] font-normal text-ink-secondary">
-                          Rename, change rules, swap or remove books
-                        </p>
-                      </div>
-                    </button>
-
-                    {onDelete && (
-                      <>
-                        <div className="my-1 border-t border-edge-subtle" />
-                        {!confirmDeleteInMenu ? (
-                          <button
-                            type="button"
-                            role="menuitem"
-                            onClick={() => setConfirmDeleteInMenu(true)}
-                            className="w-full min-h-[40px] px-3.5 py-2 text-left hover:bg-danger/10 flex items-center gap-2.5 text-xs font-semibold text-danger transition-colors cursor-pointer"
-                          >
-                            <Icon name="trash" className="w-4 h-4 shrink-0" />
-                            <span>Delete Shelf</span>
-                          </button>
-                        ) : (
-                          <div className="px-3.5 py-2 bg-danger/8 flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-semibold text-danger">
-                              Delete shelf?
-                            </span>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsActionsMenuOpen(false);
-                                  onDelete();
-                                }}
-                                className="px-2.5 py-1 rounded-md bg-danger-solid text-danger-solid-fg text-[11px] font-semibold cursor-pointer"
-                              >
-                                Delete
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setConfirmDeleteInMenu(false)}
-                                className="px-2 py-1 rounded-md bg-surface border border-edge text-[11px] font-semibold text-ink cursor-pointer"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -510,36 +428,182 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
         )}
       </section>
 
-      {/* Slide-Up Bottom Sheet Editor Modal */}
-      <RotationShelfEditorModal
-        rotation={rotation}
-        isOpen={isEditorOpen}
-        onClose={closeEditor}
-        onOpenPlacement={() => {
-          closeEditor();
-          setIsPlacementOpen(true);
-        }}
-        onSwapBook={onSwapBook}
-        onReplaceBook={onReplaceBook}
-        onAddRandom={onAddRandom}
-        onOpenAddModal={onOpenAddModal}
-        onToggleRead={onToggleRead}
-        onDelete={onDelete}
-      />
+      {isActionsMenuOpen && actionsMenuPos && typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            ref={actionsDropdownRef}
+            role="menu"
+            data-rotation-actions-menu="true"
+            aria-label={`Actions for ${rotation.title}`}
+            style={{
+              position: 'fixed',
+              top: actionsMenuPos.top !== undefined ? `${actionsMenuPos.top}px` : undefined,
+              bottom: actionsMenuPos.bottom !== undefined ? `${actionsMenuPos.bottom}px` : undefined,
+              right: `${actionsMenuPos.right}px`,
+              maxHeight: `${actionsMenuPos.maxHeight}px`,
+            }}
+            className="w-64 max-w-[calc(100vw-24px)] rounded-xl bg-surface border border-edge shadow-2xl ring-1 ring-ink/10 z-[70] py-1.5 overflow-y-auto overscroll-y-contain text-left"
+          >
+            {onActivate && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setIsActionsMenuOpen(false);
+                  onActivate();
+                }}
+                className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+              >
+                <Icon name="rotations" className="w-4 h-4 text-primary shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p>{isActive ? 'Move to Saved' : 'Activate Shelf'}</p>
+                  <p className="text-[11px] font-normal text-ink-secondary">
+                    {isActive
+                      ? 'Pause and store under Saved Rotations'
+                      : 'Place this shelf on your active display'}
+                  </p>
+                </div>
+              </button>
+            )}
 
-      {/* Shelf Placement Helper Checklist Modal */}
-      <ShelfPlacementModal
-        rotation={rotation}
-        isOpen={isPlacementOpen}
-        onClose={() => setIsPlacementOpen(false)}
-      />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setIsActionsMenuOpen(false);
+                setIsPlacementOpen(true);
+              }}
+              className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+            >
+              <Icon name="checklist" className="w-4 h-4 text-ink-secondary shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p>Stock Shelf Checklist</p>
+                <p className="text-[11px] font-normal text-ink-secondary">
+                  Tick off books as you place them on the shelf
+                </p>
+              </div>
+            </button>
 
-      {/* Preview & Add Newly Matching Library Books Modal */}
-      <RefreshRotationFromLibraryModal
-        rotation={rotation}
-        isOpen={isRefreshLibraryOpen}
-        onClose={() => setIsRefreshLibraryOpen(false)}
-      />
+            <button
+              type="button"
+              role="menuitem"
+              data-action="menu-refresh-from-library"
+              onClick={() => {
+                setIsActionsMenuOpen(false);
+                setIsRefreshLibraryOpen(true);
+              }}
+              className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+            >
+              <Icon name="refresh" className="w-4 h-4 text-primary shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p>Refresh from Library</p>
+                  {matchingLibraryCount > 0 && (
+                    <span className="text-[10px] font-mono-tabular font-semibold px-1.5 py-0.5 rounded bg-primary/12 text-primary shrink-0">
+                      {matchingLibraryCount} new
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] font-normal text-ink-secondary">
+                  Preview &amp; add new matching books from library
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={openEditor}
+              className="w-full min-h-[42px] px-3.5 py-2 text-left hover:bg-surface-subtle flex items-center gap-2.5 text-xs font-semibold text-ink transition-colors cursor-pointer"
+            >
+              <Icon name="edit" className="w-4 h-4 text-ink-secondary shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p>Edit Rules &amp; Books</p>
+                <p className="text-[11px] font-normal text-ink-secondary">
+                  Rename, change rules, swap or remove books
+                </p>
+              </div>
+            </button>
+
+            {onDelete && (
+              <>
+                <div className="my-1 border-t border-edge-subtle" />
+                {!confirmDeleteInMenu ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => setConfirmDeleteInMenu(true)}
+                    className="w-full min-h-[40px] px-3.5 py-2 text-left hover:bg-danger/10 flex items-center gap-2.5 text-xs font-semibold text-danger transition-colors cursor-pointer"
+                  >
+                    <Icon name="trash" className="w-4 h-4 shrink-0" />
+                    <span>Delete Shelf</span>
+                  </button>
+                ) : (
+                  <div className="px-3.5 py-2 bg-danger/8 flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-semibold text-danger">
+                      Delete shelf?
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsActionsMenuOpen(false);
+                          onDelete();
+                        }}
+                        className="px-2.5 py-1 rounded-md bg-danger-solid text-danger-solid-fg text-[11px] font-semibold cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteInMenu(false)}
+                        className="px-2 py-1 rounded-md bg-surface border border-edge text-[11px] font-semibold text-ink cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>,
+          document.body
+        )}
+
+      {/* Portaled Modals so they are never clipped/trapped by card or sheet transforms */}
+      {typeof document !== 'undefined' &&
+        createPortal(
+          <>
+            <RotationShelfEditorModal
+              rotation={rotation}
+              isOpen={isEditorOpen}
+              onClose={closeEditor}
+              onOpenPlacement={() => {
+                closeEditor();
+                setIsPlacementOpen(true);
+              }}
+              onSwapBook={onSwapBook}
+              onReplaceBook={onReplaceBook}
+              onAddRandom={onAddRandom}
+              onOpenAddModal={onOpenAddModal}
+              onToggleRead={onToggleRead}
+              onDelete={onDelete}
+            />
+
+            <ShelfPlacementModal
+              rotation={rotation}
+              isOpen={isPlacementOpen}
+              onClose={() => setIsPlacementOpen(false)}
+            />
+
+            <RefreshRotationFromLibraryModal
+              rotation={rotation}
+              isOpen={isRefreshLibraryOpen}
+              onClose={() => setIsRefreshLibraryOpen(false)}
+            />
+          </>,
+          document.body
+        )}
     </>
   );
 };

@@ -146,7 +146,10 @@ export const RefreshRotationFromLibraryModal: React.FC<RefreshRotationFromLibrar
       aria-labelledby="refresh-library-modal-title"
       data-refresh-library-modal="true"
       className="sheet-backdrop fixed inset-0 z-[55] bg-scrim backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-hidden text-left"
-      onClick={onClose}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
     >
       <div
         onClick={(e) => e.stopPropagation()}

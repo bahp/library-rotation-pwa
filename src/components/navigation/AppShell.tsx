@@ -14,12 +14,17 @@ interface AppShellProps {
 }
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
-  const { state, pwaStatus, sidebarCollapsed } = useApp();
+  const { state, pwaStatus, sidebarCollapsed, currentRoute } = useApp();
   const translucentTopBar =
     state.settings?.translucentTopBar ?? (state.settings?.nativeAppStyle !== false);
+  const isLockedScrollRoute = currentRoute === 'library';
 
   return (
-    <div className="min-h-screen min-h-[100dvh] flex flex-col lr-canvas-atmosphere text-ink transition-colors selection:bg-primary selection:text-primary-fg overflow-x-clip">
+    <div
+      className={`${
+        isLockedScrollRoute ? 'h-screen h-[100dvh] overflow-hidden' : 'min-h-screen min-h-[100dvh]'
+      } flex flex-col lr-canvas-atmosphere text-ink transition-colors selection:bg-primary selection:text-primary-fg overflow-x-clip`}
+    >
       {/* Fixed iOS/PWA Top Safe-Area Curtain */}
       <div
         aria-hidden="true"
@@ -49,7 +54,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
 
       {/* Main Column Container offset by Sidebar width on lg+ */}
       <div
-        className={`flex-1 flex flex-col min-w-0 ${
+        className={`flex-1 min-h-0 flex flex-col min-w-0 ${
           sidebarCollapsed ? 'lg:pl-[76px]' : 'lg:pl-64'
         } transition-[padding] duration-200 ease-out`}
       >
@@ -66,7 +71,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
           <div
             role="status"
             aria-live="polite"
-            className="bg-surface-elevated border-b border-accent/40 text-ink text-xs font-medium px-4 py-1.5 text-center flex items-center justify-center gap-2 z-20"
+            className="shrink-0 bg-surface-elevated border-b border-accent/40 text-ink text-xs font-medium px-4 py-1.5 text-center flex items-center justify-center gap-2 z-20"
           >
             <Icon name="info" className="w-4 h-4 shrink-0 text-accent" />
             <span>You are currently offline. Local family library &amp; scanner work 100% offline.</span>
@@ -74,11 +79,15 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         )}
 
         {/* Main Landmark */}
-        <div className="flex-1 w-full min-w-0 px-safe flex flex-col">
+        <div className="flex-1 min-h-0 w-full min-w-0 px-safe flex flex-col">
           <main
             id="main-content"
             tabIndex={-1}
-            className="flex-1 w-full min-w-0 max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8 mb-safe-nav focus:outline-none"
+            className={
+              isLockedScrollRoute
+                ? 'flex-1 min-h-0 flex flex-col w-full min-w-0 max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 focus:outline-none'
+                : 'flex-1 w-full min-w-0 max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-8 mb-safe-nav focus:outline-none'
+            }
           >
             {children}
           </main>
