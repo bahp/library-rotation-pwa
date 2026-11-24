@@ -4,12 +4,10 @@ import { BookCover } from '../common/BookCover.js';
 import {
   BookCoverCard,
   BookCoverGrid,
-  BookCoverList,
   BookCoverSlide,
 } from '../common/BookCoverCard.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { Icon } from '../common/Icon.js';
-import { BookSectionViewToggle, type SectionBookLayout } from '../common/BookSectionViewToggle.js';
 import { RotationShelfCard } from '../cards/RotationShelfCard.js';
 import { RotationEditorModal } from '../modals/RotationEditorModal.js';
 import {
@@ -23,22 +21,26 @@ import { resolveBookCardDisplayConfig } from '../../config/index.js';
 import { normalizeCollectionStatus } from '../../types/models.js';
 import type { Book, RotationShelf } from '../../types/models.js';
 
-function loadSectionLayout(key: string, fallback: SectionBookLayout): SectionBookLayout {
-  try {
-    const val = localStorage.getItem(key);
-    if (val === 'scroll' || val === 'grid' || val === 'list') return val;
-  } catch {
-    // ignore storage errors
-  }
-  return fallback;
-}
+function useIsDesktop(): boolean {
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return false;
+    }
+    return window.matchMedia('(min-width: 768px)').matches;
+  });
 
-function saveSectionLayout(key: string, mode: SectionBookLayout): void {
-  try {
-    localStorage.setItem(key, mode);
-  } catch {
-    // ignore storage errors
-  }
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  return isDesktop;
 }
 
 function formatFinishedDateLabel(iso?: string): string {
@@ -69,16 +71,9 @@ export const HomeView: React.FC = () => {
     t,
   } = useApp();
 
+  const isDesktop = useIsDesktop();
   const [sheetRotationId, setSheetRotationId] = useState<string | null>(null);
   const [editingShelfId, setEditingShelfId] = useState<string | null>(null);
-  const [recsLayout, setRecsLayout] = useState<SectionBookLayout>(() =>
-    loadSectionLayout('bunko_home_recs_layout_v1', 'scroll')
-  );
-
-  const handleRecsLayoutChange = (mode: SectionBookLayout) => {
-    setRecsLayout(mode);
-    saveSectionLayout('bunko_home_recs_layout_v1', mode);
-  };
 
   const bookMap = useMemo(() => {
     return new Map(state.books.map((b: Book) => [b.id, b]));
@@ -131,20 +126,23 @@ export const HomeView: React.FC = () => {
       profile: activeProfile,
       rotation: primaryActiveRotation,
       rotations: state.rotations,
-      limit: 8,
+      limit: 6,
     });
   }, [state.books, activeProfile, primaryActiveRotation, state.rotations]);
 
-  // 2. Suggested for [Profile] (overall owned library)
+  // 2. Suggested for [Profile] (overall owned library), avoiding repetition with shelf 1 where possible
   const recommendations = useMemo(() => {
     if (!activeProfile) return [];
-    return getProfileRecommendations({
+    const pool = getProfileRecommendations({
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 8,
+      limit: 12,
     });
-  }, [state.books, activeProfile, state.rotations]);
+    const rotIds = new Set(rotationSuggestions.map((item) => item.book.id));
+    const distinct = pool.filter((item) => !rotIds.has(item.book.id));
+    return (distinct.length >= 2 ? distinct : pool).slice(0, 6);
+  }, [state.books, activeProfile, state.rotations, rotationSuggestions]);
 
   // 3 & 4. Suggested because you loved [XX / YY book] (owned library)
   const lovedShelves = useMemo(() => {
@@ -154,7 +152,7 @@ export const HomeView: React.FC = () => {
       profile: activeProfile,
       rotations: state.rotations,
       maxAnchors: 2,
-      itemsPerAnchor: 8,
+      itemsPerAnchor: 6,
       minItems: 1,
     });
   }, [state.books, activeProfile, state.rotations]);
@@ -166,7 +164,7 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 8,
+      limit: 6,
       minItems: 2,
     });
   }, [state.books, activeProfile, state.rotations]);
@@ -376,10 +374,10 @@ export const HomeView: React.FC = () => {
   };
 
   return (
-    <div className={`space-y-6 text-left ${bottomBarBook ? 'pb-24' : ''}`}>
-      {/* Section 0: Active Rotations Previews (Click header to open Rotation Slide-Up Sheet) */}
+    <div className={`space-y-7 sm:space-y-9 text-left ${bottomBarBook ? 'pb-28' : 'pb-6'}`}>
+      {/* Section 0: Active Rotations (Desktop: clean grid, Phone: smooth slider; clickable to open sheet) */}
       {activeRotations.length > 0 ? (
-        <section aria-labelledby="active-rotations-section-heading" className="space-y-5">
+        <section aria-labelledby="active-rotations-section-heading" className="space-y-6">
           {activeRotations.length > 1 && (
             <div className="flex items-center justify-between gap-2">
               <span
@@ -399,7 +397,7 @@ export const HomeView: React.FC = () => {
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-8">
             {activeRotations.map((rot, idx) => {
               const rotBooks = rot.bookIds
                 .map((id: string) => bookMap.get(id))
@@ -415,13 +413,13 @@ export const HomeView: React.FC = () => {
                 <div
                   key={rot.id}
                   data-home-active-rotation={rot.id}
-                  className="space-y-3"
+                  className="space-y-3.5"
                 >
                   <button
                     type="button"
                     onClick={() => setSheetRotationId(rot.id)}
                     aria-label={`Open ${rot.title} rotation details (${completedCount} of ${rotBooks.length} read, ${progressPct}%)`}
-                    className="group w-full text-left flex items-start justify-between gap-3 pb-2.5 border-b border-edge-subtle cursor-pointer rounded-lg -mx-1 px-1 hover:bg-surface-subtle/40 transition-colors"
+                    className="group w-full text-left flex items-start justify-between gap-3 pb-3 border-b border-edge-subtle cursor-pointer rounded-xl px-2 -mx-2 py-1.5 hover:bg-surface-subtle/60 transition-colors"
                   >
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-start gap-2.5 min-w-0">
@@ -433,22 +431,16 @@ export const HomeView: React.FC = () => {
                         {idx === 0 && activeRotations.length === 1 ? (
                           <h1
                             id="active-rotations-section-heading"
-                            className="font-display text-2xl sm:text-3xl font-semibold text-ink leading-[1.1] tracking-tight min-w-0"
+                            className="font-display text-2xl sm:text-3xl font-semibold text-ink leading-[1.1] tracking-tight min-w-0 group-hover:text-primary transition-colors"
                           >
                             {rot.title}
                           </h1>
                         ) : (
-                          <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-[1.12] tracking-tight min-w-0">
+                          <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-[1.12] tracking-tight min-w-0 group-hover:text-primary transition-colors">
                             {rot.title}
                           </h2>
                         )}
                       </div>
-
-                      {rot.rules?.objective && (
-                        <p className="text-xs sm:text-sm text-ink-secondary leading-snug line-clamp-1 max-w-2xl pl-5">
-                          {rot.rules.objective}
-                        </p>
-                      )}
 
                       {sched && (
                         <p
@@ -467,14 +459,14 @@ export const HomeView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Top-Right Progress Readout + Subtle Sheet Affordance */}
-                    <div className="flex items-center gap-2.5 shrink-0 pt-0.5">
+                    {/* Top-Right Progress Readout + Unmistakable Open Affordance */}
+                    <div className="flex items-center gap-3 shrink-0 pt-0.5">
                       <div
                         data-home-progress-readout="true"
-                        className="text-right space-y-1 min-w-[78px]"
+                        className="text-right space-y-1 min-w-[74px]"
                         title={`Reading progress: ${completedCount} of ${rotBooks.length} ${rotBooks.length === 1 ? 'book' : 'books'} (${progressPct}%)`}
                       >
-                        <p className="font-display text-2xl sm:text-[26px] font-bold text-ink leading-none font-mono-tabular">
+                        <p className="font-display text-xl sm:text-2xl font-bold text-ink leading-none font-mono-tabular">
                           {progressPct}%
                         </p>
                         <p className="font-serif-italic italic text-[11px] sm:text-xs text-ink-secondary leading-none whitespace-nowrap">
@@ -488,19 +480,33 @@ export const HomeView: React.FC = () => {
                         </div>
                       </div>
 
-                      <span className="w-7 h-7 rounded-full flex items-center justify-center text-ink-muted group-hover:text-ink group-hover:bg-surface-elevated transition-all group-hover:translate-x-0.5 shrink-0">
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-subtle group-hover:bg-primary group-hover:text-primary-fg border border-edge group-hover:border-primary text-xs font-semibold text-ink transition-colors shrink-0">
+                        <span>Open</span>
+                        <Icon name="chevronRight" className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="sm:hidden w-7 h-7 rounded-full flex items-center justify-center text-ink-secondary bg-surface-subtle/80 border border-edge-subtle shrink-0">
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </span>
                     </div>
                   </button>
 
                   {rotBooks.length > 0 ? (
-                    <BookCoverSlide
-                      itemCount={rotBooks.length}
-                      ariaLabel={`${rot.title} books`}
-                    >
-                      {rotBooks.map((book) => renderShelfBookCard(book, rot, true))}
-                    </BookCoverSlide>
+                    isDesktop ? (
+                      <BookCoverGrid
+                        size={shelfCardConfig.size}
+                        customWidth={shelfCardConfig.customWidth}
+                        infoPlacement={shelfCardConfig.infoPlacement}
+                      >
+                        {rotBooks.map((book) => renderShelfBookCard(book, rot, false))}
+                      </BookCoverGrid>
+                    ) : (
+                      <BookCoverSlide
+                        itemCount={rotBooks.length}
+                        ariaLabel={`${rot.title} books`}
+                      >
+                        {rotBooks.map((book) => renderShelfBookCard(book, rot, true))}
+                      </BookCoverSlide>
+                    )
                   ) : (
                     <button
                       type="button"
@@ -557,7 +563,10 @@ export const HomeView: React.FC = () => {
 
       {/* Suggestion Section 1: Matching owned books to add to active rotation */}
       {primaryActiveRotation && rotationSuggestions.length > 0 && (
-        <section aria-labelledby="add-to-rotation-heading" className="space-y-3">
+        <section
+          aria-labelledby="add-to-rotation-heading"
+          className="pt-6 border-t border-edge-subtle/70 space-y-3"
+        >
           <div className="flex items-baseline justify-between gap-2">
             <h2
               id="add-to-rotation-heading"
@@ -570,93 +579,83 @@ export const HomeView: React.FC = () => {
               onClick={() => setSheetRotationId(primaryActiveRotation.id)}
               className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-0.5 shrink-0 cursor-pointer"
             >
-              <span>Manage shelf</span>
+              <span>Manage</span>
               <Icon name="chevronRight" className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <BookCoverSlide
-            itemCount={rotationSuggestions.length}
-            ariaLabel={`Owned books matching ${primaryActiveRotation.title}`}
-          >
-            {rotationSuggestions.map(({ book, matchReasons }) =>
-              renderRecCoverCard(
-                book,
-                matchReasons,
-                true,
-                'rot-add',
-                primaryActiveRotation
-              )
-            )}
-          </BookCoverSlide>
+          {isDesktop ? (
+            <BookCoverGrid
+              size={suggestedCardConfig.size}
+              customWidth={suggestedCardConfig.customWidth}
+              infoPlacement={suggestedCardConfig.infoPlacement}
+            >
+              {rotationSuggestions.map(({ book, matchReasons }) =>
+                renderRecCoverCard(
+                  book,
+                  matchReasons,
+                  false,
+                  'rot-add',
+                  primaryActiveRotation
+                )
+              )}
+            </BookCoverGrid>
+          ) : (
+            <BookCoverSlide
+              itemCount={rotationSuggestions.length}
+              ariaLabel={`Owned books matching ${primaryActiveRotation.title}`}
+            >
+              {rotationSuggestions.map(({ book, matchReasons }) =>
+                renderRecCoverCard(
+                  book,
+                  matchReasons,
+                  true,
+                  'rot-add',
+                  primaryActiveRotation
+                )
+              )}
+            </BookCoverSlide>
+          )}
         </section>
       )}
 
       {/* Suggestion Section 2: Overall Suggested for [Reader] */}
       {recommendations.length > 0 && (
-        <section aria-labelledby="up-next-heading" className="space-y-3">
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <h2
-                id="up-next-heading"
-                className="font-display text-xl sm:text-2xl font-semibold text-ink leading-tight truncate"
-              >
-                Suggested for {activeProfile?.name || 'Reader'}
-              </h2>
-            </div>
-
-            <div
-              data-home-suggested-bar="true"
-              style={{
-                backgroundColor: 'var(--capsule-bg)',
-                borderColor: 'var(--capsule-border)',
-              }}
-              className="w-full rounded-full border px-2 sm:px-3 py-1 flex items-center justify-between gap-1 shadow-2xs"
+        <section
+          aria-labelledby="up-next-heading"
+          className="pt-6 border-t border-edge-subtle/70 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2
+              id="up-next-heading"
+              className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight truncate min-w-0"
             >
-              <div className="flex items-center min-w-0 flex-1">
-                <button
-                  type="button"
-                  data-action="open-ai-recommendations"
-                  onClick={() => setAiRecsModal({ isOpen: true })}
-                  aria-label="See AI recommendations"
-                  className="min-h-[38px] px-3 sm:px-4 rounded-full text-xs sm:text-[13px] font-medium text-ink hover:bg-surface-subtle inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] whitespace-nowrap cursor-pointer"
-                >
-                  <Icon name="sparkles" className="w-4 h-4 text-accent shrink-0" />
-                  <span>AI Picks</span>
-                </button>
-                <span aria-hidden="true" className="w-px h-5 bg-edge-subtle mx-0.5 sm:mx-1.5 shrink-0" />
-                <button
-                  type="button"
-                  onClick={() => navigate('library')}
-                  aria-label="Browse all books in library"
-                  className="min-h-[38px] px-3 sm:px-4 rounded-full text-xs sm:text-[13px] font-medium text-ink hover:bg-surface-subtle inline-flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] whitespace-nowrap cursor-pointer"
-                >
-                  <Icon name="library" className="w-4 h-4 text-ink-secondary shrink-0" />
-                  <span>Library</span>
-                </button>
-              </div>
-
-              <span aria-hidden="true" className="w-px h-5 bg-edge-subtle mr-1 sm:mr-1.5 shrink-0" />
-
-              <BookSectionViewToggle
-                value={recsLayout}
-                onChange={handleRecsLayoutChange}
-                variant="capsule"
-                ariaLabel="Recommendations layout"
-              />
+              Suggested for {activeProfile?.name || 'Reader'}
+            </h2>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                data-action="open-ai-recommendations"
+                onClick={() => setAiRecsModal({ isOpen: true })}
+                aria-label="See AI recommendations"
+                className="min-h-[34px] text-xs font-semibold text-accent hover:underline inline-flex items-center gap-1 whitespace-nowrap cursor-pointer"
+              >
+                <Icon name="sparkles" className="w-3.5 h-3.5 shrink-0" />
+                <span>AI Picks</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('library')}
+                aria-label="Browse all books in library"
+                className="min-h-[34px] text-xs font-semibold text-primary hover:underline inline-flex items-center gap-0.5 whitespace-nowrap cursor-pointer"
+              >
+                <span>Library</span>
+                <Icon name="chevronRight" className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
 
-          {recsLayout === 'scroll' ? (
-            <BookCoverSlide
-              itemCount={recommendations.length}
-              ariaLabel={`Suggested books for ${activeProfile?.name || 'Reader'}`}
-            >
-              {recommendations.map(({ book, matchReasons }) =>
-                renderRecCoverCard(book, matchReasons, true, 'rec')
-              )}
-            </BookCoverSlide>
-          ) : recsLayout === 'grid' ? (
+          {isDesktop ? (
             <BookCoverGrid
               size={suggestedCardConfig.size}
               customWidth={suggestedCardConfig.customWidth}
@@ -667,47 +666,14 @@ export const HomeView: React.FC = () => {
               )}
             </BookCoverGrid>
           ) : (
-            <BookCoverList>
-              {recommendations.map(({ book, matchReasons }) => (
-                <BookCoverCard
-                  key={book.id}
-                  dataBookCard={`rec-${book.id}`}
-                  book={book}
-                  activeProfile={activeProfile}
-                  profiles={state.profiles}
-                  layout="list"
-                  size={suggestedCardConfig.size}
-                  customWidth={suggestedCardConfig.customWidth}
-                  aspectRatio={suggestedCardConfig.aspectRatio}
-                  infoPlacement={suggestedCardConfig.infoPlacement}
-                  cardFrame={suggestedCardConfig.cardFrame}
-                  showCoverOverlays={suggestedCardConfig.showCoverOverlays}
-                  showUsageAdorno={false}
-                  fields={suggestedCardConfig.fields}
-                  customMetaLine={matchReasons[0] || 'Fresh pick'}
-                  onInspect={(b) => setInspectedBookId(b.id)}
-                  listTrailingAction={
-                    primaryActiveRotation ? (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          await store.addBooksToRotationManual(primaryActiveRotation.id, [book.id]);
-                          store.notify(
-                            `Added "${book.title}" to "${primaryActiveRotation.title}"!`,
-                            'success'
-                          );
-                        }}
-                        aria-label={`Add ${book.title} to active shelf`}
-                        title="Add to active shelf"
-                        className="min-h-[36px] min-w-[36px] rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                      >
-                        <Icon name="plus" className="w-4 h-4" />
-                      </button>
-                    ) : undefined
-                  }
-                />
-              ))}
-            </BookCoverList>
+            <BookCoverSlide
+              itemCount={recommendations.length}
+              ariaLabel={`Suggested books for ${activeProfile?.name || 'Reader'}`}
+            >
+              {recommendations.map(({ book, matchReasons }) =>
+                renderRecCoverCard(book, matchReasons, true, 'rec')
+              )}
+            </BookCoverSlide>
           )}
         </section>
       )}
@@ -717,7 +683,7 @@ export const HomeView: React.FC = () => {
         <section
           key={anchorBook.id}
           aria-labelledby={`loved-shelf-${shelfIdx}-heading`}
-          className="space-y-3"
+          className="pt-6 border-t border-edge-subtle/70 space-y-3"
         >
           <div className="flex items-center justify-between gap-2.5">
             <button
@@ -725,7 +691,7 @@ export const HomeView: React.FC = () => {
               onClick={() => setInspectedBookId(anchorBook.id)}
               className="group flex items-center gap-2.5 min-w-0 text-left cursor-pointer"
             >
-              <div className="w-7 h-7 rounded-md overflow-hidden bg-surface-subtle border border-edge-subtle shrink-0">
+              <div className="w-6 h-6 rounded overflow-hidden bg-surface-subtle border border-edge-subtle shrink-0">
                 <BookCover book={anchorBook} size="xs" aspectRatio="square" />
               </div>
               <h2
@@ -737,79 +703,94 @@ export const HomeView: React.FC = () => {
             </button>
           </div>
 
-          <BookCoverSlide
-            itemCount={items.length}
-            ariaLabel={`Owned books similar to ${anchorBook.title}`}
-          >
-            {items.map(({ book, matchReasons }) =>
-              renderRecCoverCard(book, matchReasons, true, `loved-${anchorBook.id}`)
-            )}
-          </BookCoverSlide>
+          {isDesktop ? (
+            <BookCoverGrid
+              size={suggestedCardConfig.size}
+              customWidth={suggestedCardConfig.customWidth}
+              infoPlacement={suggestedCardConfig.infoPlacement}
+            >
+              {items.map(({ book, matchReasons }) =>
+                renderRecCoverCard(book, matchReasons, false, `loved-${anchorBook.id}`)
+              )}
+            </BookCoverGrid>
+          ) : (
+            <BookCoverSlide
+              itemCount={items.length}
+              ariaLabel={`Owned books similar to ${anchorBook.title}`}
+            >
+              {items.map(({ book, matchReasons }) =>
+                renderRecCoverCard(book, matchReasons, true, `loved-${anchorBook.id}`)
+              )}
+            </BookCoverSlide>
+          )}
         </section>
       ))}
 
       {/* Suggestion Section 5: Because you like [Genre/Topic] */}
       {genreShelf && genreShelf.items.length > 0 && (
-        <section aria-labelledby="genre-shelf-heading" className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2
-              id="genre-shelf-heading"
-              className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight truncate"
-            >
-              Because you like {genreShelf.label}
-            </h2>
-          </div>
-
-          <BookCoverSlide
-            itemCount={genreShelf.items.length}
-            ariaLabel={`Owned ${genreShelf.label} books`}
+        <section
+          aria-labelledby="genre-shelf-heading"
+          className="pt-6 border-t border-edge-subtle/70 space-y-3"
+        >
+          <h2
+            id="genre-shelf-heading"
+            className="font-display text-lg sm:text-xl font-semibold text-ink leading-tight truncate"
           >
-            {genreShelf.items.map(({ book, matchReasons }) =>
-              renderRecCoverCard(book, matchReasons, true, `genre-${genreShelf.topic}`)
-            )}
-          </BookCoverSlide>
+            Because you like {genreShelf.label}
+          </h2>
+
+          {isDesktop ? (
+            <BookCoverGrid
+              size={suggestedCardConfig.size}
+              customWidth={suggestedCardConfig.customWidth}
+              infoPlacement={suggestedCardConfig.infoPlacement}
+            >
+              {genreShelf.items.map(({ book, matchReasons }) =>
+                renderRecCoverCard(book, matchReasons, false, `genre-${genreShelf.topic}`)
+              )}
+            </BookCoverGrid>
+          ) : (
+            <BookCoverSlide
+              itemCount={genreShelf.items.length}
+              ariaLabel={`Owned ${genreShelf.label} books`}
+            >
+              {genreShelf.items.map(({ book, matchReasons }) =>
+                renderRecCoverCard(book, matchReasons, true, `genre-${genreShelf.topic}`)
+              )}
+            </BookCoverSlide>
+          )}
         </section>
       )}
 
-      {/* Lower Summary: Household Collection Summary */}
+      {/* Lower Summary: Quiet Inline Household Collection Summary */}
       <section
         aria-label="Active collection summary"
-        className="rounded-xl bg-surface border border-edge p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3.5 lr-card"
+        className="pt-6 border-t border-edge-subtle/70 flex flex-wrap items-center justify-between gap-3"
       >
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-accent">
-            {t('home.activeCollection')}
-          </p>
-          <p className="font-display text-xl font-semibold text-ink mt-1">
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm font-semibold text-ink font-mono-tabular">
             {state.books.length} {state.books.length === 1 ? 'Book' : 'Books'} Cataloged
-          </p>
-          <p className="text-xs text-ink-secondary font-mono-tabular mt-1">
-            {activeProfile?.readHistoryBookIds?.length || 0} Read with{' '}
-            {activeProfile?.name || 'Reader'}
-            {wishlistCount > 0 ? ` · ${wishlistCount} Wishlisted` : ''}
+            <span className="text-ink-muted font-normal">
+              {' · '}
+              {activeProfile?.readHistoryBookIds?.length || 0} Read with{' '}
+              {activeProfile?.name || 'Reader'}
+              {wishlistCount > 0 ? ` · ${wishlistCount} Wishlisted` : ''}
+            </span>
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-          {wishlistCount > 0 && (
-            <button
-              type="button"
-              onClick={() => navigate('library')}
-              className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap cursor-pointer"
-            >
-              Wishlist ({wishlistCount})
-            </button>
-          )}
+
+        <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
             onClick={() => navigate('rotations')}
-            className="min-h-[40px] px-3.5 py-1.5 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap cursor-pointer"
+            className="min-h-[38px] text-xs font-semibold text-ink-secondary hover:text-ink cursor-pointer"
           >
-            <span>{t('home.allShelves')}</span>
+            {t('home.allShelves')}
           </button>
           <button
             type="button"
             onClick={() => navigate('library')}
-            className="min-h-[40px] px-4 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+            className="min-h-[38px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg text-xs font-semibold inline-flex items-center gap-1 transition-colors whitespace-nowrap cursor-pointer"
           >
             <span>{t('nav.library')}</span>
             <Icon name="chevronRight" className="w-3.5 h-3.5" />
@@ -916,7 +897,7 @@ export const HomeView: React.FC = () => {
         </div>
       )}
 
-      {/* Slide-Up Detail Sheet for Clicking Any Active Rotation Preview */}
+      {/* Slide-Up Detail Sheet for Clicking Any Active Rotation */}
       {sheetRotation && (() => {
         const isSheetActive = sheetRotation.status === 'active';
         const validIds = new Set(state.books.map((b) => b.id));

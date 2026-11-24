@@ -22,7 +22,7 @@ interface ActiveDragState {
   aborted: boolean;
 }
 
-const TOP_HANDLE_ZONE_PX = 68;
+const TOP_HANDLE_ZONE_PX = 76;
 const DRAG_SLOP_PX = 8;
 const INTERACTIVE_SELECTOR =
   'input, textarea, select, [role="slider"], [contenteditable="true"]';
@@ -93,13 +93,26 @@ export function useGlobalSheetSwipeDismiss(): void {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
     let active: ActiveDragState | null = null;
-    let suppressNextClickUntil = 0;
+    let suppressSheetClicksUntil = 0;
+    let suppressedSheetEl: HTMLElement | null = null;
+    let programmaticBackdropTarget: HTMLElement | null = null;
 
     const resetSheetVisuals = (sheetEl: HTMLElement, backdropEl: HTMLElement) => {
       sheetEl.style.transition = '';
       sheetEl.style.transform = '';
       backdropEl.style.transition = '';
       backdropEl.style.opacity = '';
+    };
+
+    const triggerBackdropDismiss = (backdropEl: HTMLElement) => {
+      suppressSheetClicksUntil = 0;
+      suppressedSheetEl = null;
+      programmaticBackdropTarget = backdropEl;
+      try {
+        backdropEl.click();
+      } finally {
+        programmaticBackdropTarget = null;
+      }
     };
 
     const beginDrag = (
@@ -123,8 +136,8 @@ export function useGlobalSheetSwipeDismiss(): void {
       const startedInTopZone = onPill || relY <= TOP_HANDLE_ZONE_PX;
 
       if (mode === 'mouse') {
-        // On desktop pointer, require grabbing the drag handle bar or blank top header strip
-        if (!onPill && (relY > 36 || Boolean(target.closest(CLICKABLE_CONTROL_SELECTOR)))) {
+        // On desktop pointer, allow dragging from the pill or non-clickable top header strip
+        if (!onPill && (relY > TOP_HANDLE_ZONE_PX || Boolean(target.closest(CLICKABLE_CONTROL_SELECTOR)))) {
           return;
         }
       } else if (!startedInTopZone && hasScrolledVerticalAncestor(target, sheetEl)) {
@@ -224,31 +237,32 @@ export function useGlobalSheetSwipeDismiss(): void {
 
       if (!state.isDragging) return;
 
-      suppressNextClickUntil = performance.now() + 260;
+      // Only suppress stray post-drag clicks originating inside the sheet itself (for 90ms)
+      suppressSheetClicksUntil = performance.now() + 90;
+      suppressedSheetEl = state.sheetEl;
 
       const dy = Math.max(0, state.currentY - state.startY);
       const dt = Math.max(1, state.lastTime - state.prevTime);
       const velocityY = (state.currentY - state.prevY) / dt;
-      const dismissThreshold = Math.min(130, state.sheetHeight * 0.28);
+      const dismissThreshold = Math.min(96, state.sheetHeight * 0.22);
       const shouldDismiss =
-        !cancelled && (dy > dismissThreshold || (velocityY > 0.45 && dy > 24));
+        !cancelled && (dy > dismissThreshold || (velocityY > 0.35 && dy > 20));
 
       if (shouldDismiss) {
-        state.sheetEl.style.transition = 'transform 190ms cubic-bezier(0.2, 0, 0, 1)';
+        state.sheetEl.style.transition = 'transform 175ms cubic-bezier(0.2, 0, 0, 1)';
         state.sheetEl.style.transform = `translate3d(0, ${state.sheetHeight + 36}px, 0)`;
-        state.backdropEl.style.transition = 'opacity 180ms ease-out';
+        state.backdropEl.style.transition = 'opacity 165ms ease-out';
         state.backdropEl.style.opacity = '0';
 
         window.setTimeout(() => {
-          // Dispatch backdrop click so React's onClose/unsaved-guard handles dismissal natively
-          state.backdropEl.click();
-          // Safety reset in case a modal intercepts/blocks closing (e.g. unsaved changes guard)
+          triggerBackdropDismiss(state.backdropEl);
+          // Safety reset in case a modal blocks closing (e.g., unsaved changes prompt)
           window.setTimeout(() => {
             if (document.body.contains(state.sheetEl)) {
               resetSheetVisuals(state.sheetEl, state.backdropEl);
             }
           }, 50);
-        }, 165);
+        }, 150);
       } else {
         state.sheetEl.style.transition = 'transform 220ms cubic-bezier(0.16, 1, 0.3, 1)';
         state.sheetEl.style.transform = 'translate3d(0, 0, 0)';
@@ -315,7 +329,15 @@ export function useGlobalSheetSwipeDismiss(): void {
     };
 
     const onClickCapture = (e: MouseEvent) => {
-      if (performance.now() < suppressNextClickUntil) {
+      if (programmaticBackdropTarget && e.target === programmaticBackdropTarget) {
+        return;
+      }
+      if (
+        performance.now() < suppressSheetClicksUntil &&
+        suppressedSheetEl &&
+        e.target instanceof Node &&
+        suppressedSheetEl.contains(e.target)
+      ) {
         e.preventDefault();
         e.stopPropagation();
       }

@@ -67,7 +67,7 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
       {dotCount > 1 && (
         <div
           aria-label="Carousel progress"
-          className="mt-2 flex items-center justify-center gap-0.5"
+          className="mt-2 flex items-center justify-center gap-1"
         >
           {Array.from({ length: dotCount }).map((_, idx) => {
             const isActive = idx === activeDot;
@@ -78,13 +78,13 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
                 onClick={() => handleDotClick(idx)}
                 aria-label={`Scroll to section ${idx + 1} of ${dotCount}`}
                 aria-current={isActive ? 'true' : undefined}
-                className="min-h-[28px] px-1 flex items-center justify-center cursor-pointer"
+                className="min-h-[24px] px-1 flex items-center justify-center cursor-pointer"
               >
                 <span
-                  className={`block h-1.5 rounded-full transition-all duration-200 ${
+                  className={`block w-1.5 h-1.5 rounded-full transition-colors duration-200 ${
                     isActive
-                      ? 'w-5 bg-primary dark:bg-accent'
-                      : 'w-1.5 bg-edge hover:bg-ink-muted'
+                      ? 'bg-primary dark:bg-accent scale-110'
+                      : 'bg-edge hover:bg-ink-muted'
                   }`}
                 />
               </button>
