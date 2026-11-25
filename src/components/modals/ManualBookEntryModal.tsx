@@ -20,6 +20,7 @@ export const ManualBookEntryModal: React.FC = () => {
   const [year, setYear] = useState('');
   const [pages, setPages] = useState('');
   const [tags, setTags] = useState('');
+  const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -37,6 +38,7 @@ export const ManualBookEntryModal: React.FC = () => {
     setYear('');
     setPages('');
     setTags('');
+    setDescription('');
     setNotes('');
     setError('');
     setIsSaving(false);
@@ -89,6 +91,7 @@ export const ManualBookEntryModal: React.FC = () => {
         tags: parsedTags,
         collectionStatus,
         owners: activeProfile ? [activeProfile.id, 'shared'] : ['shared'],
+        description: description.trim() || undefined,
         notes: notes.trim() || undefined,
       });
 
@@ -340,6 +343,20 @@ export const ManualBookEntryModal: React.FC = () => {
                 onChange={(e) => setTags(e.target.value)}
                 placeholder="e.g. bedtime, animals, rhyming"
                 className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="manual-modal-description" className="block font-semibold text-ink-secondary mb-1">
+                Synopsis / Description (Optional)
+              </label>
+              <textarea
+                id="manual-modal-description"
+                rows={2}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief story blurb or what this book is about…"
+                className="w-full p-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary resize-none"
               />
             </div>
 

@@ -7,6 +7,7 @@
 
 import { computeIsbn10FromIsbn13 } from '../../../types/models.js';
 import {
+  cleanBookDescription,
   mergeBookCandidates,
   normalizeOpenLibraryDataRecord,
   normalizeOpenLibrarySearchDoc,
@@ -15,13 +16,31 @@ import {
 const OPEN_LIBRARY_BOOKS_ENDPOINT = 'https://openlibrary.org/api/books';
 const OPEN_LIBRARY_SEARCH_ENDPOINT = 'https://openlibrary.org/search.json';
 const SEARCH_FIELDS =
-  'key,title,author_name,first_publish_year,isbn,number_of_pages_median,subject,cover_i,format,language';
+  'key,title,author_name,first_publish_year,first_sentence,isbn,number_of_pages_median,subject,cover_i,format,language';
 
 /**
  * Creates an Open Library metadata provider adapter.
  * @param {ReturnType<typeof import('./http-client.js').createHttpClient>} httpClient
  */
 export function createOpenLibraryProvider(httpClient) {
+  /**
+   * Fetches parent Work description when the edition record lacks one. Non-fatal on error.
+   * @param {string | undefined} workKey
+   * @param {AbortSignal} [signal]
+   * @returns {Promise<string>}
+   */
+  async function fetchWorkDescription(workKey, signal) {
+    if (!workKey || typeof workKey !== 'string' || !workKey.startsWith('/works/')) return '';
+    try {
+      const workPayload = await httpClient.getJson(`https://openlibrary.org${workKey}.json`, {
+        signal,
+      });
+      return cleanBookDescription(workPayload?.description || workPayload?.first_sentence);
+    } catch (_) {
+      return '';
+    }
+  }
+
   /**
    * Looks up a single book by normalized ISBN-13 using Open Library Books API (`jscmd=data`),
    * and falls back to `search.json?isbn=...` when the edition is missing from `api/books` or
@@ -49,12 +68,15 @@ export function createOpenLibraryProvider(httpClient) {
 
     /** @type {import('../normalizer.js').BookCandidate | null} */
     let dataCandidate = null;
+    /** @type {string | undefined} */
+    let dataWorkKey;
     if (payload && typeof payload === 'object') {
       const record =
         payload[bibkey13] ||
         (bibkey10 ? payload[bibkey10] : undefined) ||
         Object.values(payload)[0];
       if (record) {
+        dataWorkKey = typeof record?.works?.[0]?.key === 'string' ? record.works[0].key : undefined;
         dataCandidate = normalizeOpenLibraryDataRecord(record, {
           retainRaw: options.retainRaw,
           queriedIsbn: isbn13,
@@ -63,6 +85,12 @@ export function createOpenLibraryProvider(httpClient) {
     }
 
     if (dataCandidate && dataCandidate.coverUrl) {
+      if (!dataCandidate.summary && dataWorkKey) {
+        const desc = await fetchWorkDescription(dataWorkKey, options.signal);
+        if (desc) {
+          return { ...dataCandidate, summary: desc };
+        }
+      }
       return dataCandidate;
     }
 
@@ -85,17 +113,29 @@ export function createOpenLibraryProvider(httpClient) {
           queriedIsbn: isbn13,
         });
         if (!searchCandidate) continue;
-        if (dataCandidate) {
-          const merged = mergeBookCandidates(dataCandidate, searchCandidate);
-          return {
-            ...merged,
-            sources: [merged.sources[0]],
-          };
+        const resolved = dataCandidate
+          ? {
+              ...mergeBookCandidates(dataCandidate, searchCandidate),
+              sources: [mergeBookCandidates(dataCandidate, searchCandidate).sources[0]],
+            }
+          : searchCandidate;
+        if (!resolved.summary) {
+          const fallbackWorkKey =
+            dataWorkKey || (typeof doc?.key === 'string' && doc.key.startsWith('/works/') ? doc.key : undefined);
+          if (fallbackWorkKey) {
+            const desc = await fetchWorkDescription(fallbackWorkKey, options.signal);
+            if (desc) return { ...resolved, summary: desc };
+          }
         }
-        return searchCandidate;
+        return resolved;
       }
     } catch (_) {
       // Non-fatal: return whatever `api/books` produced if Solr search fallback is unreachable
+    }
+
+    if (dataCandidate && !dataCandidate.summary && dataWorkKey) {
+      const desc = await fetchWorkDescription(dataWorkKey, options.signal);
+      if (desc) return { ...dataCandidate, summary: desc };
     }
 
     return dataCandidate;

@@ -29,7 +29,8 @@ export type EditorialFieldKey =
   | 'edition'
   | 'language'
   | 'condition'
-  | 'dimensions';
+  | 'dimensions'
+  | 'description';
 
 export interface PublisherOption {
   name: string;
@@ -113,8 +114,8 @@ const COLLECTION_STATUS_OPTIONS: Array<{ id: CollectionStatus; label: string; de
   {
     id: 'wishlist',
     label: formatCollectionStatus('wishlist'),
-    desc: 'Books you plan to buy or gift',
-    icon: 'heart',
+    desc: 'Books on your future reading or acquisition wish list',
+    icon: 'wishlist',
   },
   {
     id: 'interested',
@@ -219,6 +220,9 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
         break;
       case 'dimensions':
         setTextValue(formatBookDimensionsLabel(book.dimensions));
+        break;
+      case 'description':
+        setTextValue(book.description || '');
         break;
       default:
         setTextValue('');
@@ -328,6 +332,9 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
       case 'dimensions':
         await commitAndClose({ dimensions: textValue.trim() });
         return;
+      case 'description':
+        await commitAndClose({ description: textValue.trim() || null });
+        return;
       case 'pageCount': {
         const trimmed = textValue.trim();
         if (!trimmed) {
@@ -427,6 +434,11 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
       eyebrow: 'Dimensions',
       question: 'What are its dimensions?',
       hint: 'Height × width × thickness (e.g. 22 × 22 cm).',
+    },
+    description: {
+      eyebrow: 'Description',
+      question: 'Synopsis / Back-Cover Blurb',
+      hint: 'Helps match books for bedtime, mood shelves, and search.',
     },
   };
 
@@ -905,6 +917,18 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                   }}
                   placeholder="e.g. Goodnight Moon"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-surface-subtle border-2 border-primary/70 text-lg font-display text-ink placeholder:text-ink-muted placeholder:font-serif-italic placeholder:italic leading-snug focus:outline-none focus:border-primary resize-none"
+                />
+              </div>
+            )}
+
+            {field === 'description' && (
+              <div className="py-3">
+                <textarea
+                  rows={5}
+                  value={textValue}
+                  onChange={(e) => setTextValue(e.target.value)}
+                  placeholder="Short book blurb or story summary…"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface-subtle border-2 border-primary/70 text-sm text-ink placeholder:text-ink-muted placeholder:font-serif-italic placeholder:italic leading-relaxed focus:outline-none focus:border-primary resize-y"
                 />
               </div>
             )}

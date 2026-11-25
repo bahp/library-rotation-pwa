@@ -18,11 +18,14 @@ import {
   mergeBookCandidates,
   candidateToBook,
   sanitizeCoverUrl,
+  cleanBookDescription,
 } from '../src/features/catalog/normalizer.js';
 import { createHttpClient } from '../src/features/catalog/providers/http-client.js';
 import { createGoogleBooksProvider } from '../src/features/catalog/providers/google-books-provider.js';
 import { createOpenLibraryProvider } from '../src/features/catalog/providers/open-library-provider.js';
 import { createCatalogService } from '../src/features/catalog/catalog-service.js';
+import { findMatchingLibraryBook } from '../src/features/catalog/library-match.js';
+import { fetchOpenLibrarySubjectShelf } from '../src/features/catalog/discovery-cache.js';
 
 const MOCK_GOOGLE_VOLUME = {
   id: 'gb_corduroy_01',
@@ -223,6 +226,102 @@ describe('Catalog & Metadata Providers Suite', () => {
     const book = candidateToBook(normalized);
     assert.equal(book.listPriceAmount, 14.95);
     assert.equal(book.listPriceCurrency, 'EUR');
+  });
+
+  it('persists sanitized book descriptions from Google Books & Open Library candidates', () => {
+    const cleaned = cleanBookDescription('<p>A classic tale of a <b>curious</b> bear.&nbsp;Ready for bedtime.</p>');
+    assert.equal(cleaned, 'A classic tale of a curious bear. Ready for bedtime.');
+
+    const candidate = normalizeGoogleBooksItem(MOCK_GOOGLE_VOLUME);
+    assert.ok(candidate);
+    assert.ok(candidate.summary?.includes('teddy bear'));
+    const book = candidateToBook(candidate);
+    assert.equal(book.description, candidate.summary);
+  });
+
+  it('findMatchingLibraryBook detects saved books by ISBN or normalized title + author', () => {
+    /** @type {any[]} */
+    const library = [
+      {
+        id: 'b_corduroy',
+        isbn13: '9780140501735',
+        isbn10: '0140501738',
+        title: 'Corduroy',
+        authors: ['Don Freeman'],
+        collectionStatus: 'owned',
+      },
+      {
+        id: 'b_bear',
+        isbn13: '',
+        title: 'We Are Going on a Bear Hunt (25th Anniversary Edition)',
+        authors: ['Michael Rosen'],
+        collectionStatus: 'wishlist',
+      },
+    ];
+
+    assert.equal(
+      findMatchingLibraryBook(
+        { candidateKey: '1', isbn13: '9780140501735', title: 'Corduroy Story', authors: ['Don Freeman'], format: 'hardcover', ageMin: 2, ageMax: 6, readingStage: 'picture-book', tags: [], spineColor: 'teal', sources: [] },
+        library
+      )?.id,
+      'b_corduroy'
+    );
+
+    assert.equal(
+      findMatchingLibraryBook(
+        { candidateKey: '2', isbn13: '9789999999999', title: 'We Are Going on a Bear Hunt', authors: ['Michael Rosen'], format: 'hardcover', ageMin: 2, ageMax: 6, readingStage: 'picture-book', tags: [], spineColor: 'teal', sources: [] },
+        library
+      )?.id,
+      'b_bear'
+    );
+
+    assert.equal(
+      findMatchingLibraryBook(
+        { candidateKey: '3', isbn13: '9781111111111', title: 'Corduroy', authors: ['Different Author'], format: 'hardcover', ageMin: 2, ageMax: 6, readingStage: 'picture-book', tags: [], spineColor: 'teal', sources: [] },
+        library
+      ),
+      null
+    );
+  });
+
+  it('fetchOpenLibrarySubjectShelf normalizes works and serves repeated calls from cache', async () => {
+    let fetches = 0;
+    const mockFetch = async () => {
+      fetches++;
+      return new Response(
+        JSON.stringify({
+          works: [
+            {
+              key: '/works/OL123W',
+              title: 'Make Way for Ducklings',
+              authors: [{ name: 'Robert McCloskey' }],
+              cover_id: 554433,
+              first_publish_year: 1941,
+              subject: ['Ducks', 'Picture books'],
+            },
+          ],
+        }),
+        { status: 200 }
+      );
+    };
+
+    const first = await fetchOpenLibrarySubjectShelf('caldecott_medal', {
+      limit: 6,
+      fetchImpl: mockFetch,
+    });
+    assert.equal(fetches, 1);
+    assert.equal(first.fromCache, false);
+    assert.equal(first.items.length, 1);
+    assert.equal(first.items[0].title, 'Make Way for Ducklings');
+    assert.ok(first.items[0].coverUrl?.includes('554433'));
+
+    const second = await fetchOpenLibrarySubjectShelf('caldecott_medal', {
+      limit: 6,
+      fetchImpl: mockFetch,
+    });
+    assert.equal(fetches, 1);
+    assert.equal(second.fromCache, true);
+    assert.equal(second.items[0].title, 'Make Way for Ducklings');
   });
 });
 

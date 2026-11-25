@@ -238,6 +238,45 @@ export function buildCandidateKey(isbn13, title, authors) {
 }
 
 /**
+ * Strips basic HTML markup & entities from provider book descriptions into plain prose.
+ * @param {unknown} raw
+ * @param {number} [maxLen]
+ * @returns {string}
+ */
+export function cleanBookDescription(raw, maxLen = 1200) {
+  if (!raw) return '';
+  let text = '';
+  if (typeof raw === 'string') {
+    text = raw;
+  } else if (Array.isArray(raw)) {
+    text = raw
+      .map((entry) => (typeof entry === 'string' ? entry : entry?.value || ''))
+      .filter(Boolean)
+      .join(' ');
+  } else if (typeof raw === 'object') {
+    const obj = /** @type {Record<string, unknown>} */ (raw);
+    if (typeof obj.value === 'string') text = obj.value;
+    else if (typeof obj.text === 'string') text = obj.text;
+  }
+  if (!text) return '';
+  const cleaned = text
+    .replace(/<\s*br\s*\/?>/gi, ' ')
+    .replace(/<\/p>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return '';
+  if (cleaned.length <= maxLen) return cleaned;
+  return `${cleaned.slice(0, maxLen - 1).trim()}…`;
+}
+
+/**
  * Normalizes a Google Books API Volume item into a BookCandidate.
  * @param {Record<string, any>} item
  * @param {{ retainRaw?: boolean, fallbackIsbn?: string }} [options]
@@ -286,7 +325,9 @@ export function normalizeGoogleBooksItem(item, options = {}) {
   const categories = Array.isArray(info.categories)
     ? info.categories.map((/** @type {unknown} */ c) => String(c))
     : [];
-  const description = typeof info.description === 'string' ? info.description.trim() : '';
+  const description = cleanBookDescription(
+    info.description || item?.searchInfo?.textSnippet || ''
+  );
 
   const formatHints = [...categories, String(info.printType || ''), title];
   const format = inferBookFormat(formatHints, pageCount);
@@ -371,7 +412,7 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     tags,
     tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
-    ...(description ? { summary: description.slice(0, 320) } : {}),
+    ...(description ? { summary: description } : {}),
     ...(categories.length ? { subjects: categories.slice(0, 12) } : {}),
     ...(language ? { language } : {}),
     ...(dimensions ? { dimensions } : {}),
@@ -464,6 +505,12 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     textCorpus: `${title} ${subjects.join(' ')}`,
   });
 
+  const olDescription = cleanBookDescription(
+    record.description ||
+      (Array.isArray(record.excerpts) && record.excerpts[0]?.text) ||
+      record.notes ||
+      ''
+  );
   const cleanOlDataId = cleanProviderExternalId(
     typeof record.key === 'string' ? record.key : undefined
   );
@@ -491,6 +538,7 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     tags,
     tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
+    ...(olDescription ? { summary: olDescription } : {}),
     ...(subjects.length ? { subjects: subjects.slice(0, 12) } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
     sources: [source],
@@ -575,6 +623,7 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     textCorpus: `${title} ${subjects.join(' ')}`,
   });
 
+  const searchSummary = cleanBookDescription(doc.description || doc.first_sentence);
   const cleanOlSearchId = cleanProviderExternalId(
     typeof doc.key === 'string' ? doc.key : undefined
   );
@@ -602,6 +651,7 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     tags,
     tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
+    ...(searchSummary ? { summary: searchSummary } : {}),
     ...(subjects.length ? { subjects: subjects.slice(0, 12) } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
     sources: [source],
@@ -709,6 +759,8 @@ export function candidateToBook(candidate, options = {}) {
     }
   }
 
+  const description = cleanBookDescription(candidate.summary || '');
+
   return {
     id: createId('book'),
     isbn13: candidate.isbn13,
@@ -725,6 +777,7 @@ export function candidateToBook(candidate, options = {}) {
     tags,
     ...(Object.keys(tagOrigins).length > 0 ? { tagOrigins } : {}),
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),
+    ...(description ? { description } : {}),
     ...(candidate.language ? { language: candidate.language } : {}),
     ...(candidate.dimensions ? { dimensions: candidate.dimensions } : {}),
     ...(candidate.edition ? { edition: candidate.edition } : {}),

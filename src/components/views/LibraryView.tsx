@@ -482,7 +482,14 @@ export const LibraryView: React.FC = () => {
   const handleAddQuickCandidate = async (
     candidate: BookCandidate,
     status: 'owned' | 'wishlist',
-    opts?: { condition?: BookCondition; owners?: string[]; loved?: boolean }
+    opts?: {
+      condition?: BookCondition;
+      owners?: string[];
+      loved?: boolean;
+      dominantColor?: string;
+      dominantColorSwatches?: string[];
+      dominantColorMode?: 'prominent' | 'dominant' | 'soft';
+    }
   ) => {
     try {
       await store.addBookFromCandidate(candidate, {
@@ -490,6 +497,9 @@ export const LibraryView: React.FC = () => {
         condition: opts?.condition || 'good',
         owners: opts?.owners || (activeProfile ? [activeProfile.id, 'shared'] : ['shared']),
         loved: opts?.loved || false,
+        dominantColor: opts?.dominantColor,
+        dominantColorSwatches: opts?.dominantColorSwatches,
+        dominantColorMode: opts?.dominantColorMode,
       });
       setFoundCandidate(null);
       store.notify(
@@ -689,7 +699,7 @@ export const LibraryView: React.FC = () => {
                     : 'bg-surface text-accent border border-edge hover:bg-surface-elevated'
                 }`}
               >
-                <Icon name="bookmark" className="w-3.5 h-3.5" />
+                <Icon name="wishlist" className="w-3.5 h-3.5" />
                 <span>Wishlist</span>
                 <span className="font-mono-tabular text-[11px] opacity-85">{wishlistCount}</span>
               </button>

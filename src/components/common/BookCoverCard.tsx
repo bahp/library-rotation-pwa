@@ -186,6 +186,7 @@ export interface BookCoverCardProps {
   isPicked?: boolean;
   highlightState?: 'none' | 'picked' | 'read' | 'selected';
   hideBookCoverInternalBadges?: boolean;
+  rankNumber?: number;
   dataBookCard?: string;
   onInspect: (book: Book) => void;
   bottomLeftCoverAction?: React.ReactNode;
@@ -216,6 +217,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   isPicked = false,
   highlightState = 'none',
   hideBookCoverInternalBadges = false,
+  rankNumber,
   dataBookCard,
   onInspect,
   bottomLeftCoverAction,
@@ -473,9 +475,10 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
         <span
           data-cover-slot={COVER_BADGE_SLOTS.catalogState.slot}
           data-cover-catalog-badge="wishlist"
-          className={`${COVER_BADGE_SLOTS.catalogState.positionClass} px-1.5 py-0.5 rounded-[var(--radius-badge)] ${COVER_CATALOG_BADGE_STYLES.wishlist} text-[9px] font-bold tracking-wide shadow-2xs`}
+          className={`${COVER_BADGE_SLOTS.catalogState.positionClass} inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-badge)] ${COVER_CATALOG_BADGE_STYLES.wishlist} text-[9px] font-bold tracking-wide shadow-2xs`}
         >
-          Wishlist
+          <Icon name="wishlist" className="w-2.5 h-2.5 shrink-0" />
+          <span>Wishlist</span>
         </span>
       );
     } else if (status === 'library') {
@@ -571,8 +574,19 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
           />
         </button>
 
+        {/* Numbered Top Rank Corner Badge (e.g. 1, 2, 3...) */}
+        {typeof rankNumber === 'number' && rankNumber > 0 && (
+          <span
+            data-cover-rank={rankNumber}
+            aria-label={`Rank #${rankNumber}`}
+            className="pointer-events-none absolute top-1.5 left-1.5 z-30 min-w-[24px] h-6 px-1.5 rounded-md bg-ink/88 text-canvas border border-canvas/20 font-display text-xs font-bold font-mono-tabular flex items-center justify-center shadow-md backdrop-blur-xs"
+          >
+            {rankNumber}
+          </span>
+        )}
+
         {/* Custom corner overlays when caller disables internal BookCover badges (Library style) */}
-        {topLeftCatalogBadge}
+        {!(typeof rankNumber === 'number' && rankNumber > 0) && topLeftCatalogBadge}
 
         {showCoverOverlays && hideBookCoverInternalBadges && book.loved && (
           <span

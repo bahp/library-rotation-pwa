@@ -25,12 +25,21 @@ import {
 } from '../src/features/tagging/ai-tag-adapter.js';
 import { createTaggingService } from '../src/features/tagging/tagging-service.js';
 import {
+  getBedtimeWindDownShelf,
+  getDustyGemsShelf,
   getFavoriteGenreRecommendationShelf,
+  getLanguageShelf,
   getLovedBookSimilarityShelves,
+  getMoreByAuthorShelf,
   getProfileRecommendations,
+  getReadyForRereadShelf,
   getRotationLibrarySuggestions,
+  getSeasonalPresetShelf,
   getTopicCoverageInsights,
+  getWishlistSpotlightShelf,
+  isWindDownEveningWindow,
 } from '../src/features/tagging/recommendations.js';
+import { DEFAULT_ROTATION_PRESETS } from '../src/data/rotation-presets-config.js';
 import { createStorageAdapter } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import { createDefaultAppSettings } from '../src/config/defaults.js';
@@ -415,5 +424,146 @@ describe('Tagging, Taxonomy & Recommendations Suite', () => {
     assert.ok(updated.tags.includes('bedtime'));
     assert.ok(updated.tags.includes('woodland'));
     assert.ok(updated.tags.includes('friendship'));
+  });
+
+  it('builds mood, dusty gems, re-read, author, language, seasonal, and wishlist shelves for Home discovery', () => {
+    /** @type {import('../src/types/models.js').ChildProfile} */
+    const profile = {
+      id: 'p_leo',
+      name: 'Leo',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['animals', 'bedtime'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+      readHistoryBookIds: ['b_reread', 'b_bedtime'],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const nowIso = '2026-10-20T20:00:00.000Z';
+    const localEvening = new Date(2026, 9, 20, 19, 0, 0);
+    const localNoon = new Date(2026, 9, 20, 12, 0, 0);
+    assert.equal(isWindDownEveningWindow(localEvening), true);
+    assert.equal(isWindDownEveningWindow(localNoon), false);
+
+    /** @type {import('../src/types/models.js').Book[]} */
+    const books = [
+      {
+        id: 'b_bedtime',
+        isbn13: '9780000001001',
+        title: 'Whispering Moon',
+        authors: ['Clara Night'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['bedtime', 'calm'],
+        description: 'A soothing lullaby for sleepy woodland friends.',
+        spineColor: 'indigo',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-02-01T00:00:00.000Z',
+        lastReadAt: '2026-10-18T00:00:00.000Z',
+        lastRotatedAt: '2026-10-10T00:00:00.000Z',
+        rotationCount: 2,
+        sources: [],
+      },
+      {
+        id: 'b_dusty',
+        isbn13: '9780000001002',
+        title: 'Forgotten Attic Pumpkin',
+        authors: ['Clara Night'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['autumn', 'halloween'],
+        spineColor: 'amber',
+        collectionStatus: 'owned',
+        condition: 'good',
+        language: 'spanish',
+        addedAt: '2025-11-01T00:00:00.000Z',
+        lastRotatedAt: '2026-04-01T00:00:00.000Z',
+        rotationCount: 1,
+        sources: [],
+      },
+      {
+        id: 'b_reread',
+        isbn13: '9780000001003',
+        title: 'Autumn Squirrel Festival',
+        authors: ['Clara Night'],
+        format: 'hardcover',
+        ageMin: 2,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['autumn', 'animals'],
+        spineColor: 'rose',
+        collectionStatus: 'owned',
+        condition: 'good',
+        language: 'spanish',
+        loved: true,
+        addedAt: '2026-01-10T00:00:00.000Z',
+        lastReadAt: '2026-08-01T00:00:00.000Z',
+        lastRotatedAt: '2026-06-01T00:00:00.000Z',
+        rotationCount: 2,
+        sources: [],
+      },
+      {
+        id: 'b_wishlist_only',
+        isbn13: '9780000001004',
+        title: 'Wished Starlight Express',
+        authors: ['Someone'],
+        format: 'hardcover',
+        ageMin: 3,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['bedtime'],
+        spineColor: 'teal',
+        collectionStatus: 'wishlist',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-10-19T00:00:00.000Z',
+        sources: [],
+      },
+    ];
+
+    /** @type {import('../src/types/models.js').RotationList[]} */
+    const rotations = [];
+
+    const bedtime = getBedtimeWindDownShelf({ books, profile, rotations, nowIso });
+    assert.equal(bedtime.length, 1);
+    assert.equal(bedtime[0].book.id, 'b_bedtime');
+
+    const dusty = getDustyGemsShelf({ books, profile, rotations, nowIso, minDaysUntouched: 90 });
+    assert.ok(dusty.some((item) => item.book.id === 'b_dusty'));
+    assert.equal(dusty.some((item) => item.book.id === 'b_wishlist_only'), false);
+
+    const rereads = getReadyForRereadShelf({ books, profile, rotations, nowIso, minDaysSinceRead: 30 });
+    assert.equal(rereads.length, 1);
+    assert.equal(rereads[0].book.id, 'b_reread');
+
+    const byAuthor = getMoreByAuthorShelf({ books, profile, rotations, nowIso, minItems: 2 });
+    assert.equal(byAuthor?.author, 'Clara Night');
+    assert.equal(byAuthor?.items.length, 3);
+
+    const byLang = getLanguageShelf({ books, profile, rotations, minItems: 2 });
+    assert.equal(byLang?.language, 'spanish');
+    assert.equal(byLang?.items.length, 2);
+
+    const seasonal = getSeasonalPresetShelf({
+      books,
+      profile,
+      rotations,
+      presets: DEFAULT_ROTATION_PRESETS,
+      nowDate: localEvening,
+      minItems: 2,
+    });
+    assert.ok(seasonal && seasonal.items.length >= 2);
+
+    const wishlist = getWishlistSpotlightShelf({ books });
+    assert.equal(wishlist.length, 1);
+    assert.equal(wishlist[0].id, 'b_wishlist_only');
   });
 });

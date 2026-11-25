@@ -294,6 +294,18 @@ const ICON_LEGEND_GROUPS: LegendGroup[] = [
         ),
       },
       {
+        id: 'wishlist',
+        label: 'Eye — Wishlist',
+        description:
+          'Marks a book on your family wish list or reading radar—tracked separately from books already on your shelves.',
+        where: 'Library filters · Cover badge · Add sheets',
+        renderPreview: () => (
+          <span className="w-9 h-9 rounded-lg bg-surface-subtle border border-edge text-accent flex items-center justify-center">
+            <Icon name="wishlist" className="w-4 h-4" />
+          </span>
+        ),
+      },
+      {
         id: 'bookmarkFilled',
         label: 'Bookmark — Picked / Reading Now',
         description:

@@ -6,9 +6,11 @@ import { BookCover } from '../common/BookCover.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import { SearchResultsSkeleton } from '../common/SkeletonLoaders.js';
 import { FoundBookSheet } from './FoundBookSheet.js';
+import type { FoundBookIntakeOptions } from './FoundBookSheet.js';
 import { NativeBarcodeScannerModal } from '../scan/NativeBarcodeScannerModal.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
 import { parseUnifiedCatalogQuery } from '../../features/scan/scan-shell-view.js';
+import { findMatchingLibraryBook } from '../../features/catalog/library-match.js';
 import { acquireCameraStream } from '../../features/scan/camera-access.js';
 import { createBarcodeDecoder } from '../../features/scan/barcode-decoder.js';
 import {
@@ -17,9 +19,14 @@ import {
   renderCroppedCanvas,
 } from '../../features/scan/frame-processor.js';
 import { createOcrEngine } from '../../features/scan/ocr-engine.js';
-import { formatBookBinding, formatCollectionStatus, normalizeIsbn } from '../../types/models.js';
+import {
+  formatBookBinding,
+  formatCollectionStatus,
+  normalizeCollectionStatus,
+  normalizeIsbn,
+} from '../../types/models.js';
 import { AVATAR_TONES } from '../../config/index.js';
-import type { Book, BookCondition, ScanMode } from '../../types/models.js';
+import type { Book, ScanMode } from '../../types/models.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
 
 const RECENT_SEARCHES_KEY = 'bunko_recent_searches_v1';
@@ -97,6 +104,7 @@ export const SearchModal: React.FC = () => {
   const [onlineCandidates, setOnlineCandidates] = useState<BookCandidate[]>([]);
   const [hasSearchedOnline, setHasSearchedOnline] = useState(false);
   const [lastOnlineProviderIds, setLastOnlineProviderIds] = useState<string[]>([]);
+  const [hideOwnedOnline, setHideOwnedOnline] = useState(false);
 
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [photoStatusText, setPhotoStatusText] = useState('');
@@ -275,7 +283,7 @@ export const SearchModal: React.FC = () => {
           {
             retainRaw: state.settings?.retainRawProviderPayloads,
             enabledProviderIds: targetProviderIds,
-            limit: 8,
+            limit: 12,
           }
         );
         if (searchNonceRef.current !== nonce) return;
@@ -357,6 +365,20 @@ export const SearchModal: React.FC = () => {
       })
       .slice(0, 6);
   }, [query, state.books]);
+
+  const onlineMatchEntries = useMemo(() => {
+    return onlineCandidates.map((candidate) => ({
+      candidate,
+      matchedBook: findMatchingLibraryBook(candidate, state.books),
+    }));
+  }, [onlineCandidates, state.books]);
+
+  const visibleOnlineEntries = useMemo(() => {
+    if (!hideOwnedOnline) return onlineMatchEntries;
+    return onlineMatchEntries.filter((entry) => !entry.matchedBook);
+  }, [onlineMatchEntries, hideOwnedOnline]);
+
+  const hiddenOwnedCount = onlineMatchEntries.length - visibleOnlineEntries.length;
 
   // Count books per popular category for helpful subtle context
   const categoryMatchCounts = useMemo(() => {
@@ -511,7 +533,7 @@ export const SearchModal: React.FC = () => {
   const handleAddCandidate = async (
     candidate: BookCandidate,
     status: 'owned' | 'wishlist',
-    opts?: { condition?: BookCondition; owners?: string[]; loved?: boolean }
+    opts?: FoundBookIntakeOptions
   ) => {
     try {
       await store.addBookFromCandidate(candidate, {
@@ -519,6 +541,9 @@ export const SearchModal: React.FC = () => {
         condition: opts?.condition || 'good',
         owners: opts?.owners || (activeProfile ? [activeProfile.id, 'shared'] : ['shared']),
         loved: opts?.loved || false,
+        dominantColor: opts?.dominantColor,
+        dominantColorSwatches: opts?.dominantColorSwatches,
+        dominantColorMode: opts?.dominantColorMode,
       });
       setFoundCandidate(null);
       store.notify(
@@ -894,7 +919,7 @@ export const SearchModal: React.FC = () => {
 
                 {/* Online Catalog Results */}
                 <section aria-label="Online book catalog results" className="space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-2 min-w-0">
                       <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
                         Online Catalog
@@ -907,24 +932,45 @@ export const SearchModal: React.FC = () => {
                             · Open Library live
                           </span>
                         )}
+                      {hiddenOwnedCount > 0 && (
+                        <span className="text-[10px] font-medium text-ink-muted truncate">
+                          · {hiddenOwnedCount} in library hidden
+                        </span>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        recordRecentSearch(trimmedQuery);
-                        void runOnlineSearch(trimmedQuery, { providerIds: configuredProviders });
-                      }}
-                      disabled={isSearchingOnline}
-                      className="text-xs font-semibold text-primary hover:underline disabled:opacity-50 whitespace-nowrap cursor-pointer"
-                    >
-                      {isSearchingOnline
-                        ? 'Searching…'
-                        : isGoogleBooksEnabled &&
-                            hasSearchedOnline &&
-                            !lastOnlineProviderIds.includes('google-books')
-                          ? 'Include Google Books'
-                          : 'Search online'}
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {onlineMatchEntries.some((e) => Boolean(e.matchedBook)) && (
+                        <button
+                          type="button"
+                          onClick={() => setHideOwnedOnline((v) => !v)}
+                          aria-pressed={hideOwnedOnline}
+                          className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-colors cursor-pointer whitespace-nowrap ${
+                            hideOwnedOnline
+                              ? 'bg-primary/12 text-primary border-primary/40'
+                              : 'bg-surface/60 text-ink-secondary border-edge hover:text-ink'
+                          }`}
+                        >
+                          {hideOwnedOnline ? 'Showing new only' : 'Hide in library'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          recordRecentSearch(trimmedQuery);
+                          void runOnlineSearch(trimmedQuery, { providerIds: configuredProviders });
+                        }}
+                        disabled={isSearchingOnline}
+                        className="text-xs font-semibold text-primary hover:underline disabled:opacity-50 whitespace-nowrap cursor-pointer"
+                      >
+                        {isSearchingOnline
+                          ? 'Searching…'
+                          : isGoogleBooksEnabled &&
+                              hasSearchedOnline &&
+                              !lastOnlineProviderIds.includes('google-books')
+                            ? 'Include Google Books'
+                            : 'Search online'}
+                      </button>
+                    </div>
                   </div>
 
                   {isSearchingOnline ? (
@@ -937,7 +983,7 @@ export const SearchModal: React.FC = () => {
                     >
                       <SearchResultsSkeleton rows={3} />
                     </div>
-                  ) : onlineCandidates.length > 0 ? (
+                  ) : visibleOnlineEntries.length > 0 ? (
                     <div
                       style={{
                         backgroundColor: 'var(--search-glass-card-strong)',
@@ -945,12 +991,33 @@ export const SearchModal: React.FC = () => {
                       }}
                       className="rounded-2xl border backdrop-blur-md divide-y divide-edge-subtle/70 px-3.5 shadow-xs"
                     >
-                      {onlineCandidates.map((cand, idx) => {
+                      {visibleOnlineEntries.map(({ candidate: cand, matchedBook }, idx) => {
                         const pseudoBook = {
                           ...cand,
                           id: `search_cand_${idx}`,
                           addedAt: '',
                         };
+                        const matchedStatus = matchedBook
+                          ? normalizeCollectionStatus(matchedBook.collectionStatus)
+                          : null;
+                        const matchedBadgeLabel =
+                          matchedStatus === 'wishlist'
+                            ? 'Wishlist'
+                            : matchedStatus === 'library'
+                              ? 'Loan'
+                              : matchedStatus === 'interested'
+                                ? 'Saved'
+                                : 'In Library';
+                        const openEntry = () => {
+                          recordRecentSearch(trimmedQuery);
+                          if (matchedBook) {
+                            closeSearch();
+                            setInspectedBookId(matchedBook.id);
+                          } else {
+                            setFoundCandidate(cand);
+                          }
+                        };
+
                         return (
                           <article
                             key={`${cand.isbn13 || cand.title}-${idx}`}
@@ -958,10 +1025,7 @@ export const SearchModal: React.FC = () => {
                           >
                             <button
                               type="button"
-                              onClick={() => {
-                                recordRecentSearch(trimmedQuery);
-                                setFoundCandidate(cand);
-                              }}
+                              onClick={openEntry}
                               className="flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer"
                             >
                               <BookCover
@@ -970,9 +1034,27 @@ export const SearchModal: React.FC = () => {
                                 aspectRatio={state.settings?.coverAspectRatio || 'square'}
                               />
                               <div className="min-w-0 flex-1">
-                                <h3 className="font-display font-semibold text-sm text-ink leading-snug line-clamp-2">
-                                  {cand.title}
-                                </h3>
+                                <div className="flex items-start gap-1.5 min-w-0">
+                                  <h3 className="font-display font-semibold text-sm text-ink leading-snug line-clamp-2 min-w-0">
+                                    {cand.title}
+                                  </h3>
+                                  {matchedBook && (
+                                    <span
+                                      data-online-match-status={matchedStatus || 'owned'}
+                                      className={`shrink-0 mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                        matchedStatus === 'wishlist'
+                                          ? 'bg-accent/12 text-accent border-accent/35'
+                                          : 'bg-primary/12 text-primary border-primary/30'
+                                      }`}
+                                    >
+                                      <Icon
+                                        name={matchedStatus === 'wishlist' ? 'wishlist' : 'check'}
+                                        className="w-2.5 h-2.5"
+                                      />
+                                      <span>{matchedBadgeLabel}</span>
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-xs text-ink-secondary truncate mt-0.5">
                                   {cand.authors.join(', ')}
                                 </p>
@@ -995,19 +1077,45 @@ export const SearchModal: React.FC = () => {
                               </div>
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                recordRecentSearch(trimmedQuery);
-                                setFoundCandidate(cand);
-                              }}
-                              className="min-h-[40px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shrink-0 transition-colors cursor-pointer whitespace-nowrap"
-                            >
-                              Add
-                            </button>
+                            {matchedBook ? (
+                              <button
+                                type="button"
+                                onClick={openEntry}
+                                className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink font-semibold text-xs shrink-0 transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                Open
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={openEntry}
+                                className="min-h-[40px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shrink-0 transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                Add
+                              </button>
+                            )}
                           </article>
                         );
                       })}
+                    </div>
+                  ) : onlineMatchEntries.length > 0 && hideOwnedOnline ? (
+                    <div
+                      style={{
+                        backgroundColor: 'var(--search-glass-card-strong)',
+                        borderColor: 'var(--search-glass-border)',
+                      }}
+                      className="rounded-2xl border backdrop-blur-md p-4 flex items-center justify-between gap-3"
+                    >
+                      <p className="text-xs text-ink-secondary">
+                        All {onlineMatchEntries.length} online matches are already saved in your library.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setHideOwnedOnline(false)}
+                        className="text-xs font-semibold text-primary hover:underline shrink-0 cursor-pointer"
+                      >
+                        Show all
+                      </button>
                     </div>
                   ) : hasSearchedOnline && onlineError ? (
                     <div

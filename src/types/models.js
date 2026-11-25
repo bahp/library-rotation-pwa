@@ -184,7 +184,10 @@
  * @property {boolean} [loved] - Whether this book is marked as a family/child favorite
  * @property {string[]} [owners] - Assigned owners (ChildProfile IDs, 'shared', or custom labels like "Cousin Maya" / "Grandma's House")
  * @property {string} [coverUrl] - Optional verified cover image URL or data URL
+ * @property {string} [description] - Optional book synopsis / publisher blurb for matching & reading context
  * @property {string} [dominantColor] - Optional #RRGGBB hex extracted from cover art for dynamic card tinting
+ * @property {string[]} [dominantColorSwatches] - Pre-sampled #RRGGBB palette swatches for instant inspector swatches
+ * @property {DynamicCoverTintMode} [dominantColorMode] - Extraction mode used when sampling dominantColor
  * @property {'auto' | 'manual'} [dominantColorSource] - Whether dominantColor was auto-extracted or manually chosen
  * @property {string} spineColor - Deterministic archival cloth palette key
  * @property {string} addedAt - ISO-8601 timestamp

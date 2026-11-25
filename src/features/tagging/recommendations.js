@@ -579,3 +579,484 @@ export function getTopicCoverageInsights({ books, profile }) {
     lowCoverageTopics,
   };
 }
+
+const BEDTIME_TAG_HINTS = new Set([
+  'bedtime',
+  'sleep',
+  'calm',
+  'lullaby',
+  'gentle',
+  'night',
+  'goodnight',
+  'moon',
+  'stars',
+  'cozy',
+]);
+
+const BEDTIME_TEXT_RE =
+  /\b(bedtime|sleepy|goodnight|lullaby|tuck|dream|moonlight|starry|slumber|gentle|soothing|quiet|calm|yawn|pajama|nap)\b/i;
+
+/**
+ * Returns true from 6:30 PM (`18:30`) onwards through late evening/night (`05:00`),
+ * so wind-down & bedtime stories naturally float higher up before sleep.
+ *
+ * @param {Date} [nowDate]
+ * @returns {boolean}
+ */
+export function isWindDownEveningWindow(nowDate = new Date()) {
+  const d = nowDate instanceof Date && !Number.isNaN(nowDate.getTime()) ? nowDate : new Date();
+  const minutes = d.getHours() * 60 + d.getMinutes();
+  return minutes >= 18 * 60 + 30 || minutes < 5 * 60;
+}
+
+/**
+ * Builds calm, soothing bedtime / wind-down owned book picks using tags, titles, and saved descriptions.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotations: import('../../types/models.js').RotationList[],
+ *   nowIso?: string,
+ *   limit?: number
+ * }} input
+ * @returns {RecommendedBookItem[]}
+ */
+export function getBedtimeWindDownShelf(input) {
+  const { books, profile, rotations } = input;
+  if (!profile) return [];
+  const limit = Math.max(1, input.limit || 8);
+  const nowIso = input.nowIso || new Date().toISOString();
+  const activeBookSet = getActiveProfileBookSet(profile, rotations);
+  const readSet = new Set(profile.readHistoryBookIds || []);
+
+  /** @type {RecommendedBookItem[]} */
+  const scored = [];
+  for (const book of books) {
+    if (!isBookOwnedAndRotatable(book)) continue;
+
+    const matchedTags = (book.tags || []).filter((t) =>
+      BEDTIME_TAG_HINTS.has(t.toLowerCase().trim())
+    );
+    const descMatch = BEDTIME_TEXT_RE.test(book.description || '');
+    const titleMatch = BEDTIME_TEXT_RE.test(book.title || '');
+    if (matchedTags.length === 0 && !descMatch && !titleMatch) continue;
+
+    let score = matchedTags.length * 16 + (titleMatch ? 18 : 0) + (descMatch ? 12 : 0);
+    if (profile.age >= book.ageMin && profile.age <= book.ageMax) score += 14;
+    if (!activeBookSet.has(book.id)) score += 6;
+    if (book.loved) score += 8;
+
+    const inCooldown = isBookInCooldown(book, profile.cooldownDays, nowIso);
+    const reasons = [];
+    if (matchedTags.length > 0) reasons.push(formatRecommendationTopicLabel(matchedTags[0]));
+    else if (titleMatch || descMatch) reasons.push('Calm bedtime read');
+    if (book.loved) reasons.push('Loved favorite');
+
+    scored.push({
+      book,
+      score,
+      matchedTopics: matchedTags,
+      matchReasons: reasons,
+      isUnread: !readSet.has(book.id),
+      inCooldown,
+    });
+  }
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.book.title.localeCompare(b.book.title);
+  });
+
+  return scored.slice(0, limit);
+}
+
+/**
+ * Finds "Dusty Gems on Your Shelf": owned rotatable books off the active shelf
+ * that haven't been rotated in 3+ months (`minDaysUntouched`, default 90 days)
+ * or have never been rotated and were added at least 21 days ago.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotations: import('../../types/models.js').RotationList[],
+ *   minDaysUntouched?: number,
+ *   nowIso?: string,
+ *   limit?: number
+ * }} input
+ * @returns {RecommendedBookItem[]}
+ */
+export function getDustyGemsShelf(input) {
+  const { books, profile, rotations } = input;
+  if (!profile) return [];
+  const limit = Math.max(1, input.limit || 8);
+  const minDaysUntouched = Math.max(30, input.minDaysUntouched || 90);
+  const nowIso = input.nowIso || new Date().toISOString();
+  const nowMs = Date.parse(nowIso) || Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  const activeBookSet = getActiveProfileBookSet(profile, rotations);
+  const readSet = new Set(profile.readHistoryBookIds || []);
+
+  /** @type {RecommendedBookItem[]} */
+  const gems = [];
+  for (const book of books) {
+    if (activeBookSet.has(book.id) || !isBookOwnedAndRotatable(book)) continue;
+
+    const lastRotatedMs = book.lastRotatedAt ? Date.parse(book.lastRotatedAt) : NaN;
+    const addedMs = book.addedAt ? Date.parse(book.addedAt) : NaN;
+
+    let idleDays = 0;
+    let reason = '';
+    if (Number.isFinite(lastRotatedMs)) {
+      idleDays = Math.floor((nowMs - lastRotatedMs) / dayMs);
+      if (idleDays < minDaysUntouched) continue;
+      const months = Math.max(3, Math.round(idleDays / 30));
+      reason = `Unrotated ${months}mo`;
+    } else if (!book.rotationCount || book.rotationCount === 0) {
+      idleDays = Number.isFinite(addedMs) ? Math.floor((nowMs - addedMs) / dayMs) : 60;
+      if (idleDays < 21) continue;
+      reason = 'Hidden gem · Never rotated';
+    } else {
+      continue;
+    }
+
+    let score = Math.min(80, Math.round(idleDays / 3));
+    if (profile.age >= book.ageMin && profile.age <= book.ageMax) score += 20;
+    if (!readSet.has(book.id)) score += 12;
+
+    gems.push({
+      book,
+      score,
+      matchedTopics: [],
+      matchReasons: [reason],
+      isUnread: !readSet.has(book.id),
+      inCooldown: false,
+    });
+  }
+
+  gems.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.book.title.localeCompare(b.book.title);
+  });
+
+  return gems.slice(0, limit);
+}
+
+/**
+ * Surfaces loved / high-rated owned books ready for a cozy re-read (not read in 30+ days
+ * and not currently on an active shelf).
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotations: import('../../types/models.js').RotationList[],
+ *   minDaysSinceRead?: number,
+ *   nowIso?: string,
+ *   limit?: number
+ * }} input
+ * @returns {RecommendedBookItem[]}
+ */
+export function getReadyForRereadShelf(input) {
+  const { books, profile, rotations } = input;
+  if (!profile) return [];
+  const limit = Math.max(1, input.limit || 8);
+  const minDaysSinceRead = Math.max(14, input.minDaysSinceRead || 30);
+  const nowIso = input.nowIso || new Date().toISOString();
+  const nowMs = Date.parse(nowIso) || Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  const activeBookSet = getActiveProfileBookSet(profile, rotations);
+  const readSet = new Set(profile.readHistoryBookIds || []);
+
+  /** @type {RecommendedBookItem[]} */
+  const picks = [];
+  for (const book of books) {
+    if (activeBookSet.has(book.id) || !isBookOwnedAndRotatable(book)) continue;
+    const rating = getBookUserRating(book, profile.id) ?? 0;
+    const isFavorite = book.loved === true || rating >= 4;
+    if (!isFavorite) continue;
+
+    const lastReadMs = book.lastReadAt ? Date.parse(book.lastReadAt) : NaN;
+    const lastRotatedMs = book.lastRotatedAt ? Date.parse(book.lastRotatedAt) : NaN;
+    const refMs = Number.isFinite(lastReadMs)
+      ? lastReadMs
+      : readSet.has(book.id) && Number.isFinite(lastRotatedMs)
+        ? lastRotatedMs
+        : NaN;
+
+    if (!Number.isFinite(refMs)) {
+      if (!readSet.has(book.id)) continue;
+    }
+
+    const daysSince = Number.isFinite(refMs) ? Math.floor((nowMs - refMs) / dayMs) : minDaysSinceRead + 15;
+    if (daysSince < minDaysSinceRead) continue;
+
+    let score = Math.min(60, daysSince) + (book.loved ? 20 : 0) + rating * 6;
+    const reason = Number.isFinite(refMs) ? `Re-read · ${daysSince}d ago` : 'Loved classic to revisit';
+
+    picks.push({
+      book,
+      score,
+      matchedTopics: [],
+      matchReasons: [reason],
+      isUnread: false,
+      inCooldown: isBookInCooldown(book, profile.cooldownDays, nowIso),
+    });
+  }
+
+  picks.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.book.title.localeCompare(b.book.title);
+  });
+
+  return picks.slice(0, limit);
+}
+
+/**
+ * Picks a favorite author (based on loved / read books) with additional off-shelf owned books.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotations: import('../../types/models.js').RotationList[],
+ *   nowIso?: string,
+ *   minItems?: number,
+ *   limit?: number
+ * }} input
+ * @returns {{ author: string, items: RecommendedBookItem[] } | null}
+ */
+export function getMoreByAuthorShelf(input) {
+  const { books, profile, rotations } = input;
+  if (!profile) return null;
+  const limit = Math.max(1, input.limit || 8);
+  const minItems = Math.max(1, input.minItems || 2);
+  const nowIso = input.nowIso || new Date().toISOString();
+
+  const activeBookSet = getActiveProfileBookSet(profile, rotations);
+  const readSet = new Set(profile.readHistoryBookIds || []);
+
+  /** @type {Map<string, { displayName: string, affinity: number }>} */
+  const authorWeights = new Map();
+  for (const book of books) {
+    if (normalizeCollectionStatus(book.collectionStatus) !== 'owned') continue;
+    const isLoved = book.loved === true;
+    const isRead = readSet.has(book.id);
+    for (const rawAuthor of book.authors || []) {
+      const display = String(rawAuthor || '').trim();
+      const key = display.toLowerCase();
+      if (!key || key === 'unknown author' || key === 'unknown') continue;
+      const prev = authorWeights.get(key) || { displayName: display, affinity: 0 };
+      prev.affinity += 4 + (isLoved ? 24 : 0) + (isRead ? 10 : 0);
+      authorWeights.set(key, prev);
+    }
+  }
+
+  const offShelfOwned = books.filter(
+    (b) => !activeBookSet.has(b.id) && isBookOwnedAndRotatable(b)
+  );
+
+  const rankedAuthors = [...authorWeights.entries()]
+    .map(([key, meta]) => {
+      const matching = offShelfOwned.filter((b) =>
+        (b.authors || []).some((a) => String(a || '').trim().toLowerCase() === key)
+      );
+      return { key, displayName: meta.displayName, affinity: meta.affinity, matching };
+    })
+    .filter((entry) => entry.matching.length >= minItems)
+    .sort((a, b) => {
+      if (b.affinity !== a.affinity) return b.affinity - a.affinity;
+      return b.matching.length - a.matching.length;
+    });
+
+  if (rankedAuthors.length === 0) return null;
+  const chosen = rankedAuthors[0];
+
+  const items = chosen.matching
+    .map((book) => {
+      const isUnread = !readSet.has(book.id);
+      const inCooldown = isBookInCooldown(book, profile.cooldownDays, nowIso);
+      let score = (isUnread ? 16 : 4) + (book.loved ? 10 : 0) + (!inCooldown ? 10 : -15);
+      return {
+        book,
+        score,
+        matchedTopics: [],
+        matchReasons: [`By ${chosen.displayName}`],
+        isUnread,
+        inCooldown,
+      };
+    })
+    .sort((a, b) => b.score - a.score || a.book.title.localeCompare(b.book.title))
+    .slice(0, limit);
+
+  return {
+    author: chosen.displayName,
+    items,
+  };
+}
+
+/**
+ * Surfaces owned books in a specific non-English language present in the household catalog
+ * (e.g. "In Spanish Today", "In Italian Today"), rotating daily if multiple languages exist.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotations: import('../../types/models.js').RotationList[],
+ *   nowDate?: Date,
+ *   nowIso?: string,
+ *   minItems?: number,
+ *   limit?: number
+ * }} input
+ * @returns {{ language: string, label: string, items: RecommendedBookItem[] } | null}
+ */
+export function getLanguageShelf(input) {
+  const { books, profile, rotations } = input;
+  if (!profile) return null;
+  const limit = Math.max(1, input.limit || 8);
+  const minItems = Math.max(1, input.minItems || 2);
+  const nowDate = input.nowDate || new Date();
+  const nowIso = input.nowIso || nowDate.toISOString();
+  const activeBookSet = getActiveProfileBookSet(profile, rotations);
+  const readSet = new Set(profile.readHistoryBookIds || []);
+
+  /** @type {Map<string, import('../../types/models.js').Book[]>} */
+  const byLanguage = new Map();
+  for (const book of books) {
+    if (!isBookOwnedAndRotatable(book)) continue;
+    const rawLang = String(book.language || '').trim().toLowerCase();
+    if (!rawLang || rawLang === 'english' || rawLang === 'en') continue;
+    const bucket = byLanguage.get(rawLang) || [];
+    bucket.push(book);
+    byLanguage.set(rawLang, bucket);
+  }
+
+  const eligibleLangs = [...byLanguage.entries()]
+    .filter(([, list]) => list.length >= minItems)
+    .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+
+  if (eligibleLangs.length === 0) return null;
+
+  const dayOfYear = Math.floor(nowDate.getTime() / (24 * 60 * 60 * 1000));
+  const [langKey, langBooks] = eligibleLangs[dayOfYear % eligibleLangs.length];
+  const label = formatRecommendationTopicLabel(langKey);
+
+  const items = langBooks
+    .slice()
+    .sort((a, b) => {
+      const aOff = activeBookSet.has(a.id) ? 0 : 1;
+      const bOff = activeBookSet.has(b.id) ? 0 : 1;
+      if (bOff !== aOff) return bOff - aOff;
+      return (b.loved ? 1 : 0) - (a.loved ? 1 : 0) || a.title.localeCompare(b.title);
+    })
+    .slice(0, limit)
+    .map((book) => ({
+      book,
+      score: 20,
+      matchedTopics: [langKey],
+      matchReasons: [label],
+      isUnread: !readSet.has(book.id),
+      inCooldown: isBookInCooldown(book, profile.cooldownDays, nowIso),
+    }));
+
+  return {
+    language: langKey,
+    label,
+    items,
+  };
+}
+
+/**
+ * Matches an active seasonal/holiday preset near the current calendar date against owned books.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   rotations: import('../../types/models.js').RotationList[],
+ *   presets: import('../../types/models.js').RotationPreset[],
+ *   nowDate?: Date,
+ *   minItems?: number,
+ *   limit?: number
+ * }} input
+ * @returns {{ preset: import('../../types/models.js').RotationPreset, items: RecommendedBookItem[] } | null}
+ */
+export function getSeasonalPresetShelf(input) {
+  const { books, profile, rotations, presets } = input;
+  if (!profile || !Array.isArray(presets) || presets.length === 0) return null;
+  const limit = Math.max(1, input.limit || 8);
+  const minItems = Math.max(1, input.minItems || 2);
+  const nowDate = input.nowDate || new Date();
+  const nowIso = nowDate.toISOString();
+  const year = nowDate.getFullYear();
+
+  const activeBookSet = getActiveProfileBookSet(profile, rotations);
+  const readSet = new Set(profile.readHistoryBookIds || []);
+  const owned = books.filter((b) => isBookOwnedAndRotatable(b));
+
+  const datedPresets = presets
+    .filter((p) => typeof p.suggestedStartMonthDay === 'string' && /^\d{2}-\d{2}$/.test(p.suggestedStartMonthDay))
+    .map((p) => {
+      const [mm, dd] = String(p.suggestedStartMonthDay).split('-').map(Number);
+      let candidateMs = new Date(year, mm - 1, dd).getTime();
+      let deltaDays = Math.round((nowDate.getTime() - candidateMs) / (24 * 60 * 60 * 1000));
+      if (deltaDays > 180) {
+        candidateMs = new Date(year + 1, mm - 1, dd).getTime();
+        deltaDays = Math.round((nowDate.getTime() - candidateMs) / (24 * 60 * 60 * 1000));
+      } else if (deltaDays < -180) {
+        candidateMs = new Date(year - 1, mm - 1, dd).getTime();
+        deltaDays = Math.round((nowDate.getTime() - candidateMs) / (24 * 60 * 60 * 1000));
+      }
+      return { preset: p, absDelta: Math.abs(deltaDays) };
+    })
+    .filter((entry) => entry.absDelta <= 45)
+    .sort((a, b) => a.absDelta - b.absDelta);
+
+  for (const { preset } of datedPresets) {
+    const tagSet = new Set((preset.preferredTags || []).map((t) => t.toLowerCase().trim()));
+    if (tagSet.size === 0) continue;
+
+    const matching = owned
+      .map((book) => {
+        const shared = (book.tags || []).filter((t) => tagSet.has(t.toLowerCase().trim()));
+        if (shared.length === 0) return null;
+        return {
+          book,
+          score: shared.length * 16 + (!activeBookSet.has(book.id) ? 8 : 0),
+          matchedTopics: shared,
+          matchReasons: [formatRecommendationTopicLabel(shared[0])],
+          isUnread: !readSet.has(book.id),
+          inCooldown: isBookInCooldown(book, profile.cooldownDays, nowIso),
+        };
+      })
+      .filter((x) => Boolean(x));
+
+    if (matching.length >= minItems) {
+      matching.sort((a, b) => (b?.score || 0) - (a?.score || 0));
+      return {
+        preset,
+        items: /** @type {RecommendedBookItem[]} */ (matching.slice(0, limit)),
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns books saved on the family's wishlist sorted by most recently added / loved.
+ *
+ * @param {{ books: import('../../types/models.js').Book[], limit?: number }} input
+ * @returns {import('../../types/models.js').Book[]}
+ */
+export function getWishlistSpotlightShelf({ books, limit = 10 }) {
+  return (books || [])
+    .filter((b) => normalizeCollectionStatus(b.collectionStatus) === 'wishlist')
+    .slice()
+    .sort((a, b) => {
+      if (Boolean(b.loved) !== Boolean(a.loved)) return b.loved ? 1 : -1;
+      const aTime = Date.parse(a.addedAt || '') || 0;
+      const bTime = Date.parse(b.addedAt || '') || 0;
+      return bTime - aTime;
+    })
+    .slice(0, limit);
+}
+

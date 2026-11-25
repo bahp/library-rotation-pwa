@@ -197,5 +197,60 @@ describe('Cover Color Extraction, Cover Proxy & Settings Suite', () => {
     const cleared = await store.setBookDominantColor(target.id, null);
     assert.equal(cleared?.dominantColor, undefined);
     assert.equal(cleared?.dominantColorSource, undefined);
+    assert.equal(cleared?.dominantColorSwatches, undefined);
+    assert.equal(cleared?.dominantColorMode, undefined);
+
+    const swatchSaved = await store.setBookDominantColor(target.id, '#336699', {
+      manual: true,
+      swatches: ['#336699', '#994422', '#228866'],
+      mode: 'prominent',
+    });
+    assert.deepEqual(swatchSaved?.dominantColorSwatches, ['#336699', '#994422', '#228866']);
+    assert.equal(swatchSaved?.dominantColorMode, 'prominent');
+  });
+
+  it('store persists precomputed cover tints and descriptions on intake and clears tint on cover removal', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    const added = await store.addBookFromCandidate(
+      {
+        candidateKey: 'cand_tint_test',
+        isbn13: '9780399255373',
+        title: 'The Day the Crayons Quit',
+        authors: ['Drew Daywalt'],
+        format: 'hardcover',
+        ageMin: 3,
+        ageMax: 7,
+        readingStage: 'picture-book',
+        tags: ['humor'],
+        coverUrl: 'https://covers.openlibrary.org/b/id/12345-M.jpg',
+        spineColor: 'amber',
+        summary: 'Poor Duncan just wants to color, until his crayons go on strike.',
+        sources: [{ provider: 'open-library', fetchedAt: '2026-10-01T00:00:00.000Z' }],
+      },
+      {
+        collectionStatus: 'owned',
+        dominantColor: '#D4563E',
+        dominantColorSwatches: ['#D4563E', '#2A7B6E'],
+        dominantColorMode: 'prominent',
+      }
+    );
+
+    assert.equal(added.dominantColor, '#D4563E');
+    assert.deepEqual(added.dominantColorSwatches, ['#D4563E', '#2A7B6E']);
+    assert.equal(added.dominantColorMode, 'prominent');
+    assert.equal(added.dominantColorSource, 'auto');
+    assert.ok(added.description?.includes('Duncan'));
+
+    const clearedCover = await store.updateBook(added.id, {
+      coverUrl: '',
+      description: 'Edited parent synopsis for bedtime reading.',
+    });
+    assert.equal(clearedCover?.coverUrl, undefined);
+    assert.equal(clearedCover?.dominantColor, undefined);
+    assert.equal(clearedCover?.dominantColorSwatches, undefined);
+    assert.equal(clearedCover?.description, 'Edited parent synopsis for bedtime reading.');
   });
 });

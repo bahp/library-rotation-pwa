@@ -6,17 +6,20 @@ import { BookCover } from '../common/BookCover.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import { SearchResultsSkeleton } from '../common/SkeletonLoaders.js';
 import { FoundBookSheet } from '../modals/FoundBookSheet.js';
+import type { FoundBookIntakeOptions } from '../modals/FoundBookSheet.js';
 import { NativeBarcodeScannerModal } from '../scan/NativeBarcodeScannerModal.js';
 import { parseUnifiedCatalogQuery } from '../../features/scan/scan-shell-view.js';
+import { findMatchingLibraryBook } from '../../features/catalog/library-match.js';
 import { acquireCameraStream } from '../../features/scan/camera-access.js';
 import { AVATAR_TONES, resolveEffectiveThemeConfig } from '../../config/index.js';
 import {
   formatBookBinding,
   formatCollectionStatus,
   formatProfileAgeLabel,
+  normalizeCollectionStatus,
   normalizeIsbn,
 } from '../../types/models.js';
-import type { Book, BookCondition, ThemeMode } from '../../types/models.js';
+import type { Book, ThemeMode } from '../../types/models.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
 
 function bookToCandidatePreview(book: Book): BookCandidate {
@@ -63,6 +66,7 @@ export const Header: React.FC = () => {
   const [onlineCandidates, setOnlineCandidates] = useState<BookCandidate[]>([]);
   const [hasSearchedOnline, setHasSearchedOnline] = useState(false);
   const [lastOnlineProviderIds, setLastOnlineProviderIds] = useState<string[]>([]);
+  const [hideOwnedOnline, setHideOwnedOnline] = useState(false);
 
   const [desktopScannerOpen, setDesktopScannerOpen] = useState(false);
   const [desktopPrewarmedStream, setDesktopPrewarmedStream] =
@@ -205,7 +209,7 @@ export const Header: React.FC = () => {
           {
             retainRaw: state.settings?.retainRawProviderPayloads,
             enabledProviderIds: targetProviderIds,
-            limit: 6,
+            limit: 12,
           }
         );
         if (searchNonceRef.current !== nonce) return;
@@ -293,6 +297,20 @@ export const Header: React.FC = () => {
       .slice(0, 5);
   }, [globalSearchQuery, state.books]);
 
+  const onlineMatchEntries = useMemo(() => {
+    return onlineCandidates.map((candidate) => ({
+      candidate,
+      matchedBook: findMatchingLibraryBook(candidate, state.books),
+    }));
+  }, [onlineCandidates, state.books]);
+
+  const visibleOnlineEntries = useMemo(() => {
+    if (!hideOwnedOnline) return onlineMatchEntries;
+    return onlineMatchEntries.filter((entry) => !entry.matchedBook);
+  }, [onlineMatchEntries, hideOwnedOnline]);
+
+  const hiddenOwnedCount = onlineMatchEntries.length - visibleOnlineEntries.length;
+
   const handleOpenDesktopScanner = () => {
     setIsDesktopDropdownOpen(false);
     setDesktopPrewarmedStream(acquireCameraStream('environment'));
@@ -347,7 +365,7 @@ export const Header: React.FC = () => {
   const handleDesktopAddCandidate = async (
     candidate: BookCandidate,
     status: 'owned' | 'wishlist',
-    opts?: { condition?: BookCondition; owners?: string[]; loved?: boolean }
+    opts?: FoundBookIntakeOptions
   ) => {
     try {
       await store.addBookFromCandidate(candidate, {
@@ -355,6 +373,9 @@ export const Header: React.FC = () => {
         condition: opts?.condition || 'good',
         owners: opts?.owners || (activeProfile ? [activeProfile.id, 'shared'] : ['shared']),
         loved: opts?.loved || false,
+        dominantColor: opts?.dominantColor,
+        dominantColorSwatches: opts?.dominantColorSwatches,
+        dominantColorMode: opts?.dominantColorMode,
       });
       setDesktopFoundCandidate(null);
       store.notify(
@@ -613,7 +634,7 @@ export const Header: React.FC = () => {
 
                   {/* Live Online Catalog Results */}
                   <section aria-label="Online catalog results" className="space-y-2.5 pt-2 border-t border-edge-subtle">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2 min-w-0">
                         <h2 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-secondary">
                           Online Catalog
@@ -626,39 +647,80 @@ export const Header: React.FC = () => {
                               · Open Library live
                             </span>
                           )}
+                        {hiddenOwnedCount > 0 && (
+                          <span className="text-[10px] font-medium text-ink-muted truncate">
+                            · {hiddenOwnedCount} in library hidden
+                          </span>
+                        )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void runOnlineSearch(trimmedDesktopQuery, {
-                            providerIds: configuredProviders,
-                          })
-                        }
-                        disabled={isSearchingOnline}
-                        className="text-xs font-semibold text-primary hover:underline disabled:opacity-50 whitespace-nowrap cursor-pointer"
-                      >
-                        {isSearchingOnline
-                          ? 'Searching…'
-                          : isGoogleBooksEnabled &&
-                              hasSearchedOnline &&
-                              !lastOnlineProviderIds.includes('google-books')
-                            ? 'Include Google Books'
-                            : 'Search online'}
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {onlineMatchEntries.some((e) => Boolean(e.matchedBook)) && (
+                          <button
+                            type="button"
+                            onClick={() => setHideOwnedOnline((v) => !v)}
+                            aria-pressed={hideOwnedOnline}
+                            className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-colors cursor-pointer whitespace-nowrap ${
+                              hideOwnedOnline
+                                ? 'bg-primary/12 text-primary border-primary/40'
+                                : 'bg-surface text-ink-secondary border-edge hover:text-ink'
+                            }`}
+                          >
+                            {hideOwnedOnline ? 'Showing new only' : 'Hide in library'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void runOnlineSearch(trimmedDesktopQuery, {
+                              providerIds: configuredProviders,
+                            })
+                          }
+                          disabled={isSearchingOnline}
+                          className="text-xs font-semibold text-primary hover:underline disabled:opacity-50 whitespace-nowrap cursor-pointer"
+                        >
+                          {isSearchingOnline
+                            ? 'Searching…'
+                            : isGoogleBooksEnabled &&
+                                hasSearchedOnline &&
+                                !lastOnlineProviderIds.includes('google-books')
+                              ? 'Include Google Books'
+                              : 'Search online'}
+                        </button>
+                      </div>
                     </div>
 
                     {isSearchingOnline ? (
                       <div className="rounded-xl border border-edge bg-surface-subtle/40 p-3">
                         <SearchResultsSkeleton rows={3} />
                       </div>
-                    ) : onlineCandidates.length > 0 ? (
+                    ) : visibleOnlineEntries.length > 0 ? (
                       <div className="rounded-xl border border-edge bg-surface-subtle/60 divide-y divide-edge-subtle px-3">
-                        {onlineCandidates.map((cand, idx) => {
+                        {visibleOnlineEntries.map(({ candidate: cand, matchedBook }, idx) => {
                           const pseudoBook = {
                             ...cand,
                             id: `desktop_search_cand_${idx}`,
                             addedAt: '',
                           };
+                          const matchedStatus = matchedBook
+                            ? normalizeCollectionStatus(matchedBook.collectionStatus)
+                            : null;
+                          const matchedBadgeLabel =
+                            matchedStatus === 'wishlist'
+                              ? 'Wishlist'
+                              : matchedStatus === 'library'
+                                ? 'Loan'
+                                : matchedStatus === 'interested'
+                                  ? 'Saved'
+                                  : 'In Library';
+                          const openEntry = () => {
+                            setIsDesktopDropdownOpen(false);
+                            if (matchedBook) {
+                              setInspectedBookId(matchedBook.id);
+                            } else {
+                              setDesktopFoundCandidate(cand);
+                            }
+                          };
+
                           return (
                             <article
                               key={`${cand.isbn13 || cand.title}-${idx}`}
@@ -666,10 +728,7 @@ export const Header: React.FC = () => {
                             >
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setIsDesktopDropdownOpen(false);
-                                  setDesktopFoundCandidate(cand);
-                                }}
+                                onClick={openEntry}
                                 className="flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer"
                               >
                                 <BookCover
@@ -678,9 +737,27 @@ export const Header: React.FC = () => {
                                   aspectRatio={state.settings?.coverAspectRatio || 'square'}
                                 />
                                 <div className="min-w-0 flex-1">
-                                  <h3 className="font-display font-semibold text-sm text-ink leading-snug line-clamp-1">
-                                    {cand.title}
-                                  </h3>
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <h3 className="font-display font-semibold text-sm text-ink leading-snug line-clamp-1 min-w-0">
+                                      {cand.title}
+                                    </h3>
+                                    {matchedBook && (
+                                      <span
+                                        data-online-match-status={matchedStatus || 'owned'}
+                                        className={`shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                          matchedStatus === 'wishlist'
+                                            ? 'bg-accent/12 text-accent border-accent/35'
+                                            : 'bg-primary/12 text-primary border-primary/30'
+                                        }`}
+                                      >
+                                        <Icon
+                                          name={matchedStatus === 'wishlist' ? 'wishlist' : 'check'}
+                                          className="w-2.5 h-2.5"
+                                        />
+                                        <span>{matchedBadgeLabel}</span>
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-ink-secondary truncate mt-0.5">
                                     {cand.authors.join(', ')}
                                   </p>
@@ -702,19 +779,39 @@ export const Header: React.FC = () => {
                                   )}
                                 </div>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setIsDesktopDropdownOpen(false);
-                                  setDesktopFoundCandidate(cand);
-                                }}
-                                className="min-h-[34px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shrink-0 transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                Add
-                              </button>
+                              {matchedBook ? (
+                                <button
+                                  type="button"
+                                  onClick={openEntry}
+                                  className="min-h-[34px] px-3 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-ink font-semibold text-xs shrink-0 transition-colors cursor-pointer whitespace-nowrap"
+                                >
+                                  Open
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={openEntry}
+                                  className="min-h-[34px] px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-primary-fg font-semibold text-xs shrink-0 transition-colors cursor-pointer whitespace-nowrap"
+                                >
+                                  Add
+                                </button>
+                              )}
                             </article>
                           );
                         })}
+                      </div>
+                    ) : onlineMatchEntries.length > 0 && hideOwnedOnline ? (
+                      <div className="rounded-xl border border-edge bg-surface-subtle/50 p-3 flex items-center justify-between gap-3">
+                        <p className="text-xs text-ink-secondary">
+                          All {onlineMatchEntries.length} online matches are already in your library.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setHideOwnedOnline(false)}
+                          className="text-xs font-semibold text-primary hover:underline shrink-0 cursor-pointer"
+                        >
+                          Show all
+                        </button>
                       </div>
                     ) : hasSearchedOnline && onlineError ? (
                       <div className="rounded-xl border border-edge bg-surface-subtle/50 p-3 space-y-2">

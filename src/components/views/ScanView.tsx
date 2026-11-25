@@ -382,7 +382,14 @@ export const ScanView: React.FC = () => {
   const handleAddCandidate = async (
     candidate: BookCandidate,
     status: 'owned' | 'wishlist',
-    opts?: { condition?: BookCondition; owners?: string[]; loved?: boolean }
+    opts?: {
+      condition?: BookCondition;
+      owners?: string[];
+      loved?: boolean;
+      dominantColor?: string;
+      dominantColorSwatches?: string[];
+      dominantColorMode?: 'prominent' | 'dominant' | 'soft';
+    }
   ) => {
     try {
       await store.addBookFromCandidate(candidate, {
@@ -390,6 +397,9 @@ export const ScanView: React.FC = () => {
         condition: opts?.condition || 'good',
         owners: opts?.owners || (activeProfile ? [activeProfile.id, 'shared'] : ['shared']),
         loved: opts?.loved || false,
+        dominantColor: opts?.dominantColor,
+        dominantColorSwatches: opts?.dominantColorSwatches,
+        dominantColorMode: opts?.dominantColorMode,
       });
       setFoundCandidate(null);
       store.notify(

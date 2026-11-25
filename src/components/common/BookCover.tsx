@@ -195,9 +195,12 @@ export const BookCover: React.FC<BookCoverProps> = ({
       {catalogBadge && (
         <div className="pointer-events-none absolute top-1.5 left-1.5 z-20">
           <span
-            className={`inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded shadow-xs backdrop-blur-xs ${catalogBadge.styleClass}`}
+            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded shadow-xs backdrop-blur-xs ${catalogBadge.styleClass}`}
           >
-            {catalogBadge.label}
+            {book.collectionStatus === 'wishlist' && (
+              <Icon name="wishlist" className="w-2.5 h-2.5 shrink-0" />
+            )}
+            <span>{catalogBadge.label}</span>
           </span>
         </div>
       )}

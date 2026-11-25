@@ -32,10 +32,14 @@ import {
 } from './storage.js';
 import {
   candidateToBook,
+  cleanBookDescription,
   cleanProviderExternalId,
   sanitizeCoverUrl,
 } from '../features/catalog/normalizer.js';
-import { normalizeHexColor } from '../features/catalog/cover-color-extractor.js';
+import {
+  extractCoverPaletteFromUrl,
+  normalizeHexColor,
+} from '../features/catalog/cover-color-extractor.js';
 import {
   applyBookAdditions,
   applyBookReplacement,
@@ -218,6 +222,35 @@ function mergeTagOrigins(existingOrigins, tags, additions = {}) {
 }
 
 /**
+ * Normalizes a cover tint mode string to one of the valid modes.
+ * @param {unknown} rawMode
+ * @returns {import('../types/models.js').DynamicCoverTintMode}
+ */
+function normalizeTintMode(rawMode) {
+  return rawMode === 'dominant' || rawMode === 'soft' ? rawMode : 'prominent';
+}
+
+/**
+ * Normalizes an optional array of `#RRGGBB` palette swatches.
+ * @param {unknown} rawSwatches
+ * @returns {string[] | undefined}
+ */
+function normalizeSwatchList(rawSwatches) {
+  if (!Array.isArray(rawSwatches)) return undefined;
+  const cleaned = [];
+  const seen = new Set();
+  for (const item of rawSwatches) {
+    const hex = normalizeHexColor(typeof item === 'string' ? item : '');
+    if (hex && !seen.has(hex)) {
+      seen.add(hex);
+      cleaned.push(hex);
+      if (cleaned.length >= 6) break;
+    }
+  }
+  return cleaned.length > 0 ? cleaned : undefined;
+}
+
+/**
  * Creates the central Library Rotation store.
  * @param {ReturnType<typeof import('./storage.js').createStorageAdapter>} storage
  * @param {{ taggingService?: ReturnType<typeof createTaggingService> }} [deps]
@@ -228,6 +261,52 @@ export function createAppStore(storage, deps = {}) {
   let state = createSeedState();
   /** @type {{ id: string, message: string, tone: 'success' | 'error' | 'info' } | null} */
   let toast = null;
+
+  /**
+   * Silently extracts & saves cover tint palette onto a newly added or updated book in browser environments.
+   * @param {string} bookId
+   * @param {string} coverUrl
+   * @param {{ mode?: import('../types/models.js').DynamicCoverTintMode }} [options]
+   */
+  function resolveAndPersistBookCoverTint(bookId, coverUrl, options = {}) {
+    if (
+      !bookId ||
+      !coverUrl ||
+      typeof document === 'undefined' ||
+      typeof Image === 'undefined'
+    ) {
+      return;
+    }
+    const mode = normalizeTintMode(options.mode || state.settings?.dynamicCoverTintMode);
+    extractCoverPaletteFromUrl(coverUrl, { mode })
+      .then((palette) => {
+        if (!palette || !palette.primary) return;
+        const latest = state.books.find((b) => b.id === bookId);
+        if (!latest || latest.coverUrl !== coverUrl) return;
+        if (latest.dominantColorSource === 'manual') return;
+        const swatches = normalizeSwatchList(palette.swatches);
+        const alreadySame =
+          normalizeHexColor(latest.dominantColor) === palette.primary &&
+          latest.dominantColorMode === mode &&
+          JSON.stringify(latest.dominantColorSwatches || []) === JSON.stringify(swatches || []);
+        if (alreadySame) return;
+        return commit({
+          ...state,
+          books: state.books.map((b) =>
+            b.id === bookId
+              ? {
+                  ...b,
+                  dominantColor: palette.primary || undefined,
+                  dominantColorSource: 'auto',
+                  dominantColorMode: mode,
+                  ...(swatches ? { dominantColorSwatches: swatches } : {}),
+                }
+              : b
+          ),
+        });
+      })
+      .catch(() => {});
+  }
   let initialized = false;
 
   /** @type {Set<() => void>} */
@@ -487,6 +566,9 @@ export function createAppStore(storage, deps = {}) {
    *   loved?: boolean,
    *   owners?: string[],
    *   dominantColor?: string,
+   *   dominantColorSwatches?: string[],
+   *   dominantColorMode?: import('../types/models.js').DynamicCoverTintMode,
+   *   description?: string,
    *   notes?: string,
    *   needsScanReview?: boolean,
    *   sources?: import('../types/models.js').ProviderSource[]
@@ -524,6 +606,7 @@ export function createAppStore(storage, deps = {}) {
           })
         : [{ provider: 'manual', fetchedAt: now }];
 
+    const cleanDescription = cleanBookDescription(input.description || '');
     const explicitAgeMin = Math.max(0, Number(input.ageMin) || 2);
     const explicitAgeMax = Math.max(explicitAgeMin, Number(input.ageMax) || 6);
     const explicitStage = input.readingStage || 'picture-book';
@@ -541,6 +624,7 @@ export function createAppStore(storage, deps = {}) {
         ageMax: explicitAgeMax,
         readingStage: explicitStage,
         tags: baseTags,
+        ...(cleanDescription ? { summary: cleanDescription } : {}),
       },
       state.settings,
       { preserveExplicitAgeAndStage: true }
@@ -556,6 +640,11 @@ export function createAppStore(storage, deps = {}) {
     const parsedOwners = normalizeOwnersList(input.owners);
     const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
     const dominantColor = normalizeHexColor(input.dominantColor);
+    const dominantColorSwatches = normalizeSwatchList(input.dominantColorSwatches);
+    const dominantColorMode =
+      dominantColor || dominantColorSwatches
+        ? normalizeTintMode(input.dominantColorMode || state.settings?.dynamicCoverTintMode)
+        : undefined;
     const cleanNotes =
       typeof input.notes === 'string' && input.notes.trim() ? input.notes.trim().slice(0, 1000) : '';
 
@@ -575,6 +664,7 @@ export function createAppStore(storage, deps = {}) {
       ...(pubYear ? { publishedYear: pubYear } : {}),
       ...(pages ? { pageCount: pages } : {}),
       ...(cleanCover ? { coverUrl: cleanCover } : {}),
+      ...(cleanDescription ? { description: cleanDescription } : {}),
       format: input.format || 'hardcover',
       ageMin: enriched.ageMin,
       ageMax: enriched.ageMax,
@@ -586,7 +676,9 @@ export function createAppStore(storage, deps = {}) {
       condition,
       loved,
       owners,
-      ...(dominantColor ? { dominantColor } : {}),
+      ...(dominantColor ? { dominantColor: dominantColor, dominantColorSource: 'auto' } : {}),
+      ...(dominantColorSwatches ? { dominantColorSwatches } : {}),
+      ...(dominantColorMode ? { dominantColorMode } : {}),
       ...(cleanNotes ? { notes: cleanNotes } : {}),
       ...(input.needsScanReview ? { needsScanReview: true } : {}),
       spineColor: SPINE_COLORS[colorIndex],
@@ -598,6 +690,9 @@ export function createAppStore(storage, deps = {}) {
       ...state,
       books: [book, ...state.books],
     });
+    if (book.coverUrl && !book.dominantColor) {
+      resolveAndPersistBookCoverTint(book.id, book.coverUrl);
+    }
     const destLabel =
       collectionStatus === 'owned' ? 'your library' : formatCollectionStatus(collectionStatus);
     notify(`Added "${book.title}" to ${destLabel}.`, 'success');
@@ -615,6 +710,8 @@ export function createAppStore(storage, deps = {}) {
    *   loved?: boolean,
    *   owners?: string[],
    *   dominantColor?: string,
+   *   dominantColorSwatches?: string[],
+   *   dominantColorMode?: import('../types/models.js').DynamicCoverTintMode,
    *   notes?: string,
    *   needsScanReview?: boolean
    * }} [intakeOptions]
@@ -639,7 +736,7 @@ export function createAppStore(storage, deps = {}) {
         ageMax: baseBook.ageMax,
         readingStage: baseBook.readingStage,
         tags: baseBook.tags,
-        summary: candidate.summary,
+        summary: candidate.summary || baseBook.description,
         subjects: candidate.subjects,
       },
       state.settings
@@ -657,6 +754,11 @@ export function createAppStore(storage, deps = {}) {
     const parsedOwners = normalizeOwnersList(intakeOptions.owners);
     const owners = parsedOwners.length > 0 ? parsedOwners : ['shared'];
     const dominantColor = normalizeHexColor(intakeOptions.dominantColor);
+    const dominantColorSwatches = normalizeSwatchList(intakeOptions.dominantColorSwatches);
+    const dominantColorMode =
+      dominantColor || dominantColorSwatches
+        ? normalizeTintMode(intakeOptions.dominantColorMode || state.settings?.dynamicCoverTintMode)
+        : undefined;
     const cleanNotes =
       typeof intakeOptions.notes === 'string' && intakeOptions.notes.trim()
         ? intakeOptions.notes.trim().slice(0, 1000)
@@ -682,7 +784,9 @@ export function createAppStore(storage, deps = {}) {
       condition,
       loved,
       owners,
-      ...(dominantColor ? { dominantColor } : {}),
+      ...(dominantColor ? { dominantColor, dominantColorSource: 'auto' } : {}),
+      ...(dominantColorSwatches ? { dominantColorSwatches } : {}),
+      ...(dominantColorMode ? { dominantColorMode } : {}),
       ...(cleanNotes ? { notes: cleanNotes } : {}),
       ...(intakeOptions.needsScanReview ? { needsScanReview: true } : {}),
       sources,
@@ -692,6 +796,9 @@ export function createAppStore(storage, deps = {}) {
       ...state,
       books: [book, ...state.books],
     });
+    if (book.coverUrl && !book.dominantColor) {
+      resolveAndPersistBookCoverTint(book.id, book.coverUrl);
+    }
     const destLabel =
       collectionStatus === 'owned' ? 'your library' : formatCollectionStatus(collectionStatus);
     notify(`Added "${book.title}" to ${destLabel}.`, 'success');
@@ -708,6 +815,7 @@ export function createAppStore(storage, deps = {}) {
    *   publishedYear?: number | null,
    *   pageCount?: number | null,
    *   coverUrl?: string | null,
+   *   description?: string | null,
    *   format?: import('../types/models.js').BookFormat,
    *   ageMin?: number,
    *   ageMax?: number,
@@ -719,6 +827,8 @@ export function createAppStore(storage, deps = {}) {
    *   owners?: string[],
    *   dominantColor?: string | null,
    *   dominantColorSource?: 'auto' | 'manual',
+   *   dominantColorSwatches?: string[] | null,
+   *   dominantColorMode?: import('../types/models.js').DynamicCoverTintMode | null,
    *   excludeFromRotations?: boolean,
    *   notes?: string | null,
    *   needsScanReview?: boolean,
@@ -839,8 +949,12 @@ export function createAppStore(storage, deps = {}) {
       patch.owners !== undefined ? normalizeOwnersList(patch.owners) : existing.owners;
 
     const coverChanged = patch.coverUrl !== undefined && nextCoverUrl !== existing.coverUrl;
+    const coverCleared = patch.coverUrl !== undefined && !nextCoverUrl;
     let nextDominantColor = existing.dominantColor;
     let nextDominantColorSource = existing.dominantColorSource;
+    let nextDominantColorSwatches = existing.dominantColorSwatches;
+    let nextDominantColorMode = existing.dominantColorMode;
+
     if (patch.dominantColor !== undefined) {
       nextDominantColor = patch.dominantColor ? normalizeHexColor(patch.dominantColor) : undefined;
       nextDominantColorSource = nextDominantColor
@@ -848,11 +962,35 @@ export function createAppStore(storage, deps = {}) {
           ? 'manual'
           : 'auto'
         : undefined;
-    } else if (coverChanged) {
-      // Clear cached dominant color when cover art changes so extractor re-samples the new cover
+      if (!nextDominantColor) {
+        nextDominantColorSwatches = undefined;
+        nextDominantColorMode = undefined;
+      }
+    } else if (coverChanged || coverCleared) {
+      // Clear cached tint & swatches when cover art changes or is cleared so precomputation refreshes cleanly
       nextDominantColor = undefined;
       nextDominantColorSource = undefined;
+      nextDominantColorSwatches = undefined;
+      nextDominantColorMode = undefined;
     }
+
+    if (patch.dominantColorSwatches !== undefined) {
+      nextDominantColorSwatches =
+        patch.dominantColorSwatches === null
+          ? undefined
+          : normalizeSwatchList(patch.dominantColorSwatches);
+    }
+    if (patch.dominantColorMode !== undefined) {
+      nextDominantColorMode =
+        patch.dominantColorMode === null ? undefined : normalizeTintMode(patch.dominantColorMode);
+    } else if (patch.dominantColor !== undefined && nextDominantColor && !nextDominantColorMode) {
+      nextDominantColorMode = normalizeTintMode(state.settings?.dynamicCoverTintMode);
+    }
+
+    const nextDescription =
+      patch.description !== undefined
+        ? cleanBookDescription(patch.description || '') || undefined
+        : existing.description;
 
     const nextExcludeFromRotations =
       patch.excludeFromRotations !== undefined
@@ -966,10 +1104,13 @@ export function createAppStore(storage, deps = {}) {
       ...(nextLoved !== undefined ? { loved: nextLoved } : {}),
       ...(nextOwners && nextOwners.length > 0 ? { owners: nextOwners } : {}),
       ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
+      ...(nextDescription ? { description: nextDescription } : {}),
       ...(nextDominantColor ? { dominantColor: nextDominantColor } : {}),
       ...(nextDominantColor && nextDominantColorSource
         ? { dominantColorSource: nextDominantColorSource }
         : {}),
+      ...(nextDominantColorSwatches ? { dominantColorSwatches: nextDominantColorSwatches } : {}),
+      ...(nextDominantColorMode ? { dominantColorMode: nextDominantColorMode } : {}),
       ...(nextExcludeFromRotations ? { excludeFromRotations: true } : {}),
       ...(nextNotes ? { notes: nextNotes } : {}),
       ...(nextBookNotes && nextBookNotes.length > 0 ? { bookNotes: nextBookNotes } : {}),
@@ -1010,6 +1151,9 @@ export function createAppStore(storage, deps = {}) {
       ...state,
       books: state.books.map((b) => (b.id === bookId ? updatedBook : b)),
     });
+    if (coverChanged && nextCoverUrl && !nextDominantColor) {
+      resolveAndPersistBookCoverTint(updatedBook.id, nextCoverUrl);
+    }
     notify(`Updated "${updatedBook.title}".`, 'success');
     return updatedBook;
   }
@@ -1402,20 +1546,36 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Silently caches a sampled dominant cover hex color onto a book record without triggering a toast,
+   * Silently caches a sampled dominant cover hex color + palette swatches onto a book record without triggering a toast,
    * or stores/clears a manual swatch override when requested.
    * @param {string} bookId
    * @param {string | null | undefined} rawHex
-   * @param {{ manual?: boolean }} [options]
+   * @param {{
+   *   manual?: boolean,
+   *   swatches?: string[],
+   *   mode?: import('../types/models.js').DynamicCoverTintMode
+   * }} [options]
    * @returns {Promise<import('../types/models.js').Book | null>}
    */
   async function setBookDominantColor(bookId, rawHex, options = {}) {
     const target = state.books.find((b) => b.id === bookId);
     if (!target) return null;
     if (!rawHex) {
-      if (!target.dominantColor && !target.dominantColorSource) return target;
-      const { dominantColor: _removedColor, dominantColorSource: _removedSrc, ...restRaw } =
-        target;
+      if (
+        !target.dominantColor &&
+        !target.dominantColorSource &&
+        !target.dominantColorSwatches &&
+        !target.dominantColorMode
+      ) {
+        return target;
+      }
+      const {
+        dominantColor: _removedColor,
+        dominantColorSource: _removedSrc,
+        dominantColorSwatches: _removedSwatches,
+        dominantColorMode: _removedMode,
+        ...restRaw
+      } = target;
       const rest = /** @type {import('../types/models.js').Book} */ (restRaw);
       await commit({
         ...state,
@@ -1427,7 +1587,17 @@ export function createAppStore(storage, deps = {}) {
     if (!cleanHex) return null;
     /** @type {'manual' | 'auto'} */
     const nextSource = options.manual ? 'manual' : 'auto';
-    if (target.dominantColor === cleanHex && target.dominantColorSource === nextSource) {
+    const nextSwatches = normalizeSwatchList(options.swatches) || target.dominantColorSwatches;
+    const nextMode =
+      options.mode !== undefined
+        ? normalizeTintMode(options.mode)
+        : target.dominantColorMode || normalizeTintMode(state.settings?.dynamicCoverTintMode);
+    if (
+      target.dominantColor === cleanHex &&
+      target.dominantColorSource === nextSource &&
+      target.dominantColorMode === nextMode &&
+      JSON.stringify(target.dominantColorSwatches || []) === JSON.stringify(nextSwatches || [])
+    ) {
       return target;
     }
     /** @type {import('../types/models.js').Book} */
@@ -1435,6 +1605,8 @@ export function createAppStore(storage, deps = {}) {
       ...target,
       dominantColor: cleanHex,
       dominantColorSource: nextSource,
+      dominantColorMode: nextMode,
+      ...(nextSwatches ? { dominantColorSwatches: nextSwatches } : {}),
     };
     await commit({
       ...state,
@@ -4049,13 +4221,23 @@ export function createAppStore(storage, deps = {}) {
    * @param {Partial<import('../types/models.js').AppSettings>} patch
    */
   async function updateSettings(patch) {
+    const prevTintMode = normalizeTintMode(state.settings?.dynamicCoverTintMode);
+    const nextSettings = createSafeDefaultSettings({
+      ...state.settings,
+      ...patch,
+    });
     await commit({
       ...state,
-      settings: createSafeDefaultSettings({
-        ...state.settings,
-        ...patch,
-      }),
+      settings: nextSettings,
     });
+    const nextTintMode = normalizeTintMode(nextSettings.dynamicCoverTintMode);
+    if (nextTintMode !== prevTintMode && typeof document !== 'undefined') {
+      for (const b of state.books) {
+        if (b.coverUrl && b.dominantColorSource !== 'manual') {
+          resolveAndPersistBookCoverTint(b.id, b.coverUrl, { mode: nextTintMode });
+        }
+      }
+    }
   }
 
   /**

@@ -382,7 +382,14 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
   const handleAddCandidate = async (
     candidate: BookCandidate,
     status: 'owned' | 'wishlist',
-    opts?: { condition?: BookCondition; owners?: string[]; loved?: boolean }
+    opts?: {
+      condition?: BookCondition;
+      owners?: string[];
+      loved?: boolean;
+      dominantColor?: string;
+      dominantColorSwatches?: string[];
+      dominantColorMode?: 'prominent' | 'dominant' | 'soft';
+    }
   ) => {
     const defaultOwners =
       primaryProfileId || activeProfile?.id
@@ -393,6 +400,9 @@ export const OnboardingLibraryStep: React.FC<OnboardingLibraryStepProps> = ({
       condition: opts?.condition || 'good',
       owners: opts?.owners || defaultOwners,
       loved: opts?.loved || false,
+      dominantColor: opts?.dominantColor,
+      dominantColorSwatches: opts?.dominantColorSwatches,
+      dominantColorMode: opts?.dominantColorMode,
     });
     setFoundCandidate(null);
     setActiveSheet('none');

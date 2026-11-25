@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext.js';
 import { Icon } from '../common/Icon.js';
 import { BookCover } from '../common/BookCover.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import { AVATAR_TONES } from '../../config/index.js';
+import { extractCoverPaletteFromUrl } from '../../features/catalog/cover-color-extractor.js';
 import {
   computeOwnerInitials,
   formatBookBinding,
@@ -12,14 +13,23 @@ import {
   normalizeCollectionStatus,
 } from '../../types/models.js';
 import type { BookCandidate } from '../../features/catalog/normalizer.js';
-import type { BookCondition, CollectionStatus } from '../../types/models.js';
+import type { BookCondition, CollectionStatus, DynamicCoverTintMode } from '../../types/models.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
+
+export interface FoundBookIntakeOptions {
+  condition?: BookCondition;
+  owners?: string[];
+  loved?: boolean;
+  dominantColor?: string;
+  dominantColorSwatches?: string[];
+  dominantColorMode?: DynamicCoverTintMode;
+}
 
 interface FoundBookSheetProps {
   candidate: BookCandidate | null;
   isOpen: boolean;
-  onAddOwned: (candidate: BookCandidate, options?: { condition?: BookCondition; owners?: string[]; loved?: boolean }) => void;
-  onAddWishlist: (candidate: BookCandidate, options?: { condition?: BookCondition; owners?: string[]; loved?: boolean }) => void;
+  onAddOwned: (candidate: BookCandidate, options?: FoundBookIntakeOptions) => void;
+  onAddWishlist: (candidate: BookCandidate, options?: FoundBookIntakeOptions) => void;
   onEditManual?: (candidate: BookCandidate) => void;
   onRescan?: () => void;
   onClose: () => void;
@@ -42,6 +52,41 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
   const [intakeOwners, setIntakeOwners] = useState<string[]>(() => {
     return activeProfile ? [activeProfile.id, 'shared'] : ['shared'];
   });
+  const [precomputedTint, setPrecomputedTint] = useState<{
+    dominantColor?: string;
+    dominantColorSwatches?: string[];
+    dominantColorMode?: DynamicCoverTintMode;
+  }>({});
+
+  const tintMode: DynamicCoverTintMode =
+    state.settings?.dynamicCoverTintMode === 'dominant' ||
+    state.settings?.dynamicCoverTintMode === 'soft'
+      ? state.settings.dynamicCoverTintMode
+      : 'prominent';
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = candidate?.coverUrl?.trim();
+    if (!isOpen || !url) {
+      setPrecomputedTint({});
+      return;
+    }
+    extractCoverPaletteFromUrl(url, { mode: tintMode })
+      .then((palette) => {
+        if (cancelled || !palette?.primary) return;
+        setPrecomputedTint({
+          dominantColor: palette.primary,
+          dominantColorSwatches: palette.swatches,
+          dominantColorMode: tintMode,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setPrecomputedTint({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, candidate?.coverUrl, tintMode]);
 
   useBodyScrollLock(isOpen && Boolean(candidate));
 
@@ -84,6 +129,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
       condition: intakeCondition,
       owners: intakeOwners,
       loved: intakeLoved,
+      ...precomputedTint,
     });
   };
 
@@ -92,6 +138,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
       condition: intakeCondition,
       owners: intakeOwners,
       loved: intakeLoved,
+      ...precomputedTint,
     });
   };
 
@@ -257,7 +304,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                   onClick={handleSaveWishlist}
                   className="col-span-4 min-h-[48px] px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-accent flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  <Icon name="bookmark" className="w-4 h-4" />
+                  <Icon name="wishlist" className="w-4 h-4" />
                   <span>Wishlist</span>
                 </button>
 
