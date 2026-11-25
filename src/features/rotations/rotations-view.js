@@ -395,6 +395,7 @@ function renderRotationPickerModal({ state, editorState, referenceDate = new Dat
     rules: { ...rotation.rules, requiredFormat: 'any' },
     excludeBookIds: rotation.bookIds,
     rotations: state.rotations,
+    weights: state.settings?.matchingWeights,
     nowIso,
   }).sort((a, b) => b.baseScore - a.baseScore);
 

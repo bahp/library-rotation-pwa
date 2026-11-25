@@ -14,6 +14,8 @@ import assert from 'node:assert/strict';
 
 import {
   enrichBookWithLocalRules,
+  explainLocalTagMatches,
+  getBuiltInTaxonomyRuleCatalog,
   inferAgeAndStageFromSignals,
   inferLocalTopicTags,
   inferReadingLevelHint,
@@ -38,11 +40,15 @@ import {
   getTopicCoverageInsights,
   getWishlistSpotlightShelf,
   isWindDownEveningWindow,
+  scoreSimilarBooksForAnchor,
 } from '../src/features/tagging/recommendations.js';
 import { DEFAULT_ROTATION_PRESETS } from '../src/data/rotation-presets-config.js';
 import { createStorageAdapter } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
-import { createDefaultAppSettings } from '../src/config/defaults.js';
+import {
+  createDefaultAppSettings,
+  createDefaultMatchingWeights,
+} from '../src/config/defaults.js';
 
 describe('Tagging, Taxonomy & Recommendations Suite', () => {
   it('rule-tagger extracts topics and filters noise', () => {
@@ -566,4 +572,148 @@ describe('Tagging, Taxonomy & Recommendations Suite', () => {
     assert.equal(wishlist.length, 1);
     assert.equal(wishlist[0].id, 'b_wishlist_only');
   });
+
+  it('supports customizable tagging rules (disable built-in, extra keywords, custom rules, noise words) and live explanations', () => {
+    const ruleConfig = {
+      disabledBuiltInTags: ['animals'],
+      extraKeywordsByTag: {
+        bedtime: ['tuck-in'],
+      },
+      customRules: [
+        {
+          tag: 'rainy-day',
+          keywords: ['puddle', 'umbrella'],
+        },
+      ],
+      extraNoiseWords: ['publisher-imprint'],
+    };
+
+    const catalog = getBuiltInTaxonomyRuleCatalog(ruleConfig);
+    assert.ok(catalog.length >= 30);
+    const animalsEntry = catalog.find((r) => r.tag === 'animals');
+    assert.equal(animalsEntry?.enabled, false);
+    const bedtimeEntry = catalog.find((r) => r.tag === 'bedtime');
+    assert.deepEqual(bedtimeEntry?.extraKeywords, ['tuck-in']);
+
+    const explanation = explainLocalTagMatches(
+      {
+        title: 'Jumping in the Puddle with Bear',
+        subjects: ['publisher-imprint'],
+        summary: 'After grabbing an umbrella, little bear gets ready for tuck-in.',
+      },
+      ruleConfig
+    );
+
+    assert.ok(explanation.tags.includes('bedtime'));
+    assert.ok(explanation.tags.includes('rainy-day'));
+    assert.equal(explanation.tags.includes('animals'), false);
+    assert.equal(explanation.tags.includes('publisher-imprint'), false);
+
+    const disabledHit = explanation.ruleHits.find((h) => h.tag === 'animals');
+    assert.equal(disabledHit?.enabled, false);
+    const customHit = explanation.ruleHits.find((h) => h.tag === 'rainy-day');
+    assert.equal(customHit?.source, 'custom');
+    assert.ok(customHit?.matchedTerms.includes('puddle'));
+  });
+
+  it('applies custom matchingWeights to profile recommendations and similarity scoring', () => {
+    /** @type {import('../src/types/models.js').ChildProfile} */
+    const profile = {
+      id: 'child_weights',
+      name: 'Leo',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['trucks'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+      readHistoryBookIds: [],
+      currentlyReadingBookIds: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    /** @type {import('../src/types/models.js').Book[]} */
+    const books = [
+      {
+        id: 'anchor_loved',
+        isbn13: '9780000002001',
+        title: 'Trucks in the Mud',
+        authors: ['Jane Doe'],
+        format: 'hardcover',
+        ageMin: 3,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['trucks'],
+        spineColor: 'teal',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'cand_author',
+        isbn13: '9780000002002',
+        title: 'Trains in the Snow',
+        authors: ['Jane Doe'],
+        format: 'hardcover',
+        ageMin: 3,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['trains'],
+        spineColor: 'amber',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: false,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'cand_topic',
+        isbn13: '9780000002003',
+        title: 'Big Dump Truck',
+        authors: ['Other Author'],
+        format: 'hardcover',
+        ageMin: 3,
+        ageMax: 6,
+        readingStage: 'picture-book',
+        tags: ['trucks', 'construction'],
+        spineColor: 'terracotta',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+    ];
+
+    const customWeights = createDefaultMatchingWeights();
+    customWeights.similarity.sharedAuthor = 90;
+    customWeights.similarity.sharedTag = 5;
+    customWeights.profile.lovedBonus = 50;
+    customWeights.profile.favoriteTopicPerMatch = 4;
+
+    const similar = scoreSimilarBooksForAnchor({
+      anchorBook: books[0],
+      candidatePool: books,
+      profile,
+      weights: customWeights,
+      nowIso: '2026-11-25T12:00:00.000Z',
+    });
+
+    assert.equal(similar[0].book.id, 'cand_author');
+    assert.ok(Array.isArray(similar[0].scoreBreakdown) && similar[0].scoreBreakdown.length > 0);
+
+    const recs = getProfileRecommendations({
+      books: [books[1], books[2]],
+      profile,
+      rotations: [],
+      weights: customWeights,
+      nowIso: '2026-11-25T12:00:00.000Z',
+      limit: 5,
+    });
+    assert.equal(recs[0].book.id, 'cand_topic');
+    assert.ok(recs[0].scoreBreakdown?.some((b) => b.points === 50));
+  });
 });
+

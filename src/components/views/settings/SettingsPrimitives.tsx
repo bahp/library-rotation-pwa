@@ -6,6 +6,7 @@ export type SettingsSectionId =
   | 'appearance'
   | 'language'
   | 'shelf-rules'
+  | 'matching-rules'
   | 'catalog'
   | 'ai'
   | 'query-usage'

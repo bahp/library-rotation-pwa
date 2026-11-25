@@ -6,7 +6,7 @@ interface HorizontalBookCarouselProps {
   itemCount: number;
   ariaLabel?: string;
   showPagination?: boolean;
-  fullBleed?: boolean;
+  fullBleed?: boolean | 'page' | 'card';
 }
 
 export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
@@ -16,6 +16,8 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
   showPagination = true,
   fullBleed = false,
 }) => {
+  const bleedMode: 'page' | 'card' | null =
+    fullBleed === true ? 'page' : fullBleed === 'card' || fullBleed === 'page' ? fullBleed : null;
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [dotCount, setDotCount] = useState(1);
   const [activeDot, setActiveDot] = useState(0);
@@ -71,20 +73,34 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
     el.scrollBy({ left: direction * step, behavior: 'smooth' });
   };
 
+  const bleedWrapperClass =
+    bleedMode === 'page'
+      ? '-mx-4 sm:-mx-6 lg:-mx-8'
+      : bleedMode === 'card'
+        ? '-mx-3.5 sm:-mx-5'
+        : '';
+
+  const bleedScrollerClass =
+    bleedMode === 'page'
+      ? 'px-4 sm:px-6 lg:px-8 scroll-px-4 sm:scroll-px-6 lg:scroll-px-8'
+      : bleedMode === 'card'
+        ? 'px-3.5 sm:px-5 scroll-px-3.5 sm:scroll-px-5'
+        : '';
+
+  const leftArrowPosClass =
+    bleedMode === 'page' ? 'left-3' : bleedMode === 'card' ? 'left-2' : 'left-1.5';
+
+  const rightArrowPosClass =
+    bleedMode === 'page' ? 'right-3' : bleedMode === 'card' ? 'right-2' : 'right-1.5';
+
   return (
-    <div
-      className={`min-w-0 relative group/carousel ${
-        fullBleed ? '-mx-4 sm:-mx-6 lg:-mx-8' : ''
-      }`}
-    >
+    <div className={`min-w-0 relative group/carousel ${bleedWrapperClass}`}>
       {canScrollLeft && (
         <button
           type="button"
           onClick={() => scrollByStep(-1)}
           aria-label={`Scroll ${ariaLabel} left`}
-          className={`hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute ${
-            fullBleed ? 'left-3' : 'left-1.5'
-          } top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
+          className={`hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute ${leftArrowPosClass} top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
         >
           <Icon name="chevronLeft" className="w-4 h-4" />
         </button>
@@ -95,9 +111,7 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
           type="button"
           onClick={() => scrollByStep(1)}
           aria-label={`Scroll ${ariaLabel} right`}
-          className={`hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute ${
-            fullBleed ? 'right-3' : 'right-1.5'
-          } top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
+          className={`hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute ${rightArrowPosClass} top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
         >
           <Icon name="chevronRight" className="w-4 h-4" />
         </button>
@@ -108,9 +122,7 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
         role="region"
         aria-label={ariaLabel}
         onScroll={recalc}
-        className={`flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar pb-1 ${
-          fullBleed ? 'px-4 sm:px-6 lg:px-8 scroll-px-4 sm:scroll-px-6 lg:scroll-px-8' : ''
-        }`}
+        className={`flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar pb-1 ${bleedScrollerClass}`}
       >
         {children}
       </div>

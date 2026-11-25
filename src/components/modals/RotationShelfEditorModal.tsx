@@ -120,9 +120,10 @@ export const RotationShelfEditorModal: React.FC<RotationShelfEditorModalProps> =
       profile,
       rotation,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       rulesOverride: draftRulesPatch,
     });
-  }, [isOpen, state.books, state.profiles, state.rotations, rotation, activeProfile, draftRulesPatch]);
+  }, [isOpen, state.books, state.profiles, state.rotations, state.settings?.matchingWeights, rotation, activeProfile, draftRulesPatch]);
 
   if (!isOpen || !rotation) return null;
 

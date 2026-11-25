@@ -94,6 +94,7 @@ export function createTaggingService(config = {}) {
     const baseLocal = shouldRunLocal
       ? enrichBookWithLocalRules(bookInput, {
           preserveExplicitAgeAndStage: options.preserveExplicitAgeAndStage,
+          taggingRules: settings?.taggingRules,
         })
       : {
           tags: sanitizeTagList(bookInput.tags || [], 14),

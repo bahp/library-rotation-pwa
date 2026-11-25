@@ -184,9 +184,10 @@ export const HomeView: React.FC = () => {
       profile: activeProfile,
       rotation: primaryActiveRotation,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       limit: 12,
     });
-  }, [state.books, activeProfile, primaryActiveRotation, state.rotations]);
+  }, [state.books, activeProfile, primaryActiveRotation, state.rotations, state.settings?.matchingWeights]);
 
   // 2. Overall Suggested for [Profile]
   const recommendations = useMemo(() => {
@@ -195,9 +196,10 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       limit: 20,
     });
-  }, [state.books, activeProfile, state.rotations]);
+  }, [state.books, activeProfile, state.rotations, state.settings?.matchingWeights]);
 
   // 3. Wind-down & Bedtime mood shelf (boosted up after 18:30)
   const bedtimeShelf = useMemo(() => {
@@ -228,11 +230,12 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       maxAnchors: 2,
       itemsPerAnchor: 16,
       minItems: 1,
     });
-  }, [state.books, activeProfile, state.rotations]);
+  }, [state.books, activeProfile, state.rotations, state.settings?.matchingWeights]);
 
   // 6. Because you like [Genre/Topic]
   const genreShelf = useMemo(() => {
@@ -681,6 +684,7 @@ export const HomeView: React.FC = () => {
   };
 
   const bottomNavStyle = state.settings?.bottomNavStyle === 'full' ? 'full' : 'floating';
+  const useRotationCard = (state.settings?.homeActiveRotationStyle || 'card') === 'card';
   const shelfCardConfig = resolveBookCardDisplayConfig(state.settings, 'homeShelf');
   const suggestedCardConfig = resolveBookCardDisplayConfig(state.settings, 'homeSuggested');
   const coverAspectRatio = shelfCardConfig.aspectRatio;
@@ -881,8 +885,8 @@ export const HomeView: React.FC = () => {
   };
 
   return (
-    <div className={`space-y-3 sm:space-y-5 text-left ${bottomBarBook ? 'pb-28' : 'pb-6'}`}>
-      {/* Section 0: Active Rotations (Desktop: clean grid, Phone: smooth slider; clickable to open sheet) */}
+    <div className={`space-y-4 sm:space-y-6 text-left ${bottomBarBook ? 'pb-28' : 'pb-6'}`}>
+      {/* Section 0: Active Rotations (Distinct card container or seamless inline; click card/header -> Rotations view) */}
       {activeRotations.length > 0 ? (
         <section aria-labelledby="active-rotations-section-heading" className="space-y-4 sm:space-y-5">
           {activeRotations.length > 1 && (
@@ -916,43 +920,88 @@ export const HomeView: React.FC = () => {
                 rotBooks.length > 0 ? Math.round((completedCount / rotBooks.length) * 100) : 0;
               const sched = activeProfile ? computeRotationSchedule(rot, activeProfile) : null;
 
+              const handleCardBackgroundClick = (e: React.MouseEvent<HTMLDivElement>) => {
+                if (!useRotationCard) return;
+                const target = e.target as HTMLElement | null;
+                if (target?.closest('button, a, input, select, textarea, [data-no-card-nav="true"]')) {
+                  return;
+                }
+                navigate('rotations');
+              };
+
               return (
                 <div
                   key={rot.id}
                   data-home-active-rotation={rot.id}
-                  className="space-y-2.5 sm:space-y-3"
+                  data-home-rotation-style={useRotationCard ? 'card' : 'seamless'}
+                  onClick={handleCardBackgroundClick}
+                  className={
+                    useRotationCard
+                      ? 'rounded-2xl bg-surface border border-edge lr-card p-3.5 sm:p-5 space-y-3 sm:space-y-4 transition-colors hover:border-primary/45'
+                      : 'space-y-2.5 sm:space-y-3'
+                  }
                 >
                   <button
                     type="button"
-                    onClick={() => setSheetRotationId(rot.id)}
-                    aria-label={`Open ${rot.title} rotation details (${completedCount} of ${rotBooks.length} read, ${progressPct}%)`}
-                    className="group w-full text-left flex items-start justify-between gap-3 pb-1.5 sm:pb-3 sm:border-b sm:border-edge-subtle cursor-pointer rounded-xl px-2 -mx-2 py-1.5 hover:bg-surface-subtle/60 transition-colors"
+                    onClick={() => navigate('rotations')}
+                    aria-label={`Open ${rot.title} in Rotations (${completedCount} of ${rotBooks.length} read, ${progressPct}%)`}
+                    className={
+                      useRotationCard
+                        ? 'group w-full text-left flex items-start justify-between gap-3 pb-2.5 sm:pb-3 border-b border-edge-subtle cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-primary transition-colors'
+                        : 'group w-full text-left flex items-start justify-between gap-3 pb-1.5 sm:pb-3 sm:border-b sm:border-edge-subtle cursor-pointer rounded-xl px-2 -mx-2 py-1.5 hover:bg-surface-subtle/60 transition-colors'
+                    }
                   >
                     <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex items-start gap-2.5 min-w-0">
-                        <span
-                          aria-hidden="true"
-                          title="Active shelf"
-                          className="w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15 lr-active-dot-pulse shrink-0 mt-2 sm:mt-2.5"
-                        />
-                        {idx === 0 && activeRotations.length === 1 ? (
-                          <h1
-                            id="active-rotations-section-heading"
-                            className="font-display text-2xl sm:text-3xl font-semibold text-ink leading-[1.1] tracking-tight min-w-0 group-hover:text-primary transition-colors"
-                          >
-                            {rot.title}
-                          </h1>
-                        ) : (
-                          <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-[1.12] tracking-tight min-w-0 group-hover:text-primary transition-colors">
-                            {rot.title}
-                          </h2>
-                        )}
-                      </div>
+                      {useRotationCard ? (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span
+                              aria-hidden="true"
+                              className="w-2 h-2 rounded-full bg-success ring-4 ring-success/15 lr-active-dot-pulse shrink-0"
+                            />
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+                              Active Rotation
+                            </span>
+                          </div>
+                          {idx === 0 && activeRotations.length === 1 ? (
+                            <h1
+                              id="active-rotations-section-heading"
+                              className="font-display text-2xl sm:text-3xl font-semibold text-ink leading-[1.1] tracking-tight min-w-0 group-hover:text-primary transition-colors"
+                            >
+                              {rot.title}
+                            </h1>
+                          ) : (
+                            <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-[1.12] tracking-tight min-w-0 group-hover:text-primary transition-colors">
+                              {rot.title}
+                            </h2>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          <span
+                            aria-hidden="true"
+                            title="Active shelf"
+                            className="w-2.5 h-2.5 rounded-full bg-success ring-4 ring-success/15 lr-active-dot-pulse shrink-0 mt-2 sm:mt-2.5"
+                          />
+                          {idx === 0 && activeRotations.length === 1 ? (
+                            <h1
+                              id="active-rotations-section-heading"
+                              className="font-display text-2xl sm:text-3xl font-semibold text-ink leading-[1.1] tracking-tight min-w-0 group-hover:text-primary transition-colors"
+                            >
+                              {rot.title}
+                            </h1>
+                          ) : (
+                            <h2 className="font-display text-xl sm:text-2xl font-semibold text-ink leading-[1.12] tracking-tight min-w-0 group-hover:text-primary transition-colors">
+                              {rot.title}
+                            </h2>
+                          )}
+                        </div>
+                      )}
 
                       {sched && (
                         <p
                           data-rotation-schedule="active"
-                          className={`pl-5 flex items-center gap-1.5 text-xs leading-tight ${
+                          className={`${useRotationCard ? '' : 'pl-5 '}flex items-center gap-1.5 text-xs leading-tight ${
                             sched.isDue
                               ? 'font-semibold text-accent'
                               : sched.isDueSoon
@@ -966,8 +1015,8 @@ export const HomeView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Top-Right Progress Readout + Unmistakable Open Affordance */}
-                    <div className="flex items-center gap-3 shrink-0 pt-0.5">
+                    {/* Top-Right Progress Readout + Clear Navigation Affordance */}
+                    <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 pt-0.5">
                       <div
                         data-home-progress-readout="true"
                         className="text-right space-y-1 min-w-[74px]"
@@ -988,10 +1037,10 @@ export const HomeView: React.FC = () => {
                       </div>
 
                       <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-subtle group-hover:bg-primary group-hover:text-primary-fg border border-edge group-hover:border-primary text-xs font-semibold text-ink transition-colors shrink-0">
-                        <span>Open</span>
+                        <span>{t('nav.rotations')}</span>
                         <Icon name="chevronRight" className="w-3.5 h-3.5" />
                       </span>
-                      <span className="sm:hidden w-7 h-7 rounded-full flex items-center justify-center text-ink-secondary bg-surface-subtle/80 border border-edge-subtle shrink-0">
+                      <span className="sm:hidden w-7 h-7 rounded-full flex items-center justify-center text-ink-secondary bg-surface-subtle/80 border border-edge-subtle group-hover:text-primary transition-colors shrink-0">
                         <Icon name="chevronRight" className="w-4 h-4" />
                       </span>
                     </div>
@@ -1010,7 +1059,7 @@ export const HomeView: React.FC = () => {
                       <BookCoverSlide
                         itemCount={rotBooks.length}
                         ariaLabel={`${rot.title} books`}
-                        fullBleed
+                        fullBleed={useRotationCard ? 'card' : true}
                       >
                         {rotBooks.map((book) => renderShelfBookCard(book, rot, true))}
                       </BookCoverSlide>
@@ -1018,10 +1067,10 @@ export const HomeView: React.FC = () => {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => setSheetRotationId(rot.id)}
+                      onClick={() => navigate('rotations')}
                       className="w-full rounded-xl bg-surface-subtle/70 hover:bg-surface-subtle border border-dashed border-edge p-4 text-center text-xs text-ink-secondary transition-colors cursor-pointer"
                     >
-                      No books placed on “{rot.title}” yet · Tap to add from your library
+                      No books placed on “{rot.title}” yet · Tap to manage in Rotations
                     </button>
                   )}
                 </div>

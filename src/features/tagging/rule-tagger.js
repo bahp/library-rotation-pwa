@@ -288,14 +288,92 @@ export const VALID_READING_STAGES = new Set([
 ]);
 
 /**
+ * Escapes regex special characters inside a literal keyword/phrase.
+ * @param {string} raw
+ * @returns {string}
+ */
+function escapeRegexLiteral(raw) {
+  return raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Compiles an array of plain-text keywords into a single diacritic-stripped, case-insensitive
+ * whole-word/phrase RegExp without risking invalid regex syntax from user input.
+ * @param {string[]} keywords
+ * @returns {RegExp | null}
+ */
+export function buildSafeKeywordRegex(keywords) {
+  if (!Array.isArray(keywords) || keywords.length === 0) return null;
+  const parts = [];
+  for (const kw of keywords) {
+    const cleaned = stripDiacritics(String(kw || ''))
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+    if (!cleaned) continue;
+    const escaped = escapeRegexLiteral(cleaned).replace(/\s+/g, '\\s+');
+    parts.push(`(?<![a-z0-9])${escaped}(?![a-z0-9])`);
+  }
+  if (parts.length === 0) return null;
+  try {
+    return new RegExp(`(?:${parts.join('|')})`, 'gi');
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Extracts readable keyword examples from a built-in TAXONOMY_RULES RegExp for display in Settings.
+ * @param {RegExp} pattern
+ * @returns {string[]}
+ */
+export function extractDefaultKeywordsFromRule(pattern) {
+  const src = String(pattern?.source || '')
+    .replace(/^\\b\(/, '')
+    .replace(/\)\\b$/, '')
+    .replace(/^\(/, '')
+    .replace(/\)$/, '');
+  if (!src) return [];
+  return src
+    .split('|')
+    .map((token) =>
+      token
+        .replace(/\(\?:([^)|]+)\|([^)]+)\)/g, '$1')
+        .replace(/\\\.\\s\*/g, '. ')
+        .replace(/\\s\*/g, ' ')
+        .replace(/\\\+/g, '+')
+        .replace(/\?/g, '')
+        .replace(/\\b/g, '')
+        .trim()
+    )
+    .filter((token) => token && token.length >= 2 && !/[()[\]\\]/.test(token));
+}
+
+/**
+ * Returns structured metadata for all built-in taxonomy rules merged with optional user overrides.
+ * @param {import('../../types/models.js').TaggingRulesConfig | null | undefined} [ruleConfig]
+ */
+export function getBuiltInTaxonomyRuleCatalog(ruleConfig) {
+  const disabledSet = new Set((ruleConfig?.disabledBuiltInTags || []).map((t) => String(t).toLowerCase()));
+  const extraMap = ruleConfig?.extraKeywordsByTag || {};
+  return TAXONOMY_RULES.map((rule) => ({
+    tag: rule.tag,
+    enabled: !disabledSet.has(rule.tag),
+    defaultKeywords: extractDefaultKeywordsFromRule(rule.pattern),
+    extraKeywords: Array.isArray(extraMap[rule.tag]) ? [...extraMap[rule.tag]] : [],
+  }));
+}
+
+/**
  * Normalizes a single candidate tag into a clean lowercase token (`a-z0-9` + single hyphens),
  * preserving accented Spanish/Italian letters as clean ASCII equivalents (`música` -> `musica`).
  * Returns empty string if the tag is noise or invalid.
  *
  * @param {unknown} rawTag
+ * @param {Set<string>} [extraNoiseSet]
  * @returns {string}
  */
-export function sanitizeTag(rawTag) {
+export function sanitizeTag(rawTag, extraNoiseSet) {
   if (typeof rawTag !== 'string') return '';
   const cleaned = stripDiacritics(rawTag)
     .trim()
@@ -306,9 +384,15 @@ export function sanitizeTag(rawTag) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
 
-  if (cleaned.length < 2 || cleaned.length > 22) return '';
+  if (cleaned.length < 2 || cleaned.length > 24) return '';
   const spaced = cleaned.replace(/-/g, ' ');
-  if (NOISE_WORDS.has(cleaned) || NOISE_WORDS.has(spaced)) return '';
+  if (
+    NOISE_WORDS.has(cleaned) ||
+    NOISE_WORDS.has(spaced) ||
+    (extraNoiseSet && (extraNoiseSet.has(cleaned) || extraNoiseSet.has(spaced)))
+  ) {
+    return '';
+  }
   if (/^\d+$/.test(cleaned)) return '';
   return cleaned;
 }
@@ -318,22 +402,38 @@ export function sanitizeTag(rawTag) {
  *
  * @param {Iterable<unknown>} rawTags
  * @param {number} [maxTags]
+ * @param {Set<string>} [extraNoiseSet]
  * @returns {string[]}
  */
-export function sanitizeTagList(rawTags, maxTags = 8) {
+export function sanitizeTagList(rawTags, maxTags = 8, extraNoiseSet) {
   /** @type {string[]} */
   const out = [];
   /** @type {Set<string>} */
   const seen = new Set();
 
   for (const item of rawTags) {
-    const clean = sanitizeTag(item);
+    const clean = sanitizeTag(item, extraNoiseSet);
     if (!clean || seen.has(clean)) continue;
     seen.add(clean);
     out.push(clean);
     if (out.length >= maxTags) break;
   }
   return out;
+}
+
+/**
+ * Builds an optional Set of normalized extra noise words from TaggingRulesConfig.
+ * @param {import('../../types/models.js').TaggingRulesConfig | null | undefined} ruleConfig
+ * @returns {Set<string> | undefined}
+ */
+function buildExtraNoiseSet(ruleConfig) {
+  const list = ruleConfig?.extraNoiseWords;
+  if (!Array.isArray(list) || list.length === 0) return undefined;
+  return new Set(
+    list
+      .map((w) => stripDiacritics(String(w || '')).trim().toLowerCase())
+      .filter(Boolean)
+  );
 }
 
 /**
@@ -345,7 +445,8 @@ export function sanitizeTagList(rawTags, maxTags = 8) {
  *   subjects?: string[],
  *   summary?: string,
  *   existingTags?: string[],
- *   maxTags?: number
+ *   maxTags?: number,
+ *   taggingRules?: import('../../types/models.js').TaggingRulesConfig
  * }} input
  * @returns {string[]}
  */
@@ -354,6 +455,13 @@ export function inferLocalTopicTags(input) {
   const subjects = Array.isArray(input.subjects) ? input.subjects : [];
   const existing = Array.isArray(input.existingTags) ? input.existingTags : [];
   const authors = Array.isArray(input.authors) ? input.authors : [];
+  const ruleConfig = input.taggingRules;
+  const extraNoiseSet = buildExtraNoiseSet(ruleConfig);
+  const disabledSet = new Set(
+    (ruleConfig?.disabledBuiltInTags || []).map((t) => String(t || '').toLowerCase())
+  );
+  const extraKeywordsMap = ruleConfig?.extraKeywordsByTag || {};
+  const customRules = Array.isArray(ruleConfig?.customRules) ? ruleConfig.customRules : [];
 
   const corpus = stripDiacritics(
     [
@@ -367,8 +475,25 @@ export function inferLocalTopicTags(input) {
   /** @type {string[]} */
   const matchedTaxonomy = [];
   for (const rule of TAXONOMY_RULES) {
-    if (rule.pattern.test(corpus)) {
+    if (disabledSet.has(rule.tag)) continue;
+    let matched = rule.pattern.test(corpus);
+    if (!matched) {
+      const extraKeywords = extraKeywordsMap[rule.tag];
+      const extraRegex = extraKeywords ? buildSafeKeywordRegex(extraKeywords) : null;
+      if (extraRegex && extraRegex.test(corpus)) {
+        matched = true;
+      }
+    }
+    if (matched) {
       matchedTaxonomy.push(rule.tag);
+    }
+  }
+
+  for (const customRule of customRules) {
+    if (!customRule || !customRule.tag || !Array.isArray(customRule.keywords)) continue;
+    const customRegex = buildSafeKeywordRegex(customRule.keywords);
+    if (customRegex && customRegex.test(corpus)) {
+      matchedTaxonomy.push(customRule.tag);
     }
   }
 
@@ -378,7 +503,7 @@ export function inferLocalTopicTags(input) {
   for (const rawSubject of subjects) {
     const parts = String(rawSubject).split(/[\/—–,;:|]/);
     for (const part of parts) {
-      const clean = sanitizeTag(part);
+      const clean = sanitizeTag(part, extraNoiseSet);
       if (clean && clean.split('-').length <= 2) {
         subjectExtras.push(clean);
       }
@@ -386,7 +511,7 @@ export function inferLocalTopicTags(input) {
   }
 
   // Preserve explicit existing tags first, then high-precision taxonomy rules, then subject extras
-  return sanitizeTagList([...existing, ...matchedTaxonomy, ...subjectExtras], maxTags);
+  return sanitizeTagList([...existing, ...matchedTaxonomy, ...subjectExtras], maxTags, extraNoiseSet);
 }
 
 /**
@@ -557,7 +682,11 @@ export function inferReadingLevelHint(input) {
  *   language?: string,
  *   bookNotes?: import('../../types/models.js').BookNote[]
  * }} bookInput
- * @param {{ preserveExplicitAgeAndStage?: boolean, maxTags?: number }} [options]
+ * @param {{
+ *   preserveExplicitAgeAndStage?: boolean,
+ *   maxTags?: number,
+ *   taggingRules?: import('../../types/models.js').TaggingRulesConfig
+ * }} [options]
  * @returns {{
  *   tags: string[],
  *   addedTags: string[],
@@ -569,7 +698,9 @@ export function inferReadingLevelHint(input) {
  */
 export function enrichBookWithLocalRules(bookInput, options = {}) {
   const maxTags = options.maxTags || 14;
-  const existingSanitized = sanitizeTagList(bookInput.tags || [], maxTags);
+  const ruleConfig = options.taggingRules;
+  const extraNoiseSet = buildExtraNoiseSet(ruleConfig);
+  const existingSanitized = sanitizeTagList(bookInput.tags || [], maxTags, extraNoiseSet);
   const existingSet = new Set(existingSanitized);
 
   const noteTexts = Array.isArray(bookInput.bookNotes)
@@ -591,16 +722,17 @@ export function enrichBookWithLocalRules(bookInput, options = {}) {
     summary: enrichedSummary,
     existingTags: existingSanitized,
     maxTags,
+    taggingRules: ruleConfig,
   });
 
   // Include non-English language tag or structural baseline tag if no topic matched
   const extraRuleTags = [];
-  const rawLang = sanitizeTag(String(bookInput.language || ''));
+  const rawLang = sanitizeTag(String(bookInput.language || ''), extraNoiseSet);
   if (rawLang && rawLang !== 'en' && rawLang !== 'english') {
     extraRuleTags.push(rawLang);
   }
 
-  let tags = sanitizeTagList([...inferred, ...extraRuleTags], maxTags);
+  let tags = sanitizeTagList([...inferred, ...extraRuleTags], maxTags, extraNoiseSet);
 
   const hints = [
     bookInput.title || '',
@@ -636,7 +768,7 @@ export function enrichBookWithLocalRules(bookInput, options = {}) {
             ageAndStage.readingStage === 'teen-ya'
           ? 'chapter-read'
           : 'storytime';
-    tags = sanitizeTagList([...tags, structuralFallback], maxTags);
+    tags = sanitizeTagList([...tags, structuralFallback], maxTags, extraNoiseSet);
   }
 
   const addedTags = tags.filter((t) => !existingSet.has(t));
@@ -661,3 +793,93 @@ export function enrichBookWithLocalRules(bookInput, options = {}) {
     readingLevelHint,
   };
 }
+
+/**
+ * Explains exactly which built-in and custom tagging rules matched on a book/text sample.
+ * Used by the Settings "Matching Rules & Weights" live tester.
+ *
+ * @param {{
+ *   title?: string,
+ *   authors?: string[],
+ *   subjects?: string[],
+ *   summary?: string,
+ *   format?: import('../../types/models.js').BookFormat,
+ *   pageCount?: number,
+ *   language?: string
+ * }} bookInput
+ * @param {import('../../types/models.js').TaggingRulesConfig | null | undefined} [ruleConfig]
+ */
+export function explainLocalTagMatches(bookInput, ruleConfig) {
+  const disabledSet = new Set(
+    (ruleConfig?.disabledBuiltInTags || []).map((t) => String(t || '').toLowerCase())
+  );
+  const extraKeywordsMap = ruleConfig?.extraKeywordsByTag || {};
+  const customRules = Array.isArray(ruleConfig?.customRules) ? ruleConfig.customRules : [];
+
+  const corpus = stripDiacritics(
+    [
+      bookInput.title || '',
+      ...(Array.isArray(bookInput.authors) ? bookInput.authors : []),
+      ...(Array.isArray(bookInput.subjects) ? bookInput.subjects : []),
+      bookInput.summary || '',
+    ].join(' ')
+  );
+
+  /** @type {Array<{ tag: string, source: 'builtin' | 'custom', matchedTerms: string[], enabled: boolean }>} */
+  const ruleHits = [];
+
+  for (const rule of TAXONOMY_RULES) {
+    const globalRe = new RegExp(rule.pattern.source, 'gi');
+    const builtInTerms = Array.from(corpus.matchAll(globalRe)).map((m) => m[0].toLowerCase());
+    const extraRe = extraKeywordsMap[rule.tag]
+      ? buildSafeKeywordRegex(extraKeywordsMap[rule.tag])
+      : null;
+    const extraTerms = extraRe
+      ? Array.from(corpus.matchAll(extraRe)).map((m) => m[0].toLowerCase())
+      : [];
+    const matchedTerms = Array.from(new Set([...builtInTerms, ...extraTerms]));
+    if (matchedTerms.length > 0) {
+      ruleHits.push({
+        tag: rule.tag,
+        source: 'builtin',
+        matchedTerms: matchedTerms.slice(0, 6),
+        enabled: !disabledSet.has(rule.tag),
+      });
+    }
+  }
+
+  for (const custom of customRules) {
+    const customRe = buildSafeKeywordRegex(custom.keywords || []);
+    if (!customRe) continue;
+    const matchedTerms = Array.from(
+      new Set(Array.from(corpus.matchAll(customRe)).map((m) => m[0].toLowerCase()))
+    );
+    if (matchedTerms.length > 0) {
+      ruleHits.push({
+        tag: custom.tag,
+        source: 'custom',
+        matchedTerms: matchedTerms.slice(0, 6),
+        enabled: true,
+      });
+    }
+  }
+
+  const enriched = enrichBookWithLocalRules(
+    {
+      title: bookInput.title || '',
+      authors: bookInput.authors || [],
+      subjects: bookInput.subjects || [],
+      summary: bookInput.summary || '',
+      format: bookInput.format,
+      pageCount: bookInput.pageCount,
+      language: bookInput.language,
+    },
+    { taggingRules: ruleConfig || undefined }
+  );
+
+  return {
+    ...enriched,
+    ruleHits,
+  };
+}
+

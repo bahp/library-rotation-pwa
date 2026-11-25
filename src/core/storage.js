@@ -24,8 +24,11 @@ import {
   normalizeBookCardShadow,
   normalizeBookCardSize,
   normalizeBottomNavStyle,
+  normalizeHomeActiveRotationStyle,
   normalizeLanguage,
+  normalizeMatchingWeights,
   normalizeSidebarDividerStyle,
+  normalizeTaggingRulesConfig,
   normalizeThemePresetId,
 } from '../config/index.js';
 
@@ -567,6 +570,9 @@ export function createSafeDefaultSettings(overrides = {}) {
         typeof overrides.customGiftStoreUrl === 'string'
           ? overrides.customGiftStoreUrl.trim().slice(0, 300)
           : '',
+      homeActiveRotationStyle: normalizeHomeActiveRotationStyle(overrides.homeActiveRotationStyle),
+      matchingWeights: normalizeMatchingWeights(overrides.matchingWeights),
+      taggingRules: normalizeTaggingRulesConfig(overrides.taggingRules),
     };
   }
 

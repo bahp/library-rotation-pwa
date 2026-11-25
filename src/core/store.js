@@ -3030,6 +3030,7 @@ export function createAppStore(storage, deps = {}) {
       profile,
       rules,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       nowIso: now,
     });
 
@@ -3124,6 +3125,7 @@ export function createAppStore(storage, deps = {}) {
       profile,
       rotation,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       count: 1,
       seedOverride: opts.seedOverride,
       nowIso: now,
@@ -3243,6 +3245,7 @@ export function createAppStore(storage, deps = {}) {
       profile,
       rotation,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       count: safeCount,
       seedOverride: opts.seedOverride,
       nowIso: now,
@@ -3320,6 +3323,7 @@ export function createAppStore(storage, deps = {}) {
           profile,
           rotation: workingRotation,
           rotations: state.rotations,
+          weights: state.settings?.matchingWeights,
           nowIso: now,
         });
         const maxToAdd =
@@ -3369,6 +3373,7 @@ export function createAppStore(storage, deps = {}) {
       profile,
       rotation: workingRotation,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       nowIso: now,
     });
 
@@ -4333,6 +4338,9 @@ export function createAppStore(storage, deps = {}) {
       showPresetDecorations: state.settings.showPresetDecorations,
       presetCornerArtSize: state.settings.presetCornerArtSize,
       preferredScanMode: state.settings.preferredScanMode,
+      homeActiveRotationStyle: state.settings.homeActiveRotationStyle,
+      matchingWeights: state.settings.matchingWeights,
+      taggingRules: state.settings.taggingRules,
     });
     await commit({
       ...state,

@@ -144,7 +144,7 @@ export interface BookCoverSlideProps {
   itemCount: number;
   ariaLabel?: string;
   showPagination?: boolean;
-  fullBleed?: boolean;
+  fullBleed?: boolean | 'page' | 'card';
   children: React.ReactNode;
 }
 

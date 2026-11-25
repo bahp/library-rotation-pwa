@@ -11,6 +11,7 @@
  */
 
 import { isBookRotatable } from '../../types/models.js';
+import { normalizeMatchingWeights } from '../../config/defaults.js';
 import {
   countRotationsSinceLastSeen,
   syncRotationSlotAddedAt,
@@ -192,6 +193,7 @@ export function isBookInCooldown(book, cooldownDays, nowIso) {
  *   profile: import('../../types/models.js').ChildProfile,
  *   rules: import('../../types/models.js').RotationRuleConfig,
  *   rotations?: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   excludeBookIds?: Iterable<string>,
  *   nowIso?: string
  * }} params
@@ -202,9 +204,11 @@ export function scoreEligibleBooks({
   profile,
   rules,
   rotations = [],
+  weights,
   excludeBookIds = [],
   nowIso = new Date().toISOString(),
 }) {
+  const w = normalizeMatchingWeights(weights).rotation;
   const excluded = new Set(excludeBookIds);
   const parsedObjective = parseRotationObjective(rules.objective || '');
   const explicitFormat =
@@ -237,7 +241,7 @@ export function scoreEligibleBooks({
       continue;
     }
 
-    let score = 20;
+    let score = w.base;
     /** @type {string[]} */
     const reasons = [];
 
@@ -245,16 +249,16 @@ export function scoreEligibleBooks({
     const exactAge = profile.age >= book.ageMin && profile.age <= book.ageMax;
     const nearAge = profile.age >= book.ageMin - 1 && profile.age <= book.ageMax + 1;
     if (exactAge) {
-      score += 32;
+      score += w.exactAge;
       reasons.push(`Age ${profile.age} match`);
     } else if (nearAge) {
-      score += 16;
+      score += w.nearAge;
     } else {
-      score -= 18;
+      score += w.outOfAgePenalty;
     }
 
     if (book.readingStage === profile.readingStage) {
-      score += 16;
+      score += w.readingStage;
       reasons.push('Reading stage match');
     }
 
@@ -262,27 +266,27 @@ export function scoreEligibleBooks({
     const bookTagsLower = book.tags.map((t) => t.toLowerCase());
     const matchedPreferred = bookTagsLower.filter((t) => preferredTagSet.has(t));
     if (matchedPreferred.length > 0) {
-      score += Math.min(30, matchedPreferred.length * 12);
+      score += Math.min(w.preferredTagMax, matchedPreferred.length * w.preferredTagPerMatch);
       reasons.push(`Topics: ${matchedPreferred.slice(0, 2).join(', ')}`);
     }
 
     // 3. Free-text objective alignment (formats, stages, title/tag keywords)
     if (parsedObjective.formats.length > 0) {
       if (parsedObjective.formats.includes(book.format)) {
-        score += 26;
+        score += w.objectiveFormatMatch;
         reasons.push(`Objective binding (${book.format})`);
       } else {
-        score -= 10;
+        score += w.objectiveFormatMismatch;
       }
     }
     if (parsedObjective.stages.length > 0 && parsedObjective.stages.includes(book.readingStage)) {
-      score += 14;
+      score += w.objectiveStageMatch;
     }
     if (parsedObjective.keywords.length > 0) {
       const searchableHaystack = `${book.title} ${bookTagsLower.join(' ')} ${book.authors.join(' ')}`.toLowerCase();
       const keywordHits = parsedObjective.keywords.filter((kw) => searchableHaystack.includes(kw));
       if (keywordHits.length > 0) {
-        score += Math.min(36, keywordHits.length * 16);
+        score += Math.min(w.objectiveKeywordMax, keywordHits.length * w.objectiveKeywordPerHit);
         reasons.push(`Objective match (${keywordHits[0]})`);
       }
     }
@@ -290,11 +294,11 @@ export function scoreEligibleBooks({
     // 4. Freshness, Cooldown & Multi-Rotation Box Diversity
     const inCooldown = isBookInCooldown(book, rules.cooldownDays, nowIso);
     if (inCooldown) {
-      score -= 45;
+      score += w.cooldownPenalty;
     } else {
-      score += 14;
+      score += w.offCooldownBonus;
       if (!book.lastRotatedAt) {
-        score += 10;
+        score += w.neverRotatedBonus;
         reasons.push('Never rotated yet');
       } else {
         const rotationsSince = countRotationsSinceLastSeen(book, rotations, profile.id);
@@ -318,12 +322,12 @@ export function scoreEligibleBooks({
 
     // Slight novelty bonus for unread books
     if (!readHistorySet.has(book.id)) {
-      score += 6;
+      score += w.unreadBonus;
     }
 
     // Gentle favorite bonus when explicitly marked Loved
     if (book.loved === true) {
-      score += 10;
+      score += w.lovedBonus;
       reasons.push('Loved favorite');
     }
 
@@ -348,6 +352,7 @@ export function scoreEligibleBooks({
  *   profile: import('../../types/models.js').ChildProfile,
  *   rules: import('../../types/models.js').RotationRuleConfig,
  *   rotations?: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   excludeBookIds?: Iterable<string>,
  *   nowIso?: string
  * }} params
@@ -363,9 +368,11 @@ export function generateRotationSelection({
   profile,
   rules,
   rotations = [],
+  weights,
   excludeBookIds = [],
   nowIso = new Date().toISOString(),
 }) {
+  const w = normalizeMatchingWeights(weights).rotation;
   const targetCount = Math.max(
     1,
     Math.trunc(Number(rules.count) || profile.defaultRotationSize || 4)
@@ -379,6 +386,7 @@ export function generateRotationSelection({
     profile,
     rules,
     rotations,
+    weights,
     excludeBookIds,
     nowIso,
   });
@@ -421,11 +429,11 @@ export function generateRotationSelection({
         if (enforceVariety) {
           const primaryAuthor = (candidate.book.authors[0] || '').toLowerCase().trim();
           if (primaryAuthor && usedAuthors.has(primaryAuthor)) {
-            effective -= 22; // Strongly prefer different authors when alternatives exist
+            effective += w.repeatedAuthorPenalty; // Strongly prefer different authors when alternatives exist
           }
           const primaryTag = (candidate.book.tags[0] || '').toLowerCase();
           if (primaryTag && (tagCounts.get(primaryTag) || 0) >= 2) {
-            effective -= 10; // Prevent a single tag from monopolizing the entire shelf
+            effective += w.repeatedTagPenalty; // Prevent a single tag from monopolizing the entire shelf
           }
         }
 
@@ -472,6 +480,7 @@ export function generateRotationSelection({
  *   profile: import('../../types/models.js').ChildProfile,
  *   rotation: import('../../types/models.js').RotationList,
  *   rotations?: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   count?: number,
  *   seedOverride?: string,
  *   nowIso?: string
@@ -483,6 +492,7 @@ export function pickRandomEligibleBooks({
   profile,
   rotation,
   rotations = [],
+  weights,
   count = 1,
   seedOverride,
   nowIso = new Date().toISOString(),
@@ -503,6 +513,7 @@ export function pickRandomEligibleBooks({
     profile,
     rules: effectiveRules,
     rotations,
+    weights,
     excludeBookIds: rotation.bookIds,
     nowIso,
   });
@@ -624,6 +635,7 @@ export function applyBookAdditions(rotation, bookIdsToAdd, nowIso = new Date().t
  *   profile: import('../../types/models.js').ChildProfile,
  *   rotation: import('../../types/models.js').RotationList,
  *   rotations?: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   rulesOverride?: Partial<import('../../types/models.js').RotationRuleConfig>,
  *   nowIso?: string
  * }} params
@@ -638,6 +650,7 @@ export function findMatchingNewBooksForRotation({
   profile,
   rotation,
   rotations = [],
+  weights,
   rulesOverride,
   nowIso = new Date().toISOString(),
 }) {
@@ -670,6 +683,7 @@ export function findMatchingNewBooksForRotation({
     profile,
     rules: effectiveRules,
     rotations,
+    weights,
     excludeBookIds: rotation.bookIds,
     nowIso,
   });
@@ -732,6 +746,7 @@ export function findMatchingNewBooksForRotation({
  *   profile: import('../../types/models.js').ChildProfile,
  *   rotation: import('../../types/models.js').RotationList,
  *   rotations?: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   rulesOverride?: Partial<import('../../types/models.js').RotationRuleConfig>,
  *   nowIso?: string
  * }} params
@@ -748,6 +763,7 @@ export function computeRedrawnRotationBooks({
   profile,
   rotation,
   rotations = [],
+  weights,
   rulesOverride,
   nowIso = new Date().toISOString(),
 }) {
@@ -796,6 +812,7 @@ export function computeRedrawnRotationBooks({
         : undefined,
     },
     rotations,
+    weights,
     excludeBookIds: [...keptBookIds, ...currentUnreadIds],
     nowIso,
   });

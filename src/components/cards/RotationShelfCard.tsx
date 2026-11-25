@@ -157,8 +157,9 @@ export const RotationShelfCard: React.FC<RotationShelfCardProps> = ({
       profile,
       rotation,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
     }).matchingBooks.length;
-  }, [books, state.profiles, state.rotations, rotation, activeProfile]);
+  }, [books, state.profiles, state.rotations, state.settings?.matchingWeights, rotation, activeProfile]);
 
   const rotCardConfig = resolveBookCardDisplayConfig(state.settings, 'rotations');
   const viewMode = state.settings?.bookViewMode || 'grid';

@@ -14,6 +14,13 @@ import {
   isBookInCooldown,
 } from '../rotations/rotation-engine.js';
 import { countRotationsSinceLastSeen } from '../rotations/usage-insights.js';
+import { normalizeMatchingWeights } from '../../config/defaults.js';
+
+/**
+ * @typedef {Object} ScoreFactorBreakdown
+ * @property {string} label
+ * @property {number} points
+ */
 
 /**
  * @typedef {Object} RecommendedBookItem
@@ -23,6 +30,7 @@ import { countRotationsSinceLastSeen } from '../rotations/usage-insights.js';
  * @property {string[]} matchReasons
  * @property {boolean} isUnread
  * @property {boolean} inCooldown
+ * @property {ScoreFactorBreakdown[]} [scoreBreakdown]
  */
 
 const GENERIC_SIMILARITY_TAGS = new Set([
@@ -105,6 +113,7 @@ export function formatRecommendationTopicLabel(rawTopic) {
  *   books: import('../../types/models.js').Book[],
  *   profile: import('../../types/models.js').ChildProfile,
  *   rotations: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   nowIso?: string,
  *   limit?: number
  * }} input
@@ -114,6 +123,7 @@ export function getProfileRecommendations(input) {
   const { books, profile, rotations } = input;
   const nowIso = input.nowIso || new Date().toISOString();
   const limit = Math.max(1, input.limit || 3);
+  const w = normalizeMatchingWeights(input.weights).profile;
 
   const activeBookSet = getActiveProfileBookSet(profile, rotations);
   const readSet = new Set(profile.readHistoryBookIds || []);
@@ -132,41 +142,55 @@ export function getProfileRecommendations(input) {
     let score = 0;
     /** @type {string[]} */
     const reasons = [];
+    /** @type {ScoreFactorBreakdown[]} */
+    const breakdown = [];
 
     // 1. Age alignment
     if (profile.age >= book.ageMin && profile.age <= book.ageMax) {
-      score += 36;
+      score += w.exactAge;
       reasons.push(`Fits age ${profile.age}`);
+      breakdown.push({ label: `Exact age (${profile.age})`, points: w.exactAge });
     } else if (Math.min(Math.abs(profile.age - book.ageMin), Math.abs(profile.age - book.ageMax)) <= 1) {
-      score += 20;
+      score += w.nearAge;
       reasons.push(`Near age ${profile.age}`);
+      breakdown.push({ label: 'Near age (+/-1y)', points: w.nearAge });
     } else {
-      score += 4;
+      score += w.outOfAge;
+      if (w.outOfAge !== 0) breakdown.push({ label: 'Outside age range', points: w.outOfAge });
     }
 
     // 2. Reading stage fit
     if (book.readingStage === profile.readingStage) {
-      score += 18;
+      score += w.readingStage;
+      breakdown.push({ label: 'Reading stage match', points: w.readingStage });
     }
 
     // 3. Favorite topic matches
     if (matchedTopics.length > 0) {
-      score += Math.min(36, matchedTopics.length * 14);
+      const topicPts = Math.min(w.favoriteTopicMax, matchedTopics.length * w.favoriteTopicPerMatch);
+      score += topicPts;
       reasons.unshift(`Matches ${matchedTopics.slice(0, 2).join(', ')}`);
+      breakdown.push({
+        label: `Topics (${matchedTopics.slice(0, 2).join(', ')})`,
+        points: topicPts,
+      });
     }
 
     // 4. Unread discovery bonus
     if (isUnread) {
-      score += 16;
+      score += w.unreadBonus;
       reasons.push('Unread together');
+      breakdown.push({ label: 'Unread discovery', points: w.unreadBonus });
     }
 
     // 5. Cooldown freshness & multi-rotation box diversity
     if (!inCooldown) {
-      score += 22;
+      score += w.offCooldownBonus;
+      breakdown.push({ label: 'Off cooldown', points: w.offCooldownBonus });
       if (!book.lastRotatedAt) {
-        score += 12;
+        score += w.neverRotatedBonus;
         reasons.push('Never on shelf yet');
+        breakdown.push({ label: 'Never rotated', points: w.neverRotatedBonus });
       } else {
         const rotationsSince = countRotationsSinceLastSeen(book, rotations, profile.id);
         const lastMs = Date.parse(book.lastRotatedAt);
@@ -176,21 +200,27 @@ export function getProfileRecommendations(input) {
             ? Math.max(0, Math.floor((nowMs - lastMs) / (24 * 60 * 60 * 1000)))
             : 0;
         if (rotationsSince !== null && rotationsSince >= 2) {
-          score += Math.min(14, rotationsSince * 4);
+          const unseenPts = Math.min(14, rotationsSince * 4);
+          score += unseenPts;
           reasons.push(`Unseen for ${rotationsSince} rotations`);
+          breakdown.push({ label: `Unseen ${rotationsSince} rotations`, points: unseenPts });
         } else if (elapsedDays >= 28) {
-          score += Math.min(10, Math.floor(elapsedDays / 14) * 3);
+          const restPts = Math.min(10, Math.floor(elapsedDays / 14) * 3);
+          score += restPts;
           reasons.push(`Off shelf ${elapsedDays}d`);
+          breakdown.push({ label: `Off shelf ${elapsedDays}d`, points: restPts });
         }
       }
     } else {
-      score -= 25;
+      score += w.cooldownPenalty;
       reasons.push('Recently rotated');
+      breakdown.push({ label: 'Cooldown penalty', points: w.cooldownPenalty });
     }
 
     if (book.loved === true) {
-      score += 8;
+      score += w.lovedBonus;
       reasons.push('Loved favorite');
+      breakdown.push({ label: 'Loved favorite', points: w.lovedBonus });
     }
 
     if (book.readingLevelHint) {
@@ -205,6 +235,7 @@ export function getProfileRecommendations(input) {
       matchReasons: reasons.slice(0, 4),
       isUnread,
       inCooldown,
+      scoreBreakdown: breakdown,
     });
   }
 
@@ -225,6 +256,7 @@ export function getProfileRecommendations(input) {
  *   profile: import('../../types/models.js').ChildProfile,
  *   rotation: import('../../types/models.js').RotationList | null | undefined,
  *   rotations?: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   nowIso?: string,
  *   limit?: number
  * }} input
@@ -250,6 +282,7 @@ export function getRotationLibrarySuggestions(input) {
       profile,
       rotation,
       rotations,
+      weights: input.weights,
       nowIso,
     });
 
@@ -275,6 +308,124 @@ export function getRotationLibrarySuggestions(input) {
 }
 
 /**
+ * Scores candidate owned books by similarity to a specific anchor book using custom similarity weights.
+ * Used both by `getLovedBookSimilarityShelves` and by the Settings live scoring inspector.
+ *
+ * @param {{
+ *   anchorBook: import('../../types/models.js').Book,
+ *   candidatePool: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile,
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
+ *   usedRecommendedIds?: Set<string>,
+ *   nowIso?: string
+ * }} input
+ * @returns {RecommendedBookItem[]}
+ */
+export function scoreSimilarBooksForAnchor(input) {
+  const { anchorBook, candidatePool, profile, usedRecommendedIds } = input;
+  const nowIso = input.nowIso || new Date().toISOString();
+  const w = normalizeMatchingWeights(input.weights).similarity;
+  const readSet = new Set(profile?.readHistoryBookIds || []);
+
+  const anchorAuthors = new Set(
+    (anchorBook.authors || []).map((a) => a.toLowerCase().trim()).filter(Boolean)
+  );
+  const anchorSpecificTags = new Set(
+    (anchorBook.tags || [])
+      .map((t) => t.toLowerCase().trim())
+      .filter((t) => t && !GENERIC_SIMILARITY_TAGS.has(t))
+  );
+
+  if (anchorSpecificTags.size === 0 && anchorAuthors.size === 0) return [];
+
+  /** @type {RecommendedBookItem[]} */
+  const scoredMatches = [];
+
+  for (const candidate of candidatePool) {
+    if (candidate.id === anchorBook.id) continue;
+
+    const sharedAuthors = (candidate.authors || []).filter((a) =>
+      anchorAuthors.has(a.toLowerCase().trim())
+    );
+    const sharedTags = (candidate.tags || []).filter((t) =>
+      anchorSpecificTags.has(t.toLowerCase().trim())
+    );
+
+    // Require a real thematic or author connection
+    if (sharedAuthors.length === 0 && sharedTags.length === 0) continue;
+
+    let score = 0;
+    /** @type {string[]} */
+    const reasons = [];
+    /** @type {ScoreFactorBreakdown[]} */
+    const breakdown = [];
+
+    if (sharedAuthors.length > 0) {
+      const pts = w.sharedAuthor * sharedAuthors.length;
+      score += pts;
+      reasons.push(`By ${sharedAuthors[0]}`);
+      breakdown.push({ label: `Shared author (${sharedAuthors[0]})`, points: pts });
+    }
+    if (sharedTags.length > 0) {
+      const cappedCount = Math.min(w.sharedTagMaxCount, sharedTags.length);
+      const pts = w.sharedTag * cappedCount;
+      score += pts;
+      reasons.push(`Shares ${formatRecommendationTopicLabel(sharedTags[0])}`);
+      breakdown.push({
+        label: `Shared tags (${sharedTags.slice(0, cappedCount).join(', ')})`,
+        points: pts,
+      });
+    }
+    if (candidate.readingStage === anchorBook.readingStage) {
+      score += w.sameStage;
+      breakdown.push({ label: 'Same reading stage', points: w.sameStage });
+    }
+    if (candidate.ageMin <= anchorBook.ageMax && candidate.ageMax >= anchorBook.ageMin) {
+      score += w.ageOverlap;
+      breakdown.push({ label: 'Age range overlap', points: w.ageOverlap });
+    }
+
+    const isUnread = !readSet.has(candidate.id);
+    if (isUnread) {
+      score += w.unreadBonus;
+      breakdown.push({ label: 'Unread', points: w.unreadBonus });
+    }
+
+    const inCooldown = isBookInCooldown(candidate, profile?.cooldownDays ?? 14, nowIso);
+    if (!inCooldown) {
+      score += w.offCooldownBonus;
+      breakdown.push({ label: 'Off cooldown', points: w.offCooldownBonus });
+    } else {
+      score += w.cooldownPenalty;
+      breakdown.push({ label: 'Cooldown penalty', points: w.cooldownPenalty });
+    }
+
+    if (usedRecommendedIds?.has(candidate.id)) {
+      score += w.diversityPenalty;
+      breakdown.push({ label: 'Cross-row diversity', points: w.diversityPenalty });
+    }
+
+    scoredMatches.push({
+      book: candidate,
+      score,
+      matchedTopics: sharedTags,
+      matchReasons: reasons.slice(0, 3),
+      isUnread,
+      inCooldown,
+      scoreBreakdown: breakdown,
+    });
+  }
+
+  scoredMatches.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.isUnread !== b.isUnread) return a.isUnread ? -1 : 1;
+    return a.book.title.localeCompare(b.book.title);
+  });
+
+  return scoredMatches;
+}
+
+/**
  * Builds up to `maxAnchors` owned-library similarity shelves anchored by distinct Loved books
  * ("Suggested because you loved XX"). Only returns shelves with genuine tag or author overlap.
  *
@@ -282,6 +433,7 @@ export function getRotationLibrarySuggestions(input) {
  *   books: import('../../types/models.js').Book[],
  *   profile: import('../../types/models.js').ChildProfile,
  *   rotations: import('../../types/models.js').RotationList[],
+ *   weights?: Partial<import('../../types/models.js').MatchingWeightsConfig>,
  *   maxAnchors?: number,
  *   itemsPerAnchor?: number,
  *   minItems?: number,
@@ -290,7 +442,7 @@ export function getRotationLibrarySuggestions(input) {
  * @returns {Array<{ anchorBook: import('../../types/models.js').Book, items: RecommendedBookItem[] }>}
  */
 export function getLovedBookSimilarityShelves(input) {
-  const { books, profile, rotations } = input;
+  const { books, profile, rotations, weights } = input;
   if (!profile) return [];
 
   const maxAnchors = Math.max(1, input.maxAnchors || 2);
@@ -299,7 +451,6 @@ export function getLovedBookSimilarityShelves(input) {
   const nowIso = input.nowIso || new Date().toISOString();
 
   const activeBookSet = getActiveProfileBookSet(profile, rotations);
-  const readSet = new Set(profile.readHistoryBookIds || []);
 
   // Loved anchors can be currently on or off shelf, as long as household-owned
   const lovedAnchors = books
@@ -329,78 +480,13 @@ export function getLovedBookSimilarityShelves(input) {
   for (const anchor of lovedAnchors) {
     if (shelves.length >= maxAnchors) break;
 
-    const anchorAuthors = new Set(
-      (anchor.authors || []).map((a) => a.toLowerCase().trim()).filter(Boolean)
-    );
-    const anchorSpecificTags = new Set(
-      (anchor.tags || [])
-        .map((t) => t.toLowerCase().trim())
-        .filter((t) => t && !GENERIC_SIMILARITY_TAGS.has(t))
-    );
-
-    if (anchorSpecificTags.size === 0 && anchorAuthors.size === 0) continue;
-
-    /** @type {RecommendedBookItem[]} */
-    const scoredMatches = [];
-
-    for (const candidate of candidatePool) {
-      if (candidate.id === anchor.id) continue;
-
-      const sharedAuthors = (candidate.authors || []).filter((a) =>
-        anchorAuthors.has(a.toLowerCase().trim())
-      );
-      const sharedTags = (candidate.tags || []).filter((t) =>
-        anchorSpecificTags.has(t.toLowerCase().trim())
-      );
-
-      // Require a real thematic or author connection
-      if (sharedAuthors.length === 0 && sharedTags.length === 0) continue;
-
-      let score = 0;
-      /** @type {string[]} */
-      const reasons = [];
-
-      if (sharedAuthors.length > 0) {
-        score += 26 * sharedAuthors.length;
-        reasons.push(`By ${sharedAuthors[0]}`);
-      }
-      if (sharedTags.length > 0) {
-        score += 22 * Math.min(3, sharedTags.length);
-        reasons.push(`Shares ${formatRecommendationTopicLabel(sharedTags[0])}`);
-      }
-      if (candidate.readingStage === anchor.readingStage) {
-        score += 10;
-      }
-      if (candidate.ageMin <= anchor.ageMax && candidate.ageMax >= anchor.ageMin) {
-        score += 6;
-      }
-
-      const isUnread = !readSet.has(candidate.id);
-      if (isUnread) score += 8;
-
-      const inCooldown = isBookInCooldown(candidate, profile.cooldownDays, nowIso);
-      if (!inCooldown) score += 6;
-      else score -= 14;
-
-      // Slight diversity nudge so two loved shelves don't display the exact same book order
-      if (usedRecommendedIds.has(candidate.id)) {
-        score -= 8;
-      }
-
-      scoredMatches.push({
-        book: candidate,
-        score,
-        matchedTopics: sharedTags,
-        matchReasons: reasons.slice(0, 3),
-        isUnread,
-        inCooldown,
-      });
-    }
-
-    scoredMatches.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (a.isUnread !== b.isUnread) return a.isUnread ? -1 : 1;
-      return a.book.title.localeCompare(b.book.title);
+    const scoredMatches = scoreSimilarBooksForAnchor({
+      anchorBook: anchor,
+      candidatePool,
+      profile,
+      weights,
+      usedRecommendedIds,
+      nowIso,
     });
 
     const selected = scoredMatches.slice(0, itemsPerAnchor);

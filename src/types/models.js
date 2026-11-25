@@ -302,6 +302,82 @@ export function isBookReadInRotation(rotation, bookId) {
  */
 
 /**
+ * @typedef {'card' | 'seamless'} HomeActiveRotationStyle
+ */
+
+/**
+ * @typedef {Object} ProfileRecommendationWeights
+ * @property {number} exactAge
+ * @property {number} nearAge
+ * @property {number} outOfAge
+ * @property {number} readingStage
+ * @property {number} favoriteTopicPerMatch
+ * @property {number} favoriteTopicMax
+ * @property {number} unreadBonus
+ * @property {number} offCooldownBonus
+ * @property {number} neverRotatedBonus
+ * @property {number} cooldownPenalty
+ * @property {number} lovedBonus
+ */
+
+/**
+ * @typedef {Object} BookSimilarityWeights
+ * @property {number} sharedAuthor
+ * @property {number} sharedTag
+ * @property {number} sharedTagMaxCount
+ * @property {number} sameStage
+ * @property {number} ageOverlap
+ * @property {number} unreadBonus
+ * @property {number} offCooldownBonus
+ * @property {number} cooldownPenalty
+ * @property {number} diversityPenalty
+ */
+
+/**
+ * @typedef {Object} RotationScoringWeights
+ * @property {number} base
+ * @property {number} exactAge
+ * @property {number} nearAge
+ * @property {number} outOfAgePenalty
+ * @property {number} readingStage
+ * @property {number} preferredTagPerMatch
+ * @property {number} preferredTagMax
+ * @property {number} objectiveFormatMatch
+ * @property {number} objectiveFormatMismatch
+ * @property {number} objectiveStageMatch
+ * @property {number} objectiveKeywordPerHit
+ * @property {number} objectiveKeywordMax
+ * @property {number} offCooldownBonus
+ * @property {number} neverRotatedBonus
+ * @property {number} cooldownPenalty
+ * @property {number} unreadBonus
+ * @property {number} lovedBonus
+ * @property {number} repeatedAuthorPenalty
+ * @property {number} repeatedTagPenalty
+ */
+
+/**
+ * @typedef {Object} MatchingWeightsConfig
+ * @property {ProfileRecommendationWeights} profile
+ * @property {BookSimilarityWeights} similarity
+ * @property {RotationScoringWeights} rotation
+ */
+
+/**
+ * @typedef {Object} CustomTagRule
+ * @property {string} tag
+ * @property {string[]} keywords
+ */
+
+/**
+ * @typedef {Object} TaggingRulesConfig
+ * @property {string[]} disabledBuiltInTags
+ * @property {Record<string, string[]>} extraKeywordsByTag
+ * @property {CustomTagRule[]} customRules
+ * @property {string[]} extraNoiseWords
+ */
+
+/**
  * @typedef {'pending' | 'in_progress' | 'completed' | 'skipped'} OnboardingStatus
  */
 
@@ -382,6 +458,9 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {string} [amazonDomain] - Preferred Amazon store domain (e.g. 'amazon.com', 'amazon.co.uk', 'amazon.es')
  * @property {string} [customGiftStoreName] - Optional custom/local bookstore label
  * @property {string} [customGiftStoreUrl] - Optional custom/local bookstore search URL (supports {query})
+ * @property {HomeActiveRotationStyle} [homeActiveRotationStyle] - Home active rotation presentation ('card' | 'seamless')
+ * @property {MatchingWeightsConfig} [matchingWeights] - Customizable recommendation, similarity, and rotation scoring weights
+ * @property {TaggingRulesConfig} [taggingRules] - Customizable local rule-tagging overrides, extra keywords, and custom rules
  */
 
 /**

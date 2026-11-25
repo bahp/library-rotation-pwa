@@ -366,4 +366,43 @@ describe('Cover Color Extraction, Cover Proxy & Settings Suite', () => {
     const retagged = store.getState().books.find((b) => b.id === moonBook.id);
     assert.ok(retagged?.tags.includes('bedtime'));
   });
+
+  it('normalizes and persists homeActiveRotationStyle, matchingWeights, and taggingRules', async () => {
+    const defaults = createSafeDefaultSettings();
+    assert.equal(defaults.homeActiveRotationStyle, 'card');
+    assert.equal(defaults.matchingWeights?.profile.exactAge, 36);
+    assert.deepEqual(defaults.taggingRules?.customRules, []);
+
+    const normalized = createSafeDefaultSettings({
+      homeActiveRotationStyle: 'seamless',
+      matchingWeights: /** @type {any} */ ({
+        profile: { exactAge: 999, cooldownPenalty: -500 },
+      }),
+      taggingRules: /** @type {any} */ ({
+        disabledBuiltInTags: ['Bedtime!'],
+        customRules: [{ tag: ' Cozy Mornings ', keywords: ['Cocoa', 'cocoa', 'waffles'] }],
+      }),
+    });
+
+    assert.equal(normalized.homeActiveRotationStyle, 'seamless');
+    assert.equal(normalized.matchingWeights?.profile.exactAge, 100);
+    assert.equal(normalized.matchingWeights?.profile.cooldownPenalty, -120);
+    assert.deepEqual(normalized.taggingRules?.disabledBuiltInTags, ['bedtime']);
+    assert.deepEqual(normalized.taggingRules?.customRules, [
+      { tag: 'cozy-mornings', keywords: ['cocoa', 'waffles'] },
+    ]);
+
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+    await store.updateSettings({
+      homeActiveRotationStyle: 'seamless',
+      matchingWeights: normalized.matchingWeights,
+      taggingRules: normalized.taggingRules,
+    });
+    assert.equal(store.getState().settings.homeActiveRotationStyle, 'seamless');
+    assert.equal(store.getState().settings.matchingWeights?.profile.exactAge, 100);
+    assert.equal(store.getState().settings.taggingRules?.customRules[0]?.tag, 'cozy-mornings');
+  });
 });
+

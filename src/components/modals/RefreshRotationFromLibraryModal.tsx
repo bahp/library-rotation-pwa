@@ -51,9 +51,10 @@ export const RefreshRotationFromLibraryModal: React.FC<RefreshRotationFromLibrar
       profile,
       rotation,
       rotations: state.rotations,
+      weights: state.settings?.matchingWeights,
       rulesOverride,
     });
-  }, [rotation, state.books, state.profiles, state.rotations, activeProfile, rulesOverride]);
+  }, [rotation, state.books, state.profiles, state.rotations, state.settings?.matchingWeights, activeProfile, rulesOverride]);
 
   useEffect(() => {
     if (!isOpen || !rotation) return;

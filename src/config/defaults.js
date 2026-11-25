@@ -355,6 +355,9 @@ export function createDefaultAppSettings() {
     amazonDomain: 'amazon.com',
     customGiftStoreName: '',
     customGiftStoreUrl: '',
+    homeActiveRotationStyle: 'card',
+    matchingWeights: createDefaultMatchingWeights(),
+    taggingRules: createDefaultTaggingRulesConfig(),
   };
 }
 
@@ -404,3 +407,273 @@ export function normalizeBookCardShadow(raw) {
   }
   return 'subtle';
 }
+
+/**
+ * Normalizes Home active rotation card vs seamless presentation ('card' | 'seamless').
+ * @param {unknown} raw
+ * @returns {import('../types/models.js').HomeActiveRotationStyle}
+ */
+export function normalizeHomeActiveRotationStyle(raw) {
+  const val = String(raw || '').trim().toLowerCase();
+  if (val === 'seamless') return 'seamless';
+  return 'card';
+}
+
+/** @type {import('../types/models.js').MatchingWeightsConfig} */
+export const DEFAULT_MATCHING_WEIGHTS = Object.freeze({
+  profile: Object.freeze({
+    exactAge: 36,
+    nearAge: 20,
+    outOfAge: 4,
+    readingStage: 18,
+    favoriteTopicPerMatch: 14,
+    favoriteTopicMax: 36,
+    unreadBonus: 16,
+    offCooldownBonus: 22,
+    neverRotatedBonus: 12,
+    cooldownPenalty: -25,
+    lovedBonus: 8,
+  }),
+  similarity: Object.freeze({
+    sharedAuthor: 26,
+    sharedTag: 22,
+    sharedTagMaxCount: 3,
+    sameStage: 10,
+    ageOverlap: 6,
+    unreadBonus: 8,
+    offCooldownBonus: 6,
+    cooldownPenalty: -14,
+    diversityPenalty: -8,
+  }),
+  rotation: Object.freeze({
+    base: 20,
+    exactAge: 32,
+    nearAge: 16,
+    outOfAgePenalty: -18,
+    readingStage: 16,
+    preferredTagPerMatch: 12,
+    preferredTagMax: 30,
+    objectiveFormatMatch: 26,
+    objectiveFormatMismatch: -10,
+    objectiveStageMatch: 14,
+    objectiveKeywordPerHit: 16,
+    objectiveKeywordMax: 36,
+    offCooldownBonus: 14,
+    neverRotatedBonus: 10,
+    cooldownPenalty: -45,
+    unreadBonus: 6,
+    lovedBonus: 10,
+    repeatedAuthorPenalty: -22,
+    repeatedTagPenalty: -10,
+  }),
+});
+
+/**
+ * Returns a fresh deep copy of default matching weights.
+ * @returns {import('../types/models.js').MatchingWeightsConfig}
+ */
+export function createDefaultMatchingWeights() {
+  return {
+    profile: { ...DEFAULT_MATCHING_WEIGHTS.profile },
+    similarity: { ...DEFAULT_MATCHING_WEIGHTS.similarity },
+    rotation: { ...DEFAULT_MATCHING_WEIGHTS.rotation },
+  };
+}
+
+/**
+ * @param {unknown} rawVal
+ * @param {number} fallback
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
+function clampWeightNumber(rawVal, fallback, min, max) {
+  if (rawVal === undefined || rawVal === null || rawVal === '') return fallback;
+  const num = Number(rawVal);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(num)));
+}
+
+/**
+ * Normalizes and bounds custom matching/similarity/rotation scoring weights.
+ * @param {unknown} raw
+ * @returns {import('../types/models.js').MatchingWeightsConfig}
+ */
+export function normalizeMatchingWeights(raw) {
+  const defaults = DEFAULT_MATCHING_WEIGHTS;
+  const src = raw && typeof raw === 'object' ? /** @type {Record<string, any>} */ (raw) : {};
+  const p = src.profile && typeof src.profile === 'object' ? src.profile : {};
+  const s = src.similarity && typeof src.similarity === 'object' ? src.similarity : {};
+  const r = src.rotation && typeof src.rotation === 'object' ? src.rotation : {};
+
+  return {
+    profile: {
+      exactAge: clampWeightNumber(p.exactAge, defaults.profile.exactAge, 0, 100),
+      nearAge: clampWeightNumber(p.nearAge, defaults.profile.nearAge, 0, 100),
+      outOfAge: clampWeightNumber(p.outOfAge, defaults.profile.outOfAge, -50, 50),
+      readingStage: clampWeightNumber(p.readingStage, defaults.profile.readingStage, 0, 100),
+      favoriteTopicPerMatch: clampWeightNumber(p.favoriteTopicPerMatch, defaults.profile.favoriteTopicPerMatch, 0, 50),
+      favoriteTopicMax: clampWeightNumber(p.favoriteTopicMax, defaults.profile.favoriteTopicMax, 0, 150),
+      unreadBonus: clampWeightNumber(p.unreadBonus, defaults.profile.unreadBonus, 0, 60),
+      offCooldownBonus: clampWeightNumber(p.offCooldownBonus, defaults.profile.offCooldownBonus, 0, 60),
+      neverRotatedBonus: clampWeightNumber(p.neverRotatedBonus, defaults.profile.neverRotatedBonus, 0, 60),
+      cooldownPenalty: clampWeightNumber(p.cooldownPenalty, defaults.profile.cooldownPenalty, -120, 0),
+      lovedBonus: clampWeightNumber(p.lovedBonus, defaults.profile.lovedBonus, 0, 60),
+    },
+    similarity: {
+      sharedAuthor: clampWeightNumber(s.sharedAuthor, defaults.similarity.sharedAuthor, 0, 100),
+      sharedTag: clampWeightNumber(s.sharedTag, defaults.similarity.sharedTag, 0, 100),
+      sharedTagMaxCount: clampWeightNumber(s.sharedTagMaxCount, defaults.similarity.sharedTagMaxCount, 1, 8),
+      sameStage: clampWeightNumber(s.sameStage, defaults.similarity.sameStage, 0, 60),
+      ageOverlap: clampWeightNumber(s.ageOverlap, defaults.similarity.ageOverlap, 0, 60),
+      unreadBonus: clampWeightNumber(s.unreadBonus, defaults.similarity.unreadBonus, 0, 60),
+      offCooldownBonus: clampWeightNumber(s.offCooldownBonus, defaults.similarity.offCooldownBonus, 0, 60),
+      cooldownPenalty: clampWeightNumber(s.cooldownPenalty, defaults.similarity.cooldownPenalty, -120, 0),
+      diversityPenalty: clampWeightNumber(s.diversityPenalty, defaults.similarity.diversityPenalty, -60, 0),
+    },
+    rotation: {
+      base: clampWeightNumber(r.base, defaults.rotation.base, 0, 100),
+      exactAge: clampWeightNumber(r.exactAge, defaults.rotation.exactAge, 0, 100),
+      nearAge: clampWeightNumber(r.nearAge, defaults.rotation.nearAge, 0, 100),
+      outOfAgePenalty: clampWeightNumber(r.outOfAgePenalty, defaults.rotation.outOfAgePenalty, -100, 0),
+      readingStage: clampWeightNumber(r.readingStage, defaults.rotation.readingStage, 0, 100),
+      preferredTagPerMatch: clampWeightNumber(r.preferredTagPerMatch, defaults.rotation.preferredTagPerMatch, 0, 50),
+      preferredTagMax: clampWeightNumber(r.preferredTagMax, defaults.rotation.preferredTagMax, 0, 150),
+      objectiveFormatMatch: clampWeightNumber(r.objectiveFormatMatch, defaults.rotation.objectiveFormatMatch, 0, 100),
+      objectiveFormatMismatch: clampWeightNumber(r.objectiveFormatMismatch, defaults.rotation.objectiveFormatMismatch, -100, 0),
+      objectiveStageMatch: clampWeightNumber(r.objectiveStageMatch, defaults.rotation.objectiveStageMatch, 0, 60),
+      objectiveKeywordPerHit: clampWeightNumber(r.objectiveKeywordPerHit, defaults.rotation.objectiveKeywordPerHit, 0, 50),
+      objectiveKeywordMax: clampWeightNumber(r.objectiveKeywordMax, defaults.rotation.objectiveKeywordMax, 0, 150),
+      offCooldownBonus: clampWeightNumber(r.offCooldownBonus, defaults.rotation.offCooldownBonus, 0, 60),
+      neverRotatedBonus: clampWeightNumber(r.neverRotatedBonus, defaults.rotation.neverRotatedBonus, 0, 60),
+      cooldownPenalty: clampWeightNumber(r.cooldownPenalty, defaults.rotation.cooldownPenalty, -150, 0),
+      unreadBonus: clampWeightNumber(r.unreadBonus, defaults.rotation.unreadBonus, 0, 60),
+      lovedBonus: clampWeightNumber(r.lovedBonus, defaults.rotation.lovedBonus, 0, 60),
+      repeatedAuthorPenalty: clampWeightNumber(r.repeatedAuthorPenalty, defaults.rotation.repeatedAuthorPenalty, -100, 0),
+      repeatedTagPenalty: clampWeightNumber(r.repeatedTagPenalty, defaults.rotation.repeatedTagPenalty, -80, 0),
+    },
+  };
+}
+
+/** @type {import('../types/models.js').TaggingRulesConfig} */
+export const DEFAULT_TAGGING_RULES_CONFIG = Object.freeze({
+  disabledBuiltInTags: /** @type {string[]} */ ([]),
+  extraKeywordsByTag: /** @type {Record<string, string[]>} */ ({}),
+  customRules: /** @type {import('../types/models.js').CustomTagRule[]} */ ([]),
+  extraNoiseWords: /** @type {string[]} */ ([]),
+});
+
+/**
+ * Returns a fresh copy of default tagging rules customization config.
+ * @returns {import('../types/models.js').TaggingRulesConfig}
+ */
+export function createDefaultTaggingRulesConfig() {
+  return {
+    disabledBuiltInTags: [],
+    extraKeywordsByTag: {},
+    customRules: [],
+    extraNoiseWords: [],
+  };
+}
+
+/**
+ * Sanitizes a list of tag rule keywords cleanly.
+ * @param {unknown} rawList
+ * @returns {string[]}
+ */
+function sanitizeKeywordList(rawList) {
+  const arr = Array.isArray(rawList)
+    ? rawList
+    : typeof rawList === 'string'
+      ? rawList.split(/[,\n]/)
+      : [];
+  const seen = new Set();
+  /** @type {string[]} */
+  const out = [];
+  for (const item of arr) {
+    const clean = String(item || '').trim().toLowerCase().slice(0, 48);
+    if (!clean || seen.has(clean)) continue;
+    seen.add(clean);
+    out.push(clean);
+    if (out.length >= 60) break;
+  }
+  return out;
+}
+
+/**
+ * Normalizes a tag slug for custom/override rule keys (`a-z0-9-`, 2..24 chars).
+ * @param {unknown} rawTag
+ * @returns {string}
+ */
+function normalizeRuleTagSlug(rawTag) {
+  return String(rawTag || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 24);
+}
+
+/**
+ * Normalizes user-customized local tagging rules config.
+ * @param {unknown} raw
+ * @returns {import('../types/models.js').TaggingRulesConfig}
+ */
+export function normalizeTaggingRulesConfig(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return createDefaultTaggingRulesConfig();
+  }
+  const src = /** @type {Record<string, any>} */ (raw);
+
+  const disabledBuiltInTags = Array.isArray(src.disabledBuiltInTags)
+    ? Array.from(
+        new Set(
+          src.disabledBuiltInTags
+            .map((t) => normalizeRuleTagSlug(t))
+            .filter(Boolean)
+        )
+      )
+    : [];
+
+  /** @type {Record<string, string[]>} */
+  const extraKeywordsByTag = {};
+  if (src.extraKeywordsByTag && typeof src.extraKeywordsByTag === 'object') {
+    for (const [rawTag, rawKeywords] of Object.entries(src.extraKeywordsByTag)) {
+      const slug = normalizeRuleTagSlug(rawTag);
+      if (!slug) continue;
+      const keywords = sanitizeKeywordList(rawKeywords);
+      if (keywords.length > 0) {
+        extraKeywordsByTag[slug] = keywords;
+      }
+    }
+  }
+
+  /** @type {import('../types/models.js').CustomTagRule[]} */
+  const customRules = [];
+  const seenCustom = new Set();
+  if (Array.isArray(src.customRules)) {
+    for (const item of src.customRules) {
+      if (!item || typeof item !== 'object') continue;
+      const slug = normalizeRuleTagSlug(item.tag);
+      const keywords = sanitizeKeywordList(item.keywords);
+      if (!slug || slug.length < 2 || keywords.length === 0 || seenCustom.has(slug)) continue;
+      seenCustom.add(slug);
+      customRules.push({ tag: slug, keywords });
+      if (customRules.length >= 40) break;
+    }
+  }
+
+  const extraNoiseWords = sanitizeKeywordList(src.extraNoiseWords);
+
+  return {
+    disabledBuiltInTags,
+    extraKeywordsByTag,
+    customRules,
+    extraNoiseWords,
+  };
+}
+
