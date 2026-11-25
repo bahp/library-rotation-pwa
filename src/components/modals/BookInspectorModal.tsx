@@ -216,7 +216,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     };
   }, []);
 
+  const showBookDescriptionSetting = state.settings?.showBookDescription !== false;
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [descriptionHidden, setDescriptionHidden] = useState(!showBookDescriptionSetting);
 
   const dynamicCoverTint = state.settings?.dynamicCoverTint !== false;
   const dynamicCoverTintMode =
@@ -227,7 +229,8 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
 
   useEffect(() => {
     setDescriptionExpanded(false);
-  }, [bookId]);
+    setDescriptionHidden(!showBookDescriptionSetting);
+  }, [bookId, showBookDescriptionSetting]);
 
   // Hydrate immediately from persisted tint/swatches on the Book record; extract only if missing or tint mode changed
   useEffect(() => {
@@ -770,46 +773,58 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           <Icon name="bookOpen" className="w-3.5 h-3.5 text-primary" />
           <span>About This Book</span>
         </span>
-        <button
-          type="button"
-          data-editorial-field="description"
-          onClick={() => setActiveEditorialField('description')}
-          className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
-        >
-          <Icon name="edit" className="w-3 h-3" />
-          <span>{cleanDesc ? 'Edit' : 'Add'}</span>
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            data-action="toggle-description-visibility"
+            onClick={() => setDescriptionHidden((prev) => !prev)}
+            aria-expanded={!descriptionHidden}
+            className="text-[11px] font-semibold text-ink-muted hover:text-ink cursor-pointer"
+          >
+            {descriptionHidden ? 'Show' : 'Hide'}
+          </button>
+          <button
+            type="button"
+            data-editorial-field="description"
+            onClick={() => setActiveEditorialField('description')}
+            className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+          >
+            <Icon name="edit" className="w-3 h-3" />
+            <span>{cleanDesc ? 'Edit' : 'Add'}</span>
+          </button>
+        </div>
       </div>
 
-      {cleanDesc ? (
-        <div className="rounded-2xl bg-surface-subtle/85 border border-edge/85 p-3.5 space-y-1.5">
-          <p
-            className={`text-xs sm:text-[13px] text-ink-secondary leading-relaxed ${
-              !descriptionExpanded && isLongDesc ? 'line-clamp-4' : ''
-            }`}
-          >
-            {cleanDesc}
-          </p>
-          {isLongDesc && (
-            <button
-              type="button"
-              onClick={() => setDescriptionExpanded((prev) => !prev)}
-              className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+      {!descriptionHidden &&
+        (cleanDesc ? (
+          <div className="rounded-2xl bg-surface-subtle/85 border border-edge/85 p-3.5 space-y-1.5">
+            <p
+              className={`text-xs sm:text-[13px] text-ink-secondary leading-relaxed ${
+                !descriptionExpanded && isLongDesc ? 'line-clamp-4' : ''
+              }`}
             >
-              {descriptionExpanded ? 'Show less' : 'Read more'}
-            </button>
-          )}
-        </div>
-      ) : (
-        <button
-          type="button"
-          data-editorial-field="description"
-          onClick={() => setActiveEditorialField('description')}
-          className="w-full rounded-xl bg-surface-subtle/60 hover:bg-surface-subtle border border-dashed border-edge px-3.5 py-2.5 text-left text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer"
-        >
-          Add a short story blurb or description…
-        </button>
-      )}
+              {cleanDesc}
+            </p>
+            {isLongDesc && (
+              <button
+                type="button"
+                onClick={() => setDescriptionExpanded((prev) => !prev)}
+                className="text-[11px] font-semibold text-primary hover:underline cursor-pointer"
+              >
+                {descriptionExpanded ? 'Show less' : 'Read more'}
+              </button>
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            data-editorial-field="description"
+            onClick={() => setActiveEditorialField('description')}
+            className="w-full rounded-xl bg-surface-subtle/60 hover:bg-surface-subtle border border-dashed border-edge px-3.5 py-2.5 text-left text-xs text-ink-muted hover:text-ink transition-colors cursor-pointer"
+          >
+            Add a short story blurb or description…
+          </button>
+        ))}
     </section>
   );
 

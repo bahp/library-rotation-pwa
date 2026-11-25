@@ -1694,6 +1694,7 @@ export function createAppStore(storage, deps = {}) {
         edition: target.edition,
         notes: target.notes,
         bookNotes: target.bookNotes,
+        summary: target.description,
         tags: target.tags,
         usageContext: buildBookUsagePayload(target, state),
       },
@@ -1766,6 +1767,7 @@ export function createAppStore(storage, deps = {}) {
           edition: book.edition,
           notes: book.notes,
           bookNotes: book.bookNotes,
+          summary: book.description,
           tags: book.tags,
           usageContext: buildBookUsagePayload(book, state),
         },
@@ -2123,6 +2125,7 @@ export function createAppStore(storage, deps = {}) {
         checkedCount: 0,
         updatedCount: 0,
         addedCoversCount: 0,
+        addedDescriptionsCount: 0,
         addedGoogleSourceCount: 0,
         skippedCount: 0,
         errorsCount: 0,
@@ -2145,7 +2148,7 @@ export function createAppStore(storage, deps = {}) {
       const hasGoogle = b.sources.some(
         (s) => String(s?.provider || '').toLowerCase() === 'google-books'
       );
-      return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear;
+      return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear || !b.description;
     };
 
     const candidatesToSync = state.books.filter(needsCatalogSync);
@@ -2154,6 +2157,7 @@ export function createAppStore(storage, deps = {}) {
     let checkedCount = 0;
     let updatedCount = 0;
     let addedCoversCount = 0;
+    let addedDescriptionsCount = 0;
     let addedGoogleSourceCount = 0;
     let skippedCount = 0;
     let errorsCount = 0;
@@ -2272,6 +2276,21 @@ export function createAppStore(storage, deps = {}) {
         addedCoversCount += 1;
       }
 
+      const candidateDescription = cleanBookDescription(matchedCandidate.summary || '');
+      const nextDescription = book.description || candidateDescription || undefined;
+      if (!book.description && nextDescription) {
+        addedDescriptionsCount += 1;
+      }
+
+      const nextLanguage = book.language || matchedCandidate.language;
+      const nextPublisher = book.publisher || matchedCandidate.publisher;
+      const nextDimensions = book.dimensions || matchedCandidate.dimensions;
+      const nextAverageRating = book.averageRating ?? matchedCandidate.averageRating;
+      const nextRatingsCount = book.ratingsCount ?? matchedCandidate.ratingsCount;
+      const nextPreviewLink = book.previewLink || matchedCandidate.previewLink;
+      const nextListPriceAmount = book.listPriceAmount ?? matchedCandidate.listPriceAmount;
+      const nextListPriceCurrency = book.listPriceCurrency || matchedCandidate.listPriceCurrency;
+
       const combinedSeedTags = sanitizeTagList([...book.tags, ...matchedCandidate.tags], 10);
       const enriched = await tagging.enrichBook(
         {
@@ -2285,7 +2304,7 @@ export function createAppStore(storage, deps = {}) {
           ageMax: book.ageMax,
           readingStage: book.readingStage,
           tags: combinedSeedTags,
-          summary: matchedCandidate.summary,
+          summary: candidateDescription || nextDescription,
           subjects: matchedCandidate.subjects,
         },
         state.settings,
@@ -2360,6 +2379,15 @@ export function createAppStore(storage, deps = {}) {
         ...(nextPublishedYear ? { publishedYear: nextPublishedYear } : {}),
         ...(nextPageCount ? { pageCount: nextPageCount } : {}),
         ...(nextCoverUrl ? { coverUrl: nextCoverUrl } : {}),
+        ...(nextDescription ? { description: nextDescription } : {}),
+        ...(nextLanguage ? { language: nextLanguage } : {}),
+        ...(nextPublisher ? { publisher: nextPublisher } : {}),
+        ...(nextDimensions ? { dimensions: nextDimensions } : {}),
+        ...(nextAverageRating !== undefined ? { averageRating: nextAverageRating } : {}),
+        ...(nextRatingsCount !== undefined ? { ratingsCount: nextRatingsCount } : {}),
+        ...(nextPreviewLink ? { previewLink: nextPreviewLink } : {}),
+        ...(nextListPriceAmount !== undefined ? { listPriceAmount: nextListPriceAmount } : {}),
+        ...(nextListPriceCurrency ? { listPriceCurrency: nextListPriceCurrency } : {}),
         ...(coverWasAdded ? {} : book.dominantColor ? { dominantColor: book.dominantColor } : {}),
         ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
         tags: nextTags,
@@ -2387,6 +2415,7 @@ export function createAppStore(storage, deps = {}) {
     const details = [
       addedGoogleSourceCount > 0 ? `${addedGoogleSourceCount} linked to Google Books` : '',
       addedCoversCount > 0 ? `${addedCoversCount} new cover(s)` : '',
+      addedDescriptionsCount > 0 ? `${addedDescriptionsCount} new description(s)` : '',
     ]
       .filter(Boolean)
       .join(', ');
@@ -2398,7 +2427,7 @@ export function createAppStore(storage, deps = {}) {
           }.`
         : checkedCount > 0
           ? `Checked ${checkedCount} ${checkedCount === 1 ? 'book' : 'books'} — library metadata is already up to date.`
-          : 'All library books already include Google Books metadata and covers.',
+          : 'All library books already include Google Books metadata, covers, and descriptions.',
       updatedCount > 0 ? 'success' : 'info'
     );
 
@@ -2406,6 +2435,7 @@ export function createAppStore(storage, deps = {}) {
       checkedCount,
       updatedCount,
       addedCoversCount,
+      addedDescriptionsCount,
       addedGoogleSourceCount,
       skippedCount,
       errorsCount,

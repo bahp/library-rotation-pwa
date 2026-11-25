@@ -253,4 +253,117 @@ describe('Cover Color Extraction, Cover Proxy & Settings Suite', () => {
     assert.equal(clearedCover?.dominantColorSwatches, undefined);
     assert.equal(clearedCover?.description, 'Edited parent synopsis for bedtime reading.');
   });
+
+  it('normalizes showBookDescription and syncs missing descriptions + forceAll and description-aware re-tagging', async () => {
+    const defaultSettings = createSafeDefaultSettings();
+    assert.equal(defaultSettings.showBookDescription, true);
+    assert.equal(createSafeDefaultSettings({ showBookDescription: false }).showBookDescription, false);
+
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+
+    // Remove seed books so only our controlled test book is inspected
+    const seedIds = store.getState().books.map((b) => b.id);
+    for (const id of seedIds) {
+      await store.deleteBook(id);
+    }
+
+    // Add a book that has Google Books, cover, pages, year — ONLY missing description
+    const added = await store.addBookFromCandidate({
+      candidateKey: 'cand_corduroy_sync',
+      isbn13: '9781999990011',
+      title: 'Corduroy',
+      authors: ['Don Freeman'],
+      format: 'paperback',
+      ageMin: 3,
+      ageMax: 7,
+      readingStage: 'picture-book',
+      tags: ['bears'],
+      spineColor: 'teal',
+      publishedYear: 1976,
+      pageCount: 32,
+      coverUrl: 'https://covers.openlibrary.org/b/id/8231456-M.jpg',
+      sources: [{ provider: 'google-books', fetchedAt: '2026-01-01T00:00:00.000Z' }],
+    });
+    assert.equal(added.description, undefined);
+
+    let lookupCalls = 0;
+    const mockCatalogService = {
+      /**
+       * @param {string} isbn13
+       * @returns {Promise<{ candidate: import('../src/features/catalog/normalizer.js').BookCandidate | null }>}
+       */
+      async lookupByIsbn(isbn13) {
+        lookupCalls += 1;
+        return {
+          candidate: {
+            candidateKey: `gb_${isbn13}`,
+            isbn13,
+            title: 'Corduroy',
+            authors: ['Don Freeman'],
+            publishedYear: 1976,
+            pageCount: 32,
+            format: 'paperback',
+            ageMin: 3,
+            ageMax: 7,
+            readingStage: 'picture-book',
+            spineColor: 'teal',
+            tags: ['bears'],
+            summary: '<p>A little teddy bear searches for his missing button at bedtime.</p>',
+            publisher: 'Viking Press',
+            sources: [
+              {
+                provider: 'google-books',
+                externalId: 'gb_corduroy',
+                fetchedAt: '2026-11-01T00:00:00.000Z',
+              },
+            ],
+          },
+        };
+      },
+      async searchBooks() {
+        return { candidates: [] };
+      },
+    };
+
+    // Regular sync detects missing description
+    const syncRes = await store.syncExistingCatalogMetadata(mockCatalogService);
+    assert.equal(lookupCalls, 1);
+    assert.equal(syncRes.checkedCount, 1);
+    assert.equal(syncRes.addedDescriptionsCount, 1);
+    const updated = store.getState().books.find((b) => b.id === added.id);
+    assert.equal(
+      updated?.description,
+      'A little teddy bear searches for his missing button at bedtime.'
+    );
+    assert.equal(updated?.publisher, 'Viking Press');
+
+    // Second regular sync skips now-complete book; forceAll re-checks all books
+    const secondSync = await store.syncExistingCatalogMetadata(mockCatalogService);
+    assert.equal(secondSync.checkedCount, 0);
+    assert.equal(lookupCalls, 1);
+
+    const forceSync = await store.syncExistingCatalogMetadata(mockCatalogService, {
+      forceAll: true,
+    });
+    assert.equal(forceSync.checkedCount, 1);
+    assert.equal(lookupCalls, 2);
+
+    // Re-enrich uses persisted description when deriving tags
+    const moonBook = await store.addManualBook({
+      isbn: '',
+      title: 'Sleepy Night Bear',
+      authors: ['Test Author'],
+      format: 'board-book',
+      ageMin: 0,
+      ageMax: 3,
+      readingStage: 'board-toddler',
+      description: 'A gentle bedtime story under the stars for calm wind-down.',
+      tags: [],
+    });
+    await store.enrichAllCatalogBooks();
+    const retagged = store.getState().books.find((b) => b.id === moonBook.id);
+    assert.ok(retagged?.tags.includes('bedtime'));
+  });
 });

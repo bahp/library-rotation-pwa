@@ -259,9 +259,9 @@
 :where(:root),
 [data-theme="bunko"] {
   /* Light Theme — Bunko (Default Light — Warm Japanese Washi #F6EFE3, Pine-Spruce #25423A, Ochre #C78932, Vermilion #B63D2B) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --cover-radius: 11px;
   --control-radius: 10px;
@@ -348,9 +348,9 @@
 
 [data-theme="shiori"] {
   /* Light Theme — Shiori (Graceful Sakura-Pearl #FAF2ED, Rose Coral #C46A63, Celadon-Slate #5B6E70) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 18px;
   --cover-radius: 12px;
   --control-radius: 11px;
@@ -432,7 +432,7 @@
   /* Light Theme — Darker Teal (Ivory Linen #F7F5EE, Sidebar rgb(30, 50, 44) #1E322C) */
   --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: illustration;
   --lr-badge-bg: rgba(30, 50, 44, 0.11);
@@ -483,9 +483,9 @@
 :root,
 [data-theme="sunlit-cream"] {
   /* Typography Tokens (Theme-overridable) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: illustration;
   --lr-badge-bg: rgba(158, 87, 44, 0.12);
@@ -561,7 +561,7 @@
   /* Light Theme — Classic Teal (Warm Ivory Linen + Crisp White + Slate-Blue Icons) */
   --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: illustration;
   --lr-badge-bg: rgba(17, 89, 83, 0.10);
@@ -626,9 +626,9 @@
 
 [data-theme="antique-paper"] {
   /* Light Theme — Antique Paper (Archival Parchment + Deep Forest Green) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(36, 75, 64, 0.12);
@@ -679,7 +679,7 @@
   /* Light Theme — Sky Blue (Coastal Air + Crisp White + Maritime Blue) */
   --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: illustration;
   --lr-badge-bg: rgba(47, 108, 168, 0.11);
@@ -744,9 +744,9 @@
 
 [data-theme="sage-green"] {
   /* Light Theme — Sage Green (Natural Meadow Sage + Soft Olive) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(75, 104, 59, 0.11);
@@ -811,9 +811,9 @@
 
 [data-theme="blush-pink"] {
   /* Light Theme — Blush Pink (Soft Rose Petal + Warm Berry) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: illustration;
   --lr-badge-bg: rgba(158, 67, 87, 0.11);
@@ -880,7 +880,7 @@
   /* Light Theme — Classic Light (Clean Gallery Stone + Crisp Charcoal) */
   --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(53, 59, 64, 0.10);
@@ -946,9 +946,9 @@
 .dark,
 [data-theme="forest-brass"] {
   /* Dark Theme — Forest & Brass (Default Dark — Calm Matte Spruce Buttons + Brass Accents) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(145, 165, 138, 0.16);
@@ -1016,9 +1016,9 @@
 .dark[data-theme="mimir"],
 [data-theme="mimir"] {
   /* Dark Theme — Mimir (Mythic Norse Forest-Obsidian #0B1713, Antique Gold #CFA84E, Parchment #F2ECE0) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --cover-radius: 10px;
   --control-radius: 10px;
@@ -1103,7 +1103,7 @@
   /* Dark Theme — Midnight Ink (Deep Nocturnal Navy + Slate Blue) */
   --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: illustration;
   --lr-badge-bg: rgba(75, 145, 199, 0.16);
@@ -1171,9 +1171,9 @@
 .dark[data-theme="warm-library"],
 [data-theme="warm-library"] {
   /* Dark Theme — Warm Library (Espresso Walnut + Amber Lampglow) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(212, 154, 80, 0.16);
@@ -1241,9 +1241,9 @@
 .dark[data-theme="plum-noir"],
 [data-theme="plum-noir"] {
   /* Dark Theme — Plum Noir (Velvet Aubergine + Dusty Rose) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(196, 119, 166, 0.16);
@@ -1313,7 +1313,7 @@
   /* Dark Theme — Slate Minimal (Cool Graphite + Seafoam Teal) */
   --font-display-theme: 'Fraunces', Georgia, serif;
   --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: illustration;
   --lr-badge-bg: rgba(57, 184, 195, 0.15);
@@ -1381,9 +1381,9 @@
 .dark[data-theme="forest-library"],
 [data-theme="forest-library"] {
   /* Dark Theme — Forest Library (Spruce Study + Matte Forest Buttons) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 14px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(208, 173, 85, 0.16);
@@ -1433,9 +1433,9 @@
 .dark[data-theme="midnight-library"],
 [data-theme="midnight-library"] {
   /* Dark Theme — Midnight Library (Warm Charcoal + Matte Obsidian Buttons + Brushed Gold) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 18px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(224, 182, 84, 0.14);
@@ -1503,9 +1503,9 @@
 .dark[data-theme="hylle-editorial"],
 [data-theme="hylle-editorial"] {
   /* Dark Theme — Hylle Editorial (Obsidian Ink + Matte Olive-Charcoal Cards + Brushed Brass CTA) */
-  --font-display-theme: 'Cormorant Garamond', Georgia, serif;
-  --font-sans-theme: 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-serif-italic: 'Cormorant Garamond', Georgia, serif;
+  --font-display-theme: 'Fraunces', Georgia, serif;
+  --font-sans-theme: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-serif-italic: 'Fraunces', Georgia, serif;
   --card-radius: 16px;
   --lr-sidebar-art-mode: engraving;
   --lr-badge-bg: rgba(210, 179, 91, 0.14);
@@ -1838,6 +1838,7 @@
 
   h1, h2, h3, .font-display {
     font-family: var(--font-display);
+    font-optical-sizing: auto;
     text-wrap: balance;
     letter-spacing: -0.012em;
   }

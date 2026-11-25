@@ -442,6 +442,7 @@ export function createSafeDefaultSettings(overrides = {}) {
         normalizeThemePresetId(overrides.themePreset) ||
         (overrides.theme === 'dark' ? DEFAULT_DARK_THEME_PRESET : DEFAULT_LIGHT_THEME_PRESET),
       bookDetailStyle: overrides.bookDetailStyle === 'compact' ? 'compact' : 'editorial',
+      showBookDescription: overrides.showBookDescription !== false,
       bookViewMode: overrides.bookViewMode === 'list' ? 'list' : 'grid',
       bookCardSize: normalizeBookCardSize(overrides.bookCardSize),
       bookCardCustomWidth: normalizeBookCardCustomWidth(overrides.bookCardCustomWidth),

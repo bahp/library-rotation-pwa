@@ -182,7 +182,7 @@ export function renderSettingsView({
     const hasGoogle = b.sources.some(
       (s) => String(s?.provider || '').toLowerCase() === 'google-books'
     );
-    return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear;
+    return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear || !b.description;
   }).length;
 
   const profilesSummaryHtml = state.profiles

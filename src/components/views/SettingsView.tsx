@@ -364,7 +364,7 @@ export const SettingsView: React.FC = () => {
       const hasGoogle = b.sources.some(
         (s) => String(s?.provider || '').toLowerCase() === 'google-books'
       );
-      return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear;
+      return !hasGoogle || !b.coverUrl || !b.pageCount || !b.publishedYear || !b.description;
     }).length;
   }, [state.books]);
 
@@ -476,6 +476,12 @@ export const SettingsView: React.FC = () => {
 
   const handleCoverAspectChange = async (coverAspectRatio: CoverAspectRatio) => {
     await store.updateSettings({ coverAspectRatio });
+  };
+
+  const handleToggleShowBookDescription = async () => {
+    await store.updateSettings({
+      showBookDescription: state.settings.showBookDescription === false,
+    });
   };
 
   const handleToggleDynamicTint = async () => {
@@ -715,7 +721,7 @@ export const SettingsView: React.FC = () => {
     store.notify('Cleared personal device Books proxy.', 'info');
   };
 
-  const handleSyncLibraryMetadata = async () => {
+  const handleSyncLibraryMetadata = async (forceAll = false) => {
     setSyncingCatalog(true);
     setCatalogSyncProgress('Updating Library…');
     setCatalogSyncReport('');
@@ -723,6 +729,7 @@ export const SettingsView: React.FC = () => {
 
     try {
       const summary = await store.syncExistingCatalogMetadata(catalogService, {
+        forceAll,
         onProgress: ({ current, total }: { current: number; total: number }) => {
           setCatalogSyncProgress(`Updating ${current}/${total}…`);
         },
@@ -742,6 +749,9 @@ export const SettingsView: React.FC = () => {
             ? `${summary.addedGoogleSourceCount} linked to Google Books`
             : '',
           summary.addedCoversCount > 0 ? `${summary.addedCoversCount} new cover(s) added` : '',
+          summary.addedDescriptionsCount > 0
+            ? `${summary.addedDescriptionsCount} description(s) added`
+            : '',
           summary.skippedCount > 0 ? `${summary.skippedCount} already complete` : '',
         ].filter(Boolean);
         setCatalogSyncReport(`${parts.join(' · ')}.`);
@@ -1867,6 +1877,28 @@ export const SettingsView: React.FC = () => {
                         );
                       })}
                     </div>
+                  </div>
+
+                  {/* Show Book Description Toggle */}
+                  <div className="pt-4 border-t border-edge-subtle flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <p
+                        id="label-show-book-description"
+                        className="text-sm font-semibold text-ink"
+                      >
+                        {t('settings.showBookDescriptionLabel')}
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5">
+                        {t('settings.showBookDescriptionHint')}
+                      </p>
+                    </div>
+                    <ToggleSwitch
+                      checked={state.settings.showBookDescription !== false}
+                      onChange={handleToggleShowBookDescription}
+                      ariaLabelledBy="label-show-book-description"
+                      onLabel={t('common.on')}
+                      offLabel={t('common.off')}
+                    />
                   </div>
 
                   {/* Dynamic Cover Tint Switch & Options */}
@@ -3375,22 +3407,37 @@ export const SettingsView: React.FC = () => {
                           })}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleSyncLibraryMetadata}
-                        disabled={syncingCatalog || state.books.length === 0}
-                        className="min-h-[44px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-60 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
-                      >
-                        <Icon
-                          name="rotations"
-                          className={syncingCatalog ? 'w-3.5 h-3.5 animate-spin' : 'w-3.5 h-3.5'}
-                        />
-                        <span>
-                          {syncingCatalog
-                            ? catalogSyncProgress || t('settings.syncingLibraryProgress')
-                            : t('settings.syncLibraryBtn', { count: booksNeedingGoogleSyncCount })}
-                        </span>
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleSyncLibraryMetadata(false)}
+                          disabled={syncingCatalog || state.books.length === 0}
+                          className="min-h-[44px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover disabled:opacity-60 text-primary-fg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 shadow-xs cursor-pointer"
+                        >
+                          <Icon
+                            name="rotations"
+                            className={syncingCatalog ? 'w-3.5 h-3.5 animate-spin' : 'w-3.5 h-3.5'}
+                          />
+                          <span>
+                            {syncingCatalog
+                              ? catalogSyncProgress || t('settings.syncingLibraryProgress')
+                              : t('settings.syncLibraryBtn', { count: booksNeedingGoogleSyncCount })}
+                          </span>
+                        </button>
+                        {state.books.length > 0 &&
+                          booksNeedingGoogleSyncCount < state.books.length && (
+                            <button
+                              type="button"
+                              onClick={() => handleSyncLibraryMetadata(true)}
+                              disabled={syncingCatalog}
+                              className="min-h-[44px] px-3 py-2 rounded-lg bg-surface hover:bg-surface-elevated border border-edge disabled:opacity-60 text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                            >
+                              <span>
+                                {t('settings.syncLibraryAllBtn', { total: state.books.length })}
+                              </span>
+                            </button>
+                          )}
+                      </div>
                     </div>
 
                     {catalogSyncReport && (

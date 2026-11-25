@@ -300,6 +300,7 @@ export function createDefaultAppSettings() {
     theme: 'light',
     themePreset: 'bunko',
     bookDetailStyle: 'editorial',
+    showBookDescription: true,
     bookViewMode: 'grid',
     bookCardSize: 'compact',
     bookCardCustomWidth: NUMERIC_BOUNDS.bookCardCustomWidthDefault,

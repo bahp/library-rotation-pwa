@@ -91,6 +91,7 @@ type DiscoveryShelfDescriptor =
       targetRotation?: RotationShelf | null;
       anchorBook?: Book;
       actionType?: 'manage-rotation' | 'ai-picks';
+      showQuickAdd?: boolean;
       badgeText?: string;
       ranked?: boolean;
     }
@@ -183,23 +184,20 @@ export const HomeView: React.FC = () => {
       profile: activeProfile,
       rotation: primaryActiveRotation,
       rotations: state.rotations,
-      limit: 10,
+      limit: 12,
     });
   }, [state.books, activeProfile, primaryActiveRotation, state.rotations]);
 
   // 2. Overall Suggested for [Profile]
   const recommendations = useMemo(() => {
     if (!activeProfile) return [];
-    const pool = getProfileRecommendations({
+    return getProfileRecommendations({
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 14,
+      limit: 20,
     });
-    const rotIds = new Set(rotationSuggestions.map((item) => item.book.id));
-    const distinct = pool.filter((item) => !rotIds.has(item.book.id));
-    return (distinct.length >= 2 ? distinct : pool).slice(0, 10);
-  }, [state.books, activeProfile, state.rotations, rotationSuggestions]);
+  }, [state.books, activeProfile, state.rotations]);
 
   // 3. Wind-down & Bedtime mood shelf (boosted up after 18:30)
   const bedtimeShelf = useMemo(() => {
@@ -208,7 +206,7 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 10,
+      limit: 18,
     });
   }, [state.books, activeProfile, state.rotations]);
 
@@ -219,7 +217,7 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 10,
+      limit: 18,
     });
   }, [state.books, activeProfile, state.rotations]);
 
@@ -231,7 +229,7 @@ export const HomeView: React.FC = () => {
       profile: activeProfile,
       rotations: state.rotations,
       maxAnchors: 2,
-      itemsPerAnchor: 10,
+      itemsPerAnchor: 16,
       minItems: 1,
     });
   }, [state.books, activeProfile, state.rotations]);
@@ -243,7 +241,7 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 10,
+      limit: 18,
       minItems: 2,
     });
   }, [state.books, activeProfile, state.rotations]);
@@ -257,7 +255,7 @@ export const HomeView: React.FC = () => {
       profile: activeProfile,
       rotations: state.rotations,
       presets,
-      limit: 10,
+      limit: 18,
       minItems: 2,
     });
   }, [state, activeProfile]);
@@ -269,7 +267,7 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 10,
+      limit: 18,
     });
   }, [state.books, activeProfile, state.rotations]);
 
@@ -280,7 +278,7 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 10,
+      limit: 18,
       minItems: 2,
     });
   }, [state.books, activeProfile, state.rotations]);
@@ -292,21 +290,38 @@ export const HomeView: React.FC = () => {
       books: state.books,
       profile: activeProfile,
       rotations: state.rotations,
-      limit: 10,
+      limit: 18,
       minItems: 2,
     });
   }, [state.books, activeProfile, state.rotations]);
 
   // 11. From Your Wishlist
   const wishlistSpotlight = useMemo(() => {
-    return getWishlistSpotlightShelf({ books: state.books, limit: 10 });
+    return getWishlistSpotlightShelf({ books: state.books, limit: 14 });
   }, [state.books]);
 
   const discoveryShelves = useMemo<DiscoveryShelfDescriptor[]>(() => {
     const shelves: DiscoveryShelfDescriptor[] = [];
+    const seenOwnedIds = new Set<string>();
+
+    const pushOwnedShelf = (
+      descriptor: Extract<DiscoveryShelfDescriptor, { kind: 'owned-rec' }>,
+      minItems = 1
+    ) => {
+      const freshItems = descriptor.items.filter((item) => !seenOwnedIds.has(item.book.id));
+      if (freshItems.length < minItems) return;
+      const sliced = freshItems.slice(0, 10);
+      for (const item of sliced) {
+        seenOwnedIds.add(item.book.id);
+      }
+      shelves.push({
+        ...descriptor,
+        items: sliced,
+      });
+    };
 
     if (primaryActiveRotation && rotationSuggestions.length > 0) {
-      shelves.push({
+      pushOwnedShelf({
         key: `rot-add-${primaryActiveRotation.id}`,
         kind: 'owned-rec',
         title: `Add to ${primaryActiveRotation.title}`,
@@ -314,10 +329,11 @@ export const HomeView: React.FC = () => {
         items: rotationSuggestions,
         targetRotation: primaryActiveRotation,
         actionType: 'manage-rotation',
+        showQuickAdd: true,
       });
     }
 
-    const bedtimeDescriptor: DiscoveryShelfDescriptor | null =
+    const bedtimeDescriptor: Extract<DiscoveryShelfDescriptor, { kind: 'owned-rec' }> | null =
       bedtimeShelf.length > 0
         ? {
             key: 'mood-bedtime',
@@ -327,112 +343,124 @@ export const HomeView: React.FC = () => {
             badgeText: isEveningWindDown ? 'Tonight' : undefined,
             size: isEveningWindDown ? 'large' : 'regular',
             items: bedtimeShelf,
-            targetRotation: primaryActiveRotation,
+            targetRotation: null,
           }
         : null;
 
     if (bedtimeDescriptor && isEveningWindDown) {
-      shelves.push(bedtimeDescriptor);
+      pushOwnedShelf(bedtimeDescriptor);
     }
 
     if (recommendations.length > 0) {
-      shelves.push({
+      pushOwnedShelf({
         key: `suggested-${activeProfile?.id || 'reader'}`,
         kind: 'owned-rec',
         title: `Suggested for ${activeProfile?.name || 'Reader'}`,
         size: 'regular',
         items: recommendations,
-        targetRotation: primaryActiveRotation,
+        targetRotation: null,
         actionType: 'ai-picks',
       });
     }
 
     if (rereadShelf.length > 0) {
-      shelves.push({
+      pushOwnedShelf({
         key: 'reread-favorites',
         kind: 'owned-rec',
         title: 'Ready for a Re-Read',
         subtitle: 'Favorites not read in 30+ days',
         size: 'regular',
         items: rereadShelf,
-        targetRotation: primaryActiveRotation,
+        targetRotation: null,
       });
     }
 
     lovedShelves.forEach(({ anchorBook, items }, idx) => {
-      shelves.push({
+      pushOwnedShelf({
         key: `loved-${anchorBook.id}`,
         kind: 'owned-rec',
         title: `Because you loved ${anchorBook.title}`,
         size: idx === 0 ? 'large' : 'compact',
         items,
         anchorBook,
-        targetRotation: primaryActiveRotation,
+        targetRotation: null,
       });
     });
 
     if (genreShelf && genreShelf.items.length > 0) {
-      shelves.push({
-        key: `genre-${genreShelf.topic}`,
-        kind: 'owned-rec',
-        title: `Because you like ${genreShelf.label}`,
-        size: 'compact',
-        items: genreShelf.items,
-        targetRotation: primaryActiveRotation,
-      });
+      pushOwnedShelf(
+        {
+          key: `genre-${genreShelf.topic}`,
+          kind: 'owned-rec',
+          title: `Because you like ${genreShelf.label}`,
+          size: 'compact',
+          items: genreShelf.items,
+          targetRotation: null,
+        },
+        2
+      );
     }
 
     if (seasonalShelf && seasonalShelf.items.length > 0) {
-      shelves.push({
-        key: `seasonal-${seasonalShelf.preset.id}`,
-        kind: 'owned-rec',
-        title: `Seasonal Picks: ${seasonalShelf.preset.title}`,
-        size: 'regular',
-        items: seasonalShelf.items,
-        targetRotation: primaryActiveRotation,
-      });
+      pushOwnedShelf(
+        {
+          key: `seasonal-${seasonalShelf.preset.id}`,
+          kind: 'owned-rec',
+          title: `Seasonal Picks: ${seasonalShelf.preset.title}`,
+          size: 'regular',
+          items: seasonalShelf.items,
+          targetRotation: null,
+        },
+        2
+      );
     }
 
     if (bedtimeDescriptor && !isEveningWindDown) {
-      shelves.push(bedtimeDescriptor);
+      pushOwnedShelf(bedtimeDescriptor);
     }
 
     if (dustyGemsShelf.length > 0) {
-      shelves.push({
+      pushOwnedShelf({
         key: 'dusty-gems',
         kind: 'owned-rec',
         title: 'Dusty Gems on Your Shelf',
         subtitle: 'Owned stories waiting for a turn',
         size: 'compact',
         items: dustyGemsShelf,
-        targetRotation: primaryActiveRotation,
+        targetRotation: null,
       });
     }
 
     if (authorShelf && authorShelf.items.length > 0) {
-      shelves.push({
-        key: `author-${authorShelf.author}`,
-        kind: 'owned-rec',
-        title: `More by ${authorShelf.author}`,
-        size: 'compact',
-        items: authorShelf.items,
-        targetRotation: primaryActiveRotation,
-      });
+      pushOwnedShelf(
+        {
+          key: `author-${authorShelf.author}`,
+          kind: 'owned-rec',
+          title: `More by ${authorShelf.author}`,
+          size: 'compact',
+          items: authorShelf.items,
+          targetRotation: null,
+        },
+        2
+      );
     }
 
     if (languageShelf && languageShelf.items.length > 0) {
-      shelves.push({
-        key: `lang-${languageShelf.language}`,
-        kind: 'owned-rec',
-        title: `In ${languageShelf.label} Today`,
-        size: 'compact',
-        items: languageShelf.items,
-        targetRotation: primaryActiveRotation,
-      });
+      pushOwnedShelf(
+        {
+          key: `lang-${languageShelf.language}`,
+          kind: 'owned-rec',
+          title: `In ${languageShelf.label} Today`,
+          size: 'compact',
+          items: languageShelf.items,
+          targetRotation: null,
+        },
+        2
+      );
     }
 
     if (wishlistSpotlight.length > 0) {
-      shelves.push({
+      pushOwnedShelf({
         key: 'wishlist-spotlight',
         kind: 'owned-rec',
         title: 'From Your Wishlist',
@@ -527,6 +555,40 @@ export const HomeView: React.FC = () => {
       });
     }
   }, [discoveryShelves, visibleShelfCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Deduplicate curated external Open Library feeds across rows (in feed order)
+  const dedupedExternalFeedItems = useMemo(() => {
+    const result: Record<string, BookCandidate[]> = {};
+    const seenKeys = new Set<string>();
+    const normalizeTA = (title: string, author?: string) => {
+      const tNorm = String(title || '')
+        .toLowerCase()
+        .split(/[:—–(]/)[0]
+        .replace(/[^a-z0-9]+/g, '');
+      const aNorm = String(author || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '');
+      return tNorm ? `${tNorm}|${aNorm}` : '';
+    };
+
+    for (const feed of CURATED_SUBJECT_FEEDS) {
+      const items = externalFeeds[feed.slug]?.items || [];
+      const unique: BookCandidate[] = [];
+      for (const cand of items) {
+        const taKey = normalizeTA(cand.title, cand.authors?.[0]);
+        const keys = [
+          cand.candidateKey,
+          cand.isbn13 ? `isbn:${cand.isbn13}` : '',
+          taKey ? `ta:${taKey}` : '',
+        ].filter(Boolean);
+        if (keys.some((k) => seenKeys.has(k))) continue;
+        keys.forEach((k) => seenKeys.add(k));
+        unique.push(cand);
+      }
+      result[feed.slug] = unique;
+    }
+    return result;
+  }, [externalFeeds]);
 
   const wishlistCount = useMemo(() => {
     return state.books.filter(
@@ -708,31 +770,33 @@ export const HomeView: React.FC = () => {
     matchReasons: string[],
     keyPrefix: string,
     cardSize: BookCardSize,
-    targetRotation: RotationShelf | null = primaryActiveRotation,
-    rankNumber?: number
+    targetRotation: RotationShelf | null = null,
+    rankNumber?: number,
+    showQuickAdd = false
   ) => {
     const isOverlay = suggestedCardConfig.infoPlacement === 'overlay';
-    const addAction = targetRotation ? (
-      <button
-        type="button"
-        onClick={async (e) => {
-          e.stopPropagation();
-          await store.addBooksToRotationManual(targetRotation.id, [book.id]);
-          store.notify(`Added "${book.title}" to "${targetRotation.title}"!`, 'success');
-        }}
-        aria-label={`Add ${book.title} to ${targetRotation.title}`}
-        title={`Add to ${targetRotation.title}`}
-        className={
-          isOverlay
-            ? 'min-h-[36px] min-w-[36px] flex items-end justify-end cursor-pointer'
-            : 'absolute -bottom-1 -right-1 z-20 min-h-[40px] min-w-[40px] flex items-end justify-end p-2 cursor-pointer'
-        }
-      >
-        <span className="w-7 h-7 rounded-full bg-surface/95 hover:bg-primary hover:text-primary-fg border border-edge text-ink shadow-xs flex items-center justify-center transition-colors">
-          <Icon name="plus" className="w-3.5 h-3.5" />
-        </span>
-      </button>
-    ) : undefined;
+    const addAction =
+      showQuickAdd && targetRotation ? (
+        <button
+          type="button"
+          onClick={async (e) => {
+            e.stopPropagation();
+            await store.addBooksToRotationManual(targetRotation.id, [book.id]);
+            store.notify(`Added "${book.title}" to "${targetRotation.title}"!`, 'success');
+          }}
+          aria-label={`Add ${book.title} to ${targetRotation.title}`}
+          title={`Add to ${targetRotation.title}`}
+          className={
+            isOverlay
+              ? 'min-h-[36px] min-w-[36px] flex items-end justify-end cursor-pointer'
+              : 'absolute -bottom-1 -right-1 z-20 min-h-[40px] min-w-[40px] flex items-end justify-end p-2 cursor-pointer'
+          }
+        >
+          <span className="w-7 h-7 rounded-full bg-surface/95 hover:bg-primary hover:text-primary-fg border border-edge text-ink shadow-xs flex items-center justify-center transition-colors">
+            <Icon name="plus" className="w-3.5 h-3.5" />
+          </span>
+        </button>
+      ) : undefined;
 
     return (
       <BookCoverCard
@@ -788,27 +852,6 @@ export const HomeView: React.FC = () => {
         ? `${candidate.publishedYear} · Discovery`
         : 'Discovery pick';
 
-    const quickAddButton = !matchedBook ? (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setFoundCandidate(candidate);
-        }}
-        aria-label={`Save or add ${candidate.title}`}
-        title="Add to Library or Wishlist"
-        className={
-          suggestedCardConfig.infoPlacement === 'overlay'
-            ? 'min-h-[36px] min-w-[36px] flex items-end justify-end cursor-pointer'
-            : 'absolute -bottom-1 -right-1 z-20 min-h-[40px] min-w-[40px] flex items-end justify-end p-2 cursor-pointer'
-        }
-      >
-        <span className="w-7 h-7 rounded-full bg-surface/95 hover:bg-primary hover:text-primary-fg border border-edge text-ink shadow-xs flex items-center justify-center transition-colors">
-          <Icon name="plus" className="w-3.5 h-3.5" />
-        </span>
-      </button>
-    ) : undefined;
-
     return (
       <BookCoverCard
         key={`${keyPrefix}-${candidate.candidateKey}`}
@@ -833,16 +876,15 @@ export const HomeView: React.FC = () => {
             setFoundCandidate(candidate);
           }
         }}
-        bottomRightCoverAction={quickAddButton}
       />
     );
   };
 
   return (
-    <div className={`space-y-4 sm:space-y-5 text-left ${bottomBarBook ? 'pb-28' : 'pb-6'}`}>
+    <div className={`space-y-3 sm:space-y-5 text-left ${bottomBarBook ? 'pb-28' : 'pb-6'}`}>
       {/* Section 0: Active Rotations (Desktop: clean grid, Phone: smooth slider; clickable to open sheet) */}
       {activeRotations.length > 0 ? (
-        <section aria-labelledby="active-rotations-section-heading" className="space-y-5">
+        <section aria-labelledby="active-rotations-section-heading" className="space-y-4 sm:space-y-5">
           {activeRotations.length > 1 && (
             <div className="flex items-center justify-between gap-2">
               <span
@@ -862,7 +904,7 @@ export const HomeView: React.FC = () => {
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {activeRotations.map((rot, idx) => {
               const rotBooks = rot.bookIds
                 .map((id: string) => bookMap.get(id))
@@ -878,13 +920,13 @@ export const HomeView: React.FC = () => {
                 <div
                   key={rot.id}
                   data-home-active-rotation={rot.id}
-                  className="space-y-3"
+                  className="space-y-2.5 sm:space-y-3"
                 >
                   <button
                     type="button"
                     onClick={() => setSheetRotationId(rot.id)}
                     aria-label={`Open ${rot.title} rotation details (${completedCount} of ${rotBooks.length} read, ${progressPct}%)`}
-                    className="group w-full text-left flex items-start justify-between gap-3 pb-3 border-b border-edge-subtle cursor-pointer rounded-xl px-2 -mx-2 py-1.5 hover:bg-surface-subtle/60 transition-colors"
+                    className="group w-full text-left flex items-start justify-between gap-3 pb-1.5 sm:pb-3 sm:border-b sm:border-edge-subtle cursor-pointer rounded-xl px-2 -mx-2 py-1.5 hover:bg-surface-subtle/60 transition-colors"
                   >
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex items-start gap-2.5 min-w-0">
@@ -968,6 +1010,7 @@ export const HomeView: React.FC = () => {
                       <BookCoverSlide
                         itemCount={rotBooks.length}
                         ariaLabel={`${rot.title} books`}
+                        fullBleed
                       >
                         {rotBooks.map((book) => renderShelfBookCard(book, rot, true))}
                       </BookCoverSlide>
@@ -1031,7 +1074,7 @@ export const HomeView: React.FC = () => {
         if (shelf.kind === 'external-subject') {
           const feedState = externalFeeds[shelf.slug];
           const isLoading = !feedState || (feedState.loading && !feedState.loaded);
-          const items = feedState?.items || [];
+          const items = dedupedExternalFeedItems[shelf.slug] || [];
 
           if (feedState?.loaded && items.length === 0) {
             return null;
@@ -1042,7 +1085,7 @@ export const HomeView: React.FC = () => {
               key={shelf.key}
               data-discovery-shelf={shelf.feedId}
               aria-labelledby={`shelf-heading-${shelf.key}`}
-              className="pt-3.5 sm:pt-4 border-t border-edge-subtle/60 space-y-2.5"
+              className="pt-1.5 sm:pt-4 sm:border-t sm:border-edge-subtle/60 space-y-2"
             >
               <div className="flex items-baseline justify-between gap-2">
                 <div className="min-w-0">
@@ -1064,7 +1107,10 @@ export const HomeView: React.FC = () => {
               </div>
 
               {isLoading ? (
-                <div className="flex gap-3 overflow-hidden py-1" aria-busy="true">
+                <div
+                  className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 flex gap-3 overflow-hidden py-1"
+                  aria-busy="true"
+                >
                   {Array.from({ length: 5 }).map((_, idx) => (
                     <div
                       key={idx}
@@ -1077,6 +1123,7 @@ export const HomeView: React.FC = () => {
                   itemCount={items.length}
                   ariaLabel={shelf.title}
                   showPagination={false}
+                  fullBleed
                 >
                   {items.map((cand, idx) =>
                     renderExternalDiscoveryCard(
@@ -1097,7 +1144,7 @@ export const HomeView: React.FC = () => {
             key={shelf.key}
             data-discovery-shelf={shelf.key}
             aria-labelledby={`shelf-heading-${shelf.key}`}
-            className="pt-3.5 sm:pt-4 border-t border-edge-subtle/60 space-y-2.5"
+            className="pt-1.5 sm:pt-4 sm:border-t sm:border-edge-subtle/60 space-y-2"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0 flex items-center gap-2.5">
@@ -1169,6 +1216,7 @@ export const HomeView: React.FC = () => {
               itemCount={shelf.items.length}
               ariaLabel={shelf.title}
               showPagination={false}
+              fullBleed
             >
               {shelf.items.map(({ book, matchReasons }, idx) =>
                 renderRecCoverCard(
@@ -1177,7 +1225,8 @@ export const HomeView: React.FC = () => {
                   shelf.key,
                   shelf.size,
                   shelf.targetRotation === undefined ? primaryActiveRotation : shelf.targetRotation,
-                  shelf.ranked ? idx + 1 : undefined
+                  shelf.ranked ? idx + 1 : undefined,
+                  Boolean(shelf.showQuickAdd)
                 )
               )}
             </BookCoverSlide>
@@ -1206,7 +1255,7 @@ export const HomeView: React.FC = () => {
       {/* Lower Summary: Quiet Inline Household Collection Summary */}
       <section
         aria-label="Active collection summary"
-        className="pt-4 border-t border-edge-subtle/70 flex flex-wrap items-center justify-between gap-3"
+        className="pt-2 sm:pt-4 sm:border-t sm:border-edge-subtle/70 flex flex-wrap items-center justify-between gap-3"
       >
         <div className="min-w-0">
           <p className="text-xs sm:text-sm font-semibold text-ink font-mono-tabular">

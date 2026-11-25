@@ -6,6 +6,7 @@ interface HorizontalBookCarouselProps {
   itemCount: number;
   ariaLabel?: string;
   showPagination?: boolean;
+  fullBleed?: boolean;
 }
 
 export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
@@ -13,6 +14,7 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
   itemCount,
   ariaLabel = 'Book carousel',
   showPagination = true,
+  fullBleed = false,
 }) => {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [dotCount, setDotCount] = useState(1);
@@ -70,13 +72,19 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
   };
 
   return (
-    <div className="min-w-0 relative group/carousel">
+    <div
+      className={`min-w-0 relative group/carousel ${
+        fullBleed ? '-mx-4 sm:-mx-6 lg:-mx-8' : ''
+      }`}
+    >
       {canScrollLeft && (
         <button
           type="button"
           onClick={() => scrollByStep(-1)}
           aria-label={`Scroll ${ariaLabel} left`}
-          className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute left-1.5 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
+          className={`hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute ${
+            fullBleed ? 'left-3' : 'left-1.5'
+          } top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
         >
           <Icon name="chevronLeft" className="w-4 h-4" />
         </button>
@@ -87,7 +95,9 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
           type="button"
           onClick={() => scrollByStep(1)}
           aria-label={`Scroll ${ariaLabel} right`}
-          className="hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute right-1.5 top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer"
+          className={`hidden md:flex items-center justify-center w-9 h-9 rounded-full bg-surface/92 hover:bg-surface border border-edge text-ink shadow-lg backdrop-blur-md absolute ${
+            fullBleed ? 'right-3' : 'right-1.5'
+          } top-1/2 -translate-y-1/2 z-20 opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 transition-opacity cursor-pointer`}
         >
           <Icon name="chevronRight" className="w-4 h-4" />
         </button>
@@ -98,7 +108,9 @@ export const HorizontalBookCarousel: React.FC<HorizontalBookCarouselProps> = ({
         role="region"
         aria-label={ariaLabel}
         onScroll={recalc}
-        className="flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar pb-1"
+        className={`flex gap-3 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar pb-1 ${
+          fullBleed ? 'px-4 sm:px-6 lg:px-8 scroll-px-4 sm:scroll-px-6 lg:scroll-px-8' : ''
+        }`}
       >
         {children}
       </div>

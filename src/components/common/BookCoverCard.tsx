@@ -144,6 +144,7 @@ export interface BookCoverSlideProps {
   itemCount: number;
   ariaLabel?: string;
   showPagination?: boolean;
+  fullBleed?: boolean;
   children: React.ReactNode;
 }
 
@@ -151,6 +152,7 @@ export const BookCoverSlide: React.FC<BookCoverSlideProps> = ({
   itemCount,
   ariaLabel,
   showPagination = true,
+  fullBleed = false,
   children,
 }) => {
   return (
@@ -158,6 +160,7 @@ export const BookCoverSlide: React.FC<BookCoverSlideProps> = ({
       itemCount={itemCount}
       ariaLabel={ariaLabel}
       showPagination={showPagination}
+      fullBleed={fullBleed}
     >
       {children}
     </HorizontalBookCarousel>

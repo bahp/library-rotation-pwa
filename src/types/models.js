@@ -327,6 +327,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {ThemeMode} theme - UI color mode preference
  * @property {ThemePresetId} [themePreset] - Selected centralized theme preset
  * @property {BookDetailStyle} [bookDetailStyle] - Preferred Book Detail view ('compact' | 'editorial')
+ * @property {boolean} [showBookDescription] - Show the About This Book synopsis section expanded in Book Details (default: true)
  * @property {BookViewMode} [bookViewMode] - Default shelf & catalog view ('grid' | 'list')
  * @property {BookCardSize} [bookCardSize] - Grid card density ('compact' | 'regular' | 'large' | 'custom')
  * @property {number} [bookCardCustomWidth] - Custom book card target width in pixels (88..260, default 136)
