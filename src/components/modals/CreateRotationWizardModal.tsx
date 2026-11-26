@@ -504,9 +504,19 @@ export const CreateRotationWizardModal: React.FC<CreateRotationWizardModalProps>
             const bCount = b.rotationCount || 0;
             if (aCount !== bCount) return aCount - bCount;
             const aAgeFit =
-              activeProfile.age >= a.ageMin && activeProfile.age <= a.ageMax ? 0 : 1;
+              typeof a.ageMin === 'number' &&
+              typeof a.ageMax === 'number' &&
+              activeProfile.age >= a.ageMin &&
+              activeProfile.age <= a.ageMax
+                ? 0
+                : 1;
             const bAgeFit =
-              activeProfile.age >= b.ageMin && activeProfile.age <= b.ageMax ? 0 : 1;
+              typeof b.ageMin === 'number' &&
+              typeof b.ageMax === 'number' &&
+              activeProfile.age >= b.ageMin &&
+              activeProfile.age <= b.ageMax
+                ? 0
+                : 1;
             return aAgeFit - bAgeFit;
           });
           await store.saveCuratedRotation({

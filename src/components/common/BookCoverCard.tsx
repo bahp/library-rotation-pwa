@@ -3,6 +3,7 @@ import { BookCover } from './BookCover.js';
 import { HorizontalBookCarousel } from './HorizontalBookCarousel.js';
 import { Icon } from './Icon.js';
 import {
+  formatBookAgeLabel,
   formatBookBinding,
   isBookRotatable,
   normalizeBookCondition,
@@ -245,18 +246,19 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
       : status === 'library'
         ? 'Loan'
         : status === 'interested'
-          ? 'Saved'
+          ? 'Suggestion'
           : condition !== 'good'
             ? condition === 'torn'
               ? 'Torn'
               : 'Damaged'
             : null;
 
+  const ageLabel = formatBookAgeLabel(book.ageMin, book.ageMax);
   const inlineSpecs: string[] = [];
   if (fieldSet.has('year') && yearLabel) inlineSpecs.push(yearLabel);
   if (fieldSet.has('pages') && pagesLabel) inlineSpecs.push(pagesLabel);
   if (fieldSet.has('ageFormat')) {
-    inlineSpecs.push(`Ages ${book.ageMin}–${book.ageMax}`);
+    if (ageLabel) inlineSpecs.push(ageLabel);
     inlineSpecs.push(formatBookBinding(book.format));
   }
 

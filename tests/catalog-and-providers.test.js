@@ -19,7 +19,9 @@ import {
   candidateToBook,
   sanitizeCoverUrl,
   cleanBookDescription,
+  cleanProviderCategories,
 } from '../src/features/catalog/normalizer.js';
+import { formatCollectionStatus } from '../src/types/models.js';
 import { createHttpClient } from '../src/features/catalog/providers/http-client.js';
 import { createGoogleBooksProvider } from '../src/features/catalog/providers/google-books-provider.js';
 import { createOpenLibraryProvider } from '../src/features/catalog/providers/open-library-provider.js';
@@ -322,6 +324,39 @@ describe('Catalog & Metadata Providers Suite', () => {
     assert.equal(fetches, 1);
     assert.equal(second.fromCache, true);
     assert.equal(second.items[0].title, 'Make Way for Ducklings');
+  });
+
+  it('cleanProviderCategories separates provider categories from curated tags and maps interested to Suggestions', () => {
+    const cleaned = cleanProviderCategories([
+      'Juvenile Fiction / Animals / Bears',
+      'Paperback',
+      'Bedtime & Dreams',
+      'General',
+    ]);
+    assert.deepEqual(cleaned, ['Animals', 'Bears', 'Bedtime & Dreams']);
+
+    const candidate = normalizeGoogleBooksItem({
+      id: 'gb_sep_test',
+      volumeInfo: {
+        title: 'Little Cub Goes Camping',
+        authors: ['Sam Trail'],
+        categories: ['Juvenile Fiction / Social Themes / Friendship', 'Paperback'],
+        description: 'Two friends explore the forest together at bedtime.',
+      },
+    });
+    assert.ok(candidate);
+    assert.deepEqual(candidate.categories, ['Social Themes', 'Friendship']);
+    assert.ok(!candidate.tags.includes('social-themes'));
+    assert.ok(candidate.tags.includes('friendship'));
+    assert.ok(candidate.tags.includes('bedtime'));
+    assert.equal(candidate.ageMin, undefined);
+    assert.equal(candidate.ageMax, undefined);
+
+    const book = candidateToBook(candidate);
+    assert.deepEqual(book.categories, ['Social Themes', 'Friendship']);
+    assert.equal(book.ageMin, undefined);
+    assert.equal(book.ageMax, undefined);
+    assert.equal(formatCollectionStatus('interested'), 'Suggestions');
   });
 });
 

@@ -255,6 +255,44 @@ export const BookGenresSheet: React.FC<BookGenresSheetProps> = ({
             </div>
           </form>
 
+          {/* Provider Catalog Categories (read-only metadata separate from curated tags) */}
+          {Array.isArray(book.categories) && book.categories.length > 0 && (
+            <div className="space-y-2 pb-2 border-b border-edge-subtle">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                  Catalog Categories ({book.categories.length})
+                </p>
+                <span className="text-[10px] text-ink-muted">From providers · Tap + to add as tag</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {book.categories.map((cat) => {
+                  const slug = normalizeTagSlug(cat);
+                  const alreadyTagged = slug ? book.tags.includes(slug) : false;
+                  return alreadyTagged ? (
+                    <span
+                      key={cat}
+                      className="min-h-[30px] px-2.5 py-1 rounded-lg bg-surface-subtle/60 border border-edge-subtle text-xs text-ink-secondary inline-flex items-center gap-1.5"
+                    >
+                      <Icon name="check" className="w-3 h-3 text-primary shrink-0" />
+                      <span>{cat}</span>
+                    </span>
+                  ) : (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => void onAddTag(cat)}
+                      title={`Add "${cat}" as a topic tag`}
+                      className="min-h-[30px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs text-ink-secondary hover:text-ink inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span>{cat}</span>
+                      <Icon name="plus" className="w-3 h-3 text-primary shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Current Applied Tags + Origin Legend */}
           <div className="space-y-2">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">

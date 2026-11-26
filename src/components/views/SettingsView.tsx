@@ -491,6 +491,12 @@ export const SettingsView: React.FC = () => {
     await store.updateSettings({ dynamicCoverTint: state.settings.dynamicCoverTint === false });
   };
 
+  const handleToggleDynamicTintAccent = async () => {
+    await store.updateSettings({
+      dynamicCoverTintAccent: !state.settings.dynamicCoverTintAccent,
+    });
+  };
+
   const handleDynamicTintStyleChange = async (dynamicCoverTintStyle: 'circular' | 'linear') => {
     await store.updateSettings({ dynamicCoverTintStyle });
   };
@@ -826,6 +832,12 @@ export const SettingsView: React.FC = () => {
   const handleToggleAutoLocalTagging = async () => {
     await store.updateSettings({
       autoLocalTagging: state.settings.autoLocalTagging === false,
+    });
+  };
+
+  const handleToggleAutoInferAgeRange = async () => {
+    await store.updateSettings({
+      autoInferAgeRange: !state.settings.autoInferAgeRange,
     });
   };
 
@@ -1973,6 +1985,26 @@ export const SettingsView: React.FC = () => {
 
                     {state.settings.dynamicCoverTint !== false && (
                       <div className="space-y-4 pt-1">
+                        <div className="flex items-center justify-between gap-4 pb-3 border-b border-edge-subtle">
+                          <div className="min-w-0">
+                            <p
+                              id="label-dynamic-tint-accent"
+                              className="text-xs sm:text-sm font-semibold text-ink"
+                            >
+                              {t('settings.dynamicTintAccentLabel')}
+                            </p>
+                            <p className="text-xs text-ink-secondary mt-0.5">
+                              {t('settings.dynamicTintAccentHint')}
+                            </p>
+                          </div>
+                          <ToggleSwitch
+                            checked={Boolean(state.settings.dynamicCoverTintAccent)}
+                            onChange={handleToggleDynamicTintAccent}
+                            ariaLabelledBy="label-dynamic-tint-accent"
+                            onLabel={t('common.on')}
+                            offLabel={t('common.off')}
+                          />
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <p className="text-xs font-semibold text-ink">
@@ -4065,6 +4097,28 @@ export const SettingsView: React.FC = () => {
                     checked={state.settings.autoLocalTagging !== false}
                     onChange={handleToggleAutoLocalTagging}
                     ariaLabelledBy="label-auto-tagging"
+                    onLabel={t('common.on')}
+                    offLabel={t('common.off')}
+                  />
+                </div>
+
+                {/* Heuristic Age Range Inference Switch */}
+                <div className="pt-3 border-t border-edge-subtle flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p
+                      id="label-auto-infer-age"
+                      className="text-sm font-semibold text-ink"
+                    >
+                      {t('settings.autoInferAgeTitle')}
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      {t('settings.autoInferAgeDesc')}
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    checked={Boolean(state.settings.autoInferAgeRange)}
+                    onChange={handleToggleAutoInferAgeRange}
+                    ariaLabelledBy="label-auto-infer-age"
                     onLabel={t('common.on')}
                     offLabel={t('common.off')}
                   />

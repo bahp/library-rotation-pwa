@@ -660,7 +660,7 @@ export const HomeView: React.FC = () => {
 
   const handleAddFoundCandidate = async (
     candidate: BookCandidate,
-    status: 'owned' | 'wishlist',
+    status: 'owned' | 'wishlist' | 'interested',
     opts?: FoundBookIntakeOptions
   ) => {
     try {
@@ -675,7 +675,13 @@ export const HomeView: React.FC = () => {
       });
       setFoundCandidate(null);
       store.notify(
-        `Added "${candidate.title}" to ${status === 'owned' ? 'Library' : 'Wishlist'}`,
+        `Added "${candidate.title}" to ${
+          status === 'owned'
+            ? 'Library'
+            : status === 'wishlist'
+              ? 'Wishlist'
+              : 'Suggestions'
+        }`,
         'success'
       );
     } catch (err) {
@@ -926,7 +932,7 @@ export const HomeView: React.FC = () => {
                 if (target?.closest('button, a, input, select, textarea, [data-no-card-nav="true"]')) {
                   return;
                 }
-                navigate('rotations');
+                setSheetRotationId(rot.id);
               };
 
               return (
@@ -937,18 +943,19 @@ export const HomeView: React.FC = () => {
                   onClick={handleCardBackgroundClick}
                   className={
                     useRotationCard
-                      ? 'rounded-2xl bg-surface border border-edge lr-card p-3.5 sm:p-5 space-y-3 sm:space-y-4 transition-colors hover:border-primary/45'
+                      ? 'rounded-2xl bg-surface border border-edge lr-card p-3.5 sm:p-5 space-y-3 sm:space-y-4 transition-colors hover:border-primary/45 cursor-pointer'
                       : 'space-y-2.5 sm:space-y-3'
                   }
                 >
                   <button
                     type="button"
-                    onClick={() => navigate('rotations')}
-                    aria-label={`Open ${rot.title} in Rotations (${completedCount} of ${rotBooks.length} read, ${progressPct}%)`}
+                    data-action="open-home-rotation-sheet"
+                    onClick={() => setSheetRotationId(rot.id)}
+                    aria-label={`Open ${rot.title} details (${completedCount} of ${rotBooks.length} read, ${progressPct}%)`}
                     className={
                       useRotationCard
-                        ? 'group w-full text-left flex items-start justify-between gap-3 pb-2.5 sm:pb-3 border-b border-edge-subtle cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-primary transition-colors'
-                        : 'group w-full text-left flex items-start justify-between gap-3 pb-1.5 sm:pb-3 sm:border-b sm:border-edge-subtle cursor-pointer rounded-xl px-2 -mx-2 py-1.5 hover:bg-surface-subtle/60 transition-colors'
+                        ? 'group w-full text-left flex items-center justify-between gap-3 pb-2.5 sm:pb-3 border-b border-edge-subtle cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-primary transition-colors'
+                        : 'group w-full text-left flex items-center justify-between gap-3 pb-1.5 sm:pb-3 sm:border-b sm:border-edge-subtle cursor-pointer rounded-xl px-2 -mx-2 py-1.5 hover:bg-surface-subtle/60 transition-colors'
                     }
                   >
                     <div className="min-w-0 flex-1 space-y-1">
@@ -1015,8 +1022,8 @@ export const HomeView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Top-Right Progress Readout + Clear Navigation Affordance */}
-                    <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 pt-0.5">
+                    {/* Top-Right Progress Readout + Integrated Chevron */}
+                    <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
                       <div
                         data-home-progress-readout="true"
                         className="text-right space-y-1 min-w-[74px]"
@@ -1036,13 +1043,10 @@ export const HomeView: React.FC = () => {
                         </div>
                       </div>
 
-                      <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-subtle group-hover:bg-primary group-hover:text-primary-fg border border-edge group-hover:border-primary text-xs font-semibold text-ink transition-colors shrink-0">
-                        <span>{t('nav.rotations')}</span>
-                        <Icon name="chevronRight" className="w-3.5 h-3.5" />
-                      </span>
-                      <span className="sm:hidden w-7 h-7 rounded-full flex items-center justify-center text-ink-secondary bg-surface-subtle/80 border border-edge-subtle group-hover:text-primary transition-colors shrink-0">
-                        <Icon name="chevronRight" className="w-4 h-4" />
-                      </span>
+                      <Icon
+                        name="chevronRight"
+                        className="w-5 h-5 text-ink-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0"
+                      />
                     </div>
                   </button>
 
@@ -1067,10 +1071,10 @@ export const HomeView: React.FC = () => {
                   ) : (
                     <button
                       type="button"
-                      onClick={() => navigate('rotations')}
+                      onClick={() => setSheetRotationId(rot.id)}
                       className="w-full rounded-xl bg-surface-subtle/70 hover:bg-surface-subtle border border-dashed border-edge p-4 text-center text-xs text-ink-secondary transition-colors cursor-pointer"
                     >
-                      No books placed on “{rot.title}” yet · Tap to manage in Rotations
+                      No books placed on “{rot.title}” yet · Tap to add books
                     </button>
                   )}
                 </div>
@@ -1556,6 +1560,7 @@ export const HomeView: React.FC = () => {
         isOpen={Boolean(foundCandidate)}
         onAddOwned={(cand, opts) => handleAddFoundCandidate(cand, 'owned', opts)}
         onAddWishlist={(cand, opts) => handleAddFoundCandidate(cand, 'wishlist', opts)}
+        onAddInterested={(cand, opts) => handleAddFoundCandidate(cand, 'interested', opts)}
         onEditManual={(cand) => {
           setFoundCandidate(null);
           openManualAddModal({

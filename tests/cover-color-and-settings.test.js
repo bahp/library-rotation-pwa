@@ -12,6 +12,7 @@ import assert from 'node:assert/strict';
 import {
   extractCoverPaletteFromRgba,
   extractDominantColorFromRgba,
+  resolveAccessibleAccentTokens,
   resolveBookCardTintHex,
 } from '../src/features/catalog/cover-color-extractor.js';
 import {
@@ -403,6 +404,40 @@ describe('Cover Color Extraction, Cover Proxy & Settings Suite', () => {
     assert.equal(store.getState().settings.homeActiveRotationStyle, 'seamless');
     assert.equal(store.getState().settings.matchingWeights?.profile.exactAge, 100);
     assert.equal(store.getState().settings.taggingRules?.customRules[0]?.tag, 'cozy-mornings');
+  });
+
+  it('resolveAccessibleAccentTokens enforces readable contrast and persists dynamicCoverTintAccent & autoInferAgeRange', async () => {
+    const defaults = createSafeDefaultSettings();
+    assert.equal(defaults.dynamicCoverTintAccent, false);
+    assert.equal(defaults.autoInferAgeRange, false);
+
+    // Pale yellow cover tint switches foreground text/ink to accessible dark/high-contrast values
+    const lightYellowLight = resolveAccessibleAccentTokens('#F6E58D', false);
+    assert.ok(lightYellowLight);
+    assert.equal(lightYellowLight.accentFg, '#131817');
+    assert.notEqual(lightYellowLight.accentInk, '#F6E58D');
+
+    const lightYellowDark = resolveAccessibleAccentTokens('#F6E58D', true);
+    assert.ok(lightYellowDark);
+    assert.equal(lightYellowDark.accentFg, '#131817');
+
+    // Deep navy cover tint keeps white button foreground and lightens ink for dark surfaces
+    const navyDark = resolveAccessibleAccentTokens('#192A56', true);
+    assert.ok(navyDark);
+    assert.equal(navyDark.accentFg, '#FFFFFF');
+    assert.notEqual(navyDark.accentInk, '#192A56');
+
+    assert.equal(resolveAccessibleAccentTokens('invalid-hex', false), null);
+
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+    await store.updateSettings({
+      dynamicCoverTintAccent: true,
+      autoInferAgeRange: true,
+    });
+    assert.equal(store.getState().settings.dynamicCoverTintAccent, true);
+    assert.equal(store.getState().settings.autoInferAgeRange, true);
   });
 });
 

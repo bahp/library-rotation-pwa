@@ -125,6 +125,14 @@ export const LibraryView: React.FC = () => {
     [state.books]
   );
 
+  const suggestionsCount = useMemo(
+    () =>
+      state.books.filter(
+        (b) => normalizeCollectionStatus(b.collectionStatus) === 'interested'
+      ).length,
+    [state.books]
+  );
+
   const lovedCount = useMemo(
     () => state.books.filter((b) => Boolean(b.loved)).length,
     [state.books]
@@ -205,6 +213,9 @@ export const LibraryView: React.FC = () => {
         case 'wishlist':
           if (status !== 'wishlist') return false;
           break;
+        case 'interested':
+          if (status !== 'interested') return false;
+          break;
         case 'loved':
           if (!book.loved) return false;
           break;
@@ -218,6 +229,7 @@ export const LibraryView: React.FC = () => {
           break;
         case 'all':
         default:
+          if (status === 'interested') return false;
           break;
       }
 
@@ -481,7 +493,7 @@ export const LibraryView: React.FC = () => {
 
   const handleAddQuickCandidate = async (
     candidate: BookCandidate,
-    status: 'owned' | 'wishlist',
+    status: 'owned' | 'wishlist' | 'interested',
     opts?: {
       condition?: BookCondition;
       owners?: string[];
@@ -503,7 +515,13 @@ export const LibraryView: React.FC = () => {
       });
       setFoundCandidate(null);
       store.notify(
-        `Added "${candidate.title}" to ${status === 'owned' ? 'Library' : 'Wishlist'}`,
+        `Added "${candidate.title}" to ${
+          status === 'owned'
+            ? 'Library'
+            : status === 'wishlist'
+              ? 'Wishlist'
+              : 'Suggestions'
+        }`,
         'success'
       );
     } catch (err) {
@@ -702,6 +720,26 @@ export const LibraryView: React.FC = () => {
                 <Icon name="wishlist" className="w-3.5 h-3.5" />
                 <span>Wishlist</span>
                 <span className="font-mono-tabular text-[11px] opacity-85">{wishlistCount}</span>
+              </button>
+
+              <button
+                type="button"
+                data-action="set-catalog-filter"
+                data-filter="interested"
+                aria-pressed={catalogFilter === 'interested' ? 'true' : 'false'}
+                aria-label={`Suggestions, ${suggestionsCount} ${suggestionsCount === 1 ? 'book' : 'books'}`}
+                onClick={() =>
+                  setCatalogFilter((prev) => (prev === 'interested' ? 'all' : 'interested'))
+                }
+                className={`min-h-[34px] px-3 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  catalogFilter === 'interested'
+                    ? 'bg-primary text-primary-fg shadow-2xs'
+                    : 'bg-surface text-ink-secondary border border-edge hover:text-ink hover:bg-surface-elevated'
+                }`}
+              >
+                <Icon name="bookmark" className="w-3.5 h-3.5" />
+                <span>Suggestions</span>
+                <span className="font-mono-tabular text-[11px] opacity-85">{suggestionsCount}</span>
               </button>
 
               <button
@@ -1076,6 +1114,7 @@ export const LibraryView: React.FC = () => {
         isOpen={Boolean(foundCandidate)}
         onAddOwned={(cand, opts) => handleAddQuickCandidate(cand, 'owned', opts)}
         onAddWishlist={(cand, opts) => handleAddQuickCandidate(cand, 'wishlist', opts)}
+        onAddInterested={(cand, opts) => handleAddQuickCandidate(cand, 'interested', opts)}
         onRescan={() => {
           setFoundCandidate(null);
           handleOpenQuickScanner();

@@ -55,6 +55,7 @@ export const LibraryFilterControls: React.FC<LibraryFilterControlsProps> = ({
     { id: 'all', label: 'All Books' },
     { id: 'owned', label: 'Owned' },
     { id: 'wishlist', label: 'Wishlist' },
+    { id: 'interested', label: 'Suggestions' },
     { id: 'loved', label: 'Loved' },
   ];
 

@@ -245,16 +245,19 @@ export function scoreEligibleBooks({
     /** @type {string[]} */
     const reasons = [];
 
-    // 1. Child age & reading stage alignment
-    const exactAge = profile.age >= book.ageMin && profile.age <= book.ageMax;
-    const nearAge = profile.age >= book.ageMin - 1 && profile.age <= book.ageMax + 1;
-    if (exactAge) {
-      score += w.exactAge;
-      reasons.push(`Age ${profile.age} match`);
-    } else if (nearAge) {
-      score += w.nearAge;
-    } else {
-      score += w.outOfAgePenalty;
+    // 1. Child age & reading stage alignment (neutral when book age range is unset)
+    let nearAge = false;
+    if (typeof book.ageMin === 'number' && typeof book.ageMax === 'number') {
+      const exactAge = profile.age >= book.ageMin && profile.age <= book.ageMax;
+      nearAge = profile.age >= book.ageMin - 1 && profile.age <= book.ageMax + 1;
+      if (exactAge) {
+        score += w.exactAge;
+        reasons.push(`Age ${profile.age} match`);
+      } else if (nearAge) {
+        score += w.nearAge;
+      } else {
+        score += w.outOfAgePenalty;
+      }
     }
 
     if (book.readingStage === profile.readingStage) {

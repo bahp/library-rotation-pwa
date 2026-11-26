@@ -49,6 +49,7 @@ import {
   createDefaultAppSettings,
   createDefaultMatchingWeights,
 } from '../src/config/defaults.js';
+import { formatBookAgeLabel } from '../src/types/models.js';
 
 describe('Tagging, Taxonomy & Recommendations Suite', () => {
   it('rule-tagger extracts topics and filters noise', () => {
@@ -714,6 +715,82 @@ describe('Tagging, Taxonomy & Recommendations Suite', () => {
     });
     assert.equal(recs[0].book.id, 'cand_topic');
     assert.ok(recs[0].scoreBreakdown?.some((b) => b.points === 50));
+  });
+
+  it('respects autoInferAgeRange: false, parses explicit 0+/3+ cues, and recommends safely when ageMin/ageMax are unset', () => {
+    const noAge = inferAgeAndStageFromSignals({
+      hints: ['A gentle adventure in the meadow'],
+      pageCount: 32,
+      format: 'hardcover',
+      autoInferAgeRange: false,
+    });
+    assert.equal(noAge.ageMin, undefined);
+    assert.equal(noAge.ageMax, undefined);
+    assert.equal(noAge.readingStage, 'picture-book');
+    assert.equal(formatBookAgeLabel(noAge.ageMin, noAge.ageMax), '');
+
+    const explicitThreePlus = inferAgeAndStageFromSignals({
+      hints: ['Best read-aloud picture book for ages 3+'],
+      pageCount: 32,
+      format: 'hardcover',
+      autoInferAgeRange: false,
+    });
+    assert.equal(explicitThreePlus.ageMin, 3);
+    assert.equal(explicitThreePlus.ageMax, 99);
+    assert.equal(formatBookAgeLabel(explicitThreePlus.ageMin, explicitThreePlus.ageMax), 'Ages 3+');
+
+    const explicitZeroPlus = inferAgeAndStageFromSignals({
+      hints: ['Recommended 0+ sturdy baby board book'],
+      pageCount: 16,
+      format: 'board-book',
+      autoInferAgeRange: false,
+    });
+    assert.equal(explicitZeroPlus.ageMin, 0);
+    assert.equal(explicitZeroPlus.ageMax, 99);
+    assert.equal(formatBookAgeLabel(explicitZeroPlus.ageMin, explicitZeroPlus.ageMax), 'Ages 0+');
+
+    /** @type {import('../src/types/models.js').ChildProfile} */
+    const profile = {
+      id: 'child_no_age',
+      name: 'Leo',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['animals'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+      readHistoryBookIds: [],
+      currentlyReadingBookIds: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    /** @type {import('../src/types/models.js').Book[]} */
+    const books = [
+      {
+        id: 'bk_unset_age',
+        isbn13: '9780000003001',
+        title: 'Forest Owls',
+        authors: ['Vera Woods'],
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        tags: ['animals', 'nature'],
+        spineColor: 'teal',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: false,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+    ];
+    const recs = getProfileRecommendations({
+      books,
+      profile,
+      rotations: [],
+      nowIso: '2026-11-26T12:00:00.000Z',
+    });
+    assert.equal(recs.length, 1);
+    assert.equal(recs[0].book.id, 'bk_unset_age');
+    assert.ok(recs[0].matchedTopics.includes('animals'));
+    assert.ok(recs[0].score > 0);
   });
 });
 

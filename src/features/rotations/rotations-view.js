@@ -463,7 +463,7 @@ function renderRotationPickerModal({ state, editorState, referenceDate = new Dat
                         ${escapeHtml(book.authors.join(', '))}
                       </p>
                       <p class="text-[11px] text-stone-ink dark:text-slate-400">
-                        Ages ${book.ageMin}–${book.ageMax} · ${escapeHtml(formatBookBinding(book.format))}
+                        ${typeof book.ageMin === 'number' ? `${typeof book.ageMax !== 'number' || book.ageMax >= 99 ? `Ages ${book.ageMin}+` : `Ages ${book.ageMin}–${book.ageMax}`} · ` : ''}${escapeHtml(formatBookBinding(book.format))}
                       </p>
                       <p data-picker-usage-line="true" class="text-[11px] truncate ${
                         inCooldown
@@ -823,7 +823,7 @@ function renderRotationSection({
                     </button>
 
                     <p class="text-[11px] text-stone-ink dark:text-slate-400 mt-1">
-                      Ages ${book.ageMin}–${book.ageMax} · ${escapeHtml(
+                      ${typeof book.ageMin === 'number' ? `${typeof book.ageMax !== 'number' || book.ageMax >= 99 ? `Ages ${book.ageMin}+` : `Ages ${book.ageMin}–${book.ageMax}`} · ` : ''}${escapeHtml(
                         formatBookBinding(book.format)
                       )} · ${escapeHtml(formatReadingStage(book.readingStage))}${
                         book.pageCount ? ` · ${book.pageCount} pp` : ''

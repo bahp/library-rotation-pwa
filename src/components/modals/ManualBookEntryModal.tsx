@@ -15,8 +15,8 @@ export const ManualBookEntryModal: React.FC = () => {
   const [collectionStatus, setCollectionStatus] = useState<CollectionStatus>('owned');
   const [format, setFormat] = useState<BookFormat>('hardcover');
   const [stage, setStage] = useState<ReadingStage>('picture-book');
-  const [ageMin, setAgeMin] = useState('2');
-  const [ageMax, setAgeMax] = useState('6');
+  const [ageMin, setAgeMin] = useState('');
+  const [ageMax, setAgeMax] = useState('');
   const [year, setYear] = useState('');
   const [pages, setPages] = useState('');
   const [tags, setTags] = useState('');
@@ -33,8 +33,8 @@ export const ManualBookEntryModal: React.FC = () => {
     setCollectionStatus('owned');
     setFormat('hardcover');
     setStage('picture-book');
-    setAgeMin('2');
-    setAgeMax('6');
+    setAgeMin('');
+    setAgeMax('');
     setYear('');
     setPages('');
     setTags('');
@@ -78,6 +78,13 @@ export const ManualBookEntryModal: React.FC = () => {
         .map((tag) => tag.trim())
         .filter(Boolean);
 
+      const parsedAgeMin = ageMin.trim() ? Number(ageMin.trim()) : undefined;
+      const parsedAgeMax = ageMax.trim()
+        ? Number(ageMax.trim())
+        : parsedAgeMin !== undefined
+          ? 99
+          : undefined;
+
       await store.addManualBook({
         title: title.trim(),
         authors: parsedAuthors.length > 0 ? parsedAuthors : ['Unknown Author'],
@@ -86,8 +93,12 @@ export const ManualBookEntryModal: React.FC = () => {
         pageCount: pages ? Number(pages) : undefined,
         format,
         readingStage: stage,
-        ageMin: Number(ageMin),
-        ageMax: Number(ageMax),
+        ...(parsedAgeMin !== undefined && Number.isFinite(parsedAgeMin)
+          ? { ageMin: parsedAgeMin }
+          : {}),
+        ...(parsedAgeMax !== undefined && Number.isFinite(parsedAgeMax)
+          ? { ageMax: parsedAgeMax }
+          : {}),
         tags: parsedTags,
         collectionStatus,
         owners: activeProfile ? [activeProfile.id, 'shared'] : ['shared'],
@@ -98,7 +109,9 @@ export const ManualBookEntryModal: React.FC = () => {
       store.notify(
         collectionStatus === 'wishlist'
           ? `Added "${title.trim()}" to Wishlist.`
-          : `Saved "${title.trim()}" to your library!`,
+          : collectionStatus === 'interested'
+            ? `Saved "${title.trim()}" to Suggestions.`
+            : `Saved "${title.trim()}" to your library!`,
         'success'
       );
       closeManualAddModal();
@@ -163,10 +176,10 @@ export const ManualBookEntryModal: React.FC = () => {
             </p>
           )}
 
-          {/* Owned vs Wishlist Toggle */}
+          {/* Owned vs Wishlist vs Suggestions Toggle */}
           <div>
             <span className="block font-semibold text-ink-secondary mb-1.5">Collection</span>
-            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-surface-subtle border border-edge">
+            <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-surface-subtle border border-edge">
               <button
                 type="button"
                 onClick={() => setCollectionStatus('owned')}
@@ -176,7 +189,7 @@ export const ManualBookEntryModal: React.FC = () => {
                     : 'text-ink-secondary hover:text-ink'
                 }`}
               >
-                Owned in Library
+                Owned
               </button>
               <button
                 type="button"
@@ -188,6 +201,17 @@ export const ManualBookEntryModal: React.FC = () => {
                 }`}
               >
                 Wishlist
+              </button>
+              <button
+                type="button"
+                onClick={() => setCollectionStatus('interested')}
+                className={`min-h-[38px] rounded-lg font-semibold text-xs transition-colors cursor-pointer ${
+                  collectionStatus === 'interested'
+                    ? 'bg-surface text-ink shadow-xs border border-edge-subtle'
+                    : 'text-ink-secondary hover:text-ink'
+                }`}
+              >
+                Suggestions
               </button>
             </div>
           </div>
@@ -276,30 +300,32 @@ export const ManualBookEntryModal: React.FC = () => {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label htmlFor="manual-modal-age-min" className="block font-semibold text-ink-secondary mb-1">
-                  Min Age
+                  Min Age (Opt.)
                 </label>
                 <input
                   id="manual-modal-age-min"
                   type="number"
                   min={0}
                   max={120}
+                  placeholder="e.g. 3"
                   value={ageMin}
                   onChange={(e) => setAgeMin(e.target.value)}
-                  className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink focus:outline-none focus:border-primary"
+                  className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary"
                 />
               </div>
               <div>
                 <label htmlFor="manual-modal-age-max" className="block font-semibold text-ink-secondary mb-1">
-                  Max Age
+                  Max Age (Opt.)
                 </label>
                 <input
                   id="manual-modal-age-max"
                   type="number"
                   min={0}
                   max={120}
+                  placeholder="e.g. 7"
                   value={ageMax}
                   onChange={(e) => setAgeMax(e.target.value)}
-                  className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink focus:outline-none focus:border-primary"
+                  className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base sm:text-xs font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary"
                 />
               </div>
             </div>

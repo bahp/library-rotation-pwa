@@ -277,6 +277,142 @@ export function resolveBookCardTintHex(book) {
 }
 
 /**
+ * Parses a valid `#RRGGBB` hex string into `[r, g, b]` 0..255 channels.
+ * @param {string} hex
+ * @returns {[number, number, number] | null}
+ */
+function parseHexRgb(hex) {
+  const clean = normalizeHexColor(hex);
+  if (!clean) return null;
+  const num = parseInt(clean.slice(1), 16);
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+/**
+ * Formats 0..255 RGB values as uppercase `#RRGGBB`.
+ * @param {number} r
+ * @param {number} g
+ * @param {number} b
+ * @returns {string}
+ */
+function formatHexRgb(r, g, b) {
+  const clamp = (/** @type {number} */ n) => Math.max(0, Math.min(255, Math.round(n)));
+  return `#${clamp(r).toString(16).padStart(2, '0')}${clamp(g).toString(16).padStart(2, '0')}${clamp(b).toString(16).padStart(2, '0')}`.toUpperCase();
+}
+
+/**
+ * Computes WCAG 2.1 relative luminance (0..1) for an sRGB `[r, g, b]` triplet.
+ * @param {[number, number, number]} rgb
+ * @returns {number}
+ */
+function relativeLuminance(rgb) {
+  const toLinear = (/** @type {number} */ c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * toLinear(rgb[0]) + 0.7152 * toLinear(rgb[1]) + 0.0722 * toLinear(rgb[2]);
+}
+
+/**
+ * Computes WCAG contrast ratio (>= 1) between two RGB triplets.
+ * @param {[number, number, number]} a
+ * @param {[number, number, number]} b
+ * @returns {number}
+ */
+function contrastRatio(a, b) {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const lighter = Math.max(la, lb);
+  const darker = Math.min(la, lb);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Linearly blends RGB color `a` toward RGB color `b` by factor `t` in `[0, 1]`.
+ * @param {[number, number, number]} a
+ * @param {[number, number, number]} b
+ * @param {number} t
+ * @returns {[number, number, number]}
+ */
+function mixRgb(a, b, t) {
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+  ];
+}
+
+/**
+ * Computes WCAG-AA contrast-safe CSS accent palette tokens (`accent`, `accentHover`, `accentFg`, `accentInk`)
+ * from an extracted cover `#RRGGBB` color for Book Details buttons, pills, and icons.
+ *
+ * @param {string | undefined | null} rawHex
+ * @param {boolean} [isDark]
+ * @returns {{ accent: string, accentHover: string, accentFg: string, accentInk: string } | null}
+ */
+export function resolveAccessibleAccentTokens(rawHex, isDark = false) {
+  const baseRgb = parseHexRgb(String(rawHex || ''));
+  if (!baseRgb) return null;
+
+  const whiteRgb = /** @type {[number, number, number]} */ ([255, 255, 255]);
+  const darkInkRgb = /** @type {[number, number, number]} */ ([19, 24, 23]);
+  const lightBgRgb = /** @type {[number, number, number]} */ ([250, 248, 245]);
+  const darkBgRgb = /** @type {[number, number, number]} */ ([21, 27, 25]);
+  const deepCharcoalRgb = /** @type {[number, number, number]} */ ([14, 18, 17]);
+  const lightTextTargetRgb = /** @type {[number, number, number]} */ ([16, 22, 20]);
+
+  // 1. Button / solid-fill accent + crisp foreground text (>= 4.5:1)
+  /** @type {[number, number, number]} */
+  let fillRgb = [baseRgb[0], baseRgb[1], baseRgb[2]];
+  const whiteContrast = contrastRatio(fillRgb, whiteRgb);
+  const darkContrast = contrastRatio(fillRgb, darkInkRgb);
+
+  let accentFg = '#FFFFFF';
+  if (whiteContrast >= 4.5) {
+    accentFg = '#FFFFFF';
+  } else if (darkContrast >= 5.2 && relativeLuminance(fillRgb) > 0.38) {
+    accentFg = '#131817';
+  } else {
+    // Deepen slightly toward charcoal until white text passes WCAG AA 4.5:1
+    for (let step = 1; step <= 18; step += 1) {
+      const candidate = mixRgb(baseRgb, deepCharcoalRgb, step * 0.045);
+      if (contrastRatio(candidate, whiteRgb) >= 4.55) {
+        fillRgb = candidate;
+        accentFg = '#FFFFFF';
+        break;
+      }
+    }
+  }
+
+  const hoverRgb =
+    accentFg === '#FFFFFF'
+      ? mixRgb(fillRgb, deepCharcoalRgb, 0.14)
+      : mixRgb(fillRgb, darkInkRgb, 0.12);
+
+  // 2. Text / icon accent ink readable against surface background (>= 4.5:1)
+  /** @type {[number, number, number]} */
+  let inkRgb = [baseRgb[0], baseRgb[1], baseRgb[2]];
+  const surfaceRef = isDark ? darkBgRgb : lightBgRgb;
+  if (contrastRatio(inkRgb, surfaceRef) < 4.5) {
+    const target = isDark ? whiteRgb : lightTextTargetRgb;
+    for (let step = 1; step <= 22; step += 1) {
+      const candidate = mixRgb(baseRgb, target, step * 0.045);
+      if (contrastRatio(candidate, surfaceRef) >= 4.6) {
+        inkRgb = candidate;
+        break;
+      }
+    }
+  }
+
+  return {
+    accent: formatHexRgb(fillRgb[0], fillRgb[1], fillRgb[2]),
+    accentHover: formatHexRgb(hoverRgb[0], hoverRgb[1], hoverRgb[2]),
+    accentFg,
+    accentInk: formatHexRgb(inkRgb[0], inkRgb[1], inkRgb[2]),
+  };
+}
+
+/**
  * Loads an image element and samples its RGBA pixels onto a 48x48 offscreen canvas.
  * Returns `null` if loading fails or canvas pixels are tainted by CORS.
  *

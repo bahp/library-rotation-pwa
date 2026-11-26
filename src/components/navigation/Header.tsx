@@ -364,7 +364,7 @@ export const Header: React.FC = () => {
 
   const handleDesktopAddCandidate = async (
     candidate: BookCandidate,
-    status: 'owned' | 'wishlist',
+    status: 'owned' | 'wishlist' | 'interested',
     opts?: FoundBookIntakeOptions
   ) => {
     try {
@@ -379,7 +379,13 @@ export const Header: React.FC = () => {
       });
       setDesktopFoundCandidate(null);
       store.notify(
-        `Added "${candidate.title}" to ${status === 'owned' ? 'Library' : 'Wishlist'}`,
+        `Added "${candidate.title}" to ${
+          status === 'owned'
+            ? 'Library'
+            : status === 'wishlist'
+              ? 'Wishlist'
+              : 'Suggestions'
+        }`,
         'success'
       );
     } catch (err) {
@@ -710,7 +716,7 @@ export const Header: React.FC = () => {
                               : matchedStatus === 'library'
                                 ? 'Loan'
                                 : matchedStatus === 'interested'
-                                  ? 'Saved'
+                                  ? 'Suggestion'
                                   : 'In Library';
                           const openEntry = () => {
                             setIsDesktopDropdownOpen(false);
@@ -762,8 +768,16 @@ export const Header: React.FC = () => {
                                     {cand.authors.join(', ')}
                                   </p>
                                   <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-ink-muted mt-0.5">
-                                    <span>Ages {cand.ageMin}–{cand.ageMax}</span>
-                                    <span>·</span>
+                                    {typeof cand.ageMin === 'number' && (
+                                      <>
+                                        <span>
+                                          {typeof cand.ageMax === 'number' && cand.ageMax < 99
+                                            ? `Ages ${cand.ageMin}–${cand.ageMax}`
+                                            : `Ages ${cand.ageMin}+`}
+                                        </span>
+                                        <span>·</span>
+                                      </>
+                                    )}
                                     <span>{formatBookBinding(cand.format)}</span>
                                     {cand.publishedYear && (
                                       <>
@@ -1020,6 +1034,7 @@ export const Header: React.FC = () => {
         isOpen={Boolean(desktopFoundCandidate)}
         onAddOwned={(cand, opts) => handleDesktopAddCandidate(cand, 'owned', opts)}
         onAddWishlist={(cand, opts) => handleDesktopAddCandidate(cand, 'wishlist', opts)}
+        onAddInterested={(cand, opts) => handleDesktopAddCandidate(cand, 'interested', opts)}
         onRescan={() => {
           setDesktopFoundCandidate(null);
           handleOpenDesktopScanner();

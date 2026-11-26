@@ -486,6 +486,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       notificationsEnabled: Boolean(overrides.notificationsEnabled),
       coverAspectRatio: overrides.coverAspectRatio === 'portrait' ? 'portrait' : 'square',
       dynamicCoverTint: overrides.dynamicCoverTint !== false,
+      dynamicCoverTintAccent: Boolean(overrides.dynamicCoverTintAccent),
       dynamicCoverTintStyle: overrides.dynamicCoverTintStyle === 'linear' ? 'linear' : 'circular',
       dynamicCoverTintBehavior: overrides.dynamicCoverTintBehavior === 'scroll' ? 'scroll' : 'fixed',
       dynamicCoverTintMode:
@@ -505,6 +506,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       enabledMetadataProviders:
         rawProviders.length > 0 ? Array.from(new Set(rawProviders)) : [...DEFAULT_METADATA_PROVIDERS],
       autoLocalTagging: overrides.autoLocalTagging !== false,
+      autoInferAgeRange: Boolean(overrides.autoInferAgeRange),
       aiEnrichmentOptIn: Boolean(overrides.aiEnrichmentOptIn),
       aiAdapterId:
         typeof overrides.aiAdapterId === 'string' && overrides.aiAdapterId.trim()
@@ -784,6 +786,20 @@ export function migrateState(state, referenceDate = new Date()) {
             }
           }
           nextBook.userRatings = cleanRatings;
+        }
+        if (Array.isArray(book.categories)) {
+          const cleanCategories = Array.from(
+            new Set(
+              book.categories
+                .map((c) => String(c || '').trim())
+                .filter(Boolean)
+            )
+          ).slice(0, 12);
+          if (cleanCategories.length > 0) {
+            nextBook.categories = cleanCategories;
+          } else {
+            delete nextBook.categories;
+          }
         }
         if (book.tagOrigins && typeof book.tagOrigins === 'object') {
           const currentTags = new Set(Array.isArray(book.tags) ? book.tags : []);

@@ -17,8 +17,8 @@ import {
  * @property {string[]} addedTags
  * @property {string[]} ruleAddedTags
  * @property {string[]} aiAddedTags
- * @property {number} ageMin
- * @property {number} ageMax
+ * @property {number} [ageMin]
+ * @property {number} [ageMax]
  * @property {import('../../types/models.js').ReadingStage} readingStage
  * @property {string} readingLevelHint
  * @property {boolean} usedAi
@@ -90,17 +90,20 @@ export function createTaggingService(config = {}) {
    */
   async function enrichBook(bookInput, settings, options = {}) {
     const shouldRunLocal = options.forceLocalRules || settings.autoLocalTagging !== false;
+    const autoInferAgeRange = settings?.autoInferAgeRange === true;
 
     const baseLocal = shouldRunLocal
       ? enrichBookWithLocalRules(bookInput, {
           preserveExplicitAgeAndStage: options.preserveExplicitAgeAndStage,
           taggingRules: settings?.taggingRules,
+          autoInferAgeRange,
+          separateCategories: true,
         })
       : {
           tags: sanitizeTagList(bookInput.tags || [], 14),
           addedTags: [],
-          ageMin: typeof bookInput.ageMin === 'number' ? bookInput.ageMin : 3,
-          ageMax: typeof bookInput.ageMax === 'number' ? bookInput.ageMax : 7,
+          ...(typeof bookInput.ageMin === 'number' ? { ageMin: bookInput.ageMin } : {}),
+          ...(typeof bookInput.ageMax === 'number' ? { ageMax: bookInput.ageMax } : {}),
           readingStage: bookInput.readingStage || 'picture-book',
           readingLevelHint: '',
         };
@@ -169,10 +172,14 @@ export function createTaggingService(config = {}) {
         !options.preserveExplicitAgeAndStage && aiResult.ageMin !== undefined
           ? aiResult.ageMin
           : baseLocal.ageMin;
-      const finalAgeMax =
+      const resolvedAgeMaxRaw =
         !options.preserveExplicitAgeAndStage && aiResult.ageMax !== undefined
-          ? Math.max(finalAgeMin, aiResult.ageMax)
-          : Math.max(finalAgeMin, baseLocal.ageMax);
+          ? aiResult.ageMax
+          : baseLocal.ageMax;
+      const finalAgeMax =
+        typeof finalAgeMin === 'number' && typeof resolvedAgeMaxRaw === 'number'
+          ? Math.max(finalAgeMin, resolvedAgeMaxRaw)
+          : resolvedAgeMaxRaw;
       const finalStage =
         !options.preserveExplicitAgeAndStage && aiResult.readingStage
           ? aiResult.readingStage
@@ -185,8 +192,8 @@ export function createTaggingService(config = {}) {
         addedTags,
         ruleAddedTags: baseLocal.addedTags,
         aiAddedTags,
-        ageMin: finalAgeMin,
-        ageMax: finalAgeMax,
+        ...(typeof finalAgeMin === 'number' ? { ageMin: finalAgeMin } : {}),
+        ...(typeof finalAgeMax === 'number' ? { ageMax: finalAgeMax } : {}),
         readingStage: finalStage,
         readingLevelHint: finalHint,
         usedAi: true,

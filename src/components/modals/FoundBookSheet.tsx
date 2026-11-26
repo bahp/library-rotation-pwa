@@ -7,6 +7,7 @@ import { AVATAR_TONES } from '../../config/index.js';
 import { extractCoverPaletteFromUrl } from '../../features/catalog/cover-color-extractor.js';
 import {
   computeOwnerInitials,
+  formatBookAgeLabel,
   formatBookBinding,
   formatBookCondition,
   formatCollectionStatus,
@@ -30,6 +31,7 @@ interface FoundBookSheetProps {
   isOpen: boolean;
   onAddOwned: (candidate: BookCandidate, options?: FoundBookIntakeOptions) => void;
   onAddWishlist: (candidate: BookCandidate, options?: FoundBookIntakeOptions) => void;
+  onAddInterested?: (candidate: BookCandidate, options?: FoundBookIntakeOptions) => void;
   onEditManual?: (candidate: BookCandidate) => void;
   onRescan?: () => void;
   onClose: () => void;
@@ -40,6 +42,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
   isOpen,
   onAddOwned,
   onAddWishlist,
+  onAddInterested,
   onEditManual,
   onRescan,
   onClose,
@@ -142,7 +145,17 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
     });
   };
 
+  const handleSaveSuggestion = () => {
+    onAddInterested?.(candidate, {
+      condition: intakeCondition,
+      owners: intakeOwners,
+      loved: intakeLoved,
+      ...precomputedTint,
+    });
+  };
+
   const primaryAuthor = candidate.authors[0] || 'Unknown Author';
+  const candidateAgeLabel = formatBookAgeLabel(candidate.ageMin, candidate.ageMax);
 
   return (
     <div
@@ -213,8 +226,12 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
               </p>
 
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-ink-secondary mt-1">
-                <span>Ages {candidate.ageMin}–{candidate.ageMax}</span>
-                <span>·</span>
+                {candidateAgeLabel && (
+                  <>
+                    <span>{candidateAgeLabel}</span>
+                    <span>·</span>
+                  </>
+                )}
                 <span>{formatBookBinding(candidate.format || 'hardcover')}</span>
                 {candidate.publishedYear && (
                   <>
@@ -277,47 +294,62 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
             </div>
           ) : (
             <div className="space-y-3">
-              {/* 3 Action Buttons: Love, Wishlist, Add to Library */}
-              <div className="grid grid-cols-12 gap-2">
-                <button
-                  type="button"
-                  data-action="toggle-intake-loved"
-                  aria-pressed={intakeLoved ? 'true' : 'false'}
-                  aria-label={intakeLoved ? 'Remove Loved mark' : 'Mark as Loved favorite'}
-                  title="Mark as Loved"
-                  onClick={() => setIntakeLoved(!intakeLoved)}
-                  className={`col-span-3 min-h-[48px] px-2.5 py-2 rounded-lg text-xs font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 transition-colors cursor-pointer ${
-                    intakeLoved
-                      ? 'bg-loved text-loved-fg shadow-xs'
-                      : 'bg-surface-subtle hover:bg-surface-elevated text-ink border border-edge'
-                  }`}
-                >
-                  <Icon name={intakeLoved ? 'heartFilled' : 'heart'} className="w-4 h-4" />
-                  <span>{intakeLoved ? 'Loved' : 'Love'}</span>
-                </button>
+              {/* Action Buttons: Love, Wishlist, Add to Library (+ optional Save Suggestion) */}
+              <div className="space-y-2">
+                <div className="grid grid-cols-12 gap-2">
+                  <button
+                    type="button"
+                    data-action="toggle-intake-loved"
+                    aria-pressed={intakeLoved ? 'true' : 'false'}
+                    aria-label={intakeLoved ? 'Remove Loved mark' : 'Mark as Loved favorite'}
+                    title="Mark as Loved"
+                    onClick={() => setIntakeLoved(!intakeLoved)}
+                    className={`col-span-3 min-h-[48px] px-2.5 py-2 rounded-lg text-xs font-semibold flex flex-col sm:flex-row items-center justify-center gap-1 transition-colors cursor-pointer ${
+                      intakeLoved
+                        ? 'bg-loved text-loved-fg shadow-xs'
+                        : 'bg-surface-subtle hover:bg-surface-elevated text-ink border border-edge'
+                    }`}
+                  >
+                    <Icon name={intakeLoved ? 'heartFilled' : 'heart'} className="w-4 h-4" />
+                    <span>{intakeLoved ? 'Loved' : 'Love'}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  data-action="save-found-wishlist"
-                  aria-label={`Save ${candidate.title} to Wishlist`}
-                  title="Save to Wishlist"
-                  onClick={handleSaveWishlist}
-                  className="col-span-4 min-h-[48px] px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-accent flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Icon name="wishlist" className="w-4 h-4" />
-                  <span>Wishlist</span>
-                </button>
+                  <button
+                    type="button"
+                    data-action="save-found-wishlist"
+                    aria-label={`Save ${candidate.title} to Wishlist`}
+                    title="Save to Wishlist"
+                    onClick={handleSaveWishlist}
+                    className="col-span-4 min-h-[48px] px-3 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-xs font-semibold text-accent flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Icon name="wishlist" className="w-4 h-4" />
+                    <span>Wishlist</span>
+                  </button>
 
-                <button
-                  type="button"
-                  data-action="save-found-library"
-                  aria-label={`Add to Library for ${candidate.title}`}
-                  onClick={handleSaveLibrary}
-                  className="col-span-5 min-h-[48px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-xs sm:text-sm font-semibold text-primary-fg flex flex-col sm:flex-row items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                >
-                  <Icon name="plus" className="w-4 h-4" />
-                  <span>Add to Library</span>
-                </button>
+                  <button
+                    type="button"
+                    data-action="save-found-library"
+                    aria-label={`Add to Library for ${candidate.title}`}
+                    onClick={handleSaveLibrary}
+                    className="col-span-5 min-h-[48px] px-3.5 py-2 rounded-lg bg-primary hover:bg-primary-hover text-xs sm:text-sm font-semibold text-primary-fg flex flex-col sm:flex-row items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Icon name="plus" className="w-4 h-4" />
+                    <span>Add to Library</span>
+                  </button>
+                </div>
+
+                {onAddInterested && (
+                  <button
+                    type="button"
+                    data-action="save-found-suggestion"
+                    aria-label={`Save ${candidate.title} to Suggestions`}
+                    onClick={handleSaveSuggestion}
+                    className="w-full min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle/75 hover:bg-surface-elevated border border-edge text-xs font-medium text-ink-secondary hover:text-ink flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Icon name="bookmark" className="w-3.5 h-3.5 text-primary" />
+                    <span>Save to Suggestions (outside main Library)</span>
+                  </button>
+                )}
               </div>
 
               {/* Progressive Disclosure for Reader Owner, Condition & Manual Edit */}

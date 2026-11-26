@@ -2147,12 +2147,37 @@
 .lr-tinted-card {
   background-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 8%, var(--surface));
   border-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 28%, var(--border));
-  transition: background-color 220ms ease, border-color 220ms ease;
 }
 
 .dark .lr-tinted-card {
   background-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 12%, var(--surface));
   border-color: color-mix(in srgb, var(--lr-cover-tint, var(--primary)) 34%, var(--border));
+}
+
+/* Optional Cover-Extracted Accent Palette Override inside Book Details */
+.lr-book-accent-scope[data-book-accent="cover"] {
+  --primary: var(--lr-book-accent);
+  --primary-hover: var(--lr-book-accent-hover);
+  --primary-fg: var(--lr-book-accent-fg);
+  --accent: var(--lr-book-accent-ink);
+  --accent-fg: var(--lr-book-accent-fg);
+}
+
+.lr-book-accent-scope[data-book-accent="cover"] .text-primary {
+  color: var(--lr-book-accent-ink);
+}
+
+.lr-book-accent-scope[data-book-accent="cover"] .border-primary {
+  border-color: var(--lr-book-accent);
+}
+
+.lr-book-accent-scope[data-book-accent="cover"] .bg-primary {
+  background-color: var(--lr-book-accent);
+  color: var(--lr-book-accent-fg);
+}
+
+.lr-book-accent-scope[data-book-accent="cover"] .hover\:bg-primary-hover:hover {
+  background-color: var(--lr-book-accent-hover);
 }
 
 .lr-tint-layer-circular {

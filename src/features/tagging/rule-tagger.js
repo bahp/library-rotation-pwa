@@ -446,7 +446,8 @@ function buildExtraNoiseSet(ruleConfig) {
  *   summary?: string,
  *   existingTags?: string[],
  *   maxTags?: number,
- *   taggingRules?: import('../../types/models.js').TaggingRulesConfig
+ *   taggingRules?: import('../../types/models.js').TaggingRulesConfig,
+ *   separateCategories?: boolean
  * }} input
  * @returns {string[]}
  */
@@ -497,20 +498,22 @@ export function inferLocalTopicTags(input) {
     }
   }
 
-  // Extract clean concise subject tokens for niche topics not in the core dictionary
+  // Extract clean concise subject tokens for niche topics only when not keeping raw categories separate
   /** @type {string[]} */
   const subjectExtras = [];
-  for (const rawSubject of subjects) {
-    const parts = String(rawSubject).split(/[\/—–,;:|]/);
-    for (const part of parts) {
-      const clean = sanitizeTag(part, extraNoiseSet);
-      if (clean && clean.split('-').length <= 2) {
-        subjectExtras.push(clean);
+  if (!input.separateCategories) {
+    for (const rawSubject of subjects) {
+      const parts = String(rawSubject).split(/[\/—–,;:|]/);
+      for (const part of parts) {
+        const clean = sanitizeTag(part, extraNoiseSet);
+        if (clean && clean.split('-').length <= 2) {
+          subjectExtras.push(clean);
+        }
       }
     }
   }
 
-  // Preserve explicit existing tags first, then high-precision taxonomy rules, then subject extras
+  // Preserve explicit existing tags first, then high-precision taxonomy rules, then optional subject extras
   return sanitizeTagList([...existing, ...matchedTaxonomy, ...subjectExtras], maxTags, extraNoiseSet);
 }
 
@@ -524,84 +527,97 @@ export function inferLocalTopicTags(input) {
  *   format?: import('../../types/models.js').BookFormat,
  *   fallbackAgeMin?: number,
  *   fallbackAgeMax?: number,
- *   fallbackStage?: import('../../types/models.js').ReadingStage
+ *   fallbackStage?: import('../../types/models.js').ReadingStage,
+ *   autoInferAgeRange?: boolean
  * }} input
- * @returns {{ ageMin: number, ageMax: number, readingStage: import('../../types/models.js').ReadingStage }}
+ * @returns {{ ageMin?: number, ageMax?: number, readingStage: import('../../types/models.js').ReadingStage }}
  */
 export function inferAgeAndStageFromSignals(input) {
   const joined = stripDiacritics((input.hints || []).join(' ')).toLowerCase();
   const format = input.format || 'hardcover';
   const pageCount = input.pageCount;
+  const allowHeuristicAges = input.autoInferAgeRange !== false;
 
-  // Check explicit "ages X-Y", "de X a Y años", "da X a Y anni", or "X-Y anni"
+  // Check explicit "ages X-Y", "de X a Y años", "da X a Y anni", "X-Y anni", or "0+" / "3+" / "+3 años" cues
   const explicitRange =
     joined.match(/\bages?\s*(\d{1,2})\s*(?:[-–—]|to)\s*(\d{1,2})\b/i) ||
     joined.match(/\b(?:de|da)\s*(\d{1,2})\s*(?:a|[-–—])\s*(\d{1,2})\s*(?:anos|anni)\b/i) ||
     joined.match(/\b(\d{1,2})\s*[-–—]\s*(\d{1,2})\s*(?:anos|anni)\b/i);
-  const explicitMin = explicitRange ? Math.max(0, Math.min(14, Number(explicitRange[1]))) : null;
-  const explicitMax = explicitRange ? Math.max(1, Math.min(16, Number(explicitRange[2]))) : null;
 
+  const explicitPlus = !explicitRange
+    ? joined.match(/\b(?:ages?|edad|eta|from|desde|da)\s*\+?\s*(\d{1,2})\s*\+(?:\s*(?:yrs?|years?|anos|anni))?/i) ||
+      joined.match(/(?:^|[\s(\/·,])(\d{1,2})\s*\+(?:\s*(?:yrs?|years?|anos|anni))?(?=$|[\s).,;\/])/i) ||
+      joined.match(/\b\+(\d{1,2})\s*(?:anos|anni|yrs?|years?)\b/i)
+    : null;
+
+  let explicitMin = explicitRange ? Math.max(0, Math.min(18, Number(explicitRange[1]))) : null;
+  let explicitMax = explicitRange ? Math.max(1, Math.min(99, Number(explicitRange[2]))) : null;
+
+  if (explicitPlus && Number.isFinite(Number(explicitPlus[1]))) {
+    const plusVal = Math.max(0, Math.min(18, Number(explicitPlus[1])));
+    explicitMin = plusVal;
+    explicitMax = 99;
+  }
+
+  /** @type {import('../../types/models.js').ReadingStage} */
+  let readingStage = 'picture-book';
   if (
     format === 'board-book' ||
     /\b(baby|infant|toddler|board\s*book|ages?\s*0|0-3|1-3|bebes?|primera infancia|libro de carton|todo carton|primi passi|cartonato)\b/.test(
       joined
     )
   ) {
-    return {
-      ageMin: explicitMin !== null ? explicitMin : 1,
-      ageMax: explicitMax !== null && explicitMax >= 2 ? explicitMax : 4,
-      readingStage: 'board-toddler',
-    };
-  }
-
-  if (
+    readingStage = 'board-toddler';
+  } else if (
     /\b(middle grade|chapter book|novel|ages?\s*8-12|ages?\s*9-12|novela infantil|narrativa juvenil)\b/.test(
       joined
     ) ||
     (pageCount && pageCount >= 96)
   ) {
-    return {
-      ageMin: explicitMin !== null ? explicitMin : 7,
-      ageMax: explicitMax !== null && explicitMax >= 8 ? explicitMax : 11,
-      readingStage: 'chapter-book',
-    };
-  }
-
-  if (
+    readingStage = 'chapter-book';
+  } else if (
     /\b(early reader|beginning reader|beginner books|i can read|step into reading|level\s*[123]\s*reader|ages?\s*5-8|ages?\s*6-8|primeros lectores|prime letture)\b/.test(
       joined
     ) ||
     (pageCount && pageCount >= 58 && pageCount < 96)
   ) {
-    return {
-      ageMin: explicitMin !== null ? explicitMin : 5,
-      ageMax: explicitMax !== null && explicitMax >= 6 ? explicitMax : 8,
-      readingStage: 'early-reader',
-    };
+    readingStage = 'early-reader';
+  } else if (explicitMin !== null && explicitMax !== null && explicitMax >= explicitMin) {
+    if (explicitMax <= 3 || (explicitMax >= 99 && explicitMin <= 1)) readingStage = 'board-toddler';
+    else if (explicitMin >= 8) readingStage = 'chapter-book';
+    else if (explicitMin >= 5) readingStage = 'early-reader';
+  } else if (input.fallbackStage && VALID_READING_STAGES.has(input.fallbackStage)) {
+    readingStage = input.fallbackStage;
   }
 
   if (explicitMin !== null && explicitMax !== null && explicitMax >= explicitMin) {
-    /** @type {import('../../types/models.js').ReadingStage} */
-    let stage = 'picture-book';
-    if (explicitMax <= 3) stage = 'board-toddler';
-    else if (explicitMin >= 8) stage = 'chapter-book';
-    else if (explicitMin >= 5) stage = 'early-reader';
-    return { ageMin: explicitMin, ageMax: explicitMax, readingStage: stage };
+    return { ageMin: explicitMin, ageMax: explicitMax, readingStage };
   }
 
   if (
     typeof input.fallbackAgeMin === 'number' &&
-    typeof input.fallbackAgeMax === 'number' &&
-    input.fallbackStage &&
-    VALID_READING_STAGES.has(input.fallbackStage)
+    typeof input.fallbackAgeMax === 'number'
   ) {
     return {
       ageMin: input.fallbackAgeMin,
       ageMax: Math.max(input.fallbackAgeMin, input.fallbackAgeMax),
-      readingStage: input.fallbackStage,
+      readingStage,
     };
   }
 
+  if (!allowHeuristicAges) {
+    return { ageMin: undefined, ageMax: undefined, readingStage };
+  }
+
+  if (readingStage === 'board-toddler') {
+    return { ageMin: 1, ageMax: 4, readingStage };
+  }
+  if (readingStage === 'chapter-book') {
+    return { ageMin: 7, ageMax: 11, readingStage };
+  }
+  if (readingStage === 'early-reader') {
+    return { ageMin: 5, ageMax: 8, readingStage };
+  }
   return { ageMin: 3, ageMax: 7, readingStage: 'picture-book' };
 }
 
@@ -683,15 +699,17 @@ export function inferReadingLevelHint(input) {
  *   bookNotes?: import('../../types/models.js').BookNote[]
  * }} bookInput
  * @param {{
- *   preserveExplicitAgeAndStage?: boolean,
  *   maxTags?: number,
- *   taggingRules?: import('../../types/models.js').TaggingRulesConfig
+ *   preserveExplicitAgeAndStage?: boolean,
+ *   taggingRules?: import('../../types/models.js').TaggingRulesConfig,
+ *   autoInferAgeRange?: boolean,
+ *   separateCategories?: boolean
  * }} [options]
  * @returns {{
  *   tags: string[],
  *   addedTags: string[],
- *   ageMin: number,
- *   ageMax: number,
+ *   ageMin?: number,
+ *   ageMax?: number,
  *   readingStage: import('../../types/models.js').ReadingStage,
  *   readingLevelHint: string
  * }}
@@ -723,6 +741,7 @@ export function enrichBookWithLocalRules(bookInput, options = {}) {
     existingTags: existingSanitized,
     maxTags,
     taggingRules: ruleConfig,
+    separateCategories: Boolean(options.separateCategories),
   });
 
   // Include non-English language tag or structural baseline tag if no topic matched
@@ -757,6 +776,7 @@ export function enrichBookWithLocalRules(bookInput, options = {}) {
           fallbackAgeMin: bookInput.ageMin,
           fallbackAgeMax: bookInput.ageMax,
           fallbackStage: bookInput.readingStage,
+          autoInferAgeRange: options.autoInferAgeRange,
         });
 
   if (tags.length === existingSanitized.length && tags.length < 3) {
@@ -787,8 +807,8 @@ export function enrichBookWithLocalRules(bookInput, options = {}) {
   return {
     tags,
     addedTags,
-    ageMin: ageAndStage.ageMin,
-    ageMax: ageAndStage.ageMax,
+    ...(typeof ageAndStage.ageMin === 'number' ? { ageMin: ageAndStage.ageMin } : {}),
+    ...(typeof ageAndStage.ageMax === 'number' ? { ageMax: ageAndStage.ageMax } : {}),
     readingStage: ageAndStage.readingStage,
     readingLevelHint,
   };

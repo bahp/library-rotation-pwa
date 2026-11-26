@@ -6,6 +6,7 @@
 
 import {
   cleanBookDescription,
+  cleanProviderCategories,
   inferAgeAndStage,
   inferBookFormat,
   pickDeterministicSpineColor,
@@ -174,7 +175,9 @@ export function normalizeOpenLibrarySubjectWork(work, subjectSlug) {
   const { ageMin, ageMax, readingStage } = inferAgeAndStage({
     hints: [title, ...subjects],
     format,
+    autoInferAgeRange: false,
   });
+  const categories = cleanProviderCategories(subjects);
 
   const coverId = typeof work.cover_id === 'number' && work.cover_id > 0 ? work.cover_id : 0;
   const coverUrl = coverId ? `https://covers.openlibrary.org/b/id/${coverId}-M.jpg` : undefined;
@@ -189,7 +192,7 @@ export function normalizeOpenLibrarySubjectWork(work, subjectSlug) {
       : subjectSlug === 'picture_books'
         ? 'picture-book'
         : 'classic';
-  const tags = sanitizeTagList([...subjects, extraTag], 8);
+  const tags = sanitizeTagList([extraTag], 8);
   const summary = cleanBookDescription(work.first_sentence);
   const extKey = typeof work.key === 'string' ? work.key.replace(/^\/works\//, '') : undefined;
 
@@ -200,9 +203,10 @@ export function normalizeOpenLibrarySubjectWork(work, subjectSlug) {
     authors,
     ...(publishedYear ? { publishedYear } : {}),
     format,
-    ageMin,
-    ageMax,
+    ...(typeof ageMin === 'number' ? { ageMin } : {}),
+    ...(typeof ageMax === 'number' ? { ageMax } : {}),
     readingStage,
+    ...(categories.length > 0 ? { categories } : {}),
     tags,
     ...(coverUrl ? { coverUrl } : {}),
     ...(summary ? { summary } : {}),

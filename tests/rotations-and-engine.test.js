@@ -748,5 +748,54 @@ describe('Rotation Engine & Shelf Management Suite', () => {
     assert.equal(excludedSummary.neverRotated, false);
     assert.equal(excludedSummary.compactRecencyLabel, '');
   });
+
+  it('store.toggleBookInRotation assigns and removes books cleanly across active and saved rotations', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+    const state = store.getState();
+    const profile = state.profiles[0];
+
+    const rotActive = await store.generateRotation({
+      profileId: profile.id,
+      title: 'Active Shelf',
+      count: 2,
+      status: 'active',
+    });
+    const rotSaved = await store.generateRotation({
+      profileId: profile.id,
+      title: 'Saved Shelf',
+      count: 2,
+      status: 'saved',
+    });
+
+    const extraBook = await store.addManualBook({
+      title: 'Assigned Starlight Book',
+      authors: ['Nora Bright'],
+      format: 'hardcover',
+      readingStage: 'picture-book',
+      tags: ['space'],
+    });
+
+    // Assign to active rotation
+    const assignedActive = await store.toggleBookInRotation(rotActive.id, extraBook.id);
+    assert.equal(assignedActive, 'added');
+    const rotAfterAssign = store.getState().rotations.find((r) => r.id === rotActive.id);
+    assert.ok(rotAfterAssign?.bookIds.includes(extraBook.id));
+
+    // Mark read & picked, then unassign from active rotation -> clears read/picked lists too
+    await store.toggleRotationBookRead(rotActive.id, extraBook.id);
+    const unassignedActive = await store.toggleBookInRotation(rotActive.id, extraBook.id);
+    assert.equal(unassignedActive, 'removed');
+    const rotAfterUnassign = store.getState().rotations.find((r) => r.id === rotActive.id);
+    assert.equal(rotAfterUnassign?.bookIds.includes(extraBook.id), false);
+    assert.equal(rotAfterUnassign?.completedBookIds.includes(extraBook.id), false);
+
+    // Assign & unassign on saved rotation
+    assert.equal(await store.toggleBookInRotation(rotSaved.id, extraBook.id), 'added');
+    assert.ok(store.getState().rotations.find((r) => r.id === rotSaved.id)?.bookIds.includes(extraBook.id));
+    assert.equal(await store.toggleBookInRotation(rotSaved.id, extraBook.id), 'removed');
+    assert.equal(store.getState().rotations.find((r) => r.id === rotSaved.id)?.bookIds.includes(extraBook.id), false);
+  });
 });
 

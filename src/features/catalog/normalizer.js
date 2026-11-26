@@ -170,16 +170,63 @@ export function inferBookFormat(hints, pageCount) {
 }
 
 /**
- * Infers age range and reading stage from subjects/categories, description, format, and page count.
- * @param {{ hints: string[], pageCount?: number, format: import('../../types/models.js').BookFormat }} input
- * @returns {{ ageMin: number, ageMax: number, readingStage: import('../../types/models.js').ReadingStage }}
+ * Cleans and flattens hierarchical provider categories/subjects (e.g. "Juvenile Fiction / Animals / Bears")
+ * while filtering generic binding/catalog noise (`Paperback`, `General`, `Juvenile Fiction`).
+ * @param {string[]} rawCategories
+ * @returns {string[]}
  */
-export function inferAgeAndStage({ hints, pageCount, format }) {
-  return inferAgeAndStageFromSignals({ hints, pageCount, format });
+export function cleanProviderCategories(rawCategories) {
+  if (!Array.isArray(rawCategories) || rawCategories.length === 0) return [];
+  const noiseSet = new Set([
+    'general',
+    'fiction',
+    'nonfiction',
+    'non-fiction',
+    'juvenile fiction',
+    'juvenile nonfiction',
+    'young adult fiction',
+    'young adult nonfiction',
+    'children s books',
+    "children's books",
+    'childrens books',
+    'paperback',
+    'hardcover',
+    'board book',
+    'books',
+    'literature',
+  ]);
+  const seen = new Set();
+  /** @type {string[]} */
+  const out = [];
+  for (const raw of rawCategories) {
+    const segments = String(raw || '').split(/[\/|;]/);
+    for (const seg of segments) {
+      const cleaned = seg.trim().replace(/\s+/g, ' ');
+      if (!cleaned || cleaned.length < 2) continue;
+      const lower = stripDiacritics(cleaned).toLowerCase();
+      if (noiseSet.has(lower) || /^\d+$/.test(lower)) continue;
+      if (seen.has(lower)) continue;
+      seen.add(lower);
+      out.push(cleaned.slice(0, 64));
+      if (out.length >= 12) return out;
+    }
+  }
+  return out;
 }
 
 /**
- * Extracts clean topic tags from provider subjects/categories, title, and summary text.
+ * Infers age range and reading stage from subjects/categories, description, format, and page count.
+ * Heuristic age bounds default off unless `autoInferAgeRange: true` or explicit provider age text is found.
+ * @param {{ hints: string[], pageCount?: number, format: import('../../types/models.js').BookFormat, autoInferAgeRange?: boolean }} input
+ * @returns {{ ageMin?: number, ageMax?: number, readingStage: import('../../types/models.js').ReadingStage }}
+ */
+export function inferAgeAndStage({ hints, pageCount, format, autoInferAgeRange = false }) {
+  return inferAgeAndStageFromSignals({ hints, pageCount, format, autoInferAgeRange });
+}
+
+/**
+ * Extracts clean topic tags from provider subjects/categories, title, and summary text,
+ * keeping raw provider categories separated from curated tags.
  * @param {string[]} rawSubjects
  * @param {string} [summary]
  * @param {string} [title]
@@ -193,6 +240,7 @@ export function extractNormalizedTags(rawSubjects, summary = '', title = '', exi
     summary,
     existingTags,
     maxTags: 8,
+    separateCategories: true,
   });
 }
 
@@ -279,7 +327,7 @@ export function cleanBookDescription(raw, maxLen = 1200) {
 /**
  * Normalizes a Google Books API Volume item into a BookCandidate.
  * @param {Record<string, any>} item
- * @param {{ retainRaw?: boolean, fallbackIsbn?: string }} [options]
+ * @param {{ retainRaw?: boolean, fallbackIsbn?: string, autoInferAgeRange?: boolean }} [options]
  * @returns {BookCandidate | null}
  */
 export function normalizeGoogleBooksItem(item, options = {}) {
@@ -335,7 +383,9 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     hints: [title, ...categories, description],
     pageCount,
     format,
+    autoInferAgeRange: Boolean(options.autoInferAgeRange),
   });
+  const cleanedCategories = cleanProviderCategories(categories);
 
   const links = info.imageLinks || {};
   const coverUrl = sanitizeCoverUrl(
@@ -405,10 +455,11 @@ export function normalizeGoogleBooksItem(item, options = {}) {
     ...(publishedYear ? { publishedYear } : {}),
     ...(pageCount ? { pageCount } : {}),
     format,
-    ageMin,
-    ageMax,
+    ...(typeof ageMin === 'number' ? { ageMin } : {}),
+    ...(typeof ageMax === 'number' ? { ageMax } : {}),
     readingStage,
     readingLevelHint,
+    ...(cleanedCategories.length ? { categories: cleanedCategories } : {}),
     tags,
     tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
@@ -432,7 +483,7 @@ export function normalizeGoogleBooksItem(item, options = {}) {
  * Only sets `coverUrl` when Open Library explicitly confirms a `cover` object on the record
  * (avoiding blind `covers.openlibrary.org/...?default=false` URLs that 404 in browsers).
  * @param {Record<string, any>} record
- * @param {{ retainRaw?: boolean, queriedIsbn?: string }} [options]
+ * @param {{ retainRaw?: boolean, queriedIsbn?: string, autoInferAgeRange?: boolean }} [options]
  * @returns {BookCandidate | null}
  */
 export function normalizeOpenLibraryDataRecord(record, options = {}) {
@@ -485,7 +536,9 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     hints: [title, ...subjects],
     pageCount,
     format,
+    autoInferAgeRange: Boolean(options.autoInferAgeRange),
   });
+  const cleanedCategories = cleanProviderCategories(subjects);
 
   const coverObj = record.cover || {};
   const coverUrl = sanitizeCoverUrl(coverObj.large || coverObj.medium || coverObj.small);
@@ -531,10 +584,11 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
     ...(publishedYear ? { publishedYear } : {}),
     ...(pageCount ? { pageCount } : {}),
     format,
-    ageMin,
-    ageMax,
+    ...(typeof ageMin === 'number' ? { ageMin } : {}),
+    ...(typeof ageMax === 'number' ? { ageMax } : {}),
     readingStage,
     readingLevelHint,
+    ...(cleanedCategories.length ? { categories: cleanedCategories } : {}),
     tags,
     tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
@@ -548,7 +602,7 @@ export function normalizeOpenLibraryDataRecord(record, options = {}) {
 /**
  * Normalizes an Open Library `search.json` doc into a BookCandidate.
  * @param {Record<string, any>} doc
- * @param {{ retainRaw?: boolean, queriedIsbn?: string }} [options]
+ * @param {{ retainRaw?: boolean, queriedIsbn?: string, autoInferAgeRange?: boolean }} [options]
  * @returns {BookCandidate | null}
  */
 export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
@@ -601,7 +655,9 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     hints: [title, ...subjects],
     pageCount,
     format,
+    autoInferAgeRange: Boolean(options.autoInferAgeRange),
   });
+  const cleanedCategories = cleanProviderCategories(subjects);
 
   const coverUrl =
     typeof doc.cover_i === 'number' && doc.cover_i > 0
@@ -644,10 +700,11 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     ...(publishedYear ? { publishedYear } : {}),
     ...(pageCount ? { pageCount } : {}),
     format,
-    ageMin,
-    ageMax,
+    ...(typeof ageMin === 'number' ? { ageMin } : {}),
+    ...(typeof ageMax === 'number' ? { ageMax } : {}),
     readingStage,
     readingLevelHint,
+    ...(cleanedCategories.length ? { categories: cleanedCategories } : {}),
     tags,
     tagOrigins,
     ...(coverUrl ? { coverUrl } : {}),
@@ -693,6 +750,12 @@ export function mergeBookCandidates(primary, secondary) {
   const mergedSubjects = Array.from(
     new Set([...(primary.subjects || []), ...(secondary.subjects || [])])
   ).slice(0, 14);
+  const mergedCategories = cleanProviderCategories([
+    ...(primary.categories || []),
+    ...(secondary.categories || []),
+  ]);
+  const mergedAgeMin = primary.ageMin !== undefined ? primary.ageMin : secondary.ageMin;
+  const mergedAgeMax = primary.ageMax !== undefined ? primary.ageMax : secondary.ageMax;
   /** @type {Record<string, import('../../types/models.js').TagOrigin>} */
   const mergedTagOrigins = {};
   for (const tag of mergedTags) {
@@ -718,6 +781,9 @@ export function mergeBookCandidates(primary, secondary) {
     ...(coverUrl ? { coverUrl } : {}),
     ...(summary ? { summary } : {}),
     ...(readingLevelHint ? { readingLevelHint } : {}),
+    ...(typeof mergedAgeMin === 'number' ? { ageMin: mergedAgeMin } : {}),
+    ...(typeof mergedAgeMax === 'number' ? { ageMax: mergedAgeMax } : {}),
+    ...(mergedCategories.length ? { categories: mergedCategories } : {}),
     ...(mergedSubjects.length ? { subjects: mergedSubjects } : {}),
     ...(language ? { language } : {}),
     ...(dimensions ? { dimensions } : {}),
@@ -749,6 +815,7 @@ export function candidateToBook(candidate, options = {}) {
     return cleanSource;
   });
   const tags = sanitizeTagList(candidate.tags, 8);
+  const categories = cleanProviderCategories(candidate.categories || candidate.subjects || []);
   /** @type {Record<string, import('../../types/models.js').TagOrigin>} */
   const tagOrigins = {};
   if (candidate.tagOrigins) {
@@ -770,10 +837,11 @@ export function candidateToBook(candidate, options = {}) {
     ...(candidate.publishedYear ? { publishedYear: candidate.publishedYear } : {}),
     ...(candidate.pageCount ? { pageCount: candidate.pageCount } : {}),
     format: candidate.format,
-    ageMin: candidate.ageMin,
-    ageMax: candidate.ageMax,
+    ...(typeof candidate.ageMin === 'number' ? { ageMin: candidate.ageMin } : {}),
+    ...(typeof candidate.ageMax === 'number' ? { ageMax: candidate.ageMax } : {}),
     readingStage: candidate.readingStage,
     ...(candidate.readingLevelHint ? { readingLevelHint: candidate.readingLevelHint } : {}),
+    ...(categories.length ? { categories } : {}),
     tags,
     ...(Object.keys(tagOrigins).length > 0 ? { tagOrigins } : {}),
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),

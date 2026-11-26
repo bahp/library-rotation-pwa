@@ -145,18 +145,20 @@ export function getProfileRecommendations(input) {
     /** @type {ScoreFactorBreakdown[]} */
     const breakdown = [];
 
-    // 1. Age alignment
-    if (profile.age >= book.ageMin && profile.age <= book.ageMax) {
-      score += w.exactAge;
-      reasons.push(`Fits age ${profile.age}`);
-      breakdown.push({ label: `Exact age (${profile.age})`, points: w.exactAge });
-    } else if (Math.min(Math.abs(profile.age - book.ageMin), Math.abs(profile.age - book.ageMax)) <= 1) {
-      score += w.nearAge;
-      reasons.push(`Near age ${profile.age}`);
-      breakdown.push({ label: 'Near age (+/-1y)', points: w.nearAge });
-    } else {
-      score += w.outOfAge;
-      if (w.outOfAge !== 0) breakdown.push({ label: 'Outside age range', points: w.outOfAge });
+    // 1. Age alignment (neutral when book age range is unset)
+    if (typeof book.ageMin === 'number' && typeof book.ageMax === 'number') {
+      if (profile.age >= book.ageMin && profile.age <= book.ageMax) {
+        score += w.exactAge;
+        reasons.push(`Fits age ${profile.age}`);
+        breakdown.push({ label: `Exact age (${profile.age})`, points: w.exactAge });
+      } else if (Math.min(Math.abs(profile.age - book.ageMin), Math.abs(profile.age - book.ageMax)) <= 1) {
+        score += w.nearAge;
+        reasons.push(`Near age ${profile.age}`);
+        breakdown.push({ label: 'Near age (+/-1y)', points: w.nearAge });
+      } else {
+        score += w.outOfAge;
+        if (w.outOfAge !== 0) breakdown.push({ label: 'Outside age range', points: w.outOfAge });
+      }
     }
 
     // 2. Reading stage fit
@@ -380,7 +382,14 @@ export function scoreSimilarBooksForAnchor(input) {
       score += w.sameStage;
       breakdown.push({ label: 'Same reading stage', points: w.sameStage });
     }
-    if (candidate.ageMin <= anchorBook.ageMax && candidate.ageMax >= anchorBook.ageMin) {
+    if (
+      typeof candidate.ageMin === 'number' &&
+      typeof candidate.ageMax === 'number' &&
+      typeof anchorBook.ageMin === 'number' &&
+      typeof anchorBook.ageMax === 'number' &&
+      candidate.ageMin <= anchorBook.ageMax &&
+      candidate.ageMax >= anchorBook.ageMin
+    ) {
       score += w.ageOverlap;
       breakdown.push({ label: 'Age range overlap', points: w.ageOverlap });
     }
@@ -601,8 +610,10 @@ export function getFavoriteGenreRecommendationShelf(input) {
       const inCooldown = isBookInCooldown(book, profile.cooldownDays, nowIso);
       const isUnread = !readSet.has(book.id);
 
-      if (profile.age >= book.ageMin && profile.age <= book.ageMax) score += 20;
-      else if (Math.min(Math.abs(profile.age - book.ageMin), Math.abs(profile.age - book.ageMax)) <= 1) score += 10;
+      if (typeof book.ageMin === 'number' && typeof book.ageMax === 'number') {
+        if (profile.age >= book.ageMin && profile.age <= book.ageMax) score += 20;
+        else if (Math.min(Math.abs(profile.age - book.ageMin), Math.abs(profile.age - book.ageMax)) <= 1) score += 10;
+      }
 
       if (book.readingStage === profile.readingStage) score += 12;
       if (isUnread) score += 10;
@@ -728,7 +739,14 @@ export function getBedtimeWindDownShelf(input) {
     if (matchedTags.length === 0 && !descMatch && !titleMatch) continue;
 
     let score = matchedTags.length * 16 + (titleMatch ? 18 : 0) + (descMatch ? 12 : 0);
-    if (profile.age >= book.ageMin && profile.age <= book.ageMax) score += 14;
+    if (
+      typeof book.ageMin === 'number' &&
+      typeof book.ageMax === 'number' &&
+      profile.age >= book.ageMin &&
+      profile.age <= book.ageMax
+    ) {
+      score += 14;
+    }
     if (!activeBookSet.has(book.id)) score += 6;
     if (book.loved) score += 8;
 
@@ -807,7 +825,14 @@ export function getDustyGemsShelf(input) {
     }
 
     let score = Math.min(80, Math.round(idleDays / 3));
-    if (profile.age >= book.ageMin && profile.age <= book.ageMax) score += 20;
+    if (
+      typeof book.ageMin === 'number' &&
+      typeof book.ageMax === 'number' &&
+      profile.age >= book.ageMin &&
+      profile.age <= book.ageMax
+    ) {
+      score += 20;
+    }
     if (!readSet.has(book.id)) score += 12;
 
     gems.push({

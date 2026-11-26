@@ -574,8 +574,7 @@ function renderFoundBookSheet({
               </p>
 
               <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400 mt-2">
-                <span>Ages ${candidate.ageMin}–${candidate.ageMax}</span>
-                <span aria-hidden="true">·</span>
+                ${typeof candidate.ageMin === 'number' ? `<span>${typeof candidate.ageMax !== 'number' || candidate.ageMax >= 99 ? `Ages ${candidate.ageMin}+` : `Ages ${candidate.ageMin}–${candidate.ageMax}`}</span><span aria-hidden="true">·</span>` : ''}
                 <span>${escapeHtml(formatReadingStage(candidate.readingStage))}</span>
                 <span aria-hidden="true">·</span>
                 <span>${escapeHtml(formatBookBinding(candidate.format))}</span>
@@ -696,8 +695,7 @@ function renderCandidateRow({
           </button>
 
           <div class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-stone-ink dark:text-slate-400 mt-1">
-            <span>Ages ${candidate.ageMin}–${candidate.ageMax}</span>
-            <span aria-hidden="true">·</span>
+            ${typeof candidate.ageMin === 'number' ? `<span>${typeof candidate.ageMax !== 'number' || candidate.ageMax >= 99 ? `Ages ${candidate.ageMin}+` : `Ages ${candidate.ageMin}–${candidate.ageMax}`}</span><span aria-hidden="true">·</span>` : ''}
             <span>${escapeHtml(formatBookBinding(candidate.format))}</span>
             ${
               candidate.publishedYear

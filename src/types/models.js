@@ -173,10 +173,11 @@
  * @property {number} [publishedYear] - Publication year
  * @property {number} [pageCount] - Page count
  * @property {BookFormat} format - Physical binding format
- * @property {number} ageMin - Minimum recommended age in years
- * @property {number} ageMax - Maximum recommended age in years
+ * @property {number} [ageMin] - Optional minimum recommended age in years
+ * @property {number} [ageMax] - Optional maximum recommended age in years
  * @property {ReadingStage} readingStage - Reading stage hint
  * @property {string} [readingLevelHint] - Human-readable reading complexity and read-aloud duration hint
+ * @property {string[]} [categories] - Cleaned catalog categories/subjects supplied by metadata providers
  * @property {string[]} tags - Normalized lowercase topic/theme tags
  * @property {Record<string, TagOrigin>} [tagOrigins] - Provenance of each tag ('provider' | 'ai' | 'rules' | 'manual')
  * @property {CollectionStatus} [collectionStatus] - Acquisition/shelf status ('owned' default, 'wishlist', 'interested', 'library')
@@ -458,6 +459,8 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {string} [amazonDomain] - Preferred Amazon store domain (e.g. 'amazon.com', 'amazon.co.uk', 'amazon.es')
  * @property {string} [customGiftStoreName] - Optional custom/local bookstore label
  * @property {string} [customGiftStoreUrl] - Optional custom/local bookstore search URL (supports {query})
+ * @property {boolean} [dynamicCoverTintAccent] - Whether Book Details uses the extracted cover tint for accent buttons, pills, and highlights (default: false)
+ * @property {boolean} [autoInferAgeRange] - Whether automatic ingestion/tagging estimates ageMin/ageMax from format/page heuristics when no explicit age cue is provided (default: false)
  * @property {HomeActiveRotationStyle} [homeActiveRotationStyle] - Home active rotation presentation ('card' | 'seamless')
  * @property {MatchingWeightsConfig} [matchingWeights] - Customizable recommendation, similarity, and rotation scoring weights
  * @property {TaggingRulesConfig} [taggingRules] - Customizable local rule-tagging overrides, extra keywords, and custom rules
@@ -871,6 +874,31 @@ export function formatReadingStage(stage) {
 }
 
 /**
+ * Formats an optional `[ageMin, ageMax]` range cleanly (`"Ages 3+"`, `"Ages 2–6"`, or `""` when unset).
+ * @param {number | undefined | null} ageMin
+ * @param {number | undefined | null} ageMax
+ * @param {{ withPrefix?: boolean, withYrs?: boolean, emptyLabel?: string }} [options]
+ * @returns {string}
+ */
+export function formatBookAgeLabel(ageMin, ageMax, options = {}) {
+  const { withPrefix = true, withYrs = false, emptyLabel = '' } = options;
+  if (typeof ageMin !== 'number' || !Number.isFinite(ageMin)) {
+    return emptyLabel;
+  }
+  const hasMax = typeof ageMax === 'number' && Number.isFinite(ageMax);
+  const core =
+    !hasMax || ageMax >= 99
+      ? `${ageMin}+`
+      : ageMin === ageMax
+        ? `${ageMin}`
+        : `${ageMin}–${ageMax}`;
+  if (withYrs) {
+    return `${withPrefix ? 'Ages ' : ''}${core} yrs`;
+  }
+  return `${withPrefix ? 'Ages ' : ''}${core}`;
+}
+
+/**
  * Formats BookFormat into concise human prose.
  * @param {BookFormat} format
  * @returns {string}
@@ -915,7 +943,7 @@ export function formatCollectionStatus(status) {
     case 'wishlist':
       return 'Wishlist';
     case 'interested':
-      return 'Interested';
+      return 'Suggestions';
     case 'library':
       return 'Library Loan';
     case 'owned':

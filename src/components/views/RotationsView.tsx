@@ -398,6 +398,10 @@ export const RotationsView: React.FC = () => {
       );
     }
 
+    const preferredTopics = Array.isArray(rot.rules?.preferredTags)
+      ? rot.rules.preferredTags.slice(0, 3)
+      : [];
+
     return (
       <button
         key={rot.id}
@@ -406,25 +410,52 @@ export const RotationsView: React.FC = () => {
         onClick={() => toggleExpanded(rot.id)}
         aria-expanded="false"
         aria-label={`Open ${rot.title} shelf`}
-        className="w-full relative overflow-hidden rounded-2xl bg-surface border border-edge hover:border-secondary px-3 py-2.5 sm:px-3.5 lr-card flex items-center gap-3 text-left transition-all active:scale-[0.995] cursor-pointer"
+        className="w-full relative overflow-hidden rounded-2xl bg-surface border border-edge hover:border-secondary px-3.5 py-3 sm:px-4 sm:py-3.5 lr-card flex items-start sm:items-center gap-3.5 text-left transition-all active:scale-[0.995] cursor-pointer"
       >
-        <RotationFannedCovers books={shelfBooks} aspectRatio={coverAspect} compact />
+        <div className="shrink-0 pt-0.5 sm:pt-0">
+          <RotationFannedCovers books={shelfBooks} aspectRatio={coverAspect} compact />
+        </div>
 
-        <div className="min-w-0 flex-1 space-y-0.5">
-          <p className="font-sans text-sm sm:text-[15px] font-semibold text-ink truncate leading-tight">
-            {rot.title}
-          </p>
-          <p className="text-[11px] font-mono-tabular text-ink-secondary truncate leading-tight">
-            {totalCount} {totalCount === 1 ? 'book' : 'books'} · {readCount}/{totalCount} read
-            {schedule.lastActiveDateLabel
-              ? ` · Last active ${schedule.lastActiveDateLabel}`
-              : ` · ${schedule.cycleDays}d`}
-          </p>
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-sans text-sm sm:text-[15px] font-semibold text-ink leading-snug line-clamp-2">
+              {rot.title}
+            </p>
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono-tabular font-semibold text-ink-secondary shrink-0 pt-0.5">
+              <span>{progressPct}%</span>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] sm:text-xs font-mono-tabular text-ink-secondary leading-snug">
+            <span>
+              {totalCount} {totalCount === 1 ? 'book' : 'books'}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>
+              {readCount}/{totalCount} read
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{schedule.cycleDays}d cycle</span>
+            {schedule.lastActiveDateLabel && (
+              <>
+                <span aria-hidden="true" className="hidden xs:inline sm:inline">·</span>
+                <span className="text-ink-muted">
+                  Last active {schedule.lastActiveDateLabel}
+                </span>
+              </>
+            )}
+          </div>
+
+          {preferredTopics.length > 0 && (
+            <p className="hidden sm:block text-[11px] text-ink-muted truncate leading-tight">
+              Topics: {preferredTopics.join(' · ')}
+            </p>
+          )}
         </div>
 
         <Icon
           name="chevronRight"
-          className="w-4 h-4 text-ink-muted shrink-0"
+          className="w-4 h-4 text-ink-muted shrink-0 mt-1 sm:mt-0"
         />
 
         <div

@@ -211,8 +211,8 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
         setCurrency(book.estimatedCurrency || book.listPriceCurrency || 'USD');
         break;
       case 'ages':
-        setTextValue(String(book.ageMin));
-        setSecondaryText(String(book.ageMax));
+        setTextValue(typeof book.ageMin === 'number' ? String(book.ageMin) : '');
+        setSecondaryText(typeof book.ageMax === 'number' ? String(book.ageMax) : '');
         break;
       case 'publishedYear':
         setSelectedYear(book.publishedYear || currentYear);
@@ -367,8 +367,22 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
         return;
       }
       case 'ages': {
-        const minVal = Math.max(0, Math.min(120, Math.round(Number(textValue) || 0)));
-        const maxVal = Math.max(minVal, Math.min(120, Math.round(Number(secondaryText) || minVal)));
+        const minTrim = textValue.trim();
+        const maxTrim = secondaryText.trim();
+        if (!minTrim && !maxTrim) {
+          await commitAndClose({ ageMin: null, ageMax: null });
+          return;
+        }
+        const rawMin = Number(minTrim);
+        if (!minTrim || !Number.isFinite(rawMin)) {
+          setError('Enter a minimum age (e.g. 3) or clear both fields.');
+          return;
+        }
+        const minVal = Math.max(0, Math.min(120, Math.round(rawMin)));
+        const rawMax = maxTrim ? Number(maxTrim) : 99;
+        const maxVal = Number.isFinite(rawMax)
+          ? Math.max(minVal, Math.min(120, Math.round(rawMax)))
+          : 99;
         await commitAndClose({ ageMin: minVal, ageMax: maxVal });
         return;
       }
@@ -843,10 +857,11 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
 
             {field === 'ages' && (
               <div className="space-y-4 py-2">
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {[
                     [0, 2],
                     [2, 5],
+                    [3, 99],
                     [4, 8],
                     [7, 10],
                     [9, 12],
@@ -861,7 +876,9 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                         setSecondaryText(String(maxA));
                       }}
                       className={`min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-semibold font-mono-tabular border cursor-pointer ${
-                        Number(textValue) === minA && Number(secondaryText) === maxA
+                        textValue !== '' &&
+                        Number(textValue) === minA &&
+                        Number(secondaryText) === maxA
                           ? 'bg-primary text-primary-fg border-primary'
                           : 'bg-surface-subtle border-edge text-ink'
                       }`}
@@ -869,6 +886,15 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                       {maxA >= 99 ? `${minA}+` : `${minA}–${maxA}`}
                     </button>
                   ))}
+                  {(textValue !== '' || secondaryText !== '' || typeof book.ageMin === 'number') && (
+                    <button
+                      type="button"
+                      onClick={() => commitAndClose({ ageMin: null, ageMax: null })}
+                      className="min-h-[32px] px-2.5 py-1 rounded-lg text-xs font-semibold border border-edge bg-surface text-danger hover:bg-danger/10 cursor-pointer ml-auto"
+                    >
+                      Clear
+                    </button>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -880,22 +906,24 @@ export const EditorialFieldSheet: React.FC<EditorialFieldSheetProps> = ({
                       type="number"
                       min={0}
                       max={120}
+                      placeholder="e.g. 3"
                       value={textValue}
                       onChange={(e) => setTextValue(e.target.value)}
-                      className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base font-mono-tabular text-ink focus:outline-none focus:border-primary"
+                      className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary"
                     />
                   </div>
                   <div>
                     <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-muted mb-1">
-                      Max Age
+                      Max Age (99 = +)
                     </label>
                     <input
                       type="number"
                       min={0}
                       max={120}
+                      placeholder="99 for open"
                       value={secondaryText}
                       onChange={(e) => setSecondaryText(e.target.value)}
-                      className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base font-mono-tabular text-ink focus:outline-none focus:border-primary"
+                      className="w-full h-11 px-3 rounded-lg bg-surface-subtle border border-edge text-base font-mono-tabular text-ink placeholder:text-ink-muted focus:outline-none focus:border-primary"
                     />
                   </div>
                 </div>

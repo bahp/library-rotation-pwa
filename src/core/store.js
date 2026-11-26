@@ -33,6 +33,7 @@ import {
 import {
   candidateToBook,
   cleanBookDescription,
+  cleanProviderCategories,
   cleanProviderExternalId,
   sanitizeCoverUrl,
 } from '../features/catalog/normalizer.js';
@@ -334,6 +335,83 @@ export function createAppStore(storage, deps = {}) {
     await storage.save(state);
   }
 
+  let backfillInFlight = false;
+
+  /**
+   * Pre-computes and persists cover color tints & swatches in background batches for books that
+   * have a coverUrl but lack cached palette swatches or matching extraction mode, preventing flash on open.
+   */
+  async function backfillMissingCoverTints() {
+    if (
+      backfillInFlight ||
+      typeof document === 'undefined' ||
+      typeof Image === 'undefined' ||
+      state.settings?.dynamicCoverTint === false
+    ) {
+      return 0;
+    }
+    const mode = normalizeTintMode(state.settings?.dynamicCoverTintMode);
+    const targets = state.books.filter((b) => {
+      if (!b.coverUrl) return false;
+      const hasPrimary = Boolean(normalizeHexColor(b.dominantColor));
+      const hasSwatches = Array.isArray(b.dominantColorSwatches) && b.dominantColorSwatches.length > 0;
+      const isManual = b.dominantColorSource === 'manual';
+      const matchesMode = !b.dominantColorMode || b.dominantColorMode === mode;
+      return !hasPrimary || !hasSwatches || (!isManual && !matchesMode);
+    });
+    if (targets.length === 0) return 0;
+
+    backfillInFlight = true;
+    let updatedCount = 0;
+    try {
+      /** @type {Map<string, { primary?: string, swatches?: string[], mode: import('../types/models.js').DynamicCoverTintMode }>} */
+      const patchById = new Map();
+      for (const targetBook of targets.slice(0, 30)) {
+        try {
+          const palette = await extractCoverPaletteFromUrl(targetBook.coverUrl, { mode });
+          if (!palette || (!palette.primary && (!palette.swatches || palette.swatches.length === 0))) {
+            continue;
+          }
+          const swatches = normalizeSwatchList(palette.swatches);
+          const isManual = targetBook.dominantColorSource === 'manual';
+          const primary = isManual
+            ? normalizeHexColor(targetBook.dominantColor) || palette.primary
+            : palette.primary || normalizeHexColor(targetBook.dominantColor);
+          if (!primary && !swatches) continue;
+          patchById.set(targetBook.id, {
+            ...(primary ? { primary } : {}),
+            ...(swatches ? { swatches } : {}),
+            mode,
+          });
+        } catch (_) {
+          // Skip transient CORS/image load errors cleanly
+        }
+      }
+
+      if (patchById.size > 0) {
+        updatedCount = patchById.size;
+        await commit({
+          ...state,
+          books: state.books.map((b) => {
+            const p = patchById.get(b.id);
+            if (!p) return b;
+            const isManual = b.dominantColorSource === 'manual';
+            return {
+              ...b,
+              ...(p.primary ? { dominantColor: p.primary } : {}),
+              dominantColorSource: isManual ? 'manual' : 'auto',
+              dominantColorMode: p.mode,
+              ...(p.swatches ? { dominantColorSwatches: p.swatches } : {}),
+            };
+          }),
+        });
+      }
+    } finally {
+      backfillInFlight = false;
+    }
+    return updatedCount;
+  }
+
   /**
    * Initializes store from browser storage and binds OS color-scheme listener.
    */
@@ -361,6 +439,12 @@ export function createAppStore(storage, deps = {}) {
       });
     }
     emit();
+
+    if (typeof setTimeout !== 'undefined' && typeof document !== 'undefined') {
+      setTimeout(() => {
+        void backfillMissingCoverTints();
+      }, 150);
+    }
   }
 
   /**
@@ -557,9 +641,10 @@ export function createAppStore(storage, deps = {}) {
    *   pageCount?: number,
    *   coverUrl?: string,
    *   format: import('../types/models.js').BookFormat,
-   *   ageMin: number,
-   *   ageMax: number,
+   *   ageMin?: number | null,
+   *   ageMax?: number | null,
    *   readingStage: import('../types/models.js').ReadingStage,
+   *   categories?: string[],
    *   tags: string[],
    *   collectionStatus?: import('../types/models.js').CollectionStatus,
    *   condition?: import('../types/models.js').BookCondition,
@@ -607,10 +692,24 @@ export function createAppStore(storage, deps = {}) {
         : [{ provider: 'manual', fetchedAt: now }];
 
     const cleanDescription = cleanBookDescription(input.description || '');
-    const explicitAgeMin = Math.max(0, Number(input.ageMin) || 2);
-    const explicitAgeMax = Math.max(explicitAgeMin, Number(input.ageMax) || 6);
+    const rawAgeMin = input.ageMin;
+    const rawAgeMax = input.ageMax;
+    const hasExplicitAges =
+      typeof rawAgeMin === 'number' &&
+      Number.isFinite(rawAgeMin) &&
+      typeof rawAgeMax === 'number' &&
+      Number.isFinite(rawAgeMax);
+    const explicitAgeMin =
+      typeof rawAgeMin === 'number' && Number.isFinite(rawAgeMin) && typeof rawAgeMax === 'number' && Number.isFinite(rawAgeMax)
+        ? Math.max(0, Math.round(rawAgeMin))
+        : undefined;
+    const explicitAgeMax =
+      explicitAgeMin !== undefined && typeof rawAgeMax === 'number' && Number.isFinite(rawAgeMax)
+        ? Math.max(explicitAgeMin, Math.round(rawAgeMax))
+        : undefined;
     const explicitStage = input.readingStage || 'picture-book';
     const baseTags = sanitizeTagList(input.tags || [], 8);
+    const categories = cleanProviderCategories(input.categories || []);
 
     const enriched = await tagging.enrichBook(
       {
@@ -620,14 +719,14 @@ export function createAppStore(storage, deps = {}) {
         format: input.format || 'hardcover',
         pageCount: pages,
         publishedYear: pubYear,
-        ageMin: explicitAgeMin,
-        ageMax: explicitAgeMax,
+        ...(explicitAgeMin !== undefined ? { ageMin: explicitAgeMin } : {}),
+        ...(explicitAgeMax !== undefined ? { ageMax: explicitAgeMax } : {}),
         readingStage: explicitStage,
         tags: baseTags,
         ...(cleanDescription ? { summary: cleanDescription } : {}),
       },
       state.settings,
-      { preserveExplicitAgeAndStage: true }
+      { preserveExplicitAgeAndStage: hasExplicitAges }
     );
 
     const finalSources = enriched.aiProvenance
@@ -666,10 +765,11 @@ export function createAppStore(storage, deps = {}) {
       ...(cleanCover ? { coverUrl: cleanCover } : {}),
       ...(cleanDescription ? { description: cleanDescription } : {}),
       format: input.format || 'hardcover',
-      ageMin: enriched.ageMin,
-      ageMax: enriched.ageMax,
+      ...(typeof enriched.ageMin === 'number' ? { ageMin: enriched.ageMin } : {}),
+      ...(typeof enriched.ageMax === 'number' ? { ageMax: enriched.ageMax } : {}),
       readingStage: enriched.readingStage,
       ...(enriched.readingLevelHint ? { readingLevelHint: enriched.readingLevelHint } : {}),
+      ...(categories.length > 0 ? { categories } : {}),
       tags: enriched.tags,
       ...(tagOrigins ? { tagOrigins } : {}),
       collectionStatus,
@@ -772,12 +872,13 @@ export function createAppStore(storage, deps = {}) {
     /** @type {import('../types/models.js').Book} */
     const book = {
       ...baseBook,
-      ageMin: enriched.ageMin,
-      ageMax: enriched.ageMax,
+      ...(typeof enriched.ageMin === 'number' ? { ageMin: enriched.ageMin } : {}),
+      ...(typeof enriched.ageMax === 'number' ? { ageMax: enriched.ageMax } : {}),
       readingStage: enriched.readingStage,
       ...(enriched.readingLevelHint
         ? { readingLevelHint: enriched.readingLevelHint }
         : {}),
+      ...(baseBook.categories && baseBook.categories.length > 0 ? { categories: baseBook.categories } : {}),
       tags: enriched.tags,
       ...(tagOrigins ? { tagOrigins } : {}),
       collectionStatus,
@@ -791,6 +892,10 @@ export function createAppStore(storage, deps = {}) {
       ...(intakeOptions.needsScanReview ? { needsScanReview: true } : {}),
       sources,
     };
+    if (typeof enriched.ageMin !== 'number') {
+      delete book.ageMin;
+      delete book.ageMax;
+    }
 
     await commit({
       ...state,
@@ -817,9 +922,10 @@ export function createAppStore(storage, deps = {}) {
    *   coverUrl?: string | null,
    *   description?: string | null,
    *   format?: import('../types/models.js').BookFormat,
-   *   ageMin?: number,
-   *   ageMax?: number,
+   *   ageMin?: number | null,
+   *   ageMax?: number | null,
    *   readingStage?: import('../types/models.js').ReadingStage,
+   *   categories?: string[],
    *   tags?: string[],
    *   collectionStatus?: import('../types/models.js').CollectionStatus,
    *   condition?: import('../types/models.js').BookCondition,
@@ -908,14 +1014,27 @@ export function createAppStore(storage, deps = {}) {
 
     const nextFormat = patch.format || existing.format;
     const nextStage = patch.readingStage || existing.readingStage;
-    const nextAgeMin =
-      patch.ageMin !== undefined
-        ? Math.max(0, Math.min(120, Math.trunc(Number(patch.ageMin) || 0)))
-        : existing.ageMin;
-    const nextAgeMax =
-      patch.ageMax !== undefined
-        ? Math.max(nextAgeMin, Math.min(120, Math.trunc(Number(patch.ageMax) || nextAgeMin)))
-        : Math.max(nextAgeMin, existing.ageMax);
+    let nextAgeMin = existing.ageMin;
+    let nextAgeMax = existing.ageMax;
+    if (patch.ageMin === null || patch.ageMax === null) {
+      nextAgeMin = undefined;
+      nextAgeMax = undefined;
+    } else if (patch.ageMin !== undefined || patch.ageMax !== undefined) {
+      const resolvedMin =
+        patch.ageMin !== undefined
+          ? Math.max(0, Math.min(120, Math.trunc(Number(patch.ageMin) || 0)))
+          : existing.ageMin ?? 0;
+      const resolvedMax =
+        patch.ageMax !== undefined
+          ? Math.max(resolvedMin, Math.min(120, Math.trunc(Number(patch.ageMax) || resolvedMin)))
+          : Math.max(resolvedMin, existing.ageMax ?? resolvedMin);
+      nextAgeMin = resolvedMin;
+      nextAgeMax = resolvedMax;
+    }
+    const nextCategories =
+      patch.categories !== undefined
+        ? cleanProviderCategories(patch.categories)
+        : existing.categories;
 
     const nextTags =
       patch.tags !== undefined ? sanitizeTagList(patch.tags, 10) : existing.tags;
@@ -1093,10 +1212,11 @@ export function createAppStore(storage, deps = {}) {
       ...(nextPubYear ? { publishedYear: nextPubYear } : {}),
       ...(nextPages ? { pageCount: nextPages } : {}),
       format: nextFormat,
-      ageMin: nextAgeMin,
-      ageMax: nextAgeMax,
+      ...(typeof nextAgeMin === 'number' ? { ageMin: nextAgeMin } : {}),
+      ...(typeof nextAgeMax === 'number' ? { ageMax: nextAgeMax } : {}),
       readingStage: nextStage,
       ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
+      ...(nextCategories && nextCategories.length > 0 ? { categories: nextCategories } : {}),
       tags: nextTags,
       ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
       ...(nextCollectionStatus ? { collectionStatus: nextCollectionStatus } : {}),
@@ -2370,6 +2490,11 @@ export function createAppStore(storage, deps = {}) {
         addedGoogleSourceCount += 1;
       }
 
+      const mergedCategories = cleanProviderCategories([
+        ...(book.categories || []),
+        ...(matchedCandidate.categories || matchedCandidate.subjects || []),
+      ]);
+
       /** @type {import('../types/models.js').Book} */
       const updatedBook = {
         ...book,
@@ -2390,12 +2515,15 @@ export function createAppStore(storage, deps = {}) {
         ...(nextListPriceCurrency ? { listPriceCurrency: nextListPriceCurrency } : {}),
         ...(coverWasAdded ? {} : book.dominantColor ? { dominantColor: book.dominantColor } : {}),
         ...(nextReadingLevelHint ? { readingLevelHint: nextReadingLevelHint } : {}),
+        ...(mergedCategories.length > 0 ? { categories: mergedCategories } : {}),
         tags: nextTags,
         ...(nextTagOrigins ? { tagOrigins: nextTagOrigins } : {}),
         sources: nextSources,
       };
       if (coverWasAdded) {
         delete updatedBook.dominantColor;
+        delete updatedBook.dominantColorSwatches;
+        delete updatedBook.dominantColorMode;
       }
 
       const didChange = JSON.stringify(updatedBook) !== JSON.stringify(book);
@@ -2410,6 +2538,11 @@ export function createAppStore(storage, deps = {}) {
         ...state,
         books: nextBooks,
       });
+      if (typeof setTimeout !== 'undefined' && typeof document !== 'undefined') {
+        setTimeout(() => {
+          void backfillMissingCoverTints();
+        }, 100);
+      }
     }
 
     const details = [
@@ -3480,6 +3613,28 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
+   * Toggles a book's membership inside any rotation shelf (active or saved).
+   * @param {string} rotationId
+   * @param {string} bookId
+   * @returns {Promise<'added' | 'removed' | 'blocked'>}
+   */
+  async function toggleBookInRotation(rotationId, bookId) {
+    const rotation = state.rotations.find((r) => r.id === rotationId);
+    if (!rotation) return 'blocked';
+    const isMember = rotation.bookIds.includes(bookId);
+    if (isMember) {
+      if (rotation.bookIds.length <= 1) {
+        notify('A rotation shelf needs at least one book.', 'error');
+        return 'blocked';
+      }
+      await removeBookFromRotation(rotationId, bookId);
+      return 'removed';
+    }
+    await addBooksToRotationManual(rotationId, [bookId]);
+    return 'added';
+  }
+
+  /**
    * Deletes an entire saved or active rotation shelf while:
    * - Keeping all catalog books (`state.books`) and child reading accomplishments (`profile.readHistoryBookIds`
    *   and `book.lastReadAt`) completely intact.
@@ -4468,6 +4623,7 @@ export function createAppStore(storage, deps = {}) {
         ...state,
         books: [...addedBooks, ...state.books],
       });
+      void backfillMissingCoverTints();
     }
 
     if (!options.silent) {
@@ -4816,6 +4972,8 @@ export function createAppStore(storage, deps = {}) {
     addBooksToRotationRandom,
     refreshRotationFromRules,
     removeBookFromRotation,
+    toggleBookInRotation,
+    backfillMissingCoverTints,
     deleteRotation,
     setActiveRotation,
     toggleRotationActive,

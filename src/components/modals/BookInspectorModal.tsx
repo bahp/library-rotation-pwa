@@ -21,10 +21,12 @@ import { BookOwnersSheet } from './BookOwnersSheet.js';
 import { BookCoverStudioSheet } from './BookCoverStudioSheet.js';
 import { BookGiftSheet, type GiftStoreOption } from './BookGiftSheet.js';
 import { BookGenresSheet } from './BookGenresSheet.js';
+import { BookRotationsSheet } from './BookRotationsSheet.js';
 import { getBookAudioBlob } from '../../core/storage.js';
 import {
   extractCoverPaletteFromUrl,
   normalizeHexColor,
+  resolveAccessibleAccentTokens,
   resolveBookCardTintHex,
 } from '../../features/catalog/cover-color-extractor.js';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.js';
@@ -34,6 +36,7 @@ import {
 } from '../../features/rotations/usage-insights.js';
 import {
   computeOwnerInitials,
+  formatBookAgeLabel,
   formatBookBinding,
   formatBookCondition,
   formatCollectionStatus,
@@ -45,7 +48,7 @@ import {
   normalizeOwnersList,
   resolveBookTagOrigin,
 } from '../../types/models.js';
-import { AVATAR_TONES } from '../../config/index.js';
+import { AVATAR_TONES, DARK_THEME_PRESET_IDS } from '../../config/index.js';
 import type {
   BookAudioRecording,
   BookCondition,
@@ -117,6 +120,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const [isOwnersSheetOpen, setIsOwnersSheetOpen] = useState(false);
   const [isGiftSheetOpen, setIsGiftSheetOpen] = useState(false);
   const [isGenresSheetOpen, setIsGenresSheetOpen] = useState(false);
+  const [isRotationsSheetOpen, setIsRotationsSheetOpen] = useState(false);
   const [audioObjectUrls, setAudioObjectUrls] = useState<Record<string, string>>({});
   const audioUrlsRef = useRef<Record<string, string>>({});
   const [coverPalette, setCoverPalette] = useState<{ primary: string | null; swatches: string[] }>({
@@ -155,6 +159,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     setIsOwnersSheetOpen(false);
     setIsGiftSheetOpen(false);
     setIsGenresSheetOpen(false);
+    setIsRotationsSheetOpen(false);
   }, [bookId]);
 
   // Lazy-load IndexedDB audio blobs for playback & revoke stale object URLs
@@ -249,11 +254,30 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
       !book.dominantColorMode || book.dominantColorMode === dynamicCoverTintMode;
     const isManual = book.dominantColorSource === 'manual';
 
-    if (storedPrimary && storedSwatches.length > 0 && (isManual || hasMatchingMode)) {
+    if (storedPrimary && (isManual || hasMatchingMode)) {
       setCoverPalette({
         primary: storedPrimary,
-        swatches: storedSwatches,
+        swatches: storedSwatches.length > 0 ? storedSwatches : [storedPrimary],
       });
+      // Backfill missing swatches silently in the background without changing the locked primary tint
+      if (storedSwatches.length === 0) {
+        extractCoverPaletteFromUrl(url, { mode: dynamicCoverTintMode })
+          .then((palette) => {
+            if (cancelled || !palette?.swatches?.length) return;
+            setCoverPalette({
+              primary: storedPrimary,
+              swatches: palette.swatches,
+            });
+            store
+              .setBookDominantColor(book.id, storedPrimary, {
+                manual: isManual,
+                swatches: palette.swatches,
+                mode: dynamicCoverTintMode,
+              })
+              .catch(() => {});
+          })
+          .catch(() => {});
+      }
       return;
     }
 
@@ -285,19 +309,6 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           store
             .setBookDominantColor(book.id, palette.primary, {
               manual: false,
-              swatches: resolvedSwatches,
-              mode: dynamicCoverTintMode,
-            })
-            .catch(() => {});
-        } else if (
-          isManual &&
-          storedPrimary &&
-          resolvedSwatches.length > 0 &&
-          storedSwatches.length === 0
-        ) {
-          store
-            .setBookDominantColor(book.id, storedPrimary, {
-              manual: true,
               swatches: resolvedSwatches,
               mode: dynamicCoverTintMode,
             })
@@ -555,13 +566,50 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const tintLayerClass =
     dynamicCoverTintStyle === 'linear' ? 'lr-tint-layer-linear' : 'lr-tint-layer-circular';
   const tintHex = resolveBookCardTintHex(book);
-  const dialogTintStyle = dynamicCoverTint
-    ? ({
-        '--lr-cover-tint': tintHex,
-        '--lr-tint-circular-fade': `${circularFadePx}px`,
-        '--lr-tint-linear-fade': `${linearFadePct}%`,
-      } as React.CSSProperties)
-    : undefined;
+  const activeTintSourceHex = dynamicCoverTint
+    ? coverPalette.primary || normalizeHexColor(book.dominantColor) || null
+    : null;
+  const activeThemePreset =
+    state.settings?.themePreset || (state.settings?.theme === 'dark' ? 'forest-brass' : 'bunko');
+  const isDarkTheme =
+    state.settings?.theme === 'dark' || DARK_THEME_PRESET_IDS.includes(activeThemePreset);
+  const coverAccentTokens =
+    dynamicCoverTint && state.settings?.dynamicCoverTintAccent && activeTintSourceHex
+      ? resolveAccessibleAccentTokens(activeTintSourceHex, isDarkTheme)
+      : null;
+
+  const dialogTintStyle =
+    dynamicCoverTint || coverAccentTokens
+      ? ({
+          ...(dynamicCoverTint
+            ? {
+                '--lr-cover-tint': tintHex,
+                '--lr-tint-circular-fade': `${circularFadePx}px`,
+                '--lr-tint-linear-fade': `${linearFadePct}%`,
+              }
+            : {}),
+          ...(coverAccentTokens
+            ? {
+                '--lr-book-accent': coverAccentTokens.accent,
+                '--lr-book-accent-hover': coverAccentTokens.accentHover,
+                '--lr-book-accent-fg': coverAccentTokens.accentFg,
+                '--lr-book-accent-ink': coverAccentTokens.accentInk,
+              }
+            : {}),
+        } as React.CSSProperties)
+      : undefined;
+
+  const assignedRotations = state.rotations.filter((r) => r.bookIds.includes(book.id));
+  const bookAgesEditorialLabel = formatBookAgeLabel(book.ageMin, book.ageMax, {
+    withPrefix: false,
+    withYrs: true,
+    emptyLabel: 'Set ages',
+  });
+  const bookAgesCompactLabel = formatBookAgeLabel(book.ageMin, book.ageMax, {
+    withPrefix: false,
+    withYrs: true,
+    emptyLabel: 'Set',
+  });
 
   const inActiveShelf = Boolean(activeRot && activeRot.bookIds.includes(book.id));
   const isReadInActive = Boolean(activeRot && activeRot.completedBookIds?.includes(book.id));
@@ -946,11 +994,12 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
     </section>
   );
 
-  // Compact Genres & Topics Card (tapping top-right edit icon or card opens BookGenresSheet)
+  // Compact Genres & Topics Card + Separated Provider Catalog Categories
+  const providerCategories = Array.isArray(book.categories) ? book.categories : [];
   const genresAndTopicsSection = (
     <section
-      aria-label="Genres and topics"
-      className="lr-card rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-2.5 text-xs text-ink-secondary"
+      aria-label="Genres, topics, and catalog categories"
+      className="lr-card rounded-2xl bg-surface-subtle/80 border border-edge/80 p-4 space-y-3 text-xs text-ink-secondary"
     >
       <div className="flex items-center justify-between gap-2">
         <strong className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
@@ -998,6 +1047,20 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         >
           No genres or topics yet. Tap Manage to add tags, browse genres, or run AI / Quick Rules.
         </button>
+      )}
+
+      {providerCategories.length > 0 && (
+        <div
+          data-catalog-categories="true"
+          className="pt-2.5 border-t border-edge-subtle space-y-1.5"
+        >
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
+            Catalog Categories ({providerCategories.length})
+          </span>
+          <p className="text-xs text-ink-secondary leading-relaxed">
+            {providerCategories.join(' · ')}
+          </p>
+        </div>
       )}
     </section>
   );
@@ -1239,6 +1302,17 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         onClose={() => setIsCoverPickerOpen(false)}
         onNotify={(msg, tone) => store.notify(msg, tone)}
       />
+
+      <BookRotationsSheet
+        isOpen={isRotationsSheetOpen}
+        book={book}
+        rotations={state.rotations}
+        profiles={state.profiles}
+        onToggleRotation={async (rotationId) => {
+          await store.toggleBookInRotation(rotationId, book.id);
+        }}
+        onClose={() => setIsRotationsSheetOpen(false)}
+      />
     </>
   );
 
@@ -1273,8 +1347,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
           data-cover-tint={dynamicCoverTint ? tintHex : undefined}
           data-cover-tint-style={dynamicCoverTint ? dynamicCoverTintStyle : undefined}
           data-cover-tint-behavior={dynamicCoverTint ? dynamicCoverTintBehavior : undefined}
+          data-book-accent={coverAccentTokens ? 'cover' : undefined}
           onClick={(e) => e.stopPropagation()}
-          className={`relative animate-sheet-up w-full max-w-lg sm:max-w-xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl ${
+          className={`lr-book-accent-scope relative animate-sheet-up w-full max-w-lg sm:max-w-xl max-h-[94dvh] sm:max-h-[90vh] flex flex-col rounded-t-3xl sm:rounded-2xl ${
             dynamicCoverTint ? 'lr-tinted-card ' : ''
           }bg-surface border border-edge shadow-2xl overflow-hidden`}
         >
@@ -1612,8 +1687,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                     Ages
                   </span>
-                  <span className="mt-0.5 block font-display text-sm font-semibold text-ink font-mono-tabular truncate">
-                    {book.ageMax >= 99 ? `${book.ageMin}+ yrs` : `${book.ageMin}–${book.ageMax} yrs`}
+                  <span
+                    className={`mt-0.5 block font-display text-sm font-semibold truncate ${
+                      typeof book.ageMin === 'number'
+                        ? 'text-ink font-mono-tabular'
+                        : 'italic text-ink-muted'
+                    }`}
+                  >
+                    {bookAgesEditorialLabel}
                   </span>
                 </button>
 
@@ -1825,12 +1906,38 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 )}
               </section>
 
-              {/* Rotation Eligibility Native Mobile Setting Row */}
-              <div className="lr-card rounded-2xl bg-surface-subtle/85 border border-edge/85 px-4 py-3 flex items-center justify-between gap-4">
-                <div className="flex items-start gap-3 min-w-0">
-                  <span className="w-8 h-8 rounded-xl bg-surface border border-edge/80 flex items-center justify-center text-ink-secondary shrink-0 mt-0.5">
-                    <Icon name="rotations" className="w-4 h-4" />
+              {/* Assigned Rotations + Rotation Eligibility Card */}
+              <div className="lr-card rounded-2xl bg-surface-subtle/85 border border-edge/85 divide-y divide-edge-subtle overflow-hidden">
+                <button
+                  type="button"
+                  data-action="open-book-rotations-sheet"
+                  onClick={() => setIsRotationsSheetOpen(true)}
+                  className="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-surface-elevated/45 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-start gap-3 min-w-0">
+                    <span className="w-8 h-8 rounded-xl bg-surface border border-edge/80 flex items-center justify-center text-primary shrink-0 mt-0.5">
+                      <Icon name="rotations" className="w-4 h-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-ink leading-snug">
+                        Assigned Rotations
+                      </p>
+                      <p className="text-xs text-ink-secondary mt-0.5 leading-snug truncate">
+                        {assignedRotations.length > 0
+                          ? assignedRotations
+                              .map((r) => `${r.title}${r.status === 'active' ? ' (Active)' : ''}`)
+                              .join(' · ')
+                          : 'Not placed on any rotation yet'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary shrink-0">
+                    <span>{assignedRotations.length > 0 ? 'Manage' : 'Assign'}</span>
+                    <Icon name="chevronRight" className="w-4 h-4 text-ink-muted" />
                   </span>
+                </button>
+
+                <div className="px-4 py-3 flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p id="editorial-rotation-label" className="text-sm font-semibold text-ink leading-snug">
                       Eligible for shelf rotations
@@ -1843,14 +1950,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                           : 'Included in automatic family shelf rotations'}
                     </p>
                   </div>
+                  <ToggleSwitch
+                    checked={!isExcluded}
+                    onChange={handleToggleEligibility}
+                    ariaLabelledBy="editorial-rotation-label"
+                    onLabel="Included"
+                    offLabel="Excluded"
+                  />
                 </div>
-                <ToggleSwitch
-                  checked={!isExcluded}
-                  onChange={handleToggleEligibility}
-                  ariaLabelledBy="editorial-rotation-label"
-                  onLabel="Included"
-                  offLabel="Excluded"
-                />
               </div>
 
               {/* Community Rating & External Catalog Links */}
@@ -2085,8 +2192,9 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
         data-cover-tint={dynamicCoverTint ? tintHex : undefined}
         data-cover-tint-style={dynamicCoverTint ? dynamicCoverTintStyle : undefined}
         data-cover-tint-behavior={dynamicCoverTint ? dynamicCoverTintBehavior : undefined}
+        data-book-accent={coverAccentTokens ? 'cover' : undefined}
         onClick={(e) => e.stopPropagation()}
-        className={`relative animate-sheet-up w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] sm:max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-xl ${
+        className={`lr-book-accent-scope relative animate-sheet-up w-full max-w-lg sm:max-w-2xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] sm:max-h-[88vh] flex flex-col rounded-t-2xl sm:rounded-xl ${
           dynamicCoverTint ? 'lr-tinted-card ' : ''
         }bg-surface border border-edge shadow-2xl overflow-hidden`}
       >
@@ -2276,8 +2384,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   <span className="block text-[9px] font-semibold uppercase tracking-wider text-ink-muted">
                     Ages
                   </span>
-                  <span className="block text-[11px] font-semibold text-ink font-mono-tabular truncate">
-                    {book.ageMax >= 99 ? `${book.ageMin}+ yrs` : `${book.ageMin}–${book.ageMax} yrs`}
+                  <span
+                    className={`block text-[11px] font-semibold truncate ${
+                      typeof book.ageMin === 'number'
+                        ? 'text-ink font-mono-tabular'
+                        : 'italic text-ink-muted'
+                    }`}
+                  >
+                    {bookAgesCompactLabel}
                   </span>
                 </button>
                 <button
@@ -2379,8 +2493,14 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   <span className="block text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
                     Ages
                   </span>
-                  <span className="mt-0.5 block text-xs font-semibold text-ink font-mono-tabular truncate">
-                    {book.ageMax >= 99 ? `${book.ageMin}+ yrs` : `${book.ageMin}–${book.ageMax} yrs`}
+                  <span
+                    className={`mt-0.5 block text-xs font-semibold truncate ${
+                      typeof book.ageMin === 'number'
+                        ? 'text-ink font-mono-tabular'
+                        : 'italic text-ink-muted'
+                    }`}
+                  >
+                    {bookAgesEditorialLabel}
                   </span>
                 </button>
                 <button
@@ -2598,7 +2718,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </span>
               </button>
 
-              {/* Row 2: Shelf Status (Owned vs Wishlist) */}
+              {/* Row 2: Shelf Status (Owned vs Wishlist vs Suggestions) */}
               <div
                 data-customize-row="status"
                 className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
@@ -2607,7 +2727,7 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                   Shelf
                 </span>
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  {(['owned', 'wishlist'] as CollectionStatus[]).map((st) => {
+                  {(['owned', 'wishlist', 'interested'] as CollectionStatus[]).map((st) => {
                     const active = currentStatus === st;
                     return (
                       <button
@@ -2664,7 +2784,28 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 </div>
               </div>
 
-              {/* Row 4: Rotations Eligibility */}
+              {/* Row 4: Assigned Shelf Rotations */}
+              <button
+                type="button"
+                data-customize-row="assigned-rotations"
+                data-action="open-book-rotations-sheet"
+                onClick={() => setIsRotationsSheetOpen(true)}
+                className="w-full py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-left hover:opacity-85 transition-opacity cursor-pointer"
+              >
+                <span className="text-xs font-semibold text-ink-secondary shrink-0">
+                  Assigned
+                </span>
+                <span className="inline-flex items-center justify-end gap-1.5 min-w-0">
+                  <span className="text-xs font-medium text-ink truncate">
+                    {assignedRotations.length > 0
+                      ? assignedRotations.map((r) => r.title).join(', ')
+                      : 'Not assigned'}
+                  </span>
+                  <Icon name="chevronRight" className="w-4 h-4 text-ink-muted shrink-0" />
+                </span>
+              </button>
+
+              {/* Row 5: Rotations Eligibility */}
               <div
                 data-customize-row="rotations"
                 className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-3"

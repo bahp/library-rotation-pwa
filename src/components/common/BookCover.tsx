@@ -84,7 +84,7 @@ export const BookCover: React.FC<BookCoverProps> = ({
     } else if (book.collectionStatus === 'library') {
       catalogBadge = { label: 'Loan', styleClass: COVER_CATALOG_BADGE_STYLES.libraryLoan };
     } else if (book.collectionStatus === 'interested') {
-      catalogBadge = { label: 'Saved', styleClass: COVER_CATALOG_BADGE_STYLES.saved };
+      catalogBadge = { label: 'Suggestion', styleClass: COVER_CATALOG_BADGE_STYLES.saved };
     } else if (book.condition === 'torn') {
       catalogBadge = { label: 'Torn', styleClass: COVER_CATALOG_BADGE_STYLES.torn };
     } else if (book.condition === 'broken') {
