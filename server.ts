@@ -21,7 +21,11 @@ if (typeof globalScope.__dirname === 'string' && !path.isAbsolute(globalScope.__
 
 import { createServer as createViteServer } from 'vite';
 import { proxyBookCoverImage, proxyGoogleBooksVolumes } from './src/server/books-proxy.js';
-import { executeLlmQuery, generateImageWithGemini } from './src/server/llm-service.js';
+import {
+  embedTextsWithGemini,
+  executeLlmQuery,
+  generateImageWithGemini,
+} from './src/server/llm-service.js';
 
 // Dev server must run strictly on port 3000 in the AI Studio environment.
 const PORT = 3000;
@@ -87,6 +91,40 @@ async function startServer() {
     }
   });
 
+  // Batch text embeddings endpoint via Gemini Embedding model (`gemini-embedding-2`)
+  app.post('/api/llm/embed', async (req, res) => {
+    try {
+      const payload = req.body || {};
+      const result = await embedTextsWithGemini({
+        texts: Array.isArray(payload.texts) ? payload.texts : [],
+        model: typeof payload.model === 'string' ? payload.model : undefined,
+        apiKey: typeof payload.apiKey === 'string' ? payload.apiKey : '',
+        taskType:
+          payload.taskType === 'SEMANTIC_SIMILARITY' ||
+          payload.taskType === 'RETRIEVAL_DOCUMENT' ||
+          payload.taskType === 'RETRIEVAL_QUERY' ||
+          payload.taskType === 'CLUSTERING'
+            ? payload.taskType
+            : undefined,
+        outputDimensionality:
+          typeof payload.outputDimensionality === 'number'
+            ? payload.outputDimensionality
+            : undefined,
+      });
+      res.setHeader('Cache-Control', 'no-store');
+      const httpStatus = result.status === 429 ? 429 : result.status === 400 ? 400 : 200;
+      res.status(httpStatus).json(result);
+    } catch (err: unknown) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(200).json({
+        ok: false,
+        vectors: [],
+        error: 'INTERNAL_ERROR',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  });
+
   // Health & configuration boolean check (NEVER returns the key value itself)
   app.get('/api/books/status', (_req, res) => {
     const keyConfigured = Boolean((process.env.GOOGLE_BOOKS_API_KEY || '').trim());
@@ -106,6 +144,9 @@ async function startServer() {
         maxResults: typeof req.query.maxResults === 'string' ? req.query.maxResults : undefined,
         printType: typeof req.query.printType === 'string' ? req.query.printType : undefined,
         hl: typeof req.query.hl === 'string' ? req.query.hl : 'en',
+        startIndex: typeof req.query.startIndex === 'string' ? req.query.startIndex : undefined,
+        orderBy: typeof req.query.orderBy === 'string' ? req.query.orderBy : undefined,
+        langRestrict: typeof req.query.langRestrict === 'string' ? req.query.langRestrict : undefined,
       },
       apiKey: process.env.GOOGLE_BOOKS_API_KEY || '',
     });

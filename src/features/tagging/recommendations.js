@@ -15,6 +15,7 @@ import {
 } from '../rotations/rotation-engine.js';
 import { countRotationsSinceLastSeen } from '../rotations/usage-insights.js';
 import { normalizeMatchingWeights } from '../../config/defaults.js';
+import { isBookDiscardedForProfile } from './discovery-engine.js';
 
 /**
  * @typedef {Object} ScoreFactorBreakdown
@@ -133,7 +134,13 @@ export function getProfileRecommendations(input) {
   const candidates = [];
 
   for (const book of books) {
-    if (activeBookSet.has(book.id) || !isBookOwnedAndRotatable(book)) continue;
+    if (
+      activeBookSet.has(book.id) ||
+      !isBookOwnedAndRotatable(book) ||
+      isBookDiscardedForProfile(book, profile?.id)
+    ) {
+      continue;
+    }
 
     const inCooldown = isBookInCooldown(book, profile.cooldownDays, nowIso);
     const isUnread = !readSet.has(book.id);
@@ -478,7 +485,10 @@ export function getLovedBookSimilarityShelves(input) {
   if (lovedAnchors.length === 0) return [];
 
   const candidatePool = books.filter(
-    (b) => !activeBookSet.has(b.id) && isBookOwnedAndRotatable(b)
+    (b) =>
+      !activeBookSet.has(b.id) &&
+      isBookOwnedAndRotatable(b) &&
+      !isBookDiscardedForProfile(b, profile?.id)
   );
   if (candidatePool.length === 0) return [];
 
@@ -545,7 +555,10 @@ export function getFavoriteGenreRecommendationShelf(input) {
   const activeBookSet = getActiveProfileBookSet(profile, rotations);
   const readSet = new Set(profile.readHistoryBookIds || []);
   const offShelfOwned = books.filter(
-    (b) => !activeBookSet.has(b.id) && isBookOwnedAndRotatable(b)
+    (b) =>
+      !activeBookSet.has(b.id) &&
+      isBookOwnedAndRotatable(b) &&
+      !isBookDiscardedForProfile(b, profile?.id)
   );
   if (offShelfOwned.length < minItems) return null;
 
@@ -729,7 +742,7 @@ export function getBedtimeWindDownShelf(input) {
   /** @type {RecommendedBookItem[]} */
   const scored = [];
   for (const book of books) {
-    if (!isBookOwnedAndRotatable(book)) continue;
+    if (!isBookOwnedAndRotatable(book) || isBookDiscardedForProfile(book, profile?.id)) continue;
 
     const matchedTags = (book.tags || []).filter((t) =>
       BEDTIME_TAG_HINTS.has(t.toLowerCase().trim())
@@ -804,7 +817,11 @@ export function getDustyGemsShelf(input) {
   /** @type {RecommendedBookItem[]} */
   const gems = [];
   for (const book of books) {
-    if (activeBookSet.has(book.id) || !isBookOwnedAndRotatable(book)) continue;
+    if (
+      activeBookSet.has(book.id) ||
+      !isBookOwnedAndRotatable(book) ||
+      isBookDiscardedForProfile(book, profile.id)
+    ) continue;
 
     const lastRotatedMs = book.lastRotatedAt ? Date.parse(book.lastRotatedAt) : NaN;
     const addedMs = book.addedAt ? Date.parse(book.addedAt) : NaN;
@@ -882,7 +899,11 @@ export function getReadyForRereadShelf(input) {
   /** @type {RecommendedBookItem[]} */
   const picks = [];
   for (const book of books) {
-    if (activeBookSet.has(book.id) || !isBookOwnedAndRotatable(book)) continue;
+    if (
+      activeBookSet.has(book.id) ||
+      !isBookOwnedAndRotatable(book) ||
+      isBookDiscardedForProfile(book, profile.id)
+    ) continue;
     const rating = getBookUserRating(book, profile.id) ?? 0;
     const isFavorite = book.loved === true || rating >= 4;
     if (!isFavorite) continue;
@@ -963,7 +984,10 @@ export function getMoreByAuthorShelf(input) {
   }
 
   const offShelfOwned = books.filter(
-    (b) => !activeBookSet.has(b.id) && isBookOwnedAndRotatable(b)
+    (b) =>
+      !activeBookSet.has(b.id) &&
+      isBookOwnedAndRotatable(b) &&
+      !isBookDiscardedForProfile(b, profile.id)
   );
 
   const rankedAuthors = [...authorWeights.entries()]
@@ -1033,7 +1057,7 @@ export function getLanguageShelf(input) {
   /** @type {Map<string, import('../../types/models.js').Book[]>} */
   const byLanguage = new Map();
   for (const book of books) {
-    if (!isBookOwnedAndRotatable(book)) continue;
+    if (!isBookOwnedAndRotatable(book) || isBookDiscardedForProfile(book, profile.id)) continue;
     const rawLang = String(book.language || '').trim().toLowerCase();
     if (!rawLang || rawLang === 'english' || rawLang === 'en') continue;
     const bucket = byLanguage.get(rawLang) || [];
@@ -1101,7 +1125,9 @@ export function getSeasonalPresetShelf(input) {
 
   const activeBookSet = getActiveProfileBookSet(profile, rotations);
   const readSet = new Set(profile.readHistoryBookIds || []);
-  const owned = books.filter((b) => isBookOwnedAndRotatable(b));
+  const owned = books.filter(
+    (b) => isBookOwnedAndRotatable(b) && !isBookDiscardedForProfile(b, profile.id)
+  );
 
   const datedPresets = presets
     .filter((p) => typeof p.suggestedStartMonthDay === 'string' && /^\d{2}-\d{2}$/.test(p.suggestedStartMonthDay))
@@ -1155,12 +1181,16 @@ export function getSeasonalPresetShelf(input) {
 /**
  * Returns books saved on the family's wishlist sorted by most recently added / loved.
  *
- * @param {{ books: import('../../types/models.js').Book[], limit?: number }} input
+ * @param {{ books: import('../../types/models.js').Book[], limit?: number, profileId?: string }} input
  * @returns {import('../../types/models.js').Book[]}
  */
-export function getWishlistSpotlightShelf({ books, limit = 10 }) {
+export function getWishlistSpotlightShelf({ books, limit = 10, profileId }) {
   return (books || [])
-    .filter((b) => normalizeCollectionStatus(b.collectionStatus) === 'wishlist')
+    .filter(
+      (b) =>
+        normalizeCollectionStatus(b.collectionStatus) === 'wishlist' &&
+        !isBookDiscardedForProfile(b, profileId)
+    )
     .slice()
     .sort((a, b) => {
       if (Boolean(b.loved) !== Boolean(a.loved)) return b.loved ? 1 : -1;
@@ -1170,4 +1200,406 @@ export function getWishlistSpotlightShelf({ books, limit = 10 }) {
     })
     .slice(0, limit);
 }
+
+/**
+ * Contextual Home Shelf Orchestrator:
+ * Decides which owned AND external two-stage discovery shelves to surface on Home,
+ * dynamically scoring and ordering them by time of day, reader profile signals,
+ * seasonal proximity, catalog gaps, pin/hide preferences, and cross-row deduplication.
+ *
+ * @param {{
+ *   books: import('../../types/models.js').Book[],
+ *   profile: import('../../types/models.js').ChildProfile | null,
+ *   rotations: import('../../types/models.js').RotationList[],
+ *   presets: import('../../types/models.js').RotationPreset[],
+ *   primaryActiveRotation?: import('../../types/models.js').RotationList | null,
+ *   rotationSuggestions?: RecommendedBookItem[],
+ *   recommendations?: RecommendedBookItem[],
+ *   lovedShelves?: Array<{ anchorBook: import('../../types/models.js').Book, items: RecommendedBookItem[] }>,
+ *   genreShelf?: { topic: string, label: string, items: RecommendedBookItem[] } | null,
+ *   bedtimeShelf?: RecommendedBookItem[],
+ *   dustyGemsShelf?: RecommendedBookItem[],
+ *   rereadShelf?: RecommendedBookItem[],
+ *   authorShelf?: { author: string, items: RecommendedBookItem[] } | null,
+ *   languageShelf?: { language: string, label: string, items: RecommendedBookItem[] } | null,
+ *   seasonalShelf?: { preset: import('../../types/models.js').RotationPreset, items: RecommendedBookItem[] } | null,
+ *   wishlistSpotlight?: import('../../types/models.js').Book[],
+ *   discoverySettings?: Partial<import('../../types/models.js').DiscoverySettings> | null,
+ *   nowDate?: Date
+ * }} input
+ */
+export function planHomeDiscoveryShelves(input) {
+  const {
+    books = [],
+    profile,
+    primaryActiveRotation = null,
+    rotationSuggestions = [],
+    recommendations = [],
+    lovedShelves = [],
+    genreShelf = null,
+    bedtimeShelf = [],
+    dustyGemsShelf = [],
+    rereadShelf = [],
+    authorShelf = null,
+    languageShelf = null,
+    seasonalShelf = null,
+    wishlistSpotlight = [],
+    discoverySettings = null,
+  } = input;
+
+  const nowDate = input.nowDate || new Date();
+  const isEvening = isWindDownEveningWindow(nowDate);
+  const pinnedSet = new Set(discoverySettings?.pinnedShelfKeys || []);
+  const disabledSet = new Set(discoverySettings?.disabledShelfKeys || []);
+
+  /** @type {Array<Record<string, any>>} */
+  const candidates = [];
+  const seenOwnedIds = new Set();
+
+  const registerOwnedCandidate = (
+    /** @type {Record<string, any>} */ descriptor,
+    /** @type {number} */ basePriority,
+    minItems = 1
+  ) => {
+    if (!descriptor || disabledSet.has(descriptor.key)) return;
+    const rawItems = Array.isArray(descriptor.items) ? descriptor.items : [];
+    const freshItems = rawItems.filter(
+      (item) =>
+        item?.book?.id &&
+        !seenOwnedIds.has(item.book.id) &&
+        !isBookDiscardedForProfile(item.book, profile?.id)
+    );
+    if (freshItems.length < minItems) return;
+    const sliced = freshItems.slice(0, 10);
+    for (const item of sliced) {
+      seenOwnedIds.add(item.book.id);
+    }
+    const isPinned = pinnedSet.has(descriptor.key);
+    candidates.push({
+      ...descriptor,
+      kind: 'owned-rec',
+      items: sliced,
+      isPinned,
+      priorityScore: (isPinned ? 1000 : 0) + basePriority,
+    });
+  };
+
+  // 1. Owned Contextual Shelves
+  if (primaryActiveRotation && rotationSuggestions.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: `rot-add-${primaryActiveRotation.id}`,
+        title: `Add to ${primaryActiveRotation.title}`,
+        size: 'regular',
+        items: rotationSuggestions,
+        targetRotation: primaryActiveRotation,
+        actionType: 'manage-rotation',
+        showQuickAdd: true,
+        contextReason: 'Fits active rotation rules',
+      },
+      92
+    );
+  }
+
+  if (bedtimeShelf.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: 'mood-bedtime',
+        title: 'Wind-Down & Bedtime',
+        subtitle: isEvening ? 'Evening cozy stories' : 'Calm, gentle read-alouds',
+        badgeText: isEvening ? 'Tonight' : undefined,
+        size: isEvening ? 'large' : 'regular',
+        items: bedtimeShelf,
+        targetRotation: null,
+        contextReason: isEvening ? 'Prioritized for evening wind-down' : 'Calm read-alouds',
+      },
+      isEvening ? 96 : 64
+    );
+  }
+
+  if (recommendations.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: `suggested-${profile?.id || 'reader'}`,
+        title: `Suggested for ${profile?.name || 'Reader'}`,
+        size: 'regular',
+        items: recommendations,
+        targetRotation: null,
+        actionType: 'ai-picks',
+        contextReason: `Matched to ${profile?.name || 'reader'}`,
+      },
+      88
+    );
+  }
+
+  if (seasonalShelf && seasonalShelf.items.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: `seasonal-${seasonalShelf.preset.id}`,
+        title: `Seasonal Picks: ${seasonalShelf.preset.title}`,
+        badgeText: 'In Season',
+        size: 'regular',
+        items: seasonalShelf.items,
+        targetRotation: null,
+        contextReason: 'Matches upcoming seasonal window',
+      },
+      84,
+      2
+    );
+  }
+
+  lovedShelves.forEach(({ anchorBook, items }, idx) => {
+    registerOwnedCandidate(
+      {
+        key: `loved-${anchorBook.id}`,
+        title: `Because you loved ${anchorBook.title}`,
+        size: idx === 0 ? 'large' : 'compact',
+        items,
+        anchorBook,
+        targetRotation: null,
+        contextReason: `Similar to ${anchorBook.title}`,
+      },
+      idx === 0 ? 78 : 60
+    );
+  });
+
+  if (rereadShelf.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: 'reread-favorites',
+        title: 'Ready for a Re-Read',
+        subtitle: 'Favorites not read in 30+ days',
+        size: 'regular',
+        items: rereadShelf,
+        targetRotation: null,
+        contextReason: 'Rested family favorites',
+      },
+      72
+    );
+  }
+
+  if (genreShelf && genreShelf.items.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: `genre-${genreShelf.topic}`,
+        title: `Because you like ${genreShelf.label}`,
+        size: 'compact',
+        items: genreShelf.items,
+        targetRotation: null,
+        contextReason: `Topic match: ${genreShelf.label}`,
+      },
+      68,
+      2
+    );
+  }
+
+  if (dustyGemsShelf.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: 'dusty-gems',
+        title: 'Dusty Gems on Your Shelf',
+        subtitle: 'Owned stories waiting for a turn',
+        size: 'compact',
+        items: dustyGemsShelf,
+        targetRotation: null,
+        contextReason: 'Unrotated library gems',
+      },
+      58
+    );
+  }
+
+  if (authorShelf && authorShelf.items.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: `author-${authorShelf.author}`,
+        title: `More by ${authorShelf.author}`,
+        size: 'compact',
+        items: authorShelf.items,
+        targetRotation: null,
+        contextReason: `More from ${authorShelf.author}`,
+      },
+      54,
+      2
+    );
+  }
+
+  if (languageShelf && languageShelf.items.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: `lang-${languageShelf.language}`,
+        title: `In ${languageShelf.label} Today`,
+        size: 'compact',
+        items: languageShelf.items,
+        targetRotation: null,
+        contextReason: 'Household language shelf',
+      },
+      56,
+      2
+    );
+  }
+
+  if (wishlistSpotlight.length > 0) {
+    registerOwnedCandidate(
+      {
+        key: 'wishlist-spotlight',
+        title: 'From Your Wishlist',
+        subtitle: 'Books saved to borrow or find next',
+        size: 'compact',
+        items: wishlistSpotlight.map((book) => ({
+          book,
+          matchReasons: [book.loved ? 'Loved wishlist pick' : 'On wishlist'],
+        })),
+        targetRotation: null,
+        contextReason: 'Saved to borrow or buy',
+      },
+      50
+    );
+  }
+
+  // 2. Dynamic Two-Stage External Discovery Shelves (saved to Suggestions + semantically reranked)
+  const registerExternalCandidate = (
+    /** @type {Record<string, any>} */ descriptor,
+    /** @type {number} */ basePriority
+  ) => {
+    if (!descriptor || disabledSet.has(descriptor.key)) return;
+    const isPinned = pinnedSet.has(descriptor.key);
+    candidates.push({
+      ...descriptor,
+      kind: 'external-discovery',
+      isPinned,
+      priorityScore: (isPinned ? 1000 : 0) + basePriority,
+    });
+  };
+
+  const primaryTopic =
+    (profile?.favoriteTopics || []).find((t) => Boolean(t && t.trim())) || 'nature';
+  const primaryTopicLabel = formatRecommendationTopicLabel(primaryTopic);
+  const topLovedBook =
+    lovedShelves[0]?.anchorBook ||
+    (books || []).find(
+      (b) =>
+        b.loved &&
+        !isBookDiscardedForProfile(b, profile?.id) &&
+        normalizeCollectionStatus(b.collectionStatus) === 'owned'
+    ) ||
+    null;
+
+  // Evening bedtime external discovery row prioritized at night
+  if (isEvening || pinnedSet.has('ext-discover-bedtime')) {
+    registerExternalCandidate(
+      {
+        key: 'ext-discover-bedtime',
+        title: 'Discover Calm Bedtime Books',
+        subtitle: 'Gentle new read-alouds ranked for tonight',
+        badgeText: isEvening ? 'Tonight' : 'Discover',
+        intent: 'bedtime',
+        topic: 'bedtime',
+        size: isEvening ? 'large' : 'regular',
+        contextReason: isEvening ? 'Evening bedtime discovery' : 'Bedtime discovery',
+      },
+      isEvening ? 90 : 32
+    );
+  }
+
+  // Personalized reader profile external discovery shelf
+  registerExternalCandidate(
+    {
+      key: `ext-discover-profile-${profile?.id || 'default'}`,
+      title: `New Books for ${profile?.name || 'Your Reader'}`,
+      subtitle: `Tailored for ages ${Math.max(0, (profile?.age ?? 4) - 1)}–${(profile?.age ?? 4) + 2}`,
+      badgeText: 'For You',
+      intent: 'profile',
+      topic: primaryTopic,
+      size: 'large',
+      contextReason: 'Two-stage semantic match',
+    },
+    76
+  );
+
+  // External anchor similarity shelf ("Discover Books Like ...")
+  if (topLovedBook) {
+    registerExternalCandidate(
+      {
+        key: `ext-discover-like-${topLovedBook.id}`,
+        title: `Discover Books Like ${topLovedBook.title}`,
+        subtitle: 'Matched by tone, themes & reading stage',
+        intent: 'similar',
+        anchorBookId: topLovedBook.id,
+        topic: topLovedBook.tags?.[0] || primaryTopic,
+        size: 'regular',
+        contextReason: `Matched to ${topLovedBook.title}`,
+      },
+      70
+    );
+  }
+
+  // Reader favorite topic external exploration
+  if (primaryTopic) {
+    registerExternalCandidate(
+      {
+        key: `ext-discover-topic-${primaryTopic.toLowerCase()}`,
+        title: `Explore New ${primaryTopicLabel} Stories`,
+        subtitle: 'Modern illustrated picks filtered from catalog',
+        intent: 'topic',
+        topic: primaryTopic,
+        size: 'compact',
+        contextReason: `Topic interest: ${primaryTopicLabel}`,
+      },
+      62
+    );
+  }
+
+  // Seasonal external discovery when a seasonal shelf is active
+  if (seasonalShelf) {
+    registerExternalCandidate(
+      {
+        key: `ext-discover-seasonal-${seasonalShelf.preset.id}`,
+        title: `New ${seasonalShelf.preset.title} Finds`,
+        subtitle: 'Fresh seasonal books outside your library',
+        badgeText: 'In Season',
+        intent: 'seasonal',
+        topic: seasonalShelf.preset.preferredTags?.[0] || seasonalShelf.preset.title,
+        size: 'compact',
+        contextReason: 'Seasonal discovery',
+      },
+      66
+    );
+  }
+
+  // Non-English external discovery when household owns bilingual/non-English titles
+  if (languageShelf && languageShelf.language) {
+    registerExternalCandidate(
+      {
+        key: `ext-discover-lang-${languageShelf.language}`,
+        title: `Discover ${languageShelf.label} Children's Books`,
+        subtitle: `In ${languageShelf.label} · Tuned to ${profile?.name || 'reader'}`,
+        intent: 'language',
+        language: languageShelf.language,
+        topic: primaryTopic,
+        size: 'compact',
+        contextReason: `${languageShelf.label} reading discovery`,
+      },
+      52
+    );
+  }
+
+  // Modern picture book / acclaimed award-winners (filtered to avoid 19th-century catalogs)
+  registerExternalCandidate(
+    {
+      key: 'ext-discover-award-modern',
+      title: 'Acclaimed Modern Storybooks',
+      subtitle: 'Award winners & recent favorites matched to your taste',
+      intent: 'award-modern',
+      topic: 'picture books',
+      size: 'regular',
+      contextReason: 'Modern acclaimed children literature',
+    },
+    46
+  );
+
+  // Deterministic priority sort (pinned shelves always float first, preserving tie order)
+  candidates.sort((a, b) => b.priorityScore - a.priorityScore);
+  return candidates;
+}
+
 

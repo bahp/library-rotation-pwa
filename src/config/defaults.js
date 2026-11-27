@@ -41,6 +41,9 @@ export const NUMERIC_BOUNDS = Object.freeze({
   bookCardCustomWidthDefault: 136,
   bookCardCustomWidthMin: 88,
   bookCardCustomWidthMax: 260,
+  discoveryPoolSizeDefault: 60,
+  discoveryPoolSizeMin: 20,
+  discoveryPoolSizeMax: 150,
 });
 
 /**
@@ -360,6 +363,7 @@ export function createDefaultAppSettings() {
     homeActiveRotationStyle: 'card',
     matchingWeights: createDefaultMatchingWeights(),
     taggingRules: createDefaultTaggingRulesConfig(),
+    discoverySettings: createDefaultDiscoverySettings(),
   };
 }
 
@@ -678,4 +682,90 @@ export function normalizeTaggingRulesConfig(raw) {
     extraNoiseWords,
   };
 }
+
+/** @type {import('../types/models.js').DiscoverySettings} */
+export const DEFAULT_DISCOVERY_SETTINGS = Object.freeze({
+  candidatePoolSize: NUMERIC_BOUNDS.discoveryPoolSizeDefault,
+  embeddingEngine: 'gemini-with-fallback',
+  useFlashQueryExpansion: true,
+  autoSaveQueriedAsSuggestions: true,
+  recencyPreference: 'modern',
+  pinnedShelfKeys: /** @type {string[]} */ ([]),
+  disabledShelfKeys: /** @type {string[]} */ ([]),
+});
+
+/**
+ * Returns a fresh copy of default discovery settings.
+ * @returns {import('../types/models.js').DiscoverySettings}
+ */
+export function createDefaultDiscoverySettings() {
+  return {
+    ...DEFAULT_DISCOVERY_SETTINGS,
+    pinnedShelfKeys: [],
+    disabledShelfKeys: [],
+  };
+}
+
+const VALID_EMBEDDING_ENGINES = new Set([
+  'gemini-with-fallback',
+  'local-tfidf',
+  'transformers-browser',
+]);
+
+const VALID_RECENCY_PREFERENCES = new Set([
+  'modern',
+  'balanced',
+  'include-classics',
+]);
+
+/**
+ * Normalizes discovery pool size, embedding engine, recency preference, and Home shelf pin/hide rules.
+ * @param {unknown} raw
+ * @returns {import('../types/models.js').DiscoverySettings}
+ */
+export function normalizeDiscoverySettings(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return createDefaultDiscoverySettings();
+  }
+  const src = /** @type {Record<string, any>} */ (raw);
+  const parsedPool = Number(src.candidatePoolSize);
+  const candidatePoolSize = Number.isFinite(parsedPool)
+    ? Math.max(
+        NUMERIC_BOUNDS.discoveryPoolSizeMin,
+        Math.min(NUMERIC_BOUNDS.discoveryPoolSizeMax, Math.round(parsedPool))
+      )
+    : DEFAULT_DISCOVERY_SETTINGS.candidatePoolSize;
+
+  const rawEngine = String(src.embeddingEngine || '').trim().toLowerCase();
+  const embeddingEngine = VALID_EMBEDDING_ENGINES.has(rawEngine)
+    ? /** @type {import('../types/models.js').DiscoveryEmbeddingEngine} */ (rawEngine)
+    : DEFAULT_DISCOVERY_SETTINGS.embeddingEngine;
+
+  const rawRecency = String(src.recencyPreference || '').trim().toLowerCase();
+  const recencyPreference = VALID_RECENCY_PREFERENCES.has(rawRecency)
+    ? /** @type {import('../types/models.js').DiscoveryRecencyPreference} */ (rawRecency)
+    : DEFAULT_DISCOVERY_SETTINGS.recencyPreference;
+
+  const sanitizeShelfKeys = (/** @type {unknown} */ val) =>
+    Array.isArray(val)
+      ? Array.from(
+          new Set(
+            val
+              .map((k) => String(k || '').trim().slice(0, 80))
+              .filter(Boolean)
+          )
+        ).slice(0, 30)
+      : [];
+
+  return {
+    candidatePoolSize,
+    embeddingEngine,
+    useFlashQueryExpansion: src.useFlashQueryExpansion !== false,
+    autoSaveQueriedAsSuggestions: src.autoSaveQueriedAsSuggestions !== false,
+    recencyPreference,
+    pinnedShelfKeys: sanitizeShelfKeys(src.pinnedShelfKeys),
+    disabledShelfKeys: sanitizeShelfKeys(src.disabledShelfKeys),
+  };
+}
+
 

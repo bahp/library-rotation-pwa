@@ -27,7 +27,13 @@ export interface AppContextType {
   currentRoute: RouteId;
   routeParams: URLSearchParams;
   navigate: (route: RouteId, query?: Record<string, string>) => void;
-  toast: { id: string; message: string; tone: 'success' | 'error' | 'info' } | null;
+  toast: {
+    id: string;
+    message: string;
+    tone: 'success' | 'error' | 'info';
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null;
   pwaStatus: ReturnType<typeof pwaManager.getStatus>;
   scanner: ReturnType<typeof createScannerController>;
   catalogService: ReturnType<typeof createCatalogService>;

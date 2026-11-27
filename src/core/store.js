@@ -80,6 +80,12 @@ import {
   querySmartRotationPlan,
   queryLibraryRecommendations,
 } from '../features/llm/llm-client.js';
+import { ensureBookVectors } from '../features/tagging/vector-store.js';
+import {
+  isBookDiscardedForProfile,
+  matchCandidateInLibrary,
+  runTwoStageDiscoveryPipeline,
+} from '../features/tagging/discovery-engine.js';
 
 const SPINE_COLORS = ['teal', 'indigo', 'amber', 'rose', 'emerald'];
 
@@ -260,8 +266,32 @@ export function createAppStore(storage, deps = {}) {
   const tagging = deps.taggingService || createTaggingService();
   /** @type {import('../types/models.js').AppState} */
   let state = createSeedState();
-  /** @type {{ id: string, message: string, tone: 'success' | 'error' | 'info' } | null} */
+  /** @type {{ id: string, message: string, tone: 'success' | 'error' | 'info', actionLabel?: string, onAction?: () => void } | null} */
   let toast = null;
+
+  /**
+   * Triggers lightweight background vector indexing for newly saved or updated books in browser contexts.
+   * @param {import('../types/models.js').Book[]} booksToIndex
+   */
+  function scheduleVectorIndexing(booksToIndex) {
+    if (
+      typeof window === 'undefined' ||
+      !Array.isArray(booksToIndex) ||
+      booksToIndex.length === 0
+    ) {
+      return;
+    }
+    const engine = state.settings?.discoverySettings?.embeddingEngine || 'gemini-with-fallback';
+    Promise.resolve()
+      .then(() =>
+        ensureBookVectors({
+          books: booksToIndex.slice(0, 60),
+          engine,
+          settings: state.settings,
+        })
+      )
+      .catch(() => {});
+  }
 
   /**
    * Silently extracts & saves cover tint palette onto a newly added or updated book in browser environments.
@@ -448,21 +478,34 @@ export function createAppStore(storage, deps = {}) {
   }
 
   /**
-   * Shows a transient status banner/toast.
+   * Shows a transient status banner/toast, optionally with an interactive action button (e.g. Undo).
    * @param {string} message
    * @param {'success' | 'error' | 'info'} [tone]
+   * @param {{ actionLabel?: string, onAction?: () => void, durationMs?: number }} [options]
    */
-  function notify(message, tone = 'success') {
+  function notify(message, tone = 'success', options = {}) {
     const id = createId('toast');
-    toast = { id, message, tone };
+    toast = {
+      id,
+      message,
+      tone,
+      ...(options.actionLabel ? { actionLabel: options.actionLabel } : {}),
+      ...(typeof options.onAction === 'function' ? { onAction: options.onAction } : {}),
+    };
     emit();
+    const durationMs =
+      typeof options.durationMs === 'number' && options.durationMs > 0
+        ? options.durationMs
+        : options.actionLabel
+          ? 5500
+          : 3600;
     if (typeof setTimeout !== 'undefined') {
       setTimeout(() => {
         if (toast && toast.id === id) {
           toast = null;
           emit();
         }
-      }, 3600);
+      }, durationMs);
     }
   }
 
@@ -668,7 +711,13 @@ export function createAppStore(storage, deps = {}) {
     if (!isbnCheck.valid) {
       throw new Error(isbnCheck.error || 'Invalid ISBN.');
     }
-    if (isbnCheck.isbn13 && state.books.some((b) => b.isbn13 === isbnCheck.isbn13)) {
+    const existingByIsbn = isbnCheck.isbn13
+      ? state.books.find((b) => b.isbn13 === isbnCheck.isbn13)
+      : undefined;
+    if (
+      existingByIsbn &&
+      normalizeCollectionStatus(existingByIsbn.collectionStatus) !== 'interested'
+    ) {
       throw new Error(`ISBN ${isbnCheck.isbn13} is already in your family library.`);
     }
 
@@ -786,17 +835,30 @@ export function createAppStore(storage, deps = {}) {
       sources: finalSources,
     };
 
+    const savedManualBook = existingByIsbn
+      ? {
+          ...existingByIsbn,
+          ...book,
+          id: existingByIsbn.id,
+          discardedAt: undefined,
+          discardedByProfileIds: undefined,
+        }
+      : book;
+
     await commit({
       ...state,
-      books: [book, ...state.books],
+      books: existingByIsbn
+        ? state.books.map((b) => (b.id === existingByIsbn.id ? savedManualBook : b))
+        : [savedManualBook, ...state.books],
     });
-    if (book.coverUrl && !book.dominantColor) {
-      resolveAndPersistBookCoverTint(book.id, book.coverUrl);
+    if (savedManualBook.coverUrl && !savedManualBook.dominantColor) {
+      resolveAndPersistBookCoverTint(savedManualBook.id, savedManualBook.coverUrl);
     }
+    scheduleVectorIndexing([savedManualBook]);
     const destLabel =
       collectionStatus === 'owned' ? 'your library' : formatCollectionStatus(collectionStatus);
-    notify(`Added "${book.title}" to ${destLabel}.`, 'success');
-    return book;
+    notify(`Added "${savedManualBook.title}" to ${destLabel}.`, 'success');
+    return savedManualBook;
   }
 
   /**
@@ -817,9 +879,23 @@ export function createAppStore(storage, deps = {}) {
    * }} [intakeOptions]
    */
   async function addBookFromCandidate(candidate, intakeOptions = {}) {
-    if (candidate.isbn13 && state.books.some((b) => b.isbn13 === candidate.isbn13)) {
+    const existingByIsbn = candidate.isbn13
+      ? state.books.find((b) => b.isbn13 === candidate.isbn13)
+      : undefined;
+    if (
+      existingByIsbn &&
+      normalizeCollectionStatus(existingByIsbn.collectionStatus) !== 'interested'
+    ) {
       throw new Error(`"${candidate.title}" (ISBN ${candidate.isbn13}) is already in your library.`);
     }
+    const existingMatched =
+      existingByIsbn ||
+      matchCandidateInLibrary(candidate, state.books, state.activeProfileId)?.matchedBook;
+    const existingInterested =
+      existingMatched &&
+      normalizeCollectionStatus(existingMatched.collectionStatus) === 'interested'
+        ? existingMatched
+        : undefined;
     const baseBook = candidateToBook(candidate, {
       retainRaw: state.settings.retainRawProviderPayloads,
     });
@@ -897,17 +973,30 @@ export function createAppStore(storage, deps = {}) {
       delete book.ageMax;
     }
 
+    const savedCandidateBook = existingInterested
+      ? {
+          ...existingInterested,
+          ...book,
+          id: existingInterested.id,
+          discardedAt: undefined,
+          discardedByProfileIds: undefined,
+        }
+      : book;
+
     await commit({
       ...state,
-      books: [book, ...state.books],
+      books: existingInterested
+        ? state.books.map((b) => (b.id === existingInterested.id ? savedCandidateBook : b))
+        : [savedCandidateBook, ...state.books],
     });
-    if (book.coverUrl && !book.dominantColor) {
-      resolveAndPersistBookCoverTint(book.id, book.coverUrl);
+    if (savedCandidateBook.coverUrl && !savedCandidateBook.dominantColor) {
+      resolveAndPersistBookCoverTint(savedCandidateBook.id, savedCandidateBook.coverUrl);
     }
+    scheduleVectorIndexing([savedCandidateBook]);
     const destLabel =
       collectionStatus === 'owned' ? 'your library' : formatCollectionStatus(collectionStatus);
-    notify(`Added "${book.title}" to ${destLabel}.`, 'success');
-    return book;
+    notify(`Added "${savedCandidateBook.title}" to ${destLabel}.`, 'success');
+    return savedCandidateBook;
   }
 
   /**
@@ -1264,6 +1353,14 @@ export function createAppStore(storage, deps = {}) {
         ? { rotationHistory: existing.rotationHistory }
         : {}),
       ...(existing.lastReadAt ? { lastReadAt: existing.lastReadAt } : {}),
+      ...(typeof existing.editionCount === 'number' ? { editionCount: existing.editionCount } : {}),
+      ...(existing.discoveredAt ? { discoveredAt: existing.discoveredAt } : {}),
+      ...(existing.discoveryQuery ? { discoveryQuery: existing.discoveryQuery } : {}),
+      ...(existing.discoveryShelfKey ? { discoveryShelfKey: existing.discoveryShelfKey } : {}),
+      ...(existing.discardedAt ? { discardedAt: existing.discardedAt } : {}),
+      ...(Array.isArray(existing.discardedByProfileIds) && existing.discardedByProfileIds.length > 0
+        ? { discardedByProfileIds: existing.discardedByProfileIds }
+        : {}),
       sources: existing.sources,
     };
 
@@ -2139,6 +2236,368 @@ export function createAppStore(storage, deps = {}) {
 
     notify(`Generated ${res.recommendations.length} recommendations for ${profile.name}!`, 'success');
     return res;
+  }
+
+  /**
+   * Atomically persists queried external candidates into the personal database under
+   * `collectionStatus: 'interested'` (Suggestions), deduplicating against all existing
+   * catalog entries (ISBN-13/10, provider:externalId, normalized title+author) and never
+   * downgrading Owned, Wishlist, or Library books or resurrecting already-discarded picks.
+   *
+   * @param {import('../features/catalog/normalizer.js').BookCandidate[]} candidates
+   * @param {{ query?: string, shelfKey?: string, force?: boolean, maxBatch?: number }} [meta]
+   */
+  async function saveQueriedBookSuggestions(candidates, meta = {}) {
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return { savedCount: 0, savedBooks: [], totalInputCount: 0 };
+    }
+    if (!meta.force && state.settings?.discoverySettings?.autoSaveQueriedAsSuggestions === false) {
+      return { savedCount: 0, savedBooks: [], totalInputCount: candidates.length };
+    }
+
+    const cap = Math.max(1, Math.min(200, Number(meta.maxBatch) || 150));
+    const slice = candidates.slice(0, cap);
+    const nowIso = new Date().toISOString();
+
+    const normalizeKeyTitle = (/** @type {string} */ t) =>
+      String(t || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    const normalizeKeyAuthor = (/** @type {string[]} */ authors) =>
+      String(authors?.[0] || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+
+    /** @type {Set<string>} */
+    const knownIsbns = new Set();
+    /** @type {Set<string>} */
+    const knownSourceIds = new Set();
+    /** @type {Set<string>} */
+    const knownTitleAuthors = new Set();
+
+    for (const book of state.books) {
+      if (book.isbn13) knownIsbns.add(book.isbn13);
+      if (book.isbn10) knownIsbns.add(book.isbn10);
+      for (const src of book.sources || []) {
+        if (src?.provider && src?.externalId) {
+          knownSourceIds.add(`${src.provider}:${src.externalId}`);
+        }
+      }
+      const tk = normalizeKeyTitle(book.title);
+      const ak = normalizeKeyAuthor(book.authors);
+      if (tk) knownTitleAuthors.add(`${tk}|${ak}`);
+      if (tk) knownTitleAuthors.add(`${tk}|`);
+    }
+
+    /** @type {import('../types/models.js').Book[]} */
+    const createdBooks = [];
+    const ruleOnlySettings = { ...state.settings, aiEnrichmentEnabled: false };
+
+    for (const candidate of slice) {
+      if (!candidate || !candidate.title) continue;
+      if (candidate.isbn13 && knownIsbns.has(candidate.isbn13)) continue;
+      if (candidate.isbn10 && knownIsbns.has(candidate.isbn10)) continue;
+
+      const hasKnownSource = (candidate.sources || []).some(
+        (s) => s?.provider && s?.externalId && knownSourceIds.has(`${s.provider}:${s.externalId}`)
+      );
+      if (hasKnownSource) continue;
+
+      const candTk = normalizeKeyTitle(candidate.title);
+      const candAk = normalizeKeyAuthor(candidate.authors);
+      if (candTk && (knownTitleAuthors.has(`${candTk}|${candAk}`) || (candAk === 'unknownauthor' && knownTitleAuthors.has(`${candTk}|`)))) {
+        continue;
+      }
+
+      const baseBook = candidateToBook(candidate, {
+        retainRaw: state.settings.retainRawProviderPayloads,
+        collectionStatus: 'interested',
+        discoveredAt: nowIso,
+        discoveryQuery: meta.query || candidate.discoveryQuery,
+        discoveryShelfKey: meta.shelfKey || candidate.discoveryShelfKey,
+      });
+
+      const enriched = await tagging.enrichBook(
+        {
+          title: baseBook.title,
+          authors: baseBook.authors,
+          isbn13: baseBook.isbn13,
+          format: baseBook.format,
+          pageCount: baseBook.pageCount,
+          publishedYear: baseBook.publishedYear,
+          ageMin: baseBook.ageMin,
+          ageMax: baseBook.ageMax,
+          readingStage: baseBook.readingStage,
+          tags: baseBook.tags,
+          summary: candidate.summary || baseBook.description,
+          subjects: candidate.subjects,
+        },
+        ruleOnlySettings
+      );
+
+      const tagOrigins = mergeTagOrigins(baseBook.tagOrigins, enriched.tags, {
+        rules: enriched.ruleAddedTags,
+      });
+
+      /** @type {import('../types/models.js').Book} */
+      const savedBook = {
+        ...baseBook,
+        ...(typeof enriched.ageMin === 'number' ? { ageMin: enriched.ageMin } : {}),
+        ...(typeof enriched.ageMax === 'number' ? { ageMax: enriched.ageMax } : {}),
+        readingStage: enriched.readingStage,
+        ...(enriched.readingLevelHint ? { readingLevelHint: enriched.readingLevelHint } : {}),
+        tags: enriched.tags,
+        ...(tagOrigins ? { tagOrigins } : {}),
+        collectionStatus: 'interested',
+        discoveredAt: nowIso,
+        ...(meta.query || candidate.discoveryQuery
+          ? { discoveryQuery: meta.query || candidate.discoveryQuery }
+          : {}),
+        ...(meta.shelfKey || candidate.discoveryShelfKey
+          ? { discoveryShelfKey: meta.shelfKey || candidate.discoveryShelfKey }
+          : {}),
+      };
+
+      createdBooks.push(savedBook);
+      if (savedBook.isbn13) knownIsbns.add(savedBook.isbn13);
+      if (savedBook.isbn10) knownIsbns.add(savedBook.isbn10);
+      for (const s of savedBook.sources || []) {
+        if (s?.provider && s?.externalId) knownSourceIds.add(`${s.provider}:${s.externalId}`);
+      }
+      if (candTk) knownTitleAuthors.add(`${candTk}|${candAk}`);
+    }
+
+    if (createdBooks.length > 0) {
+      await commit({
+        ...state,
+        books: [...state.books, ...createdBooks],
+      });
+      scheduleVectorIndexing(createdBooks.slice(0, 25));
+    }
+
+    return {
+      savedCount: createdBooks.length,
+      savedBooks: createdBooks,
+      totalInputCount: candidates.length,
+    };
+  }
+
+  /**
+   * Marks a saved book or external candidate as discarded ("Not interested"), excluding it from
+   * Home recommendation/discovery shelves and feeding Stage 2 negative taste contrast.
+   * Offers an instant Undo action in the toast.
+   *
+   * @param {import('../types/models.js').Book | import('../features/catalog/normalizer.js').BookCandidate} bookOrCandidate
+   * @param {string} [profileId]
+   */
+  async function discardSuggestedBook(bookOrCandidate, profileId) {
+    if (!bookOrCandidate) return null;
+    const effectiveProfileId =
+      profileId !== undefined ? profileId : state.activeProfileId || undefined;
+    const nowIso = new Date().toISOString();
+
+    const maybeId = 'id' in bookOrCandidate ? bookOrCandidate.id : undefined;
+    const existing =
+      (maybeId ? state.books.find((b) => b.id === maybeId) : undefined) ||
+      matchCandidateInLibrary(
+        /** @type {import('../features/catalog/normalizer.js').BookCandidate} */ (bookOrCandidate),
+        state.books,
+        effectiveProfileId
+      )?.matchedBook;
+
+    if (existing) {
+      const prevDiscardedAt = existing.discardedAt;
+      const prevProfiles = Array.isArray(existing.discardedByProfileIds)
+        ? [...existing.discardedByProfileIds]
+        : [];
+      const nextProfiles = effectiveProfileId
+        ? Array.from(new Set([...prevProfiles, effectiveProfileId]))
+        : prevProfiles;
+
+      const updatedBook = {
+        ...existing,
+        discardedAt: nowIso,
+        ...(nextProfiles.length > 0 ? { discardedByProfileIds: nextProfiles } : {}),
+      };
+
+      await commit({
+        ...state,
+        books: state.books.map((b) => (b.id === existing.id ? updatedBook : b)),
+      });
+      scheduleVectorIndexing([updatedBook]);
+      notify(`Hid "${updatedBook.title}" from suggestions.`, 'info', {
+        actionLabel: 'Undo',
+        onAction: () => {
+          void restoreDiscardedBook(updatedBook.id, effectiveProfileId, {
+            prevDiscardedAt,
+            prevProfiles,
+          });
+        },
+      });
+      return updatedBook;
+    }
+
+    const baseBook = candidateToBook(
+      /** @type {import('../features/catalog/normalizer.js').BookCandidate} */ (bookOrCandidate),
+      {
+        retainRaw: state.settings.retainRawProviderPayloads,
+        collectionStatus: 'interested',
+        discoveredAt: nowIso,
+      }
+    );
+    const createdDiscarded = {
+      ...baseBook,
+      collectionStatus: /** @type {const} */ ('interested'),
+      discardedAt: nowIso,
+      ...(effectiveProfileId ? { discardedByProfileIds: [effectiveProfileId] } : {}),
+    };
+
+    await commit({
+      ...state,
+      books: [...state.books, createdDiscarded],
+    });
+    scheduleVectorIndexing([createdDiscarded]);
+    notify(`Hid "${createdDiscarded.title}" from suggestions.`, 'info', {
+      actionLabel: 'Undo',
+      onAction: () => {
+        void restoreDiscardedBook(createdDiscarded.id, effectiveProfileId);
+      },
+    });
+    return createdDiscarded;
+  }
+
+  /**
+   * Restores a previously discarded book so it returns to Suggestions and recommendation eligibility.
+   * @param {string} bookId
+   * @param {string} [profileId]
+   * @param {{ prevDiscardedAt?: string, prevProfiles?: string[] }} [restoreSnapshot]
+   */
+  async function restoreDiscardedBook(bookId, profileId, restoreSnapshot) {
+    const existing = state.books.find((b) => b.id === bookId);
+    if (!existing) return null;
+
+    const effectiveProfileId =
+      profileId !== undefined ? profileId : state.activeProfileId || undefined;
+    const prevProfiles = Array.isArray(existing.discardedByProfileIds)
+      ? existing.discardedByProfileIds
+      : [];
+    const remainingProfiles =
+      restoreSnapshot && Array.isArray(restoreSnapshot.prevProfiles)
+        ? restoreSnapshot.prevProfiles
+        : effectiveProfileId
+          ? prevProfiles.filter((pid) => pid !== effectiveProfileId)
+          : [];
+
+    const restoredBook = { ...existing };
+    if (restoreSnapshot?.prevDiscardedAt) {
+      restoredBook.discardedAt = restoreSnapshot.prevDiscardedAt;
+    } else {
+      delete restoredBook.discardedAt;
+    }
+    if (remainingProfiles.length > 0) {
+      restoredBook.discardedByProfileIds = remainingProfiles;
+    } else {
+      delete restoredBook.discardedByProfileIds;
+    }
+
+    await commit({
+      ...state,
+      books: state.books.map((b) => (b.id === bookId ? restoredBook : b)),
+    });
+    notify(`Restored "${restoredBook.title}" to suggestions.`, 'success');
+    return restoredBook;
+  }
+
+  /**
+   * Executes the Two-Stage Discovery Pipeline for a Home recommendation/discovery shelf,
+   * persists all retrieved candidates under `collectionStatus: 'interested'` (Suggestions),
+   * and returns the top semantically reranked picks linked with saved book records.
+   *
+   * @param {{
+   *   catalogService: any,
+   *   shelfKey: string,
+   *   title?: string,
+   *   intent?: string,
+   *   topic?: string,
+   *   anchorBookId?: string,
+   *   language?: string,
+   *   page?: number,
+   *   candidatePoolSize?: number,
+   *   limit?: number,
+   *   signal?: AbortSignal
+   * }} params
+   */
+  async function runHomeDiscoveryShelfQuery({
+    catalogService,
+    shelfKey,
+    title = '',
+    intent = 'profile',
+    topic = '',
+    anchorBookId = '',
+    language = '',
+    page = 1,
+    candidatePoolSize,
+    limit = 12,
+    signal,
+  }) {
+    const profile =
+      state.profiles.find((p) => p.id === state.activeProfileId) || state.profiles[0] || null;
+    const seedBook = anchorBookId
+      ? state.books.find((b) => b.id === anchorBookId) || null
+      : null;
+
+    const pipelineRes = await runTwoStageDiscoveryPipeline({
+      intent,
+      topic,
+      seedBook,
+      profile,
+      existingBooks: state.books,
+      catalogService,
+      settings: state.settings,
+      candidatePoolSize,
+      page,
+      language,
+      limit,
+      signal,
+    });
+
+    if (
+      state.settings?.discoverySettings?.autoSaveQueriedAsSuggestions !== false &&
+      pipelineRes.allFetchedCandidates.length > 0
+    ) {
+      await saveQueriedBookSuggestions(pipelineRes.allFetchedCandidates, {
+        query: pipelineRes.queriesUsed?.[0] || topic || title,
+        shelfKey,
+      });
+    }
+
+    const enrichedItems = pipelineRes.items
+      .map((entry) => {
+        const libMatch = matchCandidateInLibrary(entry.candidate, state.books, profile?.id);
+        return {
+          ...entry,
+          savedBook: libMatch.matchedBook || null,
+          isDiscarded: libMatch.isDiscarded,
+        };
+      })
+      .filter((entry) => !entry.isDiscarded && !isBookDiscardedForProfile(entry.savedBook, profile?.id));
+
+    const effectivePoolSize =
+      candidatePoolSize || state.settings?.discoverySettings?.candidatePoolSize || 60;
+
+    return {
+      shelfKey,
+      page,
+      items: enrichedItems,
+      allFetchedCount: pipelineRes.allFetchedCandidates.length,
+      rawFetchedCount: pipelineRes.rawFetchedCount,
+      queriesUsed: pipelineRes.queriesUsed,
+      rationale: pipelineRes.rationale,
+      usedFlash: pipelineRes.usedFlash,
+      engineUsed: pipelineRes.engineUsed,
+      providerErrors: pipelineRes.providerErrors,
+      hasMore: pipelineRes.rawFetchedCount >= Math.min(8, Math.round(effectivePoolSize * 0.2)),
+    };
   }
 
   /**
@@ -5010,6 +5469,10 @@ export function createAppStore(storage, deps = {}) {
     saveCuratedRotation,
     generateLibraryRecommendationsWithLlm,
     addRecommendedBookToWishlist,
+    saveQueriedBookSuggestions,
+    discardSuggestedBook,
+    restoreDiscardedBook,
+    runHomeDiscoveryShelfQuery,
     importBackupJson,
     resetToSeedData,
   };

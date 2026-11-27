@@ -10,7 +10,13 @@
 import { GoogleGenAI } from '@google/genai';
 
 export interface LlmQueryPayload {
-  task?: 'book-tagging' | 'rotation-curator' | 'collection-recommendations' | 'test' | 'custom';
+  task?:
+    | 'book-tagging'
+    | 'rotation-curator'
+    | 'collection-recommendations'
+    | 'discovery-expansion'
+    | 'test'
+    | 'custom';
   prompt: string;
   systemInstruction?: string;
   model?: string;
@@ -18,6 +24,7 @@ export interface LlmQueryPayload {
   endpointUrl?: string;
   apiKey?: string;
   jsonMode?: boolean;
+  responseSchema?: Record<string, unknown>;
 }
 
 export interface LlmQueryResult {
@@ -142,6 +149,9 @@ async function executeGeminiSdkQuery(
       }
       if (payload.jsonMode !== false) {
         config.responseMimeType = 'application/json';
+        if (payload.responseSchema && typeof payload.responseSchema === 'object') {
+          config.responseSchema = payload.responseSchema;
+        }
       }
 
       const response = await ai.models.generateContent({
@@ -524,4 +534,177 @@ export async function generateImageWithGemini(payload: LlmImagePayload): Promise
     };
   }
 }
+
+export interface EmbedTextsPayload {
+  texts: string[];
+  model?: string;
+  apiKey?: string;
+  taskType?: 'SEMANTIC_SIMILARITY' | 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY' | 'CLUSTERING';
+  outputDimensionality?: number;
+}
+
+export interface EmbedTextsResult {
+  ok: boolean;
+  vectors: number[][];
+  dimensions?: number;
+  modelUsed?: string;
+  providerUsed?: string;
+  status?: number;
+  error?: string;
+  message?: string;
+}
+
+function l2NormalizeVector(values: number[]): number[] {
+  let normSq = 0;
+  for (let i = 0; i < values.length; i++) {
+    const v = Number(values[i]) || 0;
+    normSq += v * v;
+  }
+  const norm = Math.sqrt(normSq);
+  if (norm <= 0) return values.map(() => 0);
+  return values.map((v) => Math.round(((Number(v) || 0) / norm) * 1e6) / 1e6);
+}
+
+/**
+ * Generates L2-normalized dense embeddings for a list of strings via `@google/genai` (`gemini-embedding-2`),
+ * batching safely in chunks of <= 50 items per request.
+ */
+export async function embedTextsWithGemini(payload: EmbedTextsPayload): Promise<EmbedTextsResult> {
+  const rawTexts = Array.isArray(payload?.texts) ? payload.texts : [];
+  const texts = rawTexts.map((t) => String(t || '').trim().slice(0, 2400)).filter(Boolean);
+  if (texts.length === 0) {
+    return {
+      ok: false,
+      vectors: [],
+      status: 400,
+      error: 'INVALID_TEXTS',
+      message: 'Provide at least one non-empty text string to embed.',
+    };
+  }
+
+  const customKey = (payload.apiKey || '').trim();
+  const apiKey = customKey || process.env.GEMINI_API_KEY || '';
+  if (!apiKey) {
+    return {
+      ok: false,
+      vectors: [],
+      status: 400,
+      error: 'MISSING_API_KEY',
+      message:
+        'No Gemini API key found. Add GEMINI_API_KEY on the server or configure a Gemini key in Settings > AI Assistant.',
+    };
+  }
+
+  const model = payload.model?.trim() || 'gemini-embedding-2';
+  const ai = new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      apiVersion: 'v1beta',
+      timeout: 25000,
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  const config: Record<string, unknown> = {};
+  if (payload.taskType) {
+    config.taskType = payload.taskType;
+  }
+  if (
+    typeof payload.outputDimensionality === 'number' &&
+    payload.outputDimensionality >= 64 &&
+    payload.outputDimensionality <= 3072
+  ) {
+    config.outputDimensionality = Math.trunc(payload.outputDimensionality);
+  }
+
+  const CHUNK_SIZE = 50;
+  const vectors: number[][] = [];
+
+  try {
+    for (let i = 0; i < texts.length; i += CHUNK_SIZE) {
+      const chunk = texts.slice(i, i + CHUNK_SIZE);
+      const response = await ai.models.embedContent({
+        model,
+        contents: chunk.map((text) => ({ role: 'user', parts: [{ text }] })),
+        ...(Object.keys(config).length > 0 ? { config } : {}),
+      });
+
+      const respRecord = response as {
+        embeddings?: Array<{ values?: number[] }>;
+        embedding?: { values?: number[] };
+      };
+      const rawEmbeddings = Array.isArray(respRecord.embeddings)
+        ? respRecord.embeddings
+        : respRecord.embedding
+          ? [respRecord.embedding]
+          : [];
+
+      if (rawEmbeddings.length !== chunk.length) {
+        return {
+          ok: false,
+          vectors: [],
+          status: 500,
+          error: 'EMBEDDING_COUNT_MISMATCH',
+          message: `Expected ${chunk.length} embeddings from ${model}, got ${rawEmbeddings.length}.`,
+        };
+      }
+
+      for (const item of rawEmbeddings) {
+        const vals = Array.isArray(item?.values) ? item.values : [];
+        vectors.push(l2NormalizeVector(vals));
+      }
+    }
+
+    return {
+      ok: true,
+      vectors,
+      dimensions: vectors[0]?.length || 0,
+      modelUsed: model,
+      providerUsed: customKey ? 'byok-gemini' : 'server-gemini',
+    };
+  } catch (err: unknown) {
+    const errorObj = err as { status?: number; message?: string };
+    const errMsg = String(errorObj?.message || err);
+
+    if (
+      errorObj?.status === 429 ||
+      errMsg.includes('429') ||
+      errMsg.includes('RESOURCE_EXHAUSTED') ||
+      errMsg.toLowerCase().includes('quota')
+    ) {
+      return {
+        ok: false,
+        vectors: [],
+        status: 429,
+        error: 'RESOURCE_EXHAUSTED',
+        message: 'Gemini embedding quota exceeded. Falling back to local semantic ranking.',
+      };
+    }
+
+    if (
+      errorObj?.status === 403 ||
+      errMsg.includes('PERMISSION_DENIED') ||
+      errMsg.includes('API_KEY_INVALID')
+    ) {
+      return {
+        ok: false,
+        vectors: [],
+        status: 403,
+        error: 'PERMISSION_DENIED',
+        message: 'Invalid Gemini API key or permission denied for embeddings.',
+      };
+    }
+
+    return {
+      ok: false,
+      vectors: [],
+      status: errorObj?.status || 500,
+      error: 'GEMINI_EMBED_ERROR',
+      message: errMsg || 'Failed to compute Gemini embeddings.',
+    };
+  }
+}
+
 

@@ -720,3 +720,231 @@ export async function generatePresetIllustrationImage(params) {
   };
 }
 
+/**
+ * Computes L2-normalized dense embeddings for a list of strings via `/api/llm/embed` (`gemini-embedding-2`).
+ *
+ * @param {{
+ *   texts: string[],
+ *   settings?: import('../../types/models.js').AppSettings | null,
+ *   taskType?: 'SEMANTIC_SIMILARITY' | 'RETRIEVAL_DOCUMENT' | 'RETRIEVAL_QUERY' | 'CLUSTERING',
+ *   outputDimensionality?: number
+ * }} params
+ * @returns {Promise<{
+ *   ok: boolean,
+ *   vectors: number[][],
+ *   dimensions?: number,
+ *   modelUsed?: string,
+ *   providerUsed?: string,
+ *   error?: string,
+ *   message?: string,
+ *   status?: number
+ * }>}
+ */
+export async function embedTextsWithLlm({
+  texts,
+  settings = null,
+  taskType = 'SEMANTIC_SIMILARITY',
+  outputDimensionality,
+}) {
+  const cleanTexts = Array.isArray(texts)
+    ? texts.map((t) => String(t || '').trim()).filter(Boolean)
+    : [];
+  if (cleanTexts.length === 0) {
+    return { ok: true, vectors: [], dimensions: 0 };
+  }
+
+  const startTime = Date.now();
+  try {
+    const res = await fetch('/api/llm/embed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        texts: cleanTexts,
+        model: 'gemini-embedding-2',
+        apiKey: settings?.llmApiKey || '',
+        taskType,
+        ...(typeof outputDimensionality === 'number' ? { outputDimensionality } : {}),
+      }),
+    });
+
+    const data = await res.json();
+    try {
+      queryLogger?.recordQuery?.({
+        service: 'gemini',
+        endpoint: `Embeddings (${data?.modelUsed || 'gemini-embedding-2'} · ${cleanTexts.length} items)`,
+        status: data?.ok ? 200 : data?.status || res.status || 500,
+        statusText: data?.ok ? 'OK' : data?.error || 'Error',
+        latencyMs: Date.now() - startTime,
+        error: !data?.ok ? data?.message : undefined,
+      });
+    } catch (_) {}
+
+    if (!res.ok || !data?.ok || !Array.isArray(data?.vectors)) {
+      return {
+        ok: false,
+        vectors: [],
+        status: data?.status || res.status || 500,
+        error: data?.error || 'EMBED_FAILED',
+        message: data?.message || 'Embedding request failed.',
+      };
+    }
+
+    return {
+      ok: true,
+      vectors: data.vectors,
+      dimensions: data.dimensions || data.vectors[0]?.length || 0,
+      modelUsed: data.modelUsed,
+      providerUsed: data.providerUsed,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      vectors: [],
+      status: 503,
+      error: 'EMBED_NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Stage 1 Flash Query Expansion: sends the active reader profile, loved/disliked anchors,
+ * and shelf intent to Gemini (`gemini-4-hydrogen`) with strict `responseSchema` to obtain
+ * targeted modern book search queries and subjects rather than stale public-domain catalogs.
+ *
+ * @param {{
+ *   intent: string,
+ *   topic?: string,
+ *   seedBook?: import('../../types/models.js').Book | null,
+ *   profile?: import('../../types/models.js').ChildProfile | null,
+ *   lovedTitles?: string[],
+ *   dislikedTitles?: string[],
+ *   language?: string,
+ *   recencyPreference?: 'modern' | 'balanced' | 'include-classics',
+ *   settings: import('../../types/models.js').AppSettings
+ * }} params
+ * @returns {Promise<{
+ *   queries: string[],
+ *   subjects: string[],
+ *   avoidTerms: string[],
+ *   rationale: string,
+ *   modelUsed?: string
+ * }>}
+ */
+export async function queryDiscoveryExpansionWithLlm({
+  intent,
+  topic = '',
+  seedBook = null,
+  profile = null,
+  lovedTitles = [],
+  dislikedTitles = [],
+  language = '',
+  recencyPreference = 'modern',
+  settings,
+}) {
+  const ageLabel = profile ? `${profile.age} years old (${profile.readingStage})` : 'children ages 2–8';
+  const favTopics = (profile?.favoriteTopics || []).slice(0, 6).join(', ') || 'animals, nature, bedtime';
+  const langInstruction =
+    language && language !== 'english'
+      ? `Target language: ${language}. Include natural search queries in ${language} and English editions.`
+      : 'Target language: English.';
+  const recencyRule =
+    recencyPreference === 'modern'
+      ? 'Strongly prioritize contemporary & modern classic published books (roughly 1985–present) with rich illustrations. Avoid 19th-century or early-1900s public domain compilations.'
+      : recencyPreference === 'balanced'
+        ? 'Mix modern contemporary picture/children books (1990–present) with enduring mid-century classics.'
+        : 'Include timeless classics alongside modern children literature.';
+
+  const systemInstruction = `You are a children's book discovery query strategist.
+Given a reader profile and shelf theme, output 4–6 targeted search queries and 3–4 catalog subjects that return real, modern, beloved children's books in Google Books and Open Library.
+Reader: ${profile?.name || 'Child reader'}, ${ageLabel}.
+Favorite topics: ${favTopics}.
+${langInstruction}
+${recencyRule}
+${settings?.llmCustomPromptHint ? `Family preferences: ${settings.llmCustomPromptHint}` : ''}
+Avoid academic textbooks, workbooks, literary criticism, adult non-fiction, and obscure 19th-century price catalogs.`;
+
+  const promptPayload = {
+    shelfIntent: intent,
+    topicFocus: topic || undefined,
+    seedBook: seedBook
+      ? {
+          title: seedBook.title,
+          authors: seedBook.authors,
+          tags: seedBook.tags,
+          readingStage: seedBook.readingStage,
+          ageRange:
+            typeof seedBook.ageMin === 'number'
+              ? `${seedBook.ageMin}-${seedBook.ageMax || seedBook.ageMin}`
+              : undefined,
+        }
+      : undefined,
+    lovedExamples: lovedTitles.slice(0, 6),
+    discardedAvoidExamples: dislikedTitles.slice(0, 5),
+  };
+
+  const provider = settings?.llmProvider || 'server-gemini';
+  const isGemini = provider === 'server-gemini' || provider === 'byok-gemini';
+
+  const discoverySettings = {
+    ...settings,
+    llmModel:
+      isGemini && (!settings?.llmModel || settings.llmModel === 'gemini-2.5-flash')
+        ? 'gemini-4-hydrogen'
+        : settings?.llmModel || 'gemini-4-hydrogen',
+  };
+
+  const response = await dispatchLlmQuery(discoverySettings, {
+    task: 'discovery-expansion',
+    prompt: `Generate targeted external catalog search queries for this discovery shelf:\n${JSON.stringify(promptPayload)}`,
+    systemInstruction,
+    jsonMode: true,
+    ...(isGemini
+      ? {
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              queries: {
+                type: 'ARRAY',
+                items: { type: 'STRING' },
+                description: '4 to 6 concise keyword search queries for Google Books / Open Library.',
+              },
+              subjects: {
+                type: 'ARRAY',
+                items: { type: 'STRING' },
+                description: '3 to 4 clean Open Library / children genre subjects.',
+              },
+              avoidTerms: {
+                type: 'ARRAY',
+                items: { type: 'STRING' },
+                description: 'Short terms to penalize if returned.',
+              },
+              rationale: {
+                type: 'STRING',
+                description: 'Brief 1-sentence theme summary for this discovery shelf.',
+              },
+            },
+            required: ['queries', 'subjects'],
+          },
+        }
+      : {}),
+  });
+
+  const data = response?.data && typeof response.data === 'object' ? response.data : {};
+  const cleanStringList = (/** @type {unknown} */ val, /** @type {number} */ max) =>
+    Array.isArray(val)
+      ? Array.from(
+          new Set(val.map((item) => String(item || '').trim().slice(0, 90)).filter(Boolean))
+        ).slice(0, max)
+      : [];
+
+  return {
+    queries: cleanStringList(data.queries, 6),
+    subjects: cleanStringList(data.subjects, 5),
+    avoidTerms: cleanStringList(data.avoidTerms, 6),
+    rationale: typeof data.rationale === 'string' ? data.rationale.trim().slice(0, 180) : '',
+    modelUsed: response.modelUsed,
+  };
+}
+
+

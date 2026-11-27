@@ -5,6 +5,7 @@ import {
   BookCoverCard,
   BookCoverGrid,
   BookCoverSlide,
+  getBookCardWidthTokens,
 } from '../common/BookCoverCard.js';
 import { BotanicalIllustration } from '../common/BotanicalIllustration.js';
 import { Icon } from '../common/Icon.js';
@@ -24,13 +25,12 @@ import {
   getRotationLibrarySuggestions,
   getSeasonalPresetShelf,
   getWishlistSpotlightShelf,
-  isWindDownEveningWindow,
+  planHomeDiscoveryShelves,
 } from '../../features/tagging/recommendations.js';
 import {
-  CURATED_SUBJECT_FEEDS,
-  fetchOpenLibrarySubjectShelf,
-} from '../../features/catalog/discovery-cache.js';
-import { findMatchingLibraryBook } from '../../features/catalog/library-match.js';
+  isBookDiscardedForProfile,
+  matchCandidateInLibrary,
+} from '../../features/tagging/discovery-engine.js';
 import { getAllRotationPresets } from '../../features/rotations/rotation-presets.js';
 import { computeRotationSchedule } from '../../features/rotations/rotation-schedule.js';
 import { resolveBookCardDisplayConfig } from '../../config/index.js';
@@ -74,10 +74,23 @@ function formatFinishedDateLabel(iso?: string): string {
   return `Last read · ${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
 }
 
+type ExternalDiscoveryItem = {
+  candidate: BookCandidate;
+  score: number;
+  semanticScore: number;
+  matchReasons: string[];
+  savedBook?: Book | null;
+};
+
 type ExternalFeedState = {
   loading: boolean;
+  loadingMore: boolean;
   loaded: boolean;
-  items: BookCandidate[];
+  page: number;
+  hasMore: boolean;
+  usedFlash?: boolean;
+  engineUsed?: string;
+  items: ExternalDiscoveryItem[];
 };
 
 type DiscoveryShelfDescriptor =
@@ -94,23 +107,28 @@ type DiscoveryShelfDescriptor =
       showQuickAdd?: boolean;
       badgeText?: string;
       ranked?: boolean;
+      contextReason?: string;
     }
   | {
       key: string;
-      kind: 'external-subject';
-      feedId: string;
-      slug: string;
+      kind: 'external-discovery';
       title: string;
       subtitle?: string;
+      badgeText?: string;
+      intent: string;
+      topic?: string;
+      anchorBookId?: string;
+      language?: string;
       size: BookCardSize;
-      ranked: boolean;
-      limit: number;
+      contextReason?: string;
+      isPinned?: boolean;
     };
 
 export const HomeView: React.FC = () => {
   const {
     state,
     store,
+    catalogService,
     activeProfile,
     activeRotation,
     rotationEditor,
@@ -127,7 +145,7 @@ export const HomeView: React.FC = () => {
   const [sheetRotationId, setSheetRotationId] = useState<string | null>(null);
   const [editingShelfId, setEditingShelfId] = useState<string | null>(null);
   const [foundCandidate, setFoundCandidate] = useState<BookCandidate | null>(null);
-  const [visibleShelfCount, setVisibleShelfCount] = useState(4);
+  const [visibleShelfCount, setVisibleShelfCount] = useState(5);
   const [externalFeeds, setExternalFeeds] = useState<Record<string, ExternalFeedState>>({});
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
@@ -173,8 +191,6 @@ export const HomeView: React.FC = () => {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [sheetRotationId, editingShelfId, rotationEditor.modalMode]);
-
-  const isEveningWindDown = isWindDownEveningWindow();
 
   // 1. Add to active rotation
   const rotationSuggestions = useMemo(() => {
@@ -300,214 +316,59 @@ export const HomeView: React.FC = () => {
 
   // 11. From Your Wishlist
   const wishlistSpotlight = useMemo(() => {
-    return getWishlistSpotlightShelf({ books: state.books, limit: 14 });
-  }, [state.books]);
+    return getWishlistSpotlightShelf({
+      books: state.books,
+      profileId: activeProfile?.id,
+      limit: 14,
+    });
+  }, [state.books, activeProfile?.id]);
+
+  const discoverySettingsKey = JSON.stringify({
+    profileId: activeProfile?.id || '',
+    pool: state.settings?.discoverySettings?.candidatePoolSize ?? 60,
+    engine: state.settings?.discoverySettings?.embeddingEngine || 'gemini-with-fallback',
+    flash: state.settings?.discoverySettings?.useFlashQueryExpansion !== false,
+    recency: state.settings?.discoverySettings?.recencyPreference || 'modern',
+  });
+
+  useEffect(() => {
+    setExternalFeeds({});
+  }, [discoverySettingsKey]);
 
   const discoveryShelves = useMemo<DiscoveryShelfDescriptor[]>(() => {
-    const shelves: DiscoveryShelfDescriptor[] = [];
-    const seenOwnedIds = new Set<string>();
-
-    const pushOwnedShelf = (
-      descriptor: Extract<DiscoveryShelfDescriptor, { kind: 'owned-rec' }>,
-      minItems = 1
-    ) => {
-      const freshItems = descriptor.items.filter((item) => !seenOwnedIds.has(item.book.id));
-      if (freshItems.length < minItems) return;
-      const sliced = freshItems.slice(0, 10);
-      for (const item of sliced) {
-        seenOwnedIds.add(item.book.id);
-      }
-      shelves.push({
-        ...descriptor,
-        items: sliced,
-      });
-    };
-
-    if (primaryActiveRotation && rotationSuggestions.length > 0) {
-      pushOwnedShelf({
-        key: `rot-add-${primaryActiveRotation.id}`,
-        kind: 'owned-rec',
-        title: `Add to ${primaryActiveRotation.title}`,
-        size: 'regular',
-        items: rotationSuggestions,
-        targetRotation: primaryActiveRotation,
-        actionType: 'manage-rotation',
-        showQuickAdd: true,
-      });
-    }
-
-    const bedtimeDescriptor: Extract<DiscoveryShelfDescriptor, { kind: 'owned-rec' }> | null =
-      bedtimeShelf.length > 0
-        ? {
-            key: 'mood-bedtime',
-            kind: 'owned-rec',
-            title: 'Wind-Down & Bedtime',
-            subtitle: isEveningWindDown ? 'Evening cozy stories' : 'Calm, gentle read-alouds',
-            badgeText: isEveningWindDown ? 'Tonight' : undefined,
-            size: isEveningWindDown ? 'large' : 'regular',
-            items: bedtimeShelf,
-            targetRotation: null,
-          }
-        : null;
-
-    if (bedtimeDescriptor && isEveningWindDown) {
-      pushOwnedShelf(bedtimeDescriptor);
-    }
-
-    if (recommendations.length > 0) {
-      pushOwnedShelf({
-        key: `suggested-${activeProfile?.id || 'reader'}`,
-        kind: 'owned-rec',
-        title: `Suggested for ${activeProfile?.name || 'Reader'}`,
-        size: 'regular',
-        items: recommendations,
-        targetRotation: null,
-        actionType: 'ai-picks',
-      });
-    }
-
-    if (rereadShelf.length > 0) {
-      pushOwnedShelf({
-        key: 'reread-favorites',
-        kind: 'owned-rec',
-        title: 'Ready for a Re-Read',
-        subtitle: 'Favorites not read in 30+ days',
-        size: 'regular',
-        items: rereadShelf,
-        targetRotation: null,
-      });
-    }
-
-    lovedShelves.forEach(({ anchorBook, items }, idx) => {
-      pushOwnedShelf({
-        key: `loved-${anchorBook.id}`,
-        kind: 'owned-rec',
-        title: `Because you loved ${anchorBook.title}`,
-        size: idx === 0 ? 'large' : 'compact',
-        items,
-        anchorBook,
-        targetRotation: null,
-      });
-    });
-
-    if (genreShelf && genreShelf.items.length > 0) {
-      pushOwnedShelf(
-        {
-          key: `genre-${genreShelf.topic}`,
-          kind: 'owned-rec',
-          title: `Because you like ${genreShelf.label}`,
-          size: 'compact',
-          items: genreShelf.items,
-          targetRotation: null,
-        },
-        2
-      );
-    }
-
-    if (seasonalShelf && seasonalShelf.items.length > 0) {
-      pushOwnedShelf(
-        {
-          key: `seasonal-${seasonalShelf.preset.id}`,
-          kind: 'owned-rec',
-          title: `Seasonal Picks: ${seasonalShelf.preset.title}`,
-          size: 'regular',
-          items: seasonalShelf.items,
-          targetRotation: null,
-        },
-        2
-      );
-    }
-
-    if (bedtimeDescriptor && !isEveningWindDown) {
-      pushOwnedShelf(bedtimeDescriptor);
-    }
-
-    if (dustyGemsShelf.length > 0) {
-      pushOwnedShelf({
-        key: 'dusty-gems',
-        kind: 'owned-rec',
-        title: 'Dusty Gems on Your Shelf',
-        subtitle: 'Owned stories waiting for a turn',
-        size: 'compact',
-        items: dustyGemsShelf,
-        targetRotation: null,
-      });
-    }
-
-    if (authorShelf && authorShelf.items.length > 0) {
-      pushOwnedShelf(
-        {
-          key: `author-${authorShelf.author}`,
-          kind: 'owned-rec',
-          title: `More by ${authorShelf.author}`,
-          size: 'compact',
-          items: authorShelf.items,
-          targetRotation: null,
-        },
-        2
-      );
-    }
-
-    if (languageShelf && languageShelf.items.length > 0) {
-      pushOwnedShelf(
-        {
-          key: `lang-${languageShelf.language}`,
-          kind: 'owned-rec',
-          title: `In ${languageShelf.label} Today`,
-          size: 'compact',
-          items: languageShelf.items,
-          targetRotation: null,
-        },
-        2
-      );
-    }
-
-    if (wishlistSpotlight.length > 0) {
-      pushOwnedShelf({
-        key: 'wishlist-spotlight',
-        kind: 'owned-rec',
-        title: 'From Your Wishlist',
-        subtitle: 'Books saved to borrow or find next',
-        size: 'compact',
-        items: wishlistSpotlight.map((book) => ({
-          book,
-          matchReasons: [book.loved ? 'Loved wishlist pick' : 'On wishlist'],
-        })),
-        targetRotation: null,
-      });
-    }
-
-    // Curated external Open Library shelves (IndexedDB cached, zero Google Books quota)
-    for (const feed of CURATED_SUBJECT_FEEDS) {
-      shelves.push({
-        key: `curated-${feed.id}`,
-        kind: 'external-subject',
-        feedId: feed.id,
-        slug: feed.slug,
-        title: feed.title,
-        subtitle: feed.subtitle,
-        size: feed.id === 'award-winners' ? 'large' : feed.id === 'popular-picture-books' ? 'regular' : 'compact',
-        ranked: feed.ranked,
-        limit: feed.limit,
-      });
-    }
-
-    return shelves;
+    return planHomeDiscoveryShelves({
+      books: state.books,
+      profile: activeProfile,
+      rotations: state.rotations,
+      presets: getAllRotationPresets(state),
+      primaryActiveRotation,
+      rotationSuggestions,
+      recommendations,
+      lovedShelves,
+      genreShelf,
+      bedtimeShelf,
+      dustyGemsShelf,
+      rereadShelf,
+      authorShelf,
+      languageShelf,
+      seasonalShelf,
+      wishlistSpotlight,
+      discoverySettings: state.settings?.discoverySettings,
+    }) as DiscoveryShelfDescriptor[];
   }, [
+    state,
+    activeProfile,
     primaryActiveRotation,
     rotationSuggestions,
-    bedtimeShelf,
-    isEveningWindDown,
     recommendations,
-    activeProfile?.id,
-    activeProfile?.name,
-    rereadShelf,
     lovedShelves,
     genreShelf,
-    seasonalShelf,
+    bedtimeShelf,
     dustyGemsShelf,
+    rereadShelf,
     authorShelf,
     languageShelf,
+    seasonalShelf,
     wishlistSpotlight,
   ]);
 
@@ -529,39 +390,196 @@ export const HomeView: React.FC = () => {
     return () => observer.disconnect();
   }, [visibleShelfCount, discoveryShelves.length]);
 
-  // Lazy-load IndexedDB-cached Open Library curated shelves only as they approach the visible window
   const visibleShelves = useMemo(
     () => discoveryShelves.slice(0, visibleShelfCount),
     [discoveryShelves, visibleShelfCount]
   );
 
+  // Lazy-load Two-Stage External Discovery shelves as they enter the viewport window
   useEffect(() => {
-    const windowSlice = discoveryShelves.slice(0, Math.min(discoveryShelves.length, visibleShelfCount + 1));
+    const windowSlice = discoveryShelves.slice(
+      0,
+      Math.min(discoveryShelves.length, visibleShelfCount + 1)
+    );
     for (const shelf of windowSlice) {
-      if (shelf.kind !== 'external-subject') continue;
-      const current = externalFeeds[shelf.slug];
+      if (shelf.kind !== 'external-discovery') continue;
+      const current = externalFeeds[shelf.key];
       if (current?.loading || current?.loaded) continue;
 
       setExternalFeeds((prev) => {
-        if (prev[shelf.slug]?.loading || prev[shelf.slug]?.loaded) return prev;
+        if (prev[shelf.key]?.loading || prev[shelf.key]?.loaded) return prev;
         return {
           ...prev,
-          [shelf.slug]: { loading: true, loaded: false, items: prev[shelf.slug]?.items || [] },
+          [shelf.key]: {
+            loading: true,
+            loadingMore: false,
+            loaded: false,
+            page: 1,
+            hasMore: true,
+            items: prev[shelf.key]?.items || [],
+          },
         };
       });
 
-      void fetchOpenLibrarySubjectShelf(shelf.slug, { limit: shelf.limit }).then((res) => {
-        setExternalFeeds((prev) => ({
-          ...prev,
-          [shelf.slug]: { loading: false, loaded: true, items: res.items },
-        }));
-      });
+      void store
+        .runHomeDiscoveryShelfQuery({
+          catalogService,
+          shelfKey: shelf.key,
+          title: shelf.title,
+          intent: shelf.intent,
+          topic: shelf.topic || '',
+          anchorBookId: shelf.anchorBookId || '',
+          language: shelf.language || '',
+          page: 1,
+          limit: 12,
+        })
+        .then((res) => {
+          setExternalFeeds((prev) => ({
+            ...prev,
+            [shelf.key]: {
+              loading: false,
+              loadingMore: false,
+              loaded: true,
+              page: 1,
+              hasMore: res.hasMore,
+              usedFlash: res.usedFlash,
+              engineUsed: res.engineUsed,
+              items: res.items,
+            },
+          }));
+        })
+        .catch(() => {
+          setExternalFeeds((prev) => ({
+            ...prev,
+            [shelf.key]: {
+              loading: false,
+              loadingMore: false,
+              loaded: true,
+              page: 1,
+              hasMore: false,
+              items: prev[shelf.key]?.items || [],
+            },
+          }));
+        });
     }
-  }, [discoveryShelves, visibleShelfCount]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [discoveryShelves, visibleShelfCount, catalogService, store, externalFeeds]);
 
-  // Deduplicate curated external Open Library feeds across rows (in feed order)
-  const dedupedExternalFeedItems = useMemo(() => {
-    const result: Record<string, BookCandidate[]> = {};
+  const handleQueryMoreForShelf = async (shelf: DiscoveryShelfDescriptor) => {
+    const current = externalFeeds[shelf.key];
+    if (current?.loading || current?.loadingMore) return;
+    const nextPage = current?.loaded ? current.page + 1 : 1;
+
+    setExternalFeeds((prev) => ({
+      ...prev,
+      [shelf.key]: {
+        loading: !prev[shelf.key]?.loaded,
+        loadingMore: Boolean(prev[shelf.key]?.loaded),
+        loaded: Boolean(prev[shelf.key]?.loaded),
+        page: prev[shelf.key]?.page || 1,
+        hasMore: prev[shelf.key]?.hasMore ?? true,
+        items: prev[shelf.key]?.items || [],
+      },
+    }));
+
+    const querySpec =
+      shelf.kind === 'external-discovery'
+        ? {
+            intent: shelf.intent,
+            topic: shelf.topic || '',
+            anchorBookId: shelf.anchorBookId || '',
+            language: shelf.language || '',
+          }
+        : shelf.anchorBook
+          ? {
+              intent: 'similar',
+              topic: shelf.anchorBook.tags?.[0] || '',
+              anchorBookId: shelf.anchorBook.id,
+              language: '',
+            }
+          : shelf.key === 'mood-bedtime'
+            ? { intent: 'bedtime', topic: 'bedtime', anchorBookId: '', language: '' }
+            : {
+                intent: 'profile',
+                topic:
+                  shelf.items[0]?.book?.tags?.[0] ||
+                  activeProfile?.favoriteTopics?.[0] ||
+                  '',
+                anchorBookId: '',
+                language: '',
+              };
+
+    try {
+      const res = await store.runHomeDiscoveryShelfQuery({
+        catalogService,
+        shelfKey: shelf.key,
+        title: shelf.title,
+        ...querySpec,
+        page: nextPage,
+        limit: 10,
+      });
+
+      let addedCount = 0;
+      setExternalFeeds((prev) => {
+        const existingItems = prev[shelf.key]?.items || [];
+        const seenKeys = new Set(
+          existingItems.flatMap((it) =>
+            [it.candidate.candidateKey, it.candidate.isbn13 ? `isbn:${it.candidate.isbn13}` : ''].filter(
+              Boolean
+            )
+          )
+        );
+        const fresh = res.items.filter((it) => {
+          const k1 = it.candidate.candidateKey;
+          const k2 = it.candidate.isbn13 ? `isbn:${it.candidate.isbn13}` : '';
+          if (seenKeys.has(k1) || (k2 && seenKeys.has(k2))) return false;
+          seenKeys.add(k1);
+          if (k2) seenKeys.add(k2);
+          return true;
+        });
+        addedCount = fresh.length;
+        return {
+          ...prev,
+          [shelf.key]: {
+            loading: false,
+            loadingMore: false,
+            loaded: true,
+            page: nextPage,
+            hasMore: res.hasMore && fresh.length > 0,
+            usedFlash: res.usedFlash,
+            engineUsed: res.engineUsed,
+            items: [...existingItems, ...fresh],
+          },
+        };
+      });
+
+      if (res.allFetchedCount > 0) {
+        store.notify(
+          addedCount > 0
+            ? `Found ${addedCount} more ${addedCount === 1 ? 'book' : 'books'} (queried ${res.allFetchedCount} candidates).`
+            : `All ${res.allFetchedCount} candidates saved to Suggestions.`,
+          'info'
+        );
+      } else {
+        store.notify('No additional matching books found for this shelf.', 'info');
+      }
+    } catch (err) {
+      setExternalFeeds((prev) => ({
+        ...prev,
+        [shelf.key]: {
+          ...(prev[shelf.key] || { items: [], page: 1 }),
+          loading: false,
+          loadingMore: false,
+          loaded: true,
+          hasMore: false,
+        },
+      }));
+      store.notify(err instanceof Error ? err.message : 'Unable to query more books right now.', 'error');
+    }
+  };
+
+  // Deduplicate external discovery rows across shelves & filter out discarded/owned books live
+  const dedupedExternalDiscoveryItems = useMemo(() => {
+    const result: Record<string, ExternalDiscoveryItem[]> = {};
     const seenKeys = new Set<string>();
     const normalizeTA = (title: string, author?: string) => {
       const tNorm = String(title || '')
@@ -574,10 +592,19 @@ export const HomeView: React.FC = () => {
       return tNorm ? `${tNorm}|${aNorm}` : '';
     };
 
-    for (const feed of CURATED_SUBJECT_FEEDS) {
-      const items = externalFeeds[feed.slug]?.items || [];
-      const unique: BookCandidate[] = [];
-      for (const cand of items) {
+    for (const shelf of discoveryShelves) {
+      const items = externalFeeds[shelf.key]?.items || [];
+      if (items.length === 0) {
+        result[shelf.key] = [];
+        continue;
+      }
+      const unique: ExternalDiscoveryItem[] = [];
+      for (const entry of items) {
+        const cand = entry.candidate;
+        const matchInfo = matchCandidateInLibrary(cand, state.books, activeProfile?.id);
+        if (matchInfo.isDiscarded || matchInfo.alreadyInLibrary) continue;
+        if (isBookDiscardedForProfile(matchInfo.matchedBook, activeProfile?.id)) continue;
+
         const taKey = normalizeTA(cand.title, cand.authors?.[0]);
         const keys = [
           cand.candidateKey,
@@ -586,18 +613,23 @@ export const HomeView: React.FC = () => {
         ].filter(Boolean);
         if (keys.some((k) => seenKeys.has(k))) continue;
         keys.forEach((k) => seenKeys.add(k));
-        unique.push(cand);
+        unique.push({
+          ...entry,
+          savedBook: matchInfo.matchedBook || entry.savedBook || null,
+        });
       }
-      result[feed.slug] = unique;
+      result[shelf.key] = unique;
     }
     return result;
-  }, [externalFeeds]);
+  }, [discoveryShelves, externalFeeds, state.books, activeProfile?.id]);
 
   const wishlistCount = useMemo(() => {
     return state.books.filter(
-      (b) => normalizeCollectionStatus(b.collectionStatus) === 'wishlist'
+      (b) =>
+        normalizeCollectionStatus(b.collectionStatus) === 'wishlist' &&
+        !isBookDiscardedForProfile(b, activeProfile?.id)
     ).length;
-  }, [state.books]);
+  }, [state.books, activeProfile?.id]);
 
   const currentReadingBook: Book | null = useMemo(() => {
     const readingIds = activeProfile?.currentlyReadingBookIds;
@@ -808,6 +840,24 @@ export const HomeView: React.FC = () => {
         </button>
       ) : undefined;
 
+    const discardButton = (
+      <button
+        type="button"
+        data-action="discard-suggestion"
+        onClick={(e) => {
+          e.stopPropagation();
+          void store.discardSuggestedBook(book, activeProfile?.id);
+        }}
+        aria-label={`Hide ${book.title} from suggestions`}
+        title="Not interested"
+        className="absolute top-0.5 right-0.5 z-30 min-h-[36px] min-w-[36px] flex items-start justify-end p-1.5 cursor-pointer"
+      >
+        <span className="w-7 h-7 rounded-full bg-surface/90 hover:bg-danger-solid hover:text-danger-solid-fg border border-edge text-ink-secondary shadow-xs flex items-center justify-center transition-colors">
+          <Icon name="eyeOff" className="w-3.5 h-3.5" />
+        </span>
+      </button>
+    );
+
     return (
       <BookCoverCard
         key={`${keyPrefix}-${book.id}`}
@@ -826,18 +876,23 @@ export const HomeView: React.FC = () => {
         rankNumber={rankNumber}
         customMetaLine={matchReasons[0] || 'Fresh pick'}
         onInspect={(b) => setInspectedBookId(b.id)}
+        topRightCoverAction={discardButton}
         bottomRightCoverAction={addAction}
       />
     );
   };
 
   const renderExternalDiscoveryCard = (
-    candidate: BookCandidate,
+    entry: ExternalDiscoveryItem,
     keyPrefix: string,
     cardSize: BookCardSize,
     rankNumber?: number
   ) => {
-    const matchedBook = findMatchingLibraryBook(candidate, state.books);
+    const { candidate, matchReasons, savedBook } = entry;
+    const matchedBook =
+      savedBook ||
+      matchCandidateInLibrary(candidate, state.books, activeProfile?.id)?.matchedBook ||
+      null;
     const matchedStatus = matchedBook
       ? normalizeCollectionStatus(matchedBook.collectionStatus)
       : null;
@@ -854,13 +909,30 @@ export const HomeView: React.FC = () => {
       tags: candidate.tags || [],
     };
 
-    const metaHint = matchedBook
+    const metaHint = matchedBook && matchedStatus && matchedStatus !== 'interested'
       ? matchedStatus === 'wishlist'
         ? 'On Wishlist'
         : `${formatCollectionStatus(matchedBook.collectionStatus)}`
-      : candidate.publishedYear
-        ? `${candidate.publishedYear} · Discovery`
-        : 'Discovery pick';
+      : matchReasons?.[0] ||
+        (candidate.publishedYear ? `${candidate.publishedYear} · Discovery` : 'Discovery pick');
+
+    const discardButton = (
+      <button
+        type="button"
+        data-action="discard-suggestion"
+        onClick={(e) => {
+          e.stopPropagation();
+          void store.discardSuggestedBook(matchedBook || candidate, activeProfile?.id);
+        }}
+        aria-label={`Hide ${candidate.title} from suggestions`}
+        title="Not interested"
+        className="absolute top-0.5 right-0.5 z-30 min-h-[36px] min-w-[36px] flex items-start justify-end p-1.5 cursor-pointer"
+      >
+        <span className="w-7 h-7 rounded-full bg-surface/90 hover:bg-danger-solid hover:text-danger-solid-fg border border-edge text-ink-secondary shadow-xs flex items-center justify-center transition-colors">
+          <Icon name="eyeOff" className="w-3.5 h-3.5" />
+        </span>
+      </button>
+    );
 
     return (
       <BookCoverCard
@@ -874,19 +946,77 @@ export const HomeView: React.FC = () => {
         aspectRatio={suggestedCardConfig.aspectRatio}
         infoPlacement={suggestedCardConfig.infoPlacement}
         cardFrame={suggestedCardConfig.cardFrame}
-        showCoverOverlays={Boolean(matchedBook)}
+        showCoverOverlays={Boolean(matchedBook && matchedStatus !== 'interested')}
         showUsageAdorno={false}
         fields={suggestedCardConfig.fields}
         rankNumber={rankNumber}
         customMetaLine={metaHint}
         onInspect={() => {
-          if (matchedBook) {
+          if (matchedBook && matchedStatus !== 'interested') {
             setInspectedBookId(matchedBook.id);
           } else {
             setFoundCandidate(candidate);
           }
         }}
+        topRightCoverAction={discardButton}
       />
+    );
+  };
+
+  const renderQueryMoreBooksTile = (
+    shelf: DiscoveryShelfDescriptor,
+    isLoadingMore: boolean,
+    hasLoadedBefore: boolean
+  ) => {
+    const widthTokens = getBookCardWidthTokens(
+      shelf.size,
+      suggestedCardConfig.customWidth,
+      suggestedCardConfig.infoPlacement
+    );
+    const coverAspectClass =
+      suggestedCardConfig.aspectRatio === 'portrait' ? 'aspect-[3/4]' : 'aspect-square';
+
+    return (
+      <div
+        key={`${shelf.key}-query-more`}
+        data-book-card={`${shelf.key}-query-more`}
+        style={
+          {
+            '--lr-card-min-sm': `${widthTokens.sm}px`,
+            '--lr-card-min-lg': `${widthTokens.lg}px`,
+          } as React.CSSProperties
+        }
+        className="lr-carousel-item flex flex-col self-stretch"
+      >
+        <button
+          type="button"
+          data-action="query-more-books"
+          data-shelf-key={shelf.key}
+          disabled={isLoadingMore}
+          onClick={() => void handleQueryMoreForShelf(shelf)}
+          aria-label={`Query more books for ${shelf.title}`}
+          className={`w-full ${coverAspectClass} rounded-[var(--radius-cover)] border border-dashed border-edge hover:border-primary/65 bg-surface-subtle/75 hover:bg-surface-elevated p-3 flex flex-col items-center justify-center text-center gap-2 transition-colors disabled:opacity-60 cursor-pointer`}
+        >
+          <span className="w-9 h-9 rounded-full bg-surface border border-edge text-primary flex items-center justify-center shadow-2xs">
+            <Icon
+              name={isLoadingMore ? 'refresh' : 'sparkles'}
+              className={`w-4 h-4 ${isLoadingMore ? 'animate-spin' : ''}`}
+            />
+          </span>
+          <span className="text-xs font-semibold text-ink leading-tight">
+            {isLoadingMore
+              ? 'Querying...'
+              : hasLoadedBefore
+                ? 'Query more books'
+                : shelf.kind === 'external-discovery'
+                  ? 'Query more books'
+                  : 'Discover more online'}
+          </span>
+          <span className="text-[10px] text-ink-muted leading-tight line-clamp-2">
+            {isLoadingMore ? 'Ranking fresh matches' : 'Save & rank new picks'}
+          </span>
+        </button>
+      </div>
     );
   };
 
@@ -1122,12 +1252,12 @@ export const HomeView: React.FC = () => {
         </section>
       )}
 
-      {/* Netflix / Disney+ Style Discovery Rows — Tight Vertical Rhythm & Progressive Scroll Loading */}
+      {/* Discovery & Contextual Recommendation Rows */}
       {visibleShelves.map((shelf) => {
-        if (shelf.kind === 'external-subject') {
-          const feedState = externalFeeds[shelf.slug];
+        if (shelf.kind === 'external-discovery') {
+          const feedState = externalFeeds[shelf.key];
           const isLoading = !feedState || (feedState.loading && !feedState.loaded);
-          const items = dedupedExternalFeedItems[shelf.slug] || [];
+          const items = dedupedExternalDiscoveryItems[shelf.key] || [];
 
           if (feedState?.loaded && items.length === 0) {
             return null;
@@ -1136,7 +1266,7 @@ export const HomeView: React.FC = () => {
           return (
             <section
               key={shelf.key}
-              data-discovery-shelf={shelf.feedId}
+              data-discovery-shelf={shelf.key}
               aria-labelledby={`shelf-heading-${shelf.key}`}
               className="pt-1.5 sm:pt-4 sm:border-t sm:border-edge-subtle/60 space-y-2"
             >
@@ -1149,9 +1279,12 @@ export const HomeView: React.FC = () => {
                     >
                       {shelf.title}
                     </h2>
-                    <span className="text-[10px] font-medium text-ink-muted shrink-0">
-                      Open Library
-                    </span>
+                    {shelf.badgeText && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-badge)] bg-primary/12 text-primary text-[10px] font-semibold shrink-0">
+                        <Icon name="sparkles" className="w-2.5 h-2.5" />
+                        <span>{shelf.badgeText}</span>
+                      </span>
+                    )}
                   </div>
                   {shelf.subtitle && (
                     <p className="text-[11px] text-ink-muted truncate mt-0.5">{shelf.subtitle}</p>
@@ -1173,24 +1306,23 @@ export const HomeView: React.FC = () => {
                 </div>
               ) : (
                 <BookCoverSlide
-                  itemCount={items.length}
+                  itemCount={items.length + 1}
                   ariaLabel={shelf.title}
                   showPagination={false}
                   fullBleed
                 >
-                  {items.map((cand, idx) =>
-                    renderExternalDiscoveryCard(
-                      cand,
-                      shelf.key,
-                      shelf.size,
-                      shelf.ranked ? idx + 1 : undefined
-                    )
+                  {items.map((entry, idx) =>
+                    renderExternalDiscoveryCard(entry, shelf.key, shelf.size, idx + 1)
                   )}
+                  {renderQueryMoreBooksTile(shelf, Boolean(feedState?.loadingMore), Boolean(feedState?.loaded))}
                 </BookCoverSlide>
               )}
             </section>
           );
         }
+
+        const extraDiscoveryItems = dedupedExternalDiscoveryItems[shelf.key] || [];
+        const ownedFeedState = externalFeeds[shelf.key];
 
         return (
           <section
@@ -1227,7 +1359,7 @@ export const HomeView: React.FC = () => {
                         {shelf.title}
                       </h2>
                       {shelf.badgeText && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/12 text-primary text-[10px] font-semibold shrink-0">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-badge)] bg-primary/12 text-primary text-[10px] font-semibold shrink-0">
                           <Icon name="moon" className="w-2.5 h-2.5" />
                           <span>{shelf.badgeText}</span>
                         </span>
@@ -1266,7 +1398,7 @@ export const HomeView: React.FC = () => {
             </div>
 
             <BookCoverSlide
-              itemCount={shelf.items.length}
+              itemCount={shelf.items.length + extraDiscoveryItems.length + 1}
               ariaLabel={shelf.title}
               showPagination={false}
               fullBleed
@@ -1281,6 +1413,14 @@ export const HomeView: React.FC = () => {
                   shelf.ranked ? idx + 1 : undefined,
                   Boolean(shelf.showQuickAdd)
                 )
+              )}
+              {extraDiscoveryItems.map((entry) =>
+                renderExternalDiscoveryCard(entry, `${shelf.key}-ext`, shelf.size)
+              )}
+              {renderQueryMoreBooksTile(
+                shelf,
+                Boolean(ownedFeedState?.loading || ownedFeedState?.loadingMore),
+                Boolean(ownedFeedState?.loaded)
               )}
             </BookCoverSlide>
           </section>

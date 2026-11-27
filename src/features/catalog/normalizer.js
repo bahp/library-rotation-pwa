@@ -41,7 +41,8 @@ const LANGUAGE_CODE_MAP = {
  * @typedef {Omit<import('../../types/models.js').Book, 'id' | 'addedAt'> & {
  *   candidateKey: string,
  *   summary?: string,
- *   subjects?: string[]
+ *   subjects?: string[],
+ *   editionCount?: number
  * }} BookCandidate
  */
 
@@ -680,6 +681,18 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
   });
 
   const searchSummary = cleanBookDescription(doc.description || doc.first_sentence);
+  const editionCount =
+    typeof doc.edition_count === 'number' && doc.edition_count > 0
+      ? Math.trunc(doc.edition_count)
+      : undefined;
+  const averageRating =
+    typeof doc.ratings_average === 'number' && doc.ratings_average > 0
+      ? Math.round(doc.ratings_average * 10) / 10
+      : undefined;
+  const ratingsCount =
+    typeof doc.ratings_count === 'number' && doc.ratings_count > 0
+      ? Math.trunc(doc.ratings_count)
+      : undefined;
   const cleanOlSearchId = cleanProviderExternalId(
     typeof doc.key === 'string' ? doc.key : undefined
   );
@@ -710,6 +723,9 @@ export function normalizeOpenLibrarySearchDoc(doc, options = {}) {
     ...(coverUrl ? { coverUrl } : {}),
     ...(searchSummary ? { summary: searchSummary } : {}),
     ...(subjects.length ? { subjects: subjects.slice(0, 12) } : {}),
+    ...(editionCount !== undefined ? { editionCount } : {}),
+    ...(averageRating !== undefined ? { averageRating } : {}),
+    ...(ratingsCount !== undefined ? { ratingsCount } : {}),
     spineColor: pickDeterministicSpineColor(isbn13 || title),
     sources: [source],
   };
@@ -741,6 +757,12 @@ export function mergeBookCandidates(primary, secondary) {
   const dimensions = primary.dimensions || secondary.dimensions;
   const averageRating = primary.averageRating !== undefined ? primary.averageRating : secondary.averageRating;
   const ratingsCount = primary.ratingsCount !== undefined ? primary.ratingsCount : secondary.ratingsCount;
+  const editionCount =
+    typeof primary.editionCount === 'number' && typeof secondary.editionCount === 'number'
+      ? Math.max(primary.editionCount, secondary.editionCount)
+      : primary.editionCount !== undefined
+        ? primary.editionCount
+        : secondary.editionCount;
   const publisher = primary.publisher || secondary.publisher;
   const previewLink = primary.previewLink || secondary.previewLink;
   const edition = primary.edition || secondary.edition;
@@ -790,6 +812,7 @@ export function mergeBookCandidates(primary, secondary) {
     ...(edition ? { edition } : {}),
     ...(listPriceAmount !== undefined ? { listPriceAmount } : {}),
     ...(listPriceCurrency ? { listPriceCurrency } : {}),
+    ...(editionCount !== undefined ? { editionCount } : {}),
     ...(averageRating !== undefined ? { averageRating } : {}),
     ...(ratingsCount !== undefined ? { ratingsCount } : {}),
     ...(publisher ? { publisher } : {}),
@@ -804,7 +827,13 @@ export function mergeBookCandidates(primary, secondary) {
 /**
  * Materializes a BookCandidate into a persisted Book entity.
  * @param {BookCandidate} candidate
- * @param {{ retainRaw?: boolean }} [options]
+ * @param {{
+ *   retainRaw?: boolean,
+ *   collectionStatus?: import('../../types/models.js').CollectionStatus,
+ *   discoveredAt?: string,
+ *   discoveryQuery?: string,
+ *   discoveryShelfKey?: string
+ * }} [options]
  * @returns {import('../../types/models.js').Book}
  */
 export function candidateToBook(candidate, options = {}) {
@@ -827,6 +856,10 @@ export function candidateToBook(candidate, options = {}) {
   }
 
   const description = cleanBookDescription(candidate.summary || '');
+  const resolvedStatus = options.collectionStatus || candidate.collectionStatus;
+  const resolvedDiscoveredAt = options.discoveredAt || candidate.discoveredAt;
+  const resolvedDiscoveryQuery = options.discoveryQuery || candidate.discoveryQuery;
+  const resolvedDiscoveryShelfKey = options.discoveryShelfKey || candidate.discoveryShelfKey;
 
   return {
     id: createId('book'),
@@ -844,6 +877,7 @@ export function candidateToBook(candidate, options = {}) {
     ...(categories.length ? { categories } : {}),
     tags,
     ...(Object.keys(tagOrigins).length > 0 ? { tagOrigins } : {}),
+    ...(resolvedStatus ? { collectionStatus: resolvedStatus } : {}),
     ...(candidate.coverUrl ? { coverUrl: candidate.coverUrl } : {}),
     ...(description ? { description } : {}),
     ...(candidate.language ? { language: candidate.language } : {}),
@@ -853,10 +887,14 @@ export function candidateToBook(candidate, options = {}) {
       ? { listPriceAmount: candidate.listPriceAmount }
       : {}),
     ...(candidate.listPriceCurrency ? { listPriceCurrency: candidate.listPriceCurrency } : {}),
+    ...(candidate.editionCount !== undefined ? { editionCount: candidate.editionCount } : {}),
     ...(candidate.averageRating !== undefined ? { averageRating: candidate.averageRating } : {}),
     ...(candidate.ratingsCount !== undefined ? { ratingsCount: candidate.ratingsCount } : {}),
     ...(candidate.publisher ? { publisher: candidate.publisher } : {}),
     ...(candidate.previewLink ? { previewLink: candidate.previewLink } : {}),
+    ...(resolvedDiscoveredAt ? { discoveredAt: resolvedDiscoveredAt } : {}),
+    ...(resolvedDiscoveryQuery ? { discoveryQuery: resolvedDiscoveryQuery } : {}),
+    ...(resolvedDiscoveryShelfKey ? { discoveryShelfKey: resolvedDiscoveryShelfKey } : {}),
     spineColor:
       candidate.spineColor || pickDeterministicSpineColor(candidate.isbn13 || candidate.title),
     addedAt: now,

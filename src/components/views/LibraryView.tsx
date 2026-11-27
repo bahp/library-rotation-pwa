@@ -31,6 +31,7 @@ import {
   resolveBookCardDisplayConfig,
 } from '../../config/index.js';
 import { computeBookUsageSummary } from '../../features/rotations/usage-insights.js';
+import { isBookDiscardedForProfile } from '../../features/tagging/discovery-engine.js';
 
 export const LibraryView: React.FC = () => {
   const {
@@ -65,6 +66,7 @@ export const LibraryView: React.FC = () => {
   const [prewarmedStreamPromise, setPrewarmedStreamPromise] =
     useState<Promise<MediaStream> | null>(null);
   const [foundCandidate, setFoundCandidate] = useState<BookCandidate | null>(null);
+  const [showDiscardedSuggestions, setShowDiscardedSuggestions] = useState(false);
 
   React.useEffect(() => {
     setSearchQuery(globalSearchQuery);
@@ -128,9 +130,21 @@ export const LibraryView: React.FC = () => {
   const suggestionsCount = useMemo(
     () =>
       state.books.filter(
-        (b) => normalizeCollectionStatus(b.collectionStatus) === 'interested'
+        (b) =>
+          normalizeCollectionStatus(b.collectionStatus) === 'interested' &&
+          !isBookDiscardedForProfile(b, activeProfile?.id)
       ).length,
-    [state.books]
+    [state.books, activeProfile?.id]
+  );
+
+  const discardedSuggestionsCount = useMemo(
+    () =>
+      state.books.filter(
+        (b) =>
+          normalizeCollectionStatus(b.collectionStatus) === 'interested' &&
+          isBookDiscardedForProfile(b, activeProfile?.id)
+      ).length,
+    [state.books, activeProfile?.id]
   );
 
   const lovedCount = useMemo(
@@ -206,30 +220,33 @@ export const LibraryView: React.FC = () => {
       const status = normalizeCollectionStatus(book.collectionStatus);
       const condition = normalizeBookCondition(book.condition);
 
+      const isDiscarded = isBookDiscardedForProfile(book, activeProfile?.id);
+
       switch (catalogFilter) {
         case 'owned':
-          if (status !== 'owned') return false;
+          if (status !== 'owned' || isDiscarded) return false;
           break;
         case 'wishlist':
-          if (status !== 'wishlist') return false;
+          if (status !== 'wishlist' || isDiscarded) return false;
           break;
         case 'interested':
           if (status !== 'interested') return false;
+          if (!showDiscardedSuggestions && isDiscarded) return false;
           break;
         case 'loved':
-          if (!book.loved) return false;
+          if (!book.loved || isDiscarded) return false;
           break;
         case 'hardcover':
         case 'board-book':
         case 'paperback':
-          if (book.format !== catalogFilter) return false;
+          if (book.format !== catalogFilter || status === 'interested' || isDiscarded) return false;
           break;
         case 'needs-care':
-          if (condition === 'good') return false;
+          if (condition === 'good' || status === 'interested' || isDiscarded) return false;
           break;
         case 'all':
         default:
-          if (status === 'interested') return false;
+          if (status === 'interested' || isDiscarded) return false;
           break;
       }
 
@@ -335,6 +352,8 @@ export const LibraryView: React.FC = () => {
     state.books,
     searchQuery,
     catalogFilter,
+    showDiscardedSuggestions,
+    activeProfile?.id,
     selectedFormats,
     selectedThemes,
     conditionFilter,
@@ -481,6 +500,12 @@ export const LibraryView: React.FC = () => {
           limit: 5,
         }
       );
+      if (res.candidates.length > 0) {
+        void store.saveQueriedBookSuggestions(res.candidates, {
+          query: titleQuery,
+          shelfKey: 'quick-scan-search',
+        });
+      }
       if (res.candidates[0]) {
         setFoundCandidate(res.candidates[0]);
       } else {
@@ -955,30 +980,99 @@ export const LibraryView: React.FC = () => {
             data-library-books-scroll="true"
             className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain -mx-4 sm:-mx-6 lg:-mx-3 px-4 sm:px-6 lg:px-3 pt-3.5 pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] md:pb-8"
           >
+            {catalogFilter === 'interested' && (
+              <div className="mb-3 rounded-xl bg-surface-subtle border border-edge px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="text-ink-secondary">
+                  Queried books from Home discovery &amp; catalog searches live here outside your Owned shelves.
+                </span>
+                {discardedSuggestionsCount > 0 && (
+                  <button
+                    type="button"
+                    data-action="toggle-show-discarded-suggestions"
+                    aria-pressed={showDiscardedSuggestions}
+                    onClick={() => setShowDiscardedSuggestions((prev) => !prev)}
+                    className={`min-h-[32px] px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                      showDiscardedSuggestions
+                        ? 'bg-primary text-primary-fg border-primary'
+                        : 'bg-surface hover:bg-surface-elevated border-edge text-ink'
+                    }`}
+                  >
+                    {showDiscardedSuggestions
+                      ? `Hide discarded (${discardedSuggestionsCount})`
+                      : `Show discarded (${discardedSuggestionsCount})`}
+                  </button>
+                )}
+              </div>
+            )}
+
             {filteredBooks.length > 0 ? (
               viewMode === 'list' ? (
                 <BookCoverList className="relative z-0">
-                  {filteredBooks.map((book) => (
-                    <BookCoverCard
-                      key={book.id}
-                      book={book}
-                      activeProfile={activeProfile}
-                      profiles={state.profiles}
-                      layout="list"
-                      size={libraryCardConfig.size}
-                      customWidth={libraryCardConfig.customWidth}
-                      aspectRatio={libraryCardConfig.aspectRatio}
-                      infoPlacement={libraryCardConfig.infoPlacement}
-                      cardFrame={libraryCardConfig.cardFrame}
-                      showCoverOverlays={libraryCardConfig.showCoverOverlays}
-                      showUsageAdorno={showCoverUsageAdornos}
-                      showRotationHistory={showRotationHistory}
-                      fields={libraryCardConfig.fields}
-                      usage={usageByBookId.get(book.id)}
-                      hideBookCoverInternalBadges
-                      onInspect={(b) => setInspectedBookId(b.id)}
-                    />
-                  ))}
+                  {filteredBooks.map((book) => {
+                    const isSuggestion =
+                      normalizeCollectionStatus(book.collectionStatus) === 'interested';
+                    const isDiscarded = isBookDiscardedForProfile(book, activeProfile?.id);
+                    return (
+                      <BookCoverCard
+                        key={book.id}
+                        book={book}
+                        activeProfile={activeProfile}
+                        profiles={state.profiles}
+                        layout="list"
+                        size={libraryCardConfig.size}
+                        customWidth={libraryCardConfig.customWidth}
+                        aspectRatio={libraryCardConfig.aspectRatio}
+                        infoPlacement={libraryCardConfig.infoPlacement}
+                        cardFrame={libraryCardConfig.cardFrame}
+                        showCoverOverlays={libraryCardConfig.showCoverOverlays}
+                        showUsageAdorno={showCoverUsageAdornos}
+                        showRotationHistory={showRotationHistory}
+                        fields={libraryCardConfig.fields}
+                        usage={usageByBookId.get(book.id)}
+                        hideBookCoverInternalBadges
+                        onInspect={(b) => setInspectedBookId(b.id)}
+                        listTrailingAction={
+                          isDiscarded ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void store.restoreDiscardedBook(book.id, activeProfile?.id);
+                              }}
+                              className="min-h-[36px] px-2.5 py-1 rounded-lg bg-surface-subtle hover:bg-primary hover:text-primary-fg border border-edge text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              Restore
+                            </button>
+                          ) : isSuggestion ? (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void store.updateBook(book.id, { collectionStatus: 'owned' });
+                                }}
+                                aria-label={`Move ${book.title} to Library`}
+                                className="min-h-[36px] px-2.5 py-1 rounded-lg bg-primary text-primary-fg text-xs font-semibold cursor-pointer"
+                              >
+                                Add
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void store.discardSuggestedBook(book, activeProfile?.id);
+                                }}
+                                aria-label={`Hide ${book.title}`}
+                                className="min-h-[36px] min-w-[36px] rounded-lg bg-surface-subtle hover:bg-danger-solid hover:text-danger-solid-fg border border-edge text-ink-secondary flex items-center justify-center cursor-pointer"
+                              >
+                                <Icon name="eyeOff" className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : undefined
+                        }
+                      />
+                    );
+                  })}
                 </BookCoverList>
               ) : (
                 <BookCoverGrid
@@ -987,27 +1081,80 @@ export const LibraryView: React.FC = () => {
                   infoPlacement={libraryCardConfig.infoPlacement}
                   className="relative z-0"
                 >
-                  {filteredBooks.map((book) => (
-                    <BookCoverCard
-                      key={book.id}
-                      book={book}
-                      activeProfile={activeProfile}
-                      profiles={state.profiles}
-                      layout="grid"
-                      size={libraryCardConfig.size}
-                      customWidth={libraryCardConfig.customWidth}
-                      aspectRatio={libraryCardConfig.aspectRatio}
-                      infoPlacement={libraryCardConfig.infoPlacement}
-                      cardFrame={libraryCardConfig.cardFrame}
-                      showCoverOverlays={libraryCardConfig.showCoverOverlays}
-                      showUsageAdorno={showCoverUsageAdornos}
-                      showRotationHistory={showRotationHistory}
-                      fields={libraryCardConfig.fields}
-                      usage={usageByBookId.get(book.id)}
-                      hideBookCoverInternalBadges
-                      onInspect={(b) => setInspectedBookId(b.id)}
-                    />
-                  ))}
+                  {filteredBooks.map((book) => {
+                    const isSuggestion =
+                      normalizeCollectionStatus(book.collectionStatus) === 'interested';
+                    const isDiscarded = isBookDiscardedForProfile(book, activeProfile?.id);
+                    const topRightAction = isDiscarded ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void store.restoreDiscardedBook(book.id, activeProfile?.id);
+                        }}
+                        aria-label={`Restore ${book.title} to Suggestions`}
+                        title="Restore suggestion"
+                        className="absolute top-1.5 right-1.5 z-30 min-h-[28px] px-2 py-0.5 rounded-md bg-surface/95 hover:bg-primary hover:text-primary-fg border border-edge text-[10px] font-semibold text-ink shadow-xs transition-colors cursor-pointer"
+                      >
+                        Restore
+                      </button>
+                    ) : isSuggestion ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void store.discardSuggestedBook(book, activeProfile?.id);
+                        }}
+                        aria-label={`Hide ${book.title} from suggestions`}
+                        title="Not interested"
+                        className="absolute top-0.5 right-0.5 z-30 min-h-[36px] min-w-[36px] flex items-start justify-end p-1.5 cursor-pointer"
+                      >
+                        <span className="w-7 h-7 rounded-full bg-surface/90 hover:bg-danger-solid hover:text-danger-solid-fg border border-edge text-ink-secondary shadow-xs flex items-center justify-center transition-colors">
+                          <Icon name="eyeOff" className="w-3.5 h-3.5" />
+                        </span>
+                      </button>
+                    ) : undefined;
+                    const bottomRightAction =
+                      isSuggestion && !isDiscarded ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void store.updateBook(book.id, { collectionStatus: 'owned' });
+                          }}
+                          aria-label={`Add ${book.title} to Library`}
+                          title="Add to Library"
+                          className="absolute -bottom-1 -right-1 z-20 min-h-[40px] min-w-[40px] flex items-end justify-end p-2 cursor-pointer"
+                        >
+                          <span className="w-7 h-7 rounded-full bg-surface/95 hover:bg-primary hover:text-primary-fg border border-edge text-ink shadow-xs flex items-center justify-center transition-colors">
+                            <Icon name="plus" className="w-3.5 h-3.5" />
+                          </span>
+                        </button>
+                      ) : undefined;
+                    return (
+                      <BookCoverCard
+                        key={book.id}
+                        book={book}
+                        activeProfile={activeProfile}
+                        profiles={state.profiles}
+                        layout="grid"
+                        size={libraryCardConfig.size}
+                        customWidth={libraryCardConfig.customWidth}
+                        aspectRatio={libraryCardConfig.aspectRatio}
+                        infoPlacement={libraryCardConfig.infoPlacement}
+                        cardFrame={libraryCardConfig.cardFrame}
+                        showCoverOverlays={libraryCardConfig.showCoverOverlays}
+                        showUsageAdorno={showCoverUsageAdornos}
+                        showRotationHistory={showRotationHistory}
+                        fields={libraryCardConfig.fields}
+                        usage={usageByBookId.get(book.id)}
+                        hideBookCoverInternalBadges
+                        onInspect={(b) => setInspectedBookId(b.id)}
+                        topRightCoverAction={topRightAction}
+                        bottomRightCoverAction={bottomRightAction}
+                      />
+                    );
+                  })}
                 </BookCoverGrid>
               )
             ) : (

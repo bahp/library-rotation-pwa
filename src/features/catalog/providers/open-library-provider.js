@@ -16,7 +16,7 @@ import {
 const OPEN_LIBRARY_BOOKS_ENDPOINT = 'https://openlibrary.org/api/books';
 const OPEN_LIBRARY_SEARCH_ENDPOINT = 'https://openlibrary.org/search.json';
 const SEARCH_FIELDS =
-  'key,title,author_name,first_publish_year,first_sentence,isbn,number_of_pages_median,subject,cover_i,format,language';
+  'key,title,author_name,first_publish_year,first_sentence,isbn,number_of_pages_median,subject,cover_i,format,language,edition_count,ratings_average,ratings_count';
 
 /**
  * Creates an Open Library metadata provider adapter.
@@ -143,8 +143,16 @@ export function createOpenLibraryProvider(httpClient) {
 
   /**
    * Searches candidate books by title/keywords and optional author filter.
+   * Supports up to 100 results per page and pagination when `limit > 100`.
    * @param {{ query: string, author?: string }} searchInput
-   * @param {{ retainRaw?: boolean, signal?: AbortSignal, limit?: number }} [options]
+   * @param {{
+   *   retainRaw?: boolean,
+   *   signal?: AbortSignal,
+   *   limit?: number,
+   *   page?: number,
+   *   sort?: string,
+   *   language?: string
+   * }} [options]
    * @returns {Promise<import('../normalizer.js').BookCandidate[]>}
    */
   async function searchBooks(searchInput, options = {}) {
@@ -152,31 +160,56 @@ export function createOpenLibraryProvider(httpClient) {
     const author = (searchInput.author || '').trim();
     if (!q && !author) return [];
 
-    const params = new URLSearchParams({
-      limit: String(Math.min(20, Math.max(1, options.limit || 8))),
-      fields: SEARCH_FIELDS,
-    });
-    if (q && author) {
-      params.set('title', q);
-      params.set('author', author);
-    } else if (author) {
-      params.set('author', author);
-    } else {
-      params.set('q', q);
-    }
-
-    const payload = await httpClient.getJson(
-      `${OPEN_LIBRARY_SEARCH_ENDPOINT}?${params.toString()}`,
-      { signal: options.signal }
-    );
-    const docs = Array.isArray(payload?.docs) ? payload.docs : [];
+    const targetLimit = Math.min(150, Math.max(1, options.limit || 8));
+    let currentPage =
+      typeof options.page === 'number' && Number.isFinite(options.page) && options.page >= 1
+        ? Math.trunc(options.page)
+        : 1;
     /** @type {import('../normalizer.js').BookCandidate[]} */
     const results = [];
-    for (const doc of docs) {
-      const candidate = normalizeOpenLibrarySearchDoc(doc, { retainRaw: options.retainRaw });
-      if (candidate) results.push(candidate);
+
+    while (results.length < targetLimit) {
+      const remaining = targetLimit - results.length;
+      const pageLimit = Math.min(100, remaining);
+      const params = new URLSearchParams({
+        limit: String(pageLimit),
+        fields: SEARCH_FIELDS,
+      });
+      if (q && author) {
+        params.set('title', q);
+        params.set('author', author);
+      } else if (author) {
+        params.set('author', author);
+      } else {
+        params.set('q', q);
+      }
+      if (currentPage > 1 || typeof options.page === 'number') {
+        params.set('page', String(currentPage));
+      }
+      if (typeof options.sort === 'string' && options.sort.trim()) {
+        params.set('sort', options.sort.trim());
+      }
+      if (typeof options.language === 'string' && options.language.trim()) {
+        params.set('language', options.language.trim().toLowerCase());
+      }
+
+      const payload = await httpClient.getJson(
+        `${OPEN_LIBRARY_SEARCH_ENDPOINT}?${params.toString()}`,
+        { signal: options.signal }
+      );
+      const docs = Array.isArray(payload?.docs) ? payload.docs : [];
+      for (const doc of docs) {
+        const candidate = normalizeOpenLibrarySearchDoc(doc, { retainRaw: options.retainRaw });
+        if (candidate) results.push(candidate);
+      }
+
+      if (docs.length < pageLimit || targetLimit <= 100) {
+        break;
+      }
+      currentPage += 1;
     }
-    return results;
+
+    return results.slice(0, targetLimit);
   }
 
   return {

@@ -205,8 +205,14 @@
  * @property {string} [listPriceCurrency] - ISO currency code for catalog list price
  * @property {number} [averageRating] - Average rating from provider (e.g. 4.5)
  * @property {number} [ratingsCount] - Total number of ratings/votes
+ * @property {number} [editionCount] - Total editions known by provider (used for modern/popularity filtering)
  * @property {string} [publisher] - Publisher name
  * @property {string} [previewLink] - Preview URL
+ * @property {string} [discoveredAt] - ISO-8601 timestamp when saved automatically from a discovery/search query
+ * @property {string} [discoveryQuery] - Search query or subject that surfaced this book
+ * @property {string} [discoveryShelfKey] - Home shelf key that surfaced this book
+ * @property {string} [discardedAt] - ISO-8601 timestamp when dismissed/discarded by user
+ * @property {string[]} [discardedByProfileIds] - Profile IDs that dismissed/discarded this book
  * @property {number} [userRating] - Legacy single-user rating (1 to 5 stars)
  * @property {Record<string, number>} [userRatings] - Per-reader star ratings keyed by ChildProfile ID (1 to 5 stars)
  * @property {boolean} [excludeFromRotations] - Exclude from automated shelf rotations
@@ -379,6 +385,25 @@ export function isBookReadInRotation(rotation, bookId) {
  */
 
 /**
+ * @typedef {'gemini-with-fallback' | 'local-tfidf' | 'transformers-browser'} DiscoveryEmbeddingEngine
+ */
+
+/**
+ * @typedef {'modern' | 'balanced' | 'include-classics'} DiscoveryRecencyPreference
+ */
+
+/**
+ * @typedef {Object} DiscoverySettings
+ * @property {number} candidatePoolSize - Candidate pool size to fetch per discovery run (20..150, default: 60)
+ * @property {DiscoveryEmbeddingEngine} embeddingEngine - Embedding & semantic reranking engine
+ * @property {boolean} useFlashQueryExpansion - Use Gemini Flash to expand queries/subjects with local fallback
+ * @property {boolean} autoSaveQueriedAsSuggestions - Persist queried discovery/search candidates under Suggestions
+ * @property {DiscoveryRecencyPreference} recencyPreference - Modern recency vs classic catalog balance
+ * @property {string[]} pinnedShelfKeys - Home discovery shelf keys pinned near the top
+ * @property {string[]} disabledShelfKeys - Home discovery shelf keys hidden by the user
+ */
+
+/**
  * @typedef {'pending' | 'in_progress' | 'completed' | 'skipped'} OnboardingStatus
  */
 
@@ -464,6 +489,7 @@ export function isBookReadInRotation(rotation, bookId) {
  * @property {HomeActiveRotationStyle} [homeActiveRotationStyle] - Home active rotation presentation ('card' | 'seamless')
  * @property {MatchingWeightsConfig} [matchingWeights] - Customizable recommendation, similarity, and rotation scoring weights
  * @property {TaggingRulesConfig} [taggingRules] - Customizable local rule-tagging overrides, extra keywords, and custom rules
+ * @property {DiscoverySettings} [discoverySettings] - External discovery pool, embedding engine, recency, and shelf curation preferences
  */
 
 /**

@@ -217,7 +217,18 @@ export function createCatalogService(config = {}) {
   /**
    * Searches across all active providers concurrently and deduplicates matching editions.
    * @param {{ query: string, author?: string }} input
-   * @param {{ retainRaw?: boolean, signal?: AbortSignal, limit?: number, enabledProviderIds?: string[] }} [options]
+   * @param {{
+   *   retainRaw?: boolean,
+   *   signal?: AbortSignal,
+   *   limit?: number,
+   *   enabledProviderIds?: string[],
+   *   startIndex?: number,
+   *   orderBy?: 'relevance' | 'newest',
+   *   langRestrict?: string,
+   *   page?: number,
+   *   sort?: string,
+   *   language?: string
+   * }} [options]
    * @returns {Promise<{
    *   candidates: import('./normalizer.js').BookCandidate[],
    *   providerErrors: Array<{ providerId: string, message: string }>
@@ -237,6 +248,13 @@ export function createCatalogService(config = {}) {
       );
     }
 
+    const requestedLimit =
+      typeof options.limit === 'number' && Number.isFinite(options.limit) && options.limit > 0
+        ? Math.min(150, Math.trunc(options.limit))
+        : 0;
+    const providerLimit = requestedLimit > 0 ? requestedLimit : 8;
+    const returnLimit = requestedLimit > 0 ? requestedLimit : 12;
+
     const settled = await Promise.allSettled(
       activeProviders.map((provider) =>
         provider.searchBooks(
@@ -244,7 +262,13 @@ export function createCatalogService(config = {}) {
           {
             retainRaw: options.retainRaw,
             signal: options.signal,
-            limit: options.limit || 8,
+            limit: providerLimit,
+            ...(typeof options.startIndex === 'number' ? { startIndex: options.startIndex } : {}),
+            ...(options.orderBy ? { orderBy: options.orderBy } : {}),
+            ...(options.langRestrict ? { langRestrict: options.langRestrict } : {}),
+            ...(typeof options.page === 'number' ? { page: options.page } : {}),
+            ...(options.sort ? { sort: options.sort } : {}),
+            ...(options.language ? { language: options.language } : {}),
           }
         )
       )
@@ -288,7 +312,7 @@ export function createCatalogService(config = {}) {
     });
 
     return {
-      candidates: ranked.slice(0, options.limit || 12),
+      candidates: ranked.slice(0, returnLimit),
       providerErrors,
     };
   }

@@ -92,7 +92,15 @@ export function explainGoogleBooksQuotaError(rawMessage, opts = {}) {
  * Executes a validated, server-side proxied query to Google Books Volumes API v1.
  *
  * @param {{
- *   query: { q?: string, maxResults?: string, printType?: string, hl?: string },
+ *   query: {
+ *     q?: string,
+ *     maxResults?: string,
+ *     printType?: string,
+ *     hl?: string,
+ *     startIndex?: string,
+ *     orderBy?: string,
+ *     langRestrict?: string
+ *   },
  *   apiKey?: string,
  *   fetchImpl?: typeof fetch,
  *   timeoutMs?: number
@@ -120,11 +128,22 @@ export async function proxyGoogleBooksVolumes({
   }
 
   const parsedMax = Number.parseInt(String(query?.maxResults || '8'), 10);
-  const clampedMax = Number.isFinite(parsedMax) ? String(Math.min(20, Math.max(1, parsedMax))) : '8';
+  const clampedMax = Number.isFinite(parsedMax) ? String(Math.min(40, Math.max(1, parsedMax))) : '8';
   const printType = query?.printType === 'magazines' ? 'magazines' : 'books';
   const hl = typeof query?.hl === 'string' && /^[a-z]{2}$/i.test(query.hl.trim())
     ? query.hl.trim().toLowerCase()
     : 'en';
+  const parsedStart = Number.parseInt(String(query?.startIndex ?? ''), 10);
+  const startIndex =
+    Number.isFinite(parsedStart) && parsedStart >= 0 && parsedStart <= 1000
+      ? String(parsedStart)
+      : '';
+  const orderBy =
+    query?.orderBy === 'newest' || query?.orderBy === 'relevance' ? query.orderBy : '';
+  const langRestrict =
+    typeof query?.langRestrict === 'string' && /^[a-z]{2}$/i.test(query.langRestrict.trim())
+      ? query.langRestrict.trim().toLowerCase()
+      : '';
 
   const trimmedKey = String(apiKey || '').trim();
   const keyConfigured = Boolean(trimmedKey);
@@ -135,6 +154,15 @@ export async function proxyGoogleBooksVolumes({
     printType,
     hl,
   });
+  if (startIndex) {
+    upstreamParams.set('startIndex', startIndex);
+  }
+  if (orderBy) {
+    upstreamParams.set('orderBy', orderBy);
+  }
+  if (langRestrict) {
+    upstreamParams.set('langRestrict', langRestrict);
+  }
   if (keyConfigured) {
     upstreamParams.set('key', trimmedKey);
   }

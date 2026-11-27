@@ -34,6 +34,7 @@ import {
   computeBookUsageSummary,
   formatShortShelfDate,
 } from '../../features/rotations/usage-insights.js';
+import { isBookDiscardedForProfile } from '../../features/tagging/discovery-engine.js';
 import {
   computeOwnerInitials,
   formatBookAgeLabel,
@@ -521,6 +522,17 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
   const currentCondition = normalizeBookCondition(book.condition);
   const isExcluded = Boolean(book.excludeFromRotations);
   const rotatable = isBookRotatable(book);
+  const discardProfileId = activeProfile?.id;
+  const isDiscardedForProfile = isBookDiscardedForProfile(book, discardProfileId);
+
+  const handleDiscardBook = async () => {
+    await store.discardSuggestedBook(book, discardProfileId);
+    onClose();
+  };
+
+  const handleRestoreDiscardedBook = async () => {
+    await store.restoreDiscardedBook(book.id, discardProfileId);
+  };
 
   const rawOwners = normalizeOwnersList(book.owners);
   const currentOwners = rawOwners.length > 0 ? rawOwners : ['shared'];
@@ -1579,6 +1591,30 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                     <Icon name="gift" className="w-3.5 h-3.5 text-primary" />
                     <span>Gift / Buy</span>
                   </button>
+
+                  {isDiscardedForProfile ? (
+                    <button
+                      type="button"
+                      data-action="restore-discarded-book"
+                      onClick={handleRestoreDiscardedBook}
+                      className="min-h-[32px] px-3 py-1 rounded-full bg-surface-subtle/90 hover:bg-surface-elevated border border-primary/40 text-[11px] font-semibold text-primary inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Icon name="check" className="w-3.5 h-3.5" />
+                      <span>Restore suggestion</span>
+                    </button>
+                  ) : (
+                    (currentStatus === 'interested' || currentStatus === 'wishlist') && (
+                      <button
+                        type="button"
+                        data-action="discard-suggested-book"
+                        onClick={handleDiscardBook}
+                        className="min-h-[32px] px-3 py-1 rounded-full bg-surface-subtle/90 hover:bg-danger/10 border border-edge text-[11px] font-semibold text-ink-secondary hover:text-danger inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Icon name="eyeOff" className="w-3.5 h-3.5" />
+                        <span>Not interested</span>
+                      </button>
+                    )
+                  )}
                 </div>
 
                 {hintParts.length > 0 && (
@@ -2130,7 +2166,30 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
               </div>
 
               {/* Bottom Remove Hairline Footer */}
-              <div className="pt-3 border-t border-edge-subtle flex justify-center">
+              <div className="pt-3 border-t border-edge-subtle flex flex-wrap items-center justify-center gap-2">
+                {isDiscardedForProfile ? (
+                  <button
+                    type="button"
+                    data-action="restore-discarded-book"
+                    onClick={handleRestoreDiscardedBook}
+                    className="min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Icon name="check" className="w-3.5 h-3.5" />
+                    <span>Restore to suggestions</span>
+                  </button>
+                ) : (
+                  (currentStatus === 'interested' || currentStatus === 'wishlist') && (
+                    <button
+                      type="button"
+                      data-action="discard-suggested-book"
+                      onClick={handleDiscardBook}
+                      className="min-h-[40px] px-4 py-1.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-danger hover:bg-danger/10 inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Icon name="eyeOff" className="w-3.5 h-3.5" />
+                      <span>Not interested</span>
+                    </button>
+                  )
+                )}
                 {!confirmDelete ? (
                   <button
                     type="button"
@@ -2859,39 +2918,65 @@ export const BookInspectorModal: React.FC<BookInspectorModalProps> = ({
                 )}
               </div>
 
-              {!confirmDelete ? (
-                <button
-                  type="button"
-                  data-action="delete-book"
-                  onClick={() => setConfirmDelete(true)}
-                  aria-label={`Remove ${book.title} from catalog`}
-                  className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-danger hover:bg-danger/10 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
-                >
-                  <Icon name="trash" className="w-3.5 h-3.5" />
-                  <span>Remove Book</span>
-                </button>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-danger/10 border border-danger/35 px-3 py-2">
-                  <span className="text-xs font-semibold text-danger">
-                    Remove from library?
-                  </span>
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {isDiscardedForProfile ? (
                   <button
                     type="button"
-                    data-action="confirm-delete-book"
-                    onClick={handleConfirmDelete}
-                    className="min-h-[34px] px-3 py-1 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold transition-colors"
+                    data-action="restore-discarded-book"
+                    onClick={handleRestoreDiscardedBook}
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-primary hover:bg-primary/10 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                   >
-                    Yes, Remove
+                    <Icon name="check" className="w-3.5 h-3.5" />
+                    <span>Restore</span>
                   </button>
+                ) : (
+                  (currentStatus === 'interested' || currentStatus === 'wishlist') && (
+                    <button
+                      type="button"
+                      data-action="discard-suggested-book"
+                      onClick={handleDiscardBook}
+                      className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-ink-secondary hover:text-danger hover:bg-danger/10 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                    >
+                      <Icon name="eyeOff" className="w-3.5 h-3.5" />
+                      <span>Not interested</span>
+                    </button>
+                  )
+                )}
+
+                {!confirmDelete ? (
                   <button
                     type="button"
-                    onClick={() => setConfirmDelete(false)}
-                    className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink hover:bg-surface-elevated"
+                    data-action="delete-book"
+                    onClick={() => setConfirmDelete(true)}
+                    aria-label={`Remove ${book.title} from catalog`}
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-semibold text-danger hover:bg-danger/10 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
                   >
-                    Cancel
+                    <Icon name="trash" className="w-3.5 h-3.5" />
+                    <span>Remove Book</span>
                   </button>
-                </div>
-              )}
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 rounded-lg bg-danger/10 border border-danger/35 px-3 py-2">
+                    <span className="text-xs font-semibold text-danger">
+                      Remove from library?
+                    </span>
+                    <button
+                      type="button"
+                      data-action="confirm-delete-book"
+                      onClick={handleConfirmDelete}
+                      className="min-h-[34px] px-3 py-1 rounded-lg bg-danger-solid hover:bg-danger-solid-hover text-danger-solid-fg text-xs font-semibold transition-colors"
+                    >
+                      Yes, Remove
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      className="min-h-[34px] px-2.5 py-1 rounded-lg bg-surface border border-edge text-xs font-semibold text-ink hover:bg-surface-elevated"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {formattedAddedDate && (

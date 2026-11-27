@@ -5,6 +5,7 @@ import { BookCover } from '../common/BookCover.js';
 import { ProviderAttribution } from '../common/ProviderAttribution.js';
 import { AVATAR_TONES } from '../../config/index.js';
 import { extractCoverPaletteFromUrl } from '../../features/catalog/cover-color-extractor.js';
+import { isBookDiscardedForProfile } from '../../features/tagging/discovery-engine.js';
 import {
   computeOwnerInitials,
   formatBookAgeLabel,
@@ -47,7 +48,7 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
   onRescan,
   onClose,
 }) => {
-  const { state, activeProfile, setInspectedBookId } = useApp();
+  const { state, store, activeProfile, setInspectedBookId } = useApp();
 
   const [intakeLoved, setIntakeLoved] = useState(false);
   const [intakeCondition, setIntakeCondition] = useState<BookCondition>('good');
@@ -104,6 +105,9 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
   const existingStatus = existingBook
     ? normalizeCollectionStatus(existingBook.collectionStatus)
     : null;
+  const isExistingDiscarded = existingBook
+    ? isBookDiscardedForProfile(existingBook, activeProfile?.id)
+    : false;
 
   const pseudoBook = {
     ...candidate,
@@ -152,6 +156,17 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
       loved: intakeLoved,
       ...precomputedTint,
     });
+  };
+
+  const handleDiscard = async () => {
+    await store.discardSuggestedBook(existingBook || candidate, activeProfile?.id);
+    onClose();
+  };
+
+  const handleRestoreDiscarded = async () => {
+    if (!existingBook) return;
+    await store.restoreDiscardedBook(existingBook.id, activeProfile?.id);
+    onClose();
   };
 
   const primaryAuthor = candidate.authors[0] || 'Unknown Author';
@@ -256,27 +271,66 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
           </div>
 
           {existingBook ? (
-            <div className="rounded-xl bg-surface-subtle border border-edge p-3.5 flex flex-wrap items-center justify-between gap-2.5">
+            <div className="rounded-xl bg-surface-subtle border border-edge p-3.5 space-y-3">
               <div>
                 <p className="text-xs font-semibold text-ink">
                   {existingStatus === 'owned'
                     ? 'Already in your Family Library'
-                    : `Currently saved in ${formatCollectionStatus(existingStatus || 'wishlist')}`}
+                    : isExistingDiscarded
+                      ? 'Hidden from Suggestions (Not interested)'
+                      : `Currently saved in ${formatCollectionStatus(existingStatus || 'wishlist')}`}
                 </p>
                 <p className="text-[11px] text-ink-secondary">
-                  Tap Open Book to view and edit details.
+                  {existingStatus === 'interested'
+                    ? 'Queried matches stay in Suggestions so your Library stays tidy. Promote it anytime or mark Not interested.'
+                    : 'Tap Open Book to view and edit details.'}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {existingStatus !== 'owned' && (
                   <button
                     type="button"
                     data-action="upgrade-existing-owned"
                     onClick={handleSaveLibrary}
-                    className="min-h-[42px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-xs font-semibold text-primary-fg transition-colors whitespace-nowrap cursor-pointer"
+                    className="min-h-[42px] px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-xs font-semibold text-primary-fg inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
                   >
-                    Mark Owned
+                    <Icon name="plus" className="w-3.5 h-3.5" />
+                    <span>Add to Library</span>
                   </button>
+                )}
+                {existingStatus === 'interested' && (
+                  <button
+                    type="button"
+                    data-action="upgrade-existing-wishlist"
+                    onClick={handleSaveWishlist}
+                    className="min-h-[42px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-accent inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    <Icon name="wishlist" className="w-3.5 h-3.5" />
+                    <span>Wishlist</span>
+                  </button>
+                )}
+                {isExistingDiscarded ? (
+                  <button
+                    type="button"
+                    data-action="restore-discarded-book"
+                    onClick={handleRestoreDiscarded}
+                    className="min-h-[42px] px-3.5 py-1.5 rounded-lg bg-surface hover:bg-surface-elevated border border-edge text-xs font-semibold text-primary inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    <Icon name="check" className="w-3.5 h-3.5" />
+                    <span>Restore suggestion</span>
+                  </button>
+                ) : (
+                  (existingStatus === 'interested' || existingStatus === 'wishlist') && (
+                    <button
+                      type="button"
+                      data-action="discard-found-book"
+                      onClick={handleDiscard}
+                      className="min-h-[42px] px-3 py-1.5 rounded-lg bg-surface hover:bg-danger/10 border border-edge text-xs font-semibold text-ink-secondary hover:text-danger inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                    >
+                      <Icon name="eyeOff" className="w-3.5 h-3.5" />
+                      <span>Not interested</span>
+                    </button>
+                  )
                 )}
                 <button
                   type="button"
@@ -338,18 +392,29 @@ export const FoundBookSheet: React.FC<FoundBookSheetProps> = ({
                   </button>
                 </div>
 
-                {onAddInterested && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {onAddInterested && (
+                    <button
+                      type="button"
+                      data-action="save-found-suggestion"
+                      aria-label={`Save ${candidate.title} to Suggestions`}
+                      onClick={handleSaveSuggestion}
+                      className="flex-1 min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle/75 hover:bg-surface-elevated border border-edge text-xs font-medium text-ink-secondary hover:text-ink flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Icon name="bookmark" className="w-3.5 h-3.5 text-primary" />
+                      <span>Save to Suggestions</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    data-action="save-found-suggestion"
-                    aria-label={`Save ${candidate.title} to Suggestions`}
-                    onClick={handleSaveSuggestion}
-                    className="w-full min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle/75 hover:bg-surface-elevated border border-edge text-xs font-medium text-ink-secondary hover:text-ink flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    data-action="discard-found-book"
+                    onClick={handleDiscard}
+                    className="min-h-[40px] px-3 py-1.5 rounded-lg bg-surface-subtle/75 hover:bg-danger/10 border border-edge text-xs font-medium text-ink-secondary hover:text-danger inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <Icon name="bookmark" className="w-3.5 h-3.5 text-primary" />
-                    <span>Save to Suggestions (outside main Library)</span>
+                    <Icon name="eyeOff" className="w-3.5 h-3.5" />
+                    <span>Not interested</span>
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Progressive Disclosure for Reader Owner, Condition & Manual Edit */}

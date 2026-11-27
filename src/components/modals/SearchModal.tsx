@@ -264,6 +264,10 @@ export const SearchModal: React.FC = () => {
           if (searchNonceRef.current !== nonce) return;
 
           if (res.candidate) {
+            void store.saveQueriedBookSuggestions([res.candidate], {
+              query: parsed.isbn13,
+              shelfKey: 'search-isbn',
+            });
             if (options?.openFirstIsbnMatch) {
               setFoundCandidate(res.candidate);
             } else {
@@ -289,7 +293,12 @@ export const SearchModal: React.FC = () => {
         if (searchNonceRef.current !== nonce) return;
 
         setOnlineCandidates(res.candidates);
-        if (res.candidates.length === 0) {
+        if (res.candidates.length > 0) {
+          void store.saveQueriedBookSuggestions(res.candidates, {
+            query: parsed.query,
+            shelfKey: 'search-modal',
+          });
+        } else {
           setOnlineError('No matching books found online.');
         }
       } catch (err) {
@@ -307,6 +316,7 @@ export const SearchModal: React.FC = () => {
       configuredProviders,
       findLocalBookByIsbn,
       state.settings?.retainRawProviderPayloads,
+      store,
     ]
   );
 
@@ -431,6 +441,10 @@ export const SearchModal: React.FC = () => {
         enabledProviderIds: state.settings?.enabledMetadataProviders,
       });
       if (res.candidate) {
+        void store.saveQueriedBookSuggestions([res.candidate], {
+          query: isbn13,
+          shelfKey: 'search-scan-isbn',
+        });
         setFoundCandidate(res.candidate);
         setOnlineCandidates([res.candidate]);
         setHasSearchedOnline(true);

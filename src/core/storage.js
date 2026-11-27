@@ -24,6 +24,7 @@ import {
   normalizeBookCardShadow,
   normalizeBookCardSize,
   normalizeBottomNavStyle,
+  normalizeDiscoverySettings,
   normalizeHomeActiveRotationStyle,
   normalizeLanguage,
   normalizeMatchingWeights,
@@ -575,6 +576,7 @@ export function createSafeDefaultSettings(overrides = {}) {
       homeActiveRotationStyle: normalizeHomeActiveRotationStyle(overrides.homeActiveRotationStyle),
       matchingWeights: normalizeMatchingWeights(overrides.matchingWeights),
       taggingRules: normalizeTaggingRulesConfig(overrides.taggingRules),
+      discoverySettings: normalizeDiscoverySettings(overrides.discoverySettings),
     };
   }
 
@@ -873,6 +875,30 @@ export function migrateState(state, referenceDate = new Date()) {
             nextBook.recordings = cleanRecs;
           } else {
             delete nextBook.recordings;
+          }
+        }
+        if (typeof book.editionCount === 'number' && Number.isFinite(book.editionCount) && book.editionCount > 0) {
+          nextBook.editionCount = Math.trunc(book.editionCount);
+        } else {
+          delete nextBook.editionCount;
+        }
+        if (typeof book.discardedAt === 'string' && book.discardedAt.trim()) {
+          nextBook.discardedAt = book.discardedAt.trim();
+        } else {
+          delete nextBook.discardedAt;
+        }
+        if (Array.isArray(book.discardedByProfileIds)) {
+          const cleanDiscardedIds = Array.from(
+            new Set(
+              book.discardedByProfileIds
+                .map((pid) => String(pid || '').trim())
+                .filter(Boolean)
+            )
+          );
+          if (cleanDiscardedIds.length > 0) {
+            nextBook.discardedByProfileIds = cleanDiscardedIds;
+          } else {
+            delete nextBook.discardedByProfileIds;
           }
         }
         return nextBook;

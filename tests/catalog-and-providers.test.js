@@ -358,5 +358,69 @@ describe('Catalog & Metadata Providers Suite', () => {
     assert.equal(book.ageMax, undefined);
     assert.equal(formatCollectionStatus('interested'), 'Suggestions');
   });
+
+  it('Google Books supports maxResults=40 pagination (>40) and Open Library supports 100/page + editionCount', async () => {
+    /** @type {string[]} */
+    const gbUrls = [];
+    const gbFetch = async (/** @type {string | URL | Request} */ url) => {
+      gbUrls.push(String(url));
+      const parsed = new URL(String(url));
+      const startIndex = Number(parsed.searchParams.get('startIndex') || '0');
+      const items = Array.from({ length: startIndex === 0 ? 40 : 15 }, (_, i) => ({
+        id: `gb_${startIndex}_${i}`,
+        volumeInfo: {
+          title: `Modern Picture Book ${startIndex + i}`,
+          authors: ['Modern Author'],
+          publishedDate: '2022-05-01',
+          categories: ['Juvenile Fiction / Animals'],
+        },
+      }));
+      return new Response(JSON.stringify({ items }), { status: 200 });
+    };
+
+    const gbHttp = createHttpClient({ fetchImpl: gbFetch, timeoutMs: 2000, maxRetries: 0 });
+    const gbProvider = createGoogleBooksProvider(gbHttp, { useServerProxy: false });
+    const gbResults = await gbProvider.searchBooks(
+      { query: 'picture book' },
+      { limit: 55, orderBy: 'newest', langRestrict: 'en' }
+    );
+    assert.equal(gbResults.length, 55);
+    assert.equal(gbUrls.length, 2);
+    assert.ok(gbUrls[0].includes('maxResults=40'));
+    assert.ok(gbUrls[0].includes('orderBy=newest'));
+    assert.ok(gbUrls[1].includes('startIndex=40'));
+
+    /** @type {string[]} */
+    const olUrls = [];
+    const olFetch = async (/** @type {string | URL | Request} */ url) => {
+      olUrls.push(String(url));
+      const parsed = new URL(String(url));
+      const page = Number(parsed.searchParams.get('page') || '1');
+      const count = page === 1 ? 100 : 20;
+      const docs = Array.from({ length: count }, (_, i) => ({
+        key: `/works/OL_${page}_${i}W`,
+        title: `Open Library Story ${page}-${i}`,
+        author_name: ['Ava Storyteller'],
+        first_publish_year: 2019,
+        edition_count: 14,
+        cover_i: 99000 + i,
+      }));
+      return new Response(JSON.stringify({ docs }), { status: 200 });
+    };
+
+    const olHttp = createHttpClient({ fetchImpl: olFetch, timeoutMs: 2000, maxRetries: 0 });
+    const olProvider = createOpenLibraryProvider(olHttp);
+    const olResults = await olProvider.searchBooks(
+      { query: 'animals children' },
+      { limit: 120, sort: 'new' }
+    );
+    assert.equal(olResults.length, 120);
+    assert.equal(olUrls.length, 2);
+    assert.ok(olUrls[0].includes('limit=100'));
+    assert.ok(olUrls[0].includes('edition_count'));
+    assert.ok(olUrls[1].includes('page=2'));
+    assert.equal(olResults[0].editionCount, 14);
+  });
 });
+
 

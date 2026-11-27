@@ -40,13 +40,28 @@ import {
   getTopicCoverageInsights,
   getWishlistSpotlightShelf,
   isWindDownEveningWindow,
+  planHomeDiscoveryShelves,
   scoreSimilarBooksForAnchor,
 } from '../src/features/tagging/recommendations.js';
+import {
+  computeTasteProfileVectors,
+  cosineSimilarity,
+  embedTextsLocal,
+  ensureBookVectors,
+} from '../src/features/tagging/vector-store.js';
+import {
+  expandDiscoveryQueriesLocal,
+  isBookDiscardedForProfile,
+  isDiscoveryCandidateEligible,
+  rerankDiscoveryCandidates,
+  runTwoStageDiscoveryPipeline,
+} from '../src/features/tagging/discovery-engine.js';
 import { DEFAULT_ROTATION_PRESETS } from '../src/data/rotation-presets-config.js';
 import { createStorageAdapter } from '../src/core/storage.js';
 import { createAppStore } from '../src/core/store.js';
 import {
   createDefaultAppSettings,
+  createDefaultDiscoverySettings,
   createDefaultMatchingWeights,
 } from '../src/config/defaults.js';
 import { formatBookAgeLabel } from '../src/types/models.js';
@@ -792,5 +807,482 @@ describe('Tagging, Taxonomy & Recommendations Suite', () => {
     assert.ok(recs[0].matchedTopics.includes('animals'));
     assert.ok(recs[0].score > 0);
   });
+
+  it('vector-store builds local embeddings, caches vectors, and contrasts positive vs negative discard tastes', async () => {
+    const [vBedtime, vMoon, vCatalog] = embedTextsLocal([
+      'Title: Sleepy Owl Bedtime\nThemes: bedtime, owls, gentle\nSynopsis: Cozy goodnight forest picture book',
+      'Title: Goodnight Moonlit Owls\nThemes: bedtime, nature\nSynopsis: Calm bedtime story in the forest',
+      'Title: Nineteenth Century Livestock Price Catalogue\nSynopsis: Annual wholesale price directory 1884',
+    ]);
+    assert.equal(vBedtime.length, 256);
+    assert.ok(
+      cosineSimilarity(vBedtime, vMoon) > cosineSimilarity(vBedtime, vCatalog),
+      'Topically aligned picture books should have higher cosine similarity than unrelated catalog'
+    );
+
+    /** @type {import('../src/types/models.js').ChildProfile} */
+    const profile = {
+      id: 'p_vec',
+      name: 'Maya',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['bedtime'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+      readHistoryBookIds: [],
+      currentlyReadingBookIds: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    /** @type {import('../src/types/models.js').Book[]} */
+    const books = [
+      {
+        id: 'bk_pos_1',
+        isbn13: '9780000004001',
+        title: 'Sleepy Owl Bedtime',
+        authors: ['Clara Moon'],
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        tags: ['bedtime', 'animals'],
+        spineColor: 'teal',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'bk_neg_1',
+        isbn13: '9780000004002',
+        title: 'Loud Monster Racing Drill',
+        authors: ['Disliked Author'],
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        tags: ['loud-monsters'],
+        spineColor: 'amber',
+        collectionStatus: 'interested',
+        condition: 'good',
+        loved: false,
+        discardedAt: '2026-11-20T00:00:00.000Z',
+        discardedByProfileIds: ['p_vec'],
+        addedAt: '2026-11-19T00:00:00.000Z',
+        sources: [],
+      },
+    ];
+
+    const vecRes = await ensureBookVectors({ books, engine: 'local-tfidf' });
+    assert.equal(vecRes.vectorsByBookKey.size, 2);
+    const taste = computeTasteProfileVectors({
+      books,
+      profile,
+      vectorsByBookKey: vecRes.vectorsByBookKey,
+    });
+    assert.equal(taste.positiveCount, 1);
+    assert.equal(taste.negativeCount, 1);
+    assert.ok(taste.dislikedAuthors.has('disliked author'));
+    assert.ok(taste.dislikedTags.has('loud-monsters'));
+  });
+
+  it('discovery-engine filters archaic price catalogs, expands queries locally, and reranks modern candidates (>50 pool)', async () => {
+    /** @type {import('../src/types/models.js').ChildProfile} */
+    const profile = {
+      id: 'p_disc',
+      name: 'Noa',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['animals', 'bedtime'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+      readHistoryBookIds: [],
+      currentlyReadingBookIds: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    const expansion = expandDiscoveryQueriesLocal({
+      intent: 'bedtime',
+      topic: 'bedtime',
+      profile,
+      recencyPreference: 'modern',
+    });
+    assert.ok(expansion.queries.length >= 2);
+
+    // Obscure 1912 price catalog is filtered out under modern preference
+    assert.equal(
+      isDiscoveryCandidateEligible(
+        {
+          candidateKey: 'c_old_catalog',
+          isbn13: '9780000004991',
+          title: 'Illustrated Wholesale Price Catalogue of Seeds',
+          authors: ['Acme Seed Co'],
+          publishedYear: 1912,
+          editionCount: 1,
+          format: 'paperback',
+          readingStage: 'picture-book',
+          tags: [],
+          spineColor: 'teal',
+          sources: [],
+        },
+        { recencyPreference: 'modern', profile }
+      ),
+      false
+    );
+
+    // Celebrated classic with high editionCount still passes when not junk catalog
+    assert.equal(
+      isDiscoveryCandidateEligible(
+        {
+          candidateKey: 'c_classic',
+          isbn13: '9780060775858',
+          title: 'Goodnight Moon',
+          authors: ['Margaret Wise Brown'],
+          publishedYear: 1947,
+          editionCount: 42,
+          format: 'hardcover',
+          readingStage: 'picture-book',
+          tags: ['bedtime'],
+          spineColor: 'teal',
+          sources: [],
+        },
+        { recencyPreference: 'modern', profile }
+      ),
+      true
+    );
+
+    // End-to-end two-stage pipeline with >50 candidates and negative discard penalty
+    /** @type {import('../src/types/models.js').Book[]} */
+    const existingBooks = [
+      {
+        id: 'lib_fav',
+        isbn13: '9780000005001',
+        title: 'Cozy Bear Sleeps',
+        authors: ['Elena Pine'],
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        ageMin: 3,
+        ageMax: 6,
+        tags: ['bedtime', 'animals'],
+        spineColor: 'teal',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: true,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+      {
+        id: 'lib_discarded',
+        isbn13: '9780000005002',
+        title: 'Noisy Cars Blast',
+        authors: ['Rex Loud'],
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        tags: ['racing'],
+        spineColor: 'amber',
+        collectionStatus: 'interested',
+        condition: 'good',
+        loved: false,
+        discardedAt: '2026-11-20T00:00:00.000Z',
+        discardedByProfileIds: ['p_disc'],
+        addedAt: '2026-11-18T00:00:00.000Z',
+        sources: [],
+      },
+    ];
+
+    /** @type {import('../src/features/catalog/normalizer.js').BookCandidate[]} */
+    const syntheticPool = [
+      {
+        candidateKey: 'gb:good_modern',
+        isbn13: '9780000005099',
+        title: 'Whispering Woods Bedtime',
+        authors: ['Elena Pine'],
+        publishedYear: 2023,
+        editionCount: 12,
+        averageRating: 4.9,
+        coverUrl: 'https://example.com/woods.jpg',
+        summary: 'A cozy illustrated bedtime adventure with woodland animals winding down for sleep.',
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        ageMin: 3,
+        ageMax: 6,
+        tags: ['bedtime', 'animals'],
+        spineColor: 'teal',
+        sources: [
+          {
+            provider: 'google-books',
+            externalId: 'good_modern',
+            fetchedAt: '2026-11-26T00:00:00.000Z',
+          },
+        ],
+      },
+      {
+        candidateKey: 'gb:bad_discard_author',
+        isbn13: '9780000005098',
+        title: 'Noisy Cars Night Race',
+        authors: ['Rex Loud'],
+        publishedYear: 2020,
+        summary: 'Fast racing cars making loud noise.',
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        tags: ['racing'],
+        spineColor: 'amber',
+        sources: [
+          {
+            provider: 'google-books',
+            externalId: 'bad_author',
+            fetchedAt: '2026-11-26T00:00:00.000Z',
+          },
+        ],
+      },
+      ...Array.from({ length: 65 }, (_, idx) => ({
+        candidateKey: `ol:filler_${idx}`,
+        isbn13: `9780000006${String(idx).padStart(3, '0')}`,
+        title: `Generic Story ${idx}`,
+        authors: [`Writer ${idx}`],
+        publishedYear: 2016,
+        format: /** @type {const} */ ('hardcover'),
+        readingStage: /** @type {const} */ ('picture-book'),
+        tags: ['general'],
+        spineColor: 'sage',
+        sources: [
+          {
+            provider: /** @type {const} */ ('open-library'),
+            externalId: `/works/OL${idx}`,
+            fetchedAt: '2026-11-26T00:00:00.000Z',
+          },
+        ],
+      })),
+    ];
+
+    const mockCatalogService = {
+      async searchBooks() {
+        return { candidates: syntheticPool, providerErrors: [] };
+      },
+    };
+
+    const settings = createDefaultAppSettings();
+    settings.discoverySettings = {
+      ...createDefaultDiscoverySettings(),
+      ...(settings.discoverySettings || {}),
+      candidatePoolSize: 80,
+      embeddingEngine: 'local-tfidf',
+      useFlashQueryExpansion: false,
+      recencyPreference: 'modern',
+    };
+
+    const pipelineRes = await runTwoStageDiscoveryPipeline({
+      intent: 'bedtime',
+      topic: 'bedtime',
+      profile,
+      existingBooks,
+      catalogService: mockCatalogService,
+      settings,
+      candidatePoolSize: 80,
+      limit: 10,
+    });
+
+    assert.ok(pipelineRes.allFetchedCandidates.length > 50);
+    assert.equal(pipelineRes.items[0].candidate.title, 'Whispering Woods Bedtime');
+
+    const reranked = await rerankDiscoveryCandidates({
+      candidates: syntheticPool.slice(0, 2),
+      profile,
+      existingBooks,
+      engine: 'local-tfidf',
+    });
+    assert.equal(reranked.ranked[0].candidate.title, 'Whispering Woods Bedtime');
+    assert.ok(reranked.ranked[0].score > reranked.ranked[1].score);
+  });
+
+  it('store.saveQueriedBookSuggestions persists Suggestions without downgrading owned books, and discard/restore exclude discarded titles cleanly', async () => {
+    const storage = createStorageAdapter({ forceMemory: true });
+    const store = createAppStore(storage);
+    await store.init();
+    await store.resetToSeedData();
+
+    const initialState = store.getState();
+    const ownedBook = initialState.books.find((b) => (b.collectionStatus || 'owned') === 'owned');
+    assert.ok(ownedBook);
+    const activeProfileId = initialState.activeProfileId;
+
+    const batchRes = await store.saveQueriedBookSuggestions(
+      [
+        // Should NOT downgrade existing owned book
+        {
+          candidateKey: 'dup_owned',
+          isbn13: ownedBook.isbn13,
+          title: ownedBook.title,
+          authors: ownedBook.authors,
+          format: 'hardcover',
+          readingStage: 'picture-book',
+          tags: ['animals'],
+          spineColor: 'teal',
+          sources: [
+            {
+              provider: 'google-books',
+              externalId: 'dup_owned',
+              fetchedAt: '2026-11-26T00:00:00.000Z',
+            },
+          ],
+        },
+        // Valid new queried suggestion
+        {
+          candidateKey: 'gb:new_sug_1',
+          isbn13: '9781234567890',
+          title: 'Moonlit Owl Lullaby',
+          authors: ['Clara Feather'],
+          publishedYear: 2024,
+          format: 'hardcover',
+          readingStage: 'picture-book',
+          tags: ['bedtime'],
+          spineColor: 'sage',
+          sources: [
+            {
+              provider: 'google-books',
+              externalId: 'gb_owl_1',
+              fetchedAt: '2026-11-26T00:00:00.000Z',
+            },
+          ],
+        },
+        // Intra-batch duplicate by ISBN should only save once
+        {
+          candidateKey: 'ol:new_sug_1_dup',
+          isbn13: '9781234567890',
+          title: 'Moonlit Owl Lullaby (Paperback)',
+          authors: ['Clara Feather'],
+          format: 'paperback',
+          readingStage: 'picture-book',
+          tags: ['bedtime'],
+          spineColor: 'sage',
+          sources: [
+            {
+              provider: 'open-library',
+              externalId: '/works/OL_OWL',
+              fetchedAt: '2026-11-26T00:00:00.000Z',
+            },
+          ],
+        },
+      ],
+      { query: 'bedtime owl', shelfKey: 'ext-discover-bedtime' }
+    );
+
+    assert.equal(batchRes.savedCount, 1);
+    const afterSave = store.getState();
+    const persistedOwned = afterSave.books.find((b) => b.id === ownedBook.id);
+    assert.ok(persistedOwned);
+    assert.equal(persistedOwned.collectionStatus ?? 'owned', 'owned');
+
+    const savedSuggestion = afterSave.books.find((b) => b.isbn13 === '9781234567890');
+    assert.ok(savedSuggestion);
+    assert.equal(savedSuggestion.collectionStatus, 'interested');
+    assert.equal(savedSuggestion.discoveryShelfKey, 'ext-discover-bedtime');
+
+    // Discard and verify exclusion + undoable restore
+    await store.discardSuggestedBook(savedSuggestion, activeProfileId);
+    const discardedBook = store.getState().books.find((b) => b.id === savedSuggestion.id);
+    assert.ok(discardedBook);
+    assert.equal(isBookDiscardedForProfile(discardedBook, activeProfileId), true);
+
+    await store.restoreDiscardedBook(savedSuggestion.id, activeProfileId);
+    const restoredBook = store.getState().books.find((b) => b.id === savedSuggestion.id);
+    assert.ok(restoredBook);
+    assert.equal(isBookDiscardedForProfile(restoredBook, activeProfileId), false);
+  });
+
+  it('planHomeDiscoveryShelves prioritizes bedtime shelves at night and honors pinnedShelfKeys & disabledShelfKeys', () => {
+    /** @type {import('../src/types/models.js').ChildProfile} */
+    const profile = {
+      id: 'p_plan',
+      name: 'Leo',
+      age: 4,
+      readingStage: 'picture-book',
+      favoriteTopics: ['bedtime'],
+      defaultRotationSize: 4,
+      cooldownDays: 14,
+      avatarTone: 'teal',
+      readHistoryBookIds: [],
+      currentlyReadingBookIds: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    /** @type {import('../src/features/tagging/recommendations.js').RecommendedBookItem} */
+    const bedtimeItem = {
+      book: {
+        id: 'bk_night',
+        isbn13: '9780000007001',
+        title: 'Sleepy Stars',
+        authors: ['Ana Moon'],
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        tags: ['bedtime'],
+        spineColor: 'teal',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: false,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+      score: 50,
+      matchedTopics: ['bedtime'],
+      matchReasons: ['Wind-down'],
+      isUnread: true,
+      inCooldown: false,
+    };
+
+    /** @type {import('../src/features/tagging/recommendations.js').RecommendedBookItem} */
+    const recItem = {
+      book: {
+        id: 'bk_day',
+        isbn13: '9780000007002',
+        title: 'Busy Diggers',
+        authors: ['Sam Builder'],
+        format: 'hardcover',
+        readingStage: 'picture-book',
+        tags: ['trucks'],
+        spineColor: 'amber',
+        collectionStatus: 'owned',
+        condition: 'good',
+        loved: false,
+        addedAt: '2026-01-01T00:00:00.000Z',
+        sources: [],
+      },
+      score: 60,
+      matchedTopics: ['trucks'],
+      matchReasons: ['For Leo'],
+      isUnread: true,
+      inCooldown: false,
+    };
+
+    const eveningPlan = planHomeDiscoveryShelves({
+      books: [bedtimeItem.book, recItem.book],
+      profile,
+      rotations: [],
+      presets: DEFAULT_ROTATION_PRESETS,
+      recommendations: [recItem],
+      bedtimeShelf: [bedtimeItem],
+      nowDate: new Date(2026, 10, 26, 20, 30, 0),
+    });
+    assert.equal(isWindDownEveningWindow(new Date(2026, 10, 26, 20, 30, 0)), true);
+    assert.equal(eveningPlan[0].key, 'mood-bedtime');
+    assert.ok(eveningPlan.some((s) => s.key === 'ext-discover-bedtime'));
+
+    const customPlan = planHomeDiscoveryShelves({
+      books: [bedtimeItem.book, recItem.book],
+      profile,
+      rotations: [],
+      presets: DEFAULT_ROTATION_PRESETS,
+      recommendations: [recItem],
+      bedtimeShelf: [bedtimeItem],
+      discoverySettings: {
+        pinnedShelfKeys: ['ext-discover-award-modern'],
+        disabledShelfKeys: ['mood-bedtime', 'ext-discover-bedtime'],
+      },
+      nowDate: new Date(2026, 10, 26, 20, 30, 0),
+    });
+    assert.equal(customPlan[0].key, 'ext-discover-award-modern');
+    assert.equal(customPlan.some((s) => s.key === 'mood-bedtime'), false);
+    assert.equal(customPlan.some((s) => s.key === 'ext-discover-bedtime'), false);
+  });
 });
+
 

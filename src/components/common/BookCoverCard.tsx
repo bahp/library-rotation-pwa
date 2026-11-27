@@ -193,6 +193,7 @@ export interface BookCoverCardProps {
   rankNumber?: number;
   dataBookCard?: string;
   onInspect: (book: Book) => void;
+  topRightCoverAction?: React.ReactNode;
   bottomLeftCoverAction?: React.ReactNode;
   bottomRightCoverAction?: React.ReactNode;
   listTrailingAction?: React.ReactNode;
@@ -224,6 +225,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
   rankNumber,
   dataBookCard,
   onInspect,
+  topRightCoverAction,
   bottomLeftCoverAction,
   bottomRightCoverAction,
   listTrailingAction,
@@ -695,6 +697,7 @@ export const BookCoverCard: React.FC<BookCoverCardProps> = ({
         )}
 
         {/* Corner interactive slots for Below / Cover-Only modes */}
+        {topRightCoverAction}
         {!isOverlay && bottomLeftCoverAction}
         {!isOverlay && bottomRightCoverAction}
       </div>

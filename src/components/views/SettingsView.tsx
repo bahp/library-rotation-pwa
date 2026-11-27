@@ -17,10 +17,12 @@ import {
   ALL_BOOK_CARD_FIELDS,
   NUMERIC_BOUNDS,
   normalizeBookCardCustomWidth,
+  normalizeDiscoverySettings,
   normalizeLanguage,
   resolveEffectiveThemeConfig,
   resolveBookCardDisplayConfig,
 } from '../../config/index.js';
+import { clearVectorCache } from '../../features/tagging/vector-store.js';
 import { DEFAULT_PRESET_ILLUSTRATION_PROMPT } from '../../config/defaults.js';
 import {
   BookCoverCard,
@@ -903,6 +905,66 @@ export const SettingsView: React.FC = () => {
     await store.resetProviderSettingsToSafeDefaults();
     setCustomEndpointUrl('');
     setCustomEndpointTimeout(6000);
+  };
+
+  // Smart Discovery & Home Feed Settings
+  const [clearingVectorCache, setClearingVectorCache] = useState(false);
+  const discoverySettings = useMemo(
+    () => normalizeDiscoverySettings(state.settings?.discoverySettings),
+    [state.settings?.discoverySettings]
+  );
+
+  const updateDiscoverySettings = async (
+    patch: Partial<ReturnType<typeof normalizeDiscoverySettings>>
+  ) => {
+    await store.updateSettings({
+      discoverySettings: {
+        ...discoverySettings,
+        ...patch,
+      },
+    });
+  };
+
+  const toggleDiscoveryShelfPin = async (shelfKey: string) => {
+    const pinned = new Set(discoverySettings.pinnedShelfKeys);
+    const disabled = new Set(discoverySettings.disabledShelfKeys);
+    if (pinned.has(shelfKey)) {
+      pinned.delete(shelfKey);
+    } else {
+      pinned.add(shelfKey);
+      disabled.delete(shelfKey);
+    }
+    await updateDiscoverySettings({
+      pinnedShelfKeys: Array.from(pinned),
+      disabledShelfKeys: Array.from(disabled),
+    });
+  };
+
+  const toggleDiscoveryShelfDisabled = async (shelfKey: string) => {
+    const pinned = new Set(discoverySettings.pinnedShelfKeys);
+    const disabled = new Set(discoverySettings.disabledShelfKeys);
+    if (disabled.has(shelfKey)) {
+      disabled.delete(shelfKey);
+    } else {
+      disabled.add(shelfKey);
+      pinned.delete(shelfKey);
+    }
+    await updateDiscoverySettings({
+      pinnedShelfKeys: Array.from(pinned),
+      disabledShelfKeys: Array.from(disabled),
+    });
+  };
+
+  const handleClearVectorCache = async () => {
+    setClearingVectorCache(true);
+    try {
+      await clearVectorCache();
+      store.notify('Cleared local semantic vector cache. Vectors will rebuild automatically.', 'info');
+    } catch {
+      store.notify('Could not clear local vector cache.', 'error');
+    } finally {
+      setClearingVectorCache(false);
+    }
   };
 
   // Backups & Seed handlers
@@ -4312,6 +4374,352 @@ export const SettingsView: React.FC = () => {
                     className="min-h-[44px] px-3.5 py-2 rounded-lg border border-edge hover:bg-surface-subtle text-ink-secondary hover:text-ink text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
                   >
                     {t('settings.safeDefaultsBtn')}
+                  </button>
+                </div>
+              </section>
+
+              {/* Smart Discovery & Home Feed Recommendations */}
+              <section
+                aria-labelledby="discovery-settings-heading"
+                className="rounded-xl bg-surface border border-edge p-4 sm:p-5 shadow-xs space-y-4"
+              >
+                <div className="pb-2.5 border-b border-edge-subtle">
+                  <h2
+                    id="discovery-settings-heading"
+                    className="font-display text-lg font-semibold text-ink"
+                  >
+                    Smart Discovery &amp; Home Feed
+                  </h2>
+                  <p className="text-xs text-ink-secondary mt-0.5">
+                    Configure two-stage candidate retrieval, semantic reranking, modern edition filtering, and shelf priorities.
+                  </p>
+                </div>
+
+                {/* Retrieval Pool Size */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <label
+                      htmlFor="discovery-pool-size-range"
+                      className="text-sm font-semibold text-ink"
+                    >
+                      Candidate Retrieval Pool Size
+                    </label>
+                    <span className="font-mono-tabular text-xs font-semibold text-primary">
+                      {discoverySettings.candidatePoolSize} books / query
+                    </span>
+                  </div>
+                  <p className="text-xs text-ink-secondary">
+                    How many candidates are fetched from Google Books &amp; Open Library before semantic reranking and filtering. Larger pools (60–150) improve variety.
+                  </p>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+                    <input
+                      id="discovery-pool-size-range"
+                      type="range"
+                      min={NUMERIC_BOUNDS.discoveryPoolSizeMin}
+                      max={NUMERIC_BOUNDS.discoveryPoolSizeMax}
+                      step={10}
+                      value={discoverySettings.candidatePoolSize}
+                      onChange={(e) => {
+                        void updateDiscoverySettings({
+                          candidatePoolSize: Number(e.target.value),
+                        });
+                      }}
+                      className="flex-1 accent-[var(--primary)] cursor-pointer"
+                    />
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {[30, 60, 100, 150].map((presetSize) => {
+                        const active = discoverySettings.candidatePoolSize === presetSize;
+                        return (
+                          <button
+                            key={presetSize}
+                            type="button"
+                            onClick={() => {
+                              void updateDiscoverySettings({ candidatePoolSize: presetSize });
+                            }}
+                            className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-mono-tabular font-semibold transition-colors cursor-pointer ${
+                              active
+                                ? 'bg-primary text-primary-fg'
+                                : 'bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink-secondary'
+                            }`}
+                          >
+                            {presetSize}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Semantic Reranking Engine */}
+                <div className="pt-3 border-t border-edge-subtle space-y-2">
+                  <p className="text-sm font-semibold text-ink">
+                    Semantic Reranking Engine
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    {(
+                      [
+                        {
+                          id: 'gemini-with-fallback',
+                          label: 'Gemini + Offline Fallback',
+                          desc: 'Uses Gemini embeddings when available and automatically falls back to local TF-IDF offline.',
+                        },
+                        {
+                          id: 'local-tfidf',
+                          label: 'Local TF-IDF Only',
+                          desc: 'Instant zero-network vector matching cached directly on your device.',
+                        },
+                        {
+                          id: 'transformers-browser',
+                          label: 'Transformers.js (Browser)',
+                          desc: 'On-device neural miniLM model cached in browser with TF-IDF fallback.',
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const active = discoverySettings.embeddingEngine === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            void updateDiscoverySettings({ embeddingEngine: opt.id });
+                          }}
+                          className={`text-left rounded-lg p-3 border transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-surface-elevated border-primary'
+                              : 'bg-surface-subtle border-edge hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-ink">
+                              {opt.label}
+                            </span>
+                            {active && (
+                              <Icon name="check" className="w-3.5 h-3.5 text-primary shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-ink-secondary mt-1 leading-relaxed">
+                            {opt.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Recency & Classics Filter */}
+                <div className="pt-3 border-t border-edge-subtle space-y-2">
+                  <p className="text-sm font-semibold text-ink">
+                    Edition Recency Filter
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {(
+                      [
+                        {
+                          id: 'modern',
+                          label: 'Modern Focus',
+                          desc: 'Prioritizes modern editions (1985+) and skips obscure old catalogs.',
+                        },
+                        {
+                          id: 'balanced',
+                          label: 'Balanced',
+                          desc: 'Allows mid-century works that have multiple modern editions.',
+                        },
+                        {
+                          id: 'include-classics',
+                          label: 'Include Classics',
+                          desc: 'Includes vintage & public-domain editions alongside modern releases.',
+                        },
+                      ] as const
+                    ).map((opt) => {
+                      const active = discoverySettings.recencyPreference === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            void updateDiscoverySettings({ recencyPreference: opt.id });
+                          }}
+                          className={`text-left rounded-lg p-3 border transition-colors cursor-pointer ${
+                            active
+                              ? 'bg-surface-elevated border-primary'
+                              : 'bg-surface-subtle border-edge hover:border-primary/50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold text-ink">
+                              {opt.label}
+                            </span>
+                            {active && (
+                              <Icon name="check" className="w-3.5 h-3.5 text-primary shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-ink-secondary mt-1 leading-relaxed">
+                            {opt.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Flash Query Expansion & Auto-Save Suggestions Switches */}
+                <div className="pt-3 border-t border-edge-subtle flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p
+                      id="label-flash-query-expansion"
+                      className="text-sm font-semibold text-ink"
+                    >
+                      Gemini Flash Query Expansion
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      Expands reader favorites &amp; topics into targeted search queries (falls back automatically to deterministic local queries offline).
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    checked={discoverySettings.useFlashQueryExpansion}
+                    onChange={() => {
+                      void updateDiscoverySettings({
+                        useFlashQueryExpansion: !discoverySettings.useFlashQueryExpansion,
+                      });
+                    }}
+                    ariaLabelledBy="label-flash-query-expansion"
+                    onLabel={t('common.on')}
+                    offLabel={t('common.off')}
+                  />
+                </div>
+
+                <div className="pt-3 border-t border-edge-subtle flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p
+                      id="label-autosave-suggestions"
+                      className="text-sm font-semibold text-ink"
+                    >
+                      Auto-Save Queried Books to Suggestions
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      Stores discovered &amp; searched books under Library → Suggestions while keeping your Owned shelves tidy.
+                    </p>
+                  </div>
+                  <ToggleSwitch
+                    checked={discoverySettings.autoSaveQueriedAsSuggestions}
+                    onChange={() => {
+                      void updateDiscoverySettings({
+                        autoSaveQueriedAsSuggestions: !discoverySettings.autoSaveQueriedAsSuggestions,
+                      });
+                    }}
+                    ariaLabelledBy="label-autosave-suggestions"
+                    onLabel={t('common.on')}
+                    offLabel={t('common.off')}
+                  />
+                </div>
+
+                {/* Pin / Hide Key Home Recommendation Shelves */}
+                <div className="pt-3 border-t border-edge-subtle space-y-2.5">
+                  <div>
+                    <p className="text-sm font-semibold text-ink">
+                      Home Recommendation Shelves
+                    </p>
+                    <p className="text-xs text-ink-secondary mt-0.5">
+                      Pin shelves to always show them near the top of Home, or hide rows you prefer not to see.
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-surface-subtle border border-edge divide-y divide-edge-subtle">
+                    {[
+                      {
+                        key: 'mood-bedtime',
+                        label: 'Wind-Down & Bedtime (Owned)',
+                        note: 'Automatically rises in priority after 6:30 PM',
+                      },
+                      {
+                        key: 'ext-discover-bedtime',
+                        label: 'Discover Calm Bedtime Books',
+                        note: 'External bedtime picks shown at night or when pinned',
+                      },
+                      {
+                        key: 'ext-discover-award-modern',
+                        label: 'Acclaimed Modern Storybooks',
+                        note: 'Award winners & recent illustrated standouts',
+                      },
+                      {
+                        key: 'reread-favorites',
+                        label: 'Ready for a Re-Read',
+                        note: 'Loved favorites rested for 30+ days',
+                      },
+                      {
+                        key: 'dusty-gems',
+                        label: 'Dusty Gems on Your Shelf',
+                        note: 'Owned books waiting for a rotation turn',
+                      },
+                      {
+                        key: 'wishlist-spotlight',
+                        label: 'From Your Wishlist',
+                        note: 'Books saved to borrow or buy next',
+                      },
+                    ].map((shelf) => {
+                      const isPinned = discoverySettings.pinnedShelfKeys.includes(shelf.key);
+                      const isHidden = discoverySettings.disabledShelfKeys.includes(shelf.key);
+                      return (
+                        <div
+                          key={shelf.key}
+                          className="px-3.5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-ink">
+                              {shelf.label}
+                            </p>
+                            <p className="text-[11px] text-ink-secondary">
+                              {shelf.note}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void toggleDiscoveryShelfPin(shelf.key);
+                              }}
+                              aria-pressed={isPinned}
+                              className={`min-h-[36px] px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                isPinned
+                                  ? 'bg-primary text-primary-fg border-primary'
+                                  : 'bg-surface hover:bg-surface-elevated border-edge text-ink-secondary hover:text-ink'
+                              }`}
+                            >
+                              {isPinned ? 'Pinned' : 'Pin top'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void toggleDiscoveryShelfDisabled(shelf.key);
+                              }}
+                              aria-pressed={isHidden}
+                              className={`min-h-[36px] px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                isHidden
+                                  ? 'bg-danger/12 text-danger border-danger/35'
+                                  : 'bg-surface hover:bg-surface-elevated border-edge text-ink-secondary hover:text-ink'
+                              }`}
+                            >
+                              {isHidden ? 'Hidden' : 'Hide'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Clear Vector Cache Action */}
+                <div className="pt-3 border-t border-edge-subtle flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-ink-secondary">
+                    Cached semantic vectors speed up Home reranking across reloads.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleClearVectorCache}
+                    disabled={clearingVectorCache}
+                    className="min-h-[44px] px-3.5 py-2 rounded-lg bg-surface-subtle hover:bg-surface-elevated border border-edge text-ink text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer disabled:opacity-60"
+                  >
+                    <Icon name="database" className="w-3.5 h-3.5 text-ink-secondary" />
+                    <span>{clearingVectorCache ? 'Clearing…' : 'Clear Local Vector Cache'}</span>
                   </button>
                 </div>
               </section>

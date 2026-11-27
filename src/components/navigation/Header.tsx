@@ -190,6 +190,10 @@ export const Header: React.FC = () => {
           if (searchNonceRef.current !== nonce) return;
 
           if (res.candidate) {
+            void store.saveQueriedBookSuggestions([res.candidate], {
+              query: parsed.isbn13,
+              shelfKey: 'header-isbn',
+            });
             if (options?.openFirstIsbnMatch) {
               setDesktopFoundCandidate(res.candidate);
             } else {
@@ -215,7 +219,12 @@ export const Header: React.FC = () => {
         if (searchNonceRef.current !== nonce) return;
 
         setOnlineCandidates(res.candidates);
-        if (res.candidates.length === 0) {
+        if (res.candidates.length > 0) {
+          void store.saveQueriedBookSuggestions(res.candidates, {
+            query: parsed.query,
+            shelfKey: 'header-search',
+          });
+        } else {
           setOnlineError('No matching books found online.');
         }
       } catch (err) {
@@ -233,6 +242,7 @@ export const Header: React.FC = () => {
       configuredProviders,
       findLocalBookByIsbn,
       state.settings?.retainRawProviderPayloads,
+      store,
     ]
   );
 
@@ -331,6 +341,10 @@ export const Header: React.FC = () => {
         enabledProviderIds: configuredProviders,
       });
       if (res.candidate) {
+        void store.saveQueriedBookSuggestions([res.candidate], {
+          query: isbn13,
+          shelfKey: 'header-scan-isbn',
+        });
         setDesktopFoundCandidate(res.candidate);
         setOnlineCandidates([res.candidate]);
         setHasSearchedOnline(true);

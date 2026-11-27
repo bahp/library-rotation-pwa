@@ -280,6 +280,10 @@ export const ScanView: React.FC = () => {
       });
 
       if (res.candidate) {
+        void store.saveQueriedBookSuggestions([res.candidate], {
+          query: isbn,
+          shelfKey: 'scan-isbn',
+        });
         setFoundCandidate(res.candidate);
       } else {
         setNotFoundIsbn(isbn);
@@ -324,7 +328,12 @@ export const ScanView: React.FC = () => {
         }
       );
       setSearchCandidates(res.candidates);
-      if (res.candidates.length === 0) {
+      if (res.candidates.length > 0) {
+        void store.saveQueriedBookSuggestions(res.candidates, {
+          query: parsed.query,
+          shelfKey: 'scan-search',
+        });
+      } else {
         setSearchError('No matching books found. Try shorter keywords or use camera scan.');
       }
     } catch (err) {
@@ -381,7 +390,7 @@ export const ScanView: React.FC = () => {
 
   const handleAddCandidate = async (
     candidate: BookCandidate,
-    status: 'owned' | 'wishlist',
+    status: 'owned' | 'wishlist' | 'interested',
     opts?: {
       condition?: BookCondition;
       owners?: string[];
@@ -403,7 +412,13 @@ export const ScanView: React.FC = () => {
       });
       setFoundCandidate(null);
       store.notify(
-        `Added "${candidate.title}" to ${status === 'owned' ? 'Library' : 'Wishlist'}`,
+        `Added "${candidate.title}" to ${
+          status === 'owned'
+            ? 'Library'
+            : status === 'wishlist'
+              ? 'Wishlist'
+              : 'Suggestions'
+        }`,
         'success'
       );
     } catch (err) {
@@ -1394,6 +1409,7 @@ export const ScanView: React.FC = () => {
         isOpen={Boolean(foundCandidate)}
         onAddOwned={(cand, opts) => handleAddCandidate(cand, 'owned', opts)}
         onAddWishlist={(cand, opts) => handleAddCandidate(cand, 'wishlist', opts)}
+        onAddInterested={(cand, opts) => handleAddCandidate(cand, 'interested', opts)}
         onRescan={() => {
           setFoundCandidate(null);
           handleResetScanner();

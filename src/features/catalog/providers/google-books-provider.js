@@ -159,7 +159,7 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
    * leak-free server proxy, static fallback, and quota circuit-breaker protection.
    * @param {string} q
    * @param {string} maxResults
-   * @param {{ signal?: AbortSignal, bypassCooldown?: boolean }} [reqOpts]
+   * @param {{ signal?: AbortSignal, bypassCooldown?: boolean, startIndex?: number, orderBy?: 'relevance' | 'newest', langRestrict?: string }} [reqOpts]
    * @returns {Promise<any[]>}
    */
   async function fetchVolumeItems(q, maxResults, reqOpts = {}) {
@@ -173,6 +173,19 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
       printType: 'books',
       hl: 'en',
     });
+    if (
+      typeof reqOpts.startIndex === 'number' &&
+      Number.isFinite(reqOpts.startIndex) &&
+      reqOpts.startIndex > 0
+    ) {
+      params.set('startIndex', String(Math.min(1000, Math.trunc(reqOpts.startIndex))));
+    }
+    if (reqOpts.orderBy === 'newest' || reqOpts.orderBy === 'relevance') {
+      params.set('orderBy', reqOpts.orderBy);
+    }
+    if (typeof reqOpts.langRestrict === 'string' && /^[a-z]{2}$/i.test(reqOpts.langRestrict.trim())) {
+      params.set('langRestrict', reqOpts.langRestrict.trim().toLowerCase());
+    }
 
     try {
       /** @type {any} */
@@ -298,8 +311,17 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
 
   /**
    * Searches candidate books by title and optional author filter across all languages.
+   * Supports up to 40 results per page and automatic multi-page fetching up to 150 results.
    * @param {{ query: string, author?: string }} searchInput
-   * @param {{ retainRaw?: boolean, signal?: AbortSignal, limit?: number, bypassCooldown?: boolean }} [options]
+   * @param {{
+   *   retainRaw?: boolean,
+   *   signal?: AbortSignal,
+   *   limit?: number,
+   *   startIndex?: number,
+   *   orderBy?: 'relevance' | 'newest',
+   *   langRestrict?: string,
+   *   bypassCooldown?: boolean
+   * }} [options]
    * @returns {Promise<import('../normalizer.js').BookCandidate[]>}
    */
   async function searchBooks(searchInput, options = {}) {
@@ -312,18 +334,40 @@ export function createGoogleBooksProvider(httpClient, providerOptions = {}) {
     }
     if (terms.length === 0) return [];
 
-    const maxResults = String(Math.min(20, Math.max(1, options.limit || 8)));
-    const items = await fetchVolumeItems(terms.join(' '), maxResults, {
-      signal: options.signal,
-      bypassCooldown: options.bypassCooldown,
-    });
+    const q = terms.join(' ');
+    const targetLimit = Math.min(150, Math.max(1, options.limit || 8));
+    const baseStartIndex =
+      typeof options.startIndex === 'number' && Number.isFinite(options.startIndex) && options.startIndex >= 0
+        ? Math.trunc(options.startIndex)
+        : 0;
+
     /** @type {import('../normalizer.js').BookCandidate[]} */
     const results = [];
-    for (const item of items) {
-      const candidate = normalizeGoogleBooksItem(item, { retainRaw: options.retainRaw });
-      if (candidate) results.push(candidate);
+    let offset = baseStartIndex;
+
+    while (results.length < targetLimit) {
+      const remaining = targetLimit - results.length;
+      const pageMax = Math.min(40, remaining);
+      const items = await fetchVolumeItems(q, String(pageMax), {
+        signal: options.signal,
+        bypassCooldown: options.bypassCooldown,
+        startIndex: offset,
+        orderBy: options.orderBy,
+        langRestrict: options.langRestrict,
+      });
+
+      for (const item of items) {
+        const candidate = normalizeGoogleBooksItem(item, { retainRaw: options.retainRaw });
+        if (candidate) results.push(candidate);
+      }
+
+      if (items.length < pageMax || targetLimit <= 40) {
+        break;
+      }
+      offset += items.length;
     }
-    return results;
+
+    return results.slice(0, targetLimit);
   }
 
   return {
